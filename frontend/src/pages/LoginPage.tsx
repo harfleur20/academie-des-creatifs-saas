@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { BrandLogo } from '../brand/BrandLogo'
 import { ArrowRight, Building2, Check, Eye, EyeOff } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError } from '../lib/api'
+import { ApiError, resolveHostBranding, type HostBranding } from '../lib/api'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -19,10 +20,20 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [hostBrand, setHostBrand] = useState<HostBranding | null>(null)
 
   useEffect(() => {
     if (user) navigate('/app', { replace: true })
   }, [user, navigate])
+
+  useEffect(() => {
+    const hostname = window.location.hostname
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return
+
+    resolveHostBranding(hostname)
+      .then(setHostBrand)
+      .catch(() => setHostBrand(null))
+  }, [])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -44,11 +55,20 @@ export function LoginPage() {
   }
 
   return (
-    <main className="auth-page">
+    <main
+      className="auth-page"
+      style={hostBrand ? {
+        '--blue': hostBrand.primary_color,
+        '--green': hostBrand.secondary_color,
+      } as CSSProperties : undefined}
+    >
       <section className="auth-panel auth-copy-panel">
         <a className="auth-logo" href="/">
-          <span className="brand-mark"><span /><span /></span>
-          <span>Académie <strong>SaaS</strong></span>
+          <BrandLogo logoUrl={hostBrand?.logo_url} className="platform-brand-logo" />
+          <span>
+            {hostBrand?.name || 'Académie'}
+            {!hostBrand && <> <strong>SaaS</strong></>}
+          </span>
         </a>
         <div>
           <span className="auth-kicker">Votre école digitale</span>

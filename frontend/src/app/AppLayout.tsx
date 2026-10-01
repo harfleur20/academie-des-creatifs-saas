@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import {
   BookOpen,
   Building2,
@@ -10,6 +11,8 @@ import {
 } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { BrandLogo } from '../brand/BrandLogo'
+import { DEFAULT_BRAND_COLORS, resolveBrandLogo } from '../brand/branding'
 import { useTenant } from './TenantContext'
 
 export function AppLayout() {
@@ -21,16 +24,38 @@ export function AppLayout() {
     selectOrganization,
   } = useTenant()
 
+  const brandStyle = {
+    '--blue': activeOrganization?.primary_color || DEFAULT_BRAND_COLORS.primary,
+    '--green': activeOrganization?.secondary_color || DEFAULT_BRAND_COLORS.secondary,
+    '--tenant-accent': activeOrganization?.accent_color || DEFAULT_BRAND_COLORS.accent,
+  } as CSSProperties
+
+  const activeLogo = resolveBrandLogo(activeOrganization?.logo_url)
+
   return (
-    <div className="saas-app">
+    <div className="saas-app" style={brandStyle}>
       <aside className="app-sidebar">
         <div className="app-brand">
-          <span className="brand-mark"><span /><span /></span>
-          <span>Académie <strong>SaaS</strong></span>
+          <BrandLogo
+            logoUrl={activeLogo}
+            alt={activeOrganization?.name || 'Académie des Créatifs'}
+            className="app-brand-logo"
+          />
+          <span>{activeOrganization?.name || 'Académie'} <strong>SaaS</strong></span>
         </div>
 
         <div className="school-switcher">
-          <span className="school-switcher-icon"><Building2 size={18} /></span>
+          <span className="school-switcher-icon">
+            {activeOrganization?.logo_url ? (
+              <BrandLogo
+                logoUrl={activeOrganization.logo_url}
+                alt={activeOrganization.name}
+                className="school-switcher-logo"
+              />
+            ) : (
+              <Building2 size={18} />
+            )}
+          </span>
           <label>
             <small>École active</small>
             <span className="select-shell">

@@ -17,11 +17,16 @@ export type Organization = {
   id: number
   name: string
   slug: string
+  subdomain: string | null
   status: string
   is_active: boolean
   contact_email: string | null
   timezone: string
   locale: string
+  logo_url: string | null
+  primary_color: string
+  secondary_color: string
+  accent_color: string
   created_at: string
 }
 
@@ -212,6 +217,10 @@ export const updateCurrentOrganization = (payload: {
   contact_email?: string | null
   timezone?: string
   locale?: string
+  logo_url?: string | null
+  primary_color?: string
+  secondary_color?: string
+  accent_color?: string
 }) =>
   request<Organization>('/organizations/current', {
     method: 'PATCH',
@@ -367,3 +376,75 @@ export const resumeSubscription = () =>
   request<Subscription>('/billing/subscription/resume', {
     method: 'POST',
   })
+
+
+export type OrganizationDomain = {
+  id: number
+  organization_id: number
+  hostname: string
+  status: 'pending' | 'verified'
+  verification_token: string
+  is_primary: boolean
+  verified_at: string | null
+  created_at: string
+}
+
+export type OrganizationDomainConfig = {
+  base_domain: string | null
+  cname_target: string | null
+  verification_record_prefix: string
+}
+
+export type HostBranding = {
+  organization_id: number
+  name: string
+  hostname: string
+  logo_url: string | null
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+}
+
+export const getOrganizationDomainConfig = () =>
+  request<OrganizationDomainConfig>('/organizations/domain-config', {
+    organizationId: null,
+  })
+
+export const updateCurrentSubdomain = (subdomain: string | null) =>
+  request<Organization>('/organizations/current/subdomain', {
+    method: 'PATCH',
+    body: JSON.stringify({ subdomain }),
+  })
+
+export const listOrganizationDomains = () =>
+  request<OrganizationDomain[]>('/organizations/current/domains')
+
+export const createOrganizationDomain = (hostname: string) =>
+  request<OrganizationDomain>('/organizations/current/domains', {
+    method: 'POST',
+    body: JSON.stringify({ hostname }),
+  })
+
+export const verifyOrganizationDomain = (domainId: number) =>
+  request<OrganizationDomain>(
+    `/organizations/current/domains/${domainId}/verify`,
+    { method: 'POST' },
+  )
+
+export const setPrimaryOrganizationDomain = (domainId: number) =>
+  request<OrganizationDomain>(
+    `/organizations/current/domains/${domainId}/primary`,
+    { method: 'POST' },
+  )
+
+export const deleteOrganizationDomain = (domainId: number) =>
+  request<void>(
+    `/organizations/current/domains/${domainId}`,
+    { method: 'DELETE' },
+  )
+
+export const resolveHostBranding = (hostname: string) =>
+  request<HostBranding>(
+    `/organizations/resolve-host?hostname=${encodeURIComponent(hostname)}`,
+    { organizationId: null },
+  )

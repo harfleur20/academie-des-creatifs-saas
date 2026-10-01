@@ -75,11 +75,28 @@ class OrganizationRecord(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(180), nullable=False)
     slug: Mapped[str] = mapped_column(String(120), unique=True, index=True, nullable=False)
+    subdomain: Mapped[str | None] = mapped_column(String(63), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     contact_email: Mapped[str | None] = mapped_column(String(180), nullable=True)
     timezone: Mapped[str] = mapped_column(String(80), nullable=False, default="UTC")
     locale: Mapped[str] = mapped_column(String(16), nullable=False, default="fr-FR")
+    logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    primary_color: Mapped[str] = mapped_column(
+        String(7),
+        nullable=False,
+        default="#1768FF",
+    )
+    secondary_color: Mapped[str] = mapped_column(
+        String(7),
+        nullable=False,
+        default="#21C889",
+    )
+    accent_color: Mapped[str] = mapped_column(
+        String(7),
+        nullable=False,
+        default="#10233F",
+    )
 
     members: Mapped[list["OrganizationMemberRecord"]] = relationship(
         back_populates="organization",
@@ -89,6 +106,36 @@ class OrganizationRecord(TimestampMixin, Base):
         back_populates="organization",
         cascade="all, delete-orphan",
     )
+    domains: Mapped[list["OrganizationDomainRecord"]] = relationship(
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
+
+class OrganizationDomainRecord(TimestampMixin, Base):
+    __tablename__ = "organization_domains"
+    __table_args__ = (
+        UniqueConstraint("hostname", name="uq_organization_domains_hostname"),
+        Index(
+            "ix_organization_domains_org_status",
+            "organization_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    hostname: Mapped[str] = mapped_column(String(253), nullable=False, unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+    verification_token: Mapped[str] = mapped_column(String(96), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    organization: Mapped["OrganizationRecord"] = relationship(back_populates="domains")
 
 
 class OrganizationMemberRecord(TimestampMixin, Base):

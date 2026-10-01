@@ -16,6 +16,21 @@ from app.schemas.organizations import (
     OrganizationMemberUpdate,
     OrganizationRead,
     OrganizationUpdate,
+    OrganizationSubdomainUpdate,
+    OrganizationDomainCreate,
+    OrganizationDomainRead,
+    OrganizationDomainConfigRead,
+    OrganizationHostBrandingRead,
+)
+from app.core.config import settings
+from app.services.organization_domains import (
+    create_domain,
+    delete_domain,
+    list_domains,
+    resolve_organization_for_hostname,
+    set_primary_domain,
+    update_subdomain,
+    verify_domain,
 )
 from app.services.organization_management import (
     accept_invitation,
@@ -204,3 +219,110 @@ def accept_organization_invitation(
         organization=OrganizationRead.model_validate(organization),
         membership=OrganizationMemberRead.model_validate(membership),
     )
+
+
+
+@router.get("/domain-config", response_model=OrganizationDomainConfigRead)
+def get_domain_config():
+    return OrganizationDomainConfigRead(
+        base_domain=settings.saas_base_domain or None,
+        cname_target=settings.saas_cname_target or None,
+    )
+
+
+@router.get("/resolve-host", response_model=OrganizationHostBrandingRead)
+def resolve_host_branding(
+    hostname: str,
+    db: Session = Depends(get_db),
+):
+    resolved = resolve_organization_for_hostname(db, hostname=hostname)
+    if resolved is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucune école n'est associée à ce domaine.",
+        )
+    organization, normalized = resolved
+    return OrganizationHostBrandingRead(
+        organization_id=organization.id,
+        name=organization.name,
+        hostname=normalized,
+        logo_url=organization.logo_url,
+        primary_color=organization.primary_color,
+        secondary_color=organization.secondary_color,
+        accent_color=organization.accent_color,
+    )
+
+
+@router.patch("/current/subdomain", response_model=OrganizationRead)
+def update_current_subdomain(
+    payload: OrganizationSubdomainUpdate,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return update_subdomain(
+        db,
+        tenant,
+        subdomain=payload.subdomain,
+    )
+
+
+@router.get("/current/domains", response_model=list[OrganizationDomainRead])
+def list_current_domains(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return list_domains(db, tenant)
+
+
+@router.post(
+    "/current/domains",
+    response_model=OrganizationDomainRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_current_domain(
+    payload: OrganizationDomainCreate,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return create_domain(
+        db,
+        tenant,
+        hostname=payload.hostname,
+    )
+
+
+@router.post(
+    "/current/domains/{domain_id}/verify",
+    response_model=OrganizationDomainRead,
+)
+def verify_current_domain(
+    domain_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return verify_domain(db, tenant, domain_id=domain_id)
+
+
+@router.post(
+    "/current/domains/{domain_id}/primary",
+    response_model=OrganizationDomainRead,
+)
+def set_current_primary_domain(
+    domain_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return set_primary_domain(db, tenant, domain_id=domain_id)
+
+
+@router.delete(
+    "/current/domains/{domain_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_current_domain(
+    domain_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    delete_domain(db, tenant, domain_id=domain_id)
+    return None

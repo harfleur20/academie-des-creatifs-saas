@@ -1,3 +1,4 @@
+import { BrandLogo } from '../brand/BrandLogo'
 import {
   ArrowRight,
   BarChart3,
@@ -71,10 +72,7 @@ const plans = [
 function BrandMark() {
   return (
     <div className="brand">
-      <span className="brand-mark">
-        <span />
-        <span />
-      </span>
+      <BrandLogo className="platform-brand-logo" />
       <span>
         Académie <strong>SaaS</strong>
       </span>
@@ -87,7 +85,7 @@ function DashboardPreview() {
     <div className="dashboard-shell">
       <div className="dashboard-window">
         <aside className="preview-sidebar">
-          <div className="preview-logo">A</div>
+          <div className="preview-logo"><BrandLogo /></div>
           <span className="preview-dot active" />
           <span className="preview-dot" />
           <span className="preview-dot" />
