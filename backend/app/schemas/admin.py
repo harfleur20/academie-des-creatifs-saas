@@ -33,6 +33,15 @@ class AdminOrganizationSubscriptionRead(BaseModel):
     provider: str | None
 
 
+class AdminUsageMetricRead(BaseModel):
+    feature_key: str
+    label: str
+    current_value: int
+    limit_value: int | None
+    enabled: bool
+    over_limit: bool
+
+
 class AdminOrganizationRead(BaseModel):
     id: int
     name: str
@@ -46,6 +55,9 @@ class AdminOrganizationRead(BaseModel):
     owner_name: str | None
     owner_email: str | None
     member_count: int
+    student_count: int
+    teacher_count: int
+    formation_count: int
     verified_domain_count: int
     subscription: AdminOrganizationSubscriptionRead | None
 
@@ -127,6 +139,9 @@ class AdminCommercialAccessRead(BaseModel):
 
 class AdminOrganizationDetailRead(AdminOrganizationRead):
     commercial_access: AdminCommercialAccessRead | None = None
+    effective_plan_name: str | None = None
+    effective_plan_source: str | None = None
+    usage_metrics: list[AdminUsageMetricRead] = []
     audit_logs: list[AdminAuditRead]
 
 

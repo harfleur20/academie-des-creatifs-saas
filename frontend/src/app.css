@@ -2775,3 +2775,98 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.admin-school-usage strong,
+.admin-school-usage small {
+  display: block;
+}
+
+.admin-school-usage small {
+  margin-top: 3px;
+  color: #909bab;
+  font-size: 9px;
+}
+
+.admin-usage-card {
+  margin-bottom: 15px;
+}
+
+.admin-usage-card .admin-card-heading p {
+  margin: 5px 0 0;
+  color: #8390a1;
+  font-size: 10px;
+}
+
+.admin-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.admin-usage-item {
+  padding: 14px;
+  border: 1px solid #e5eaf0;
+  border-radius: 12px;
+  background: #fafbfd;
+}
+
+.admin-usage-item.over {
+  border-color: #efcccc;
+  background: #fff7f7;
+}
+
+.admin-usage-item-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-usage-item-heading span {
+  color: #68768a;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.admin-usage-item-heading strong {
+  color: #25344a;
+  font-size: 11px;
+}
+
+.admin-usage-progress {
+  height: 5px;
+  margin: 11px 0 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9edf2;
+}
+
+.admin-usage-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+}
+
+.admin-usage-item.over .admin-usage-progress span {
+  background: #c84d4d;
+}
+
+.admin-usage-item small {
+  color: #8a96a7;
+  font-size: 8px;
+}
+
+@media (max-width: 1050px) {
+  .admin-usage-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-usage-grid {
+    grid-template-columns: 1fr;
+  }
+}

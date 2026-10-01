@@ -531,6 +531,9 @@ export type AdminOrganization = {
   owner_name: string | null
   owner_email: string | null
   member_count: number
+  student_count: number
+  teacher_count: number
+  formation_count: number
   verified_domain_count: number
   subscription: {
     id: number
@@ -576,8 +579,20 @@ export type AdminCommercialAccess = {
   status: string
 }
 
+export type AdminUsageMetric = {
+  feature_key: string
+  label: string
+  current_value: number
+  limit_value: number | null
+  enabled: boolean
+  over_limit: boolean
+}
+
 export type AdminOrganizationDetail = AdminOrganization & {
   commercial_access: AdminCommercialAccess | null
+  effective_plan_name: string | null
+  effective_plan_source: 'subscription' | 'commercial_access' | null
+  usage_metrics: AdminUsageMetric[]
   audit_logs: AdminAuditLog[]
 }
 

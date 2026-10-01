@@ -85,7 +85,7 @@ export function AdminSchoolsPage() {
           <span>École</span>
           <span>Propriétaire</span>
           <span>Forfait</span>
-          <span>Membres</span>
+          <span>Utilisation</span>
           <span>Création</span>
           <span>Statut</span>
           <span></span>
@@ -128,7 +128,10 @@ export function AdminSchoolsPage() {
               </small>
             </span>
 
-            <span><strong>{school.member_count}</strong></span>
+            <span className="admin-school-usage">
+              <strong>{school.student_count} étu.</strong>
+              <small>{school.teacher_count} prof. · {school.formation_count} form.</small>
+            </span>
             <span>{formatDate(school.created_at)}</span>
 
             <span

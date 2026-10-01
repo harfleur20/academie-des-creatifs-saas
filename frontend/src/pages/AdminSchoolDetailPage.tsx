@@ -306,6 +306,67 @@ export function AdminSchoolDetailPage() {
         </article>
       </section>
 
+      <section className="admin-card admin-usage-card">
+        <div className="admin-card-heading">
+          <div>
+            <span className="section-label">Utilisation & quotas</span>
+            <h2>
+              {school.effective_plan_name
+                ? `Droits effectifs : ${school.effective_plan_name}`
+                : 'Aucun droit actif'}
+            </h2>
+            <p>
+              {school.effective_plan_source === 'commercial_access'
+                ? 'Les limites ci-dessous viennent de la dérogation commerciale temporaire.'
+                : 'Les limites ci-dessous viennent de l’abonnement actuellement actif.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="admin-usage-grid">
+          {school.usage_metrics.map((metric) => {
+            const hasLimit = metric.enabled && metric.limit_value !== null
+            const ratio = hasLimit && metric.limit_value
+              ? Math.min(100, Math.round((metric.current_value / metric.limit_value) * 100))
+              : metric.enabled
+                ? 0
+                : 100
+
+            return (
+              <article
+                className={`admin-usage-item ${metric.over_limit ? 'over' : ''}`}
+                key={metric.feature_key}
+              >
+                <div className="admin-usage-item-heading">
+                  <span>{metric.label}</span>
+                  <strong>
+                    {metric.current_value}
+                    {' / '}
+                    {!metric.enabled
+                      ? 'Non inclus'
+                      : metric.limit_value === null
+                        ? 'Illimité'
+                        : metric.limit_value}
+                  </strong>
+                </div>
+                <div className="admin-usage-progress">
+                  <span style={{ width: `${ratio}%` }} />
+                </div>
+                <small>
+                  {metric.over_limit
+                    ? 'Quota dépassé ou fonctionnalité non incluse'
+                    : !metric.enabled
+                      ? 'Fonctionnalité non incluse'
+                      : metric.limit_value === null
+                        ? 'Sans limite numérique'
+                        : `${Math.max(metric.limit_value - metric.current_value, 0)} restant(s)`}
+                </small>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+
       <section className="admin-detail-grid">
         <article className="admin-card admin-action-card">
           <div>

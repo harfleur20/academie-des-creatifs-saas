@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.security import create_access_token
 from app.models.entities import (
     BillingInvoiceRecord,
+    FormationRecord,
     OrganizationDomainRecord,
     OrganizationMemberRecord,
     OrganizationPlanOverrideRecord,
@@ -29,6 +30,7 @@ from app.schemas.admin import (
     AdminOrganizationRead,
     AdminSupportSessionRead,
     AdminOrganizationSubscriptionRead,
+    AdminUsageMetricRead,
     AdminPlanRead,
     AdminRevenueTotal,
 )
@@ -139,6 +141,41 @@ def list_admin_organizations(db: Session) -> list[AdminOrganizationRead]:
         ).all()
     )
 
+    role_count_rows = db.execute(
+        select(
+            OrganizationMemberRecord.organization_id,
+            OrganizationMemberRecord.role,
+            func.count(OrganizationMemberRecord.id),
+        )
+        .where(
+            OrganizationMemberRecord.organization_id.in_(organization_ids),
+            OrganizationMemberRecord.status == "active",
+            OrganizationMemberRecord.role.in_(["student", "teacher"]),
+        )
+        .group_by(
+            OrganizationMemberRecord.organization_id,
+            OrganizationMemberRecord.role,
+        )
+    ).all()
+    role_counts: dict[tuple[int, str], int] = {
+        (organization_id, role): int(count or 0)
+        for organization_id, role, count in role_count_rows
+    }
+
+    formation_counts = dict(
+        db.execute(
+            select(
+                FormationRecord.organization_id,
+                func.count(FormationRecord.id),
+            )
+            .where(
+                FormationRecord.organization_id.in_(organization_ids),
+                FormationRecord.status.notin_(["archived", "cancelled"]),
+            )
+            .group_by(FormationRecord.organization_id)
+        ).all()
+    )
+
     domain_counts = dict(
         db.execute(
             select(
@@ -236,6 +273,9 @@ def list_admin_organizations(db: Session) -> list[AdminOrganizationRead]:
                 owner_name=owner[0] if owner else None,
                 owner_email=owner[1] if owner else None,
                 member_count=int(member_counts.get(organization.id, 0)),
+                student_count=int(role_counts.get((organization.id, "student"), 0)),
+                teacher_count=int(role_counts.get((organization.id, "teacher"), 0)),
+                formation_count=int(formation_counts.get(organization.id, 0)),
                 verified_domain_count=int(domain_counts.get(organization.id, 0)),
                 subscription=subscription_read,
             )
@@ -292,6 +332,74 @@ def _get_organization_or_404(
     return organization
 
 
+USAGE_LABELS = {
+    "students": "Étudiants",
+    "teachers": "Professeurs",
+    "active_formations": "Formations",
+    "custom_domain": "Domaines personnalisés",
+}
+
+
+def _usage_metrics_for_plan(
+    *,
+    item: AdminOrganizationRead,
+    plan: PlanRecord | None,
+) -> list[AdminUsageMetricRead]:
+    actual_values = {
+        "students": item.student_count,
+        "teachers": item.teacher_count,
+        "active_formations": item.formation_count,
+        "custom_domain": item.verified_domain_count,
+    }
+
+    if plan is None:
+        return [
+            AdminUsageMetricRead(
+                feature_key=key,
+                label=label,
+                current_value=actual_values[key],
+                limit_value=None,
+                enabled=False,
+                over_limit=actual_values[key] > 0,
+            )
+            for key, label in USAGE_LABELS.items()
+        ]
+
+    entitlements = {
+        entitlement.feature_key: entitlement
+        for entitlement in plan.entitlements
+    }
+
+    metrics: list[AdminUsageMetricRead] = []
+    for key, label in USAGE_LABELS.items():
+        entitlement = entitlements.get(key)
+        current_value = actual_values[key]
+        enabled = bool(entitlement and entitlement.enabled)
+        limit_value = (
+            entitlement.limit_value
+            if entitlement is not None and entitlement.enabled
+            else None
+        )
+        metrics.append(
+            AdminUsageMetricRead(
+                feature_key=key,
+                label=label,
+                current_value=current_value,
+                limit_value=limit_value,
+                enabled=enabled,
+                over_limit=(
+                    (not enabled and current_value > 0)
+                    or (
+                        enabled
+                        and limit_value is not None
+                        and current_value > limit_value
+                    )
+                ),
+            )
+        )
+    return metrics
+
+
 def get_admin_organization(
     db: Session,
     organization_id: int,
@@ -334,7 +442,11 @@ def get_admin_organization(
     now = _utc_now()
     active_override = db.scalar(
         select(OrganizationPlanOverrideRecord)
-        .options(selectinload(OrganizationPlanOverrideRecord.plan))
+        .options(
+            selectinload(OrganizationPlanOverrideRecord.plan).selectinload(
+                PlanRecord.entitlements
+            )
+        )
         .where(
             OrganizationPlanOverrideRecord.organization_id == organization.id,
             OrganizationPlanOverrideRecord.status == "active",
@@ -361,9 +473,27 @@ def get_admin_organization(
             status=active_override.status,
         )
 
+    effective_plan = active_override.plan if active_override is not None else None
+    effective_plan_source = "commercial_access" if effective_plan is not None else None
+
+    if effective_plan is None and item.subscription is not None and item.subscription.status in {"trialing", "active"}:
+        effective_plan = db.scalar(
+            select(PlanRecord)
+            .options(selectinload(PlanRecord.entitlements))
+            .where(PlanRecord.id == db.scalar(
+                select(SubscriptionRecord.plan_id).where(
+                    SubscriptionRecord.id == item.subscription.id
+                )
+            ))
+        )
+        effective_plan_source = "subscription" if effective_plan is not None else None
+
     return AdminOrganizationDetailRead(
         **item.model_dump(),
         commercial_access=commercial_access,
+        effective_plan_name=effective_plan.name if effective_plan is not None else None,
+        effective_plan_source=effective_plan_source,
+        usage_metrics=_usage_metrics_for_plan(item=item, plan=effective_plan),
         audit_logs=[
             AdminAuditRead(
                 id=record.id,
