@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { BrandLogo } from '../brand/BrandLogo'
 import { ArrowRight, Building2, Check, Eye, EyeOff } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -60,7 +60,7 @@ export function LoginPage() {
       style={hostBrand ? {
         '--blue': hostBrand.primary_color,
         '--green': hostBrand.secondary_color,
-      } as React.CSSProperties : undefined}
+      } as CSSProperties : undefined}
     >
       <section className="auth-panel auth-copy-panel">
         <a className="auth-logo" href="/">

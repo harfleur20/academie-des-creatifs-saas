@@ -38,6 +38,7 @@ class OrganizationRead(BaseModel):
     id: int
     name: str
     slug: str
+    subdomain: str | None
     status: str
     is_active: bool
     contact_email: str | None
