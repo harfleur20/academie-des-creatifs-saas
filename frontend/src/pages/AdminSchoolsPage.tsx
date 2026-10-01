@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Building2, Search } from 'lucide-react'
+import { Building2, ChevronRight, Search } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { BrandLogo } from '../brand/BrandLogo'
 import {
   ApiError,
@@ -87,6 +88,7 @@ export function AdminSchoolsPage() {
           <span>Membres</span>
           <span>Création</span>
           <span>Statut</span>
+          <span></span>
         </div>
 
         {filtered.map((school) => (
@@ -140,6 +142,14 @@ export function AdminSchoolsPage() {
                   ? 'École active'
                   : 'École suspendue'}
             </span>
+
+            <Link
+              className="admin-school-open"
+              to={`/admin/schools/${school.id}`}
+              aria-label={`Ouvrir ${school.name}`}
+            >
+              <ChevronRight size={16} />
+            </Link>
           </div>
         ))}
 

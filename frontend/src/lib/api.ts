@@ -502,3 +502,65 @@ export const listAdminOrganizations = () =>
   request<AdminOrganization[]>('/admin/organizations', {
     organizationId: null,
   })
+
+
+export type AdminAuditLog = {
+  id: number
+  action: string
+  reason: string
+  details: string | null
+  actor_user_id: number | null
+  actor_name: string | null
+  actor_email: string | null
+  created_at: string
+}
+
+export type AdminOrganizationDetail = AdminOrganization & {
+  audit_logs: AdminAuditLog[]
+}
+
+export const getAdminOrganization = (organizationId: number) =>
+  request<AdminOrganizationDetail>(
+    `/admin/organizations/${organizationId}`,
+    { organizationId: null },
+  )
+
+export const suspendAdminOrganization = (
+  organizationId: number,
+  reason: string,
+) =>
+  request<AdminOrganizationDetail>(
+    `/admin/organizations/${organizationId}/suspend`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+      organizationId: null,
+    },
+  )
+
+export const reactivateAdminOrganization = (
+  organizationId: number,
+  reason: string,
+) =>
+  request<AdminOrganizationDetail>(
+    `/admin/organizations/${organizationId}/reactivate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+      organizationId: null,
+    },
+  )
+
+export const extendAdminTrial = (
+  organizationId: number,
+  days: number,
+  reason: string,
+) =>
+  request<AdminOrganizationDetail>(
+    `/admin/organizations/${organizationId}/extend-trial`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ days, reason }),
+      organizationId: null,
+    },
+  )
