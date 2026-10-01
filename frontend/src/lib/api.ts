@@ -78,6 +78,8 @@ export type Subscription = {
   trial_ends_at: string | null
   current_period_start: string | null
   current_period_end: string | null
+  grace_period_ends_at: string | null
+  suspended_at: string | null
   cancel_at_period_end: boolean
   cancelled_at: string | null
   provider: string | null
@@ -264,12 +266,35 @@ export type DemoPaymentAttempt = {
   organization_id: number
   plan_id: number
   billing_interval: 'monthly' | 'annual'
-  provider: 'demo'
+  provider: string
   provider_reference: string
   status: 'pending' | 'paid' | 'failed' | 'cancelled'
   amount_cents: number
   currency: string
   confirmed_at: string | null
+  checkout_url: string | null
+  provider_transaction_id: string | null
+  activated_subscription_id: number | null
+  failure_reason: string | null
+  plan: Plan
+}
+
+export type BillingInvoice = {
+  id: number
+  organization_id: number
+  subscription_id: number | null
+  plan_id: number
+  payment_attempt_id: number | null
+  invoice_number: string
+  status: 'open' | 'paid' | 'void'
+  amount_cents: number
+  currency: string
+  billing_interval: 'monthly' | 'annual'
+  period_start: string
+  period_end: string
+  issued_at: string
+  due_at: string | null
+  paid_at: string | null
   plan: Plan
 }
 
@@ -328,3 +353,17 @@ export const reconcileTaraPayment = (providerReference: string) =>
     `/billing/tara/reconcile/${encodeURIComponent(providerReference)}`,
     { method: 'POST' },
   )
+
+
+export const listBillingInvoices = () =>
+  request<BillingInvoice[]>('/billing/invoices')
+
+export const cancelSubscriptionAtPeriodEnd = () =>
+  request<Subscription>('/billing/subscription/cancel-at-period-end', {
+    method: 'POST',
+  })
+
+export const resumeSubscription = () =>
+  request<Subscription>('/billing/subscription/resume', {
+    method: 'POST',
+  })

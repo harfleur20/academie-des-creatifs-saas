@@ -1,23 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertTriangle,
+  Ban,
   Check,
   Clock3,
   CreditCard,
   ExternalLink,
+  FileText,
   FlaskConical,
+  RotateCcw,
   ShieldCheck,
+  XCircle,
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import {
   ApiError,
+  cancelSubscriptionAtPeriodEnd,
   confirmDemoPayment,
   createDemoCheckout,
   createTaraCheckout,
   getCurrentSubscription,
   getPaymentMode,
+  listBillingInvoices,
   listPlans,
   reconcileTaraPayment,
+  resumeSubscription,
+  type BillingInvoice,
   type DemoPaymentAttempt,
   type PaymentMode,
   type Plan,
@@ -59,16 +68,24 @@ const statusLabels: Record<Subscription['status'], string> = {
   cancelled: 'Résilié',
 }
 
+const invoiceStatusLabels: Record<BillingInvoice['status'], string> = {
+  open: 'À payer',
+  paid: 'Payée',
+  void: 'Annulée',
+}
+
 export function BillingPage() {
   const { activeOrganization } = useTenant()
   const [searchParams, setSearchParams] = useSearchParams()
   const [plans, setPlans] = useState<Plan[]>([])
   const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [invoices, setInvoices] = useState<BillingInvoice[]>([])
   const [paymentMode, setPaymentMode] = useState<PaymentMode | null>(null)
   const [demoAttempt, setDemoAttempt] = useState<DemoPaymentAttempt | null>(null)
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly')
   const [loading, setLoading] = useState(false)
   const [paymentLoading, setPaymentLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -78,17 +95,19 @@ export function BillingPage() {
     setError('')
 
     try {
-      const [planItems, subscriptionItem, mode] = await Promise.all([
+      const [planItems, subscriptionItem, mode, invoiceItems] = await Promise.all([
         listPlans(),
         getCurrentSubscription().catch((err) => {
           if (err instanceof ApiError && err.status === 404) return null
           throw err
         }),
         getPaymentMode(),
+        listBillingInvoices(),
       ])
       setPlans(planItems)
       setSubscription(subscriptionItem)
       setPaymentMode(mode)
+      setInvoices(invoiceItems)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible de charger l’abonnement.')
     } finally {
@@ -207,6 +226,32 @@ export function BillingPage() {
     }
   }
 
+  async function toggleCancellation() {
+    if (!subscription) return
+    setActionLoading(true)
+    setError('')
+    setMessage('')
+    try {
+      const updated = subscription.cancel_at_period_end
+        ? await resumeSubscription()
+        : await cancelSubscriptionAtPeriodEnd()
+      setSubscription(updated)
+      setMessage(
+        updated.cancel_at_period_end
+          ? 'La résiliation est programmée à la fin de la période en cours.'
+          : 'La résiliation programmée a été annulée.',
+      )
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Impossible de modifier la résiliation.',
+      )
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   if (!activeOrganization) {
     return <div className="page-state">Créez d’abord une école.</div>
   }
@@ -223,9 +268,52 @@ export function BillingPage() {
           <p>Votre abonnement détermine les fonctionnalités et quotas disponibles.</p>
         </div>
         {subscription && (
-          <span className="status-chip">{statusLabels[subscription.status]}</span>
+          <span className={`status-chip billing-status ${subscription.status}`}>
+            {statusLabels[subscription.status]}
+          </span>
         )}
       </header>
+
+      {subscription?.status === 'past_due' && (
+        <div className="billing-alert warning">
+          <AlertTriangle size={19} />
+          <div>
+            <strong>Paiement en attente</strong>
+            <span>
+              La période payée est terminée. Régularisez avant le {formatDate(subscription.grace_period_ends_at)}
+              {' '}pour éviter la suspension de l’école.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {subscription?.status === 'suspended' && (
+        <div className="billing-alert danger">
+          <Ban size={19} />
+          <div>
+            <strong>Abonnement suspendu</strong>
+            <span>
+              Les fonctionnalités soumises au forfait sont bloquées. Un paiement confirmé réactivera l’abonnement.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {subscription?.cancel_at_period_end && subscription.status !== 'cancelled' && (
+        <div className="billing-alert neutral">
+          <XCircle size={19} />
+          <div>
+            <strong>Résiliation programmée</strong>
+            <span>
+              L’accès reste actif jusqu’au {formatDate(subscription.current_period_end ?? subscription.trial_ends_at)}.
+            </span>
+          </div>
+          <button className="secondary-button" onClick={() => void toggleCancellation()} disabled={actionLoading}>
+            <RotateCcw size={16} />
+            Annuler la résiliation
+          </button>
+        </div>
+      )}
 
       {paymentMode?.demo_enabled && (
         <div className="demo-payment-banner">
@@ -337,8 +425,16 @@ export function BillingPage() {
                 <small>Facturation</small>
               </span>
               <span>
-                <strong>{formatDate(subscription.trial_ends_at)}</strong>
-                <small>Fin de l’essai</small>
+                <strong>
+                  {formatDate(
+                    subscription.status === 'trialing'
+                      ? subscription.trial_ends_at
+                      : subscription.current_period_end,
+                  )}
+                </strong>
+                <small>
+                  {subscription.status === 'trialing' ? 'Fin de l’essai' : 'Échéance'}
+                </small>
               </span>
             </div>
           </article>
@@ -350,6 +446,18 @@ export function BillingPage() {
                 <strong>{remainingTrialDays} jour{remainingTrialDays > 1 ? 's' : ''} d’essai restant{remainingTrialDays > 1 ? 's' : ''}</strong>
                 <span>Aucun tarif réel n’est déclenché tant que la grille commerciale n’est pas configurée.</span>
               </div>
+            </div>
+          )}
+
+          {subscription.status !== 'cancelled' && !subscription.cancel_at_period_end && (
+            <div className="subscription-actions">
+              <button
+                className="text-danger-button"
+                onClick={() => void toggleCancellation()}
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Mise à jour…' : 'Résilier à la fin de la période'}
+              </button>
             </div>
           )}
         </section>
@@ -405,7 +513,7 @@ export function BillingPage() {
                     onClick={() => void startDemoPayment(plan)}
                   >
                     <FlaskConical size={16} />
-                    Tester ce forfait
+                    {current ? 'Tester un renouvellement' : 'Tester ce forfait'}
                   </button>
                 ) : taraAvailable ? (
                   <button
@@ -427,6 +535,47 @@ export function BillingPage() {
               </article>
             )
           })}
+        </div>
+      </section>
+
+      <section className="app-card invoice-section">
+        <div className="table-heading">
+          <div>
+            <span className="section-label">Facturation</span>
+            <h2>Factures</h2>
+          </div>
+          <span className="muted-note">{invoices.length} facture{invoices.length > 1 ? 's' : ''}</span>
+        </div>
+
+        <div className="invoice-table">
+          <div className="invoice-row invoice-header">
+            <span>Facture</span>
+            <span>Forfait</span>
+            <span>Période</span>
+            <span>Montant</span>
+            <span>Statut</span>
+          </div>
+
+          {invoices.map((invoice) => (
+            <div className="invoice-row" key={invoice.id}>
+              <span className="invoice-number">
+                <FileText size={15} />
+                <strong>{invoice.invoice_number}</strong>
+              </span>
+              <span>{invoice.plan.name}</span>
+              <span>
+                {formatDate(invoice.period_start)} → {formatDate(invoice.period_end)}
+              </span>
+              <span>{formatPrice(invoice.amount_cents, invoice.currency)}</span>
+              <span className={`invoice-status ${invoice.status}`}>
+                {invoiceStatusLabels[invoice.status]}
+              </span>
+            </div>
+          ))}
+
+          {!loading && invoices.length === 0 && (
+            <div className="empty-row">Aucune facture pour le moment.</div>
+          )}
         </div>
       </section>
     </main>

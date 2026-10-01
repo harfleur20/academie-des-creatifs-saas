@@ -1249,3 +1249,147 @@
     grid-column: 1 / -1;
   }
 }
+
+
+.billing-status.past_due {
+  color: #946200;
+  background: #fff4d6;
+}
+
+.billing-status.suspended,
+.billing-status.cancelled {
+  color: #9d2d2d;
+  background: #fff0f0;
+}
+
+.billing-alert {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 15px 17px;
+  border-radius: 14px;
+}
+
+.billing-alert strong,
+.billing-alert span {
+  display: block;
+}
+
+.billing-alert strong {
+  font-size: 13px;
+}
+
+.billing-alert span {
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.billing-alert.warning {
+  border: 1px solid #f0d892;
+  color: #765300;
+  background: #fff9e8;
+}
+
+.billing-alert.danger {
+  border: 1px solid #f2c6c6;
+  color: #8e3030;
+  background: #fff4f4;
+}
+
+.billing-alert.neutral {
+  border: 1px solid #d9e1eb;
+  color: #43546b;
+  background: #f8fafc;
+}
+
+.subscription-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 2px 0;
+}
+
+.invoice-section {
+  margin-top: 30px;
+}
+
+.invoice-table {
+  overflow: hidden;
+  border: 1px solid #edf0f4;
+  border-radius: 14px;
+}
+
+.invoice-row {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 1.25fr .8fr 1.35fr .75fr .65fr;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid #eef1f5;
+  color: #536178;
+  font-size: 12px;
+}
+
+.invoice-row:last-child {
+  border-bottom: 0;
+}
+
+.invoice-header {
+  min-height: 42px;
+  color: #8793a5;
+  background: #f9fafc;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.invoice-number {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #33435a;
+}
+
+.invoice-status {
+  width: fit-content;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.invoice-status.paid {
+  color: #08774f;
+  background: var(--green-soft);
+}
+
+.invoice-status.open {
+  color: #946200;
+  background: #fff4d6;
+}
+
+.invoice-status.void {
+  color: #7d8794;
+  background: #eef1f5;
+}
+
+@media (max-width: 820px) {
+  .invoice-table {
+    overflow-x: auto;
+  }
+
+  .invoice-row {
+    min-width: 760px;
+  }
+
+  .billing-alert {
+    grid-template-columns: 26px 1fr;
+  }
+
+  .billing-alert > button {
+    grid-column: 1 / -1;
+  }
+}
