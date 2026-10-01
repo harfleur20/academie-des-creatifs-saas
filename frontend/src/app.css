@@ -1103,3 +1103,106 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+
+.demo-payment-banner {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 17px 18px;
+  border: 1px solid #c8dfef;
+  border-radius: 16px;
+  color: #16466c;
+  background: #eff8ff;
+}
+
+.demo-payment-banner > svg {
+  color: var(--blue);
+}
+
+.demo-payment-banner strong,
+.demo-payment-banner span {
+  display: block;
+}
+
+.demo-payment-banner strong {
+  font-size: 13px;
+}
+
+.demo-payment-banner span {
+  margin-top: 3px;
+  color: #60758a;
+  font-size: 11px;
+}
+
+.billing-interval-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.8);
+}
+
+.billing-interval-switch button {
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: #657487;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.billing-interval-switch button.active {
+  color: #fff;
+  background: var(--blue);
+}
+
+.demo-payment-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+  padding: 22px 24px;
+  border: 1px dashed #86afd2;
+  border-radius: 18px;
+  background: #fbfdff;
+}
+
+.demo-payment-card h2 {
+  margin: 5px 0;
+}
+
+.demo-payment-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.demo-payment-actions {
+  display: flex;
+  gap: 9px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+  .demo-payment-banner {
+    grid-template-columns: 28px 1fr;
+  }
+
+  .billing-interval-switch {
+    grid-column: 1 / -1;
+  }
+
+  .demo-payment-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .demo-payment-actions {
+    flex-direction: column;
+  }
+}

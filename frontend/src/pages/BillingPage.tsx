@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Clock3, CreditCard, ShieldCheck } from 'lucide-react'
+import {
+  Check,
+  Clock3,
+  CreditCard,
+  FlaskConical,
+  ShieldCheck,
+} from 'lucide-react'
 import { useTenant } from '../app/TenantContext'
 import {
   ApiError,
+  confirmDemoPayment,
+  createDemoCheckout,
   getCurrentSubscription,
+  getPaymentMode,
   listPlans,
+  type DemoPaymentAttempt,
+  type PaymentMode,
   type Plan,
   type Subscription,
 } from '../lib/api'
@@ -39,30 +50,42 @@ export function BillingPage() {
   const { activeOrganization } = useTenant()
   const [plans, setPlans] = useState<Plan[]>([])
   const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [paymentMode, setPaymentMode] = useState<PaymentMode | null>(null)
+  const [demoAttempt, setDemoAttempt] = useState<DemoPaymentAttempt | null>(null)
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly')
   const [loading, setLoading] = useState(false)
+  const [paymentLoading, setPaymentLoading] = useState(false)
+  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  async function loadBilling() {
     if (!activeOrganization) return
-
     setLoading(true)
     setError('')
 
-    Promise.all([
-      listPlans(),
-      getCurrentSubscription().catch((err) => {
-        if (err instanceof ApiError && err.status === 404) return null
-        throw err
-      }),
-    ])
-      .then(([planItems, subscriptionItem]) => {
-        setPlans(planItems)
-        setSubscription(subscriptionItem)
-      })
-      .catch((err) => {
-        setError(err instanceof ApiError ? err.message : 'Impossible de charger l’abonnement.')
-      })
-      .finally(() => setLoading(false))
+    try {
+      const [planItems, subscriptionItem, mode] = await Promise.all([
+        listPlans(),
+        getCurrentSubscription().catch((err) => {
+          if (err instanceof ApiError && err.status === 404) return null
+          throw err
+        }),
+        getPaymentMode(),
+      ])
+      setPlans(planItems)
+      setSubscription(subscriptionItem)
+      setPaymentMode(mode)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Impossible de charger l’abonnement.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    setDemoAttempt(null)
+    setMessage('')
+    void loadBilling()
   }, [activeOrganization?.id])
 
   const remainingTrialDays = useMemo(() => {
@@ -70,6 +93,37 @@ export function BillingPage() {
     const diff = new Date(subscription.trial_ends_at).getTime() - Date.now()
     return Math.max(0, Math.ceil(diff / 86_400_000))
   }, [subscription])
+
+  async function startDemoPayment(plan: Plan) {
+    setPaymentLoading(true)
+    setError('')
+    setMessage('')
+    try {
+      const attempt = await createDemoCheckout(plan.code, billingInterval)
+      setDemoAttempt(attempt)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Impossible de créer le paiement de test.')
+    } finally {
+      setPaymentLoading(false)
+    }
+  }
+
+  async function confirmDemo() {
+    if (!demoAttempt) return
+    setPaymentLoading(true)
+    setError('')
+    try {
+      const confirmed = await confirmDemoPayment(demoAttempt.id)
+      setDemoAttempt(confirmed.payment)
+      setSubscription(confirmed.subscription)
+      setMessage(`Paiement démo confirmé. Le forfait ${confirmed.subscription.plan.name} est maintenant actif.`)
+      await loadBilling()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Confirmation du paiement impossible.')
+    } finally {
+      setPaymentLoading(false)
+    }
+  }
 
   if (!activeOrganization) {
     return <div className="page-state">Créez d’abord une école.</div>
@@ -88,6 +142,63 @@ export function BillingPage() {
         )}
       </header>
 
+      {paymentMode?.demo_enabled && (
+        <div className="demo-payment-banner">
+          <FlaskConical size={20} />
+          <div>
+            <strong>Mode paiement démo actif</strong>
+            <span>
+              Aucun paiement réel ne sera envoyé à Tara. Vous pouvez tester tout le parcours d’abonnement.
+            </span>
+          </div>
+          <div className="billing-interval-switch">
+            <button
+              className={billingInterval === 'monthly' ? 'active' : ''}
+              onClick={() => setBillingInterval('monthly')}
+            >
+              Mensuel
+            </button>
+            <button
+              className={billingInterval === 'annual' ? 'active' : ''}
+              onClick={() => setBillingInterval('annual')}
+            >
+              Annuel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {demoAttempt && demoAttempt.status === 'pending' && (
+        <section className="demo-payment-card">
+          <div>
+            <span className="section-label">Paiement de test</span>
+            <h2>{demoAttempt.plan.name}</h2>
+            <p>
+              Référence {demoAttempt.provider_reference} · montant simulé{' '}
+              <strong>{formatPrice(demoAttempt.amount_cents, demoAttempt.currency)}</strong>
+            </p>
+          </div>
+          <div className="demo-payment-actions">
+            <button
+              className="secondary-button"
+              onClick={() => setDemoAttempt(null)}
+              disabled={paymentLoading}
+            >
+              Annuler
+            </button>
+            <button
+              className="primary-button"
+              onClick={() => void confirmDemo()}
+              disabled={paymentLoading}
+            >
+              <ShieldCheck size={17} />
+              {paymentLoading ? 'Confirmation…' : 'Confirmer ce paiement de test'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {message && <div className="form-success">{message}</div>}
       {error && <div className="form-error">{error}</div>}
 
       {subscription && (
@@ -122,7 +233,7 @@ export function BillingPage() {
               <Clock3 size={18} />
               <div>
                 <strong>{remainingTrialDays} jour{remainingTrialDays > 1 ? 's' : ''} d’essai restant{remainingTrialDays > 1 ? 's' : ''}</strong>
-                <span>Aucun tarif n’est encore déclenché tant que la grille commerciale n’est pas configurée.</span>
+                <span>Aucun tarif réel n’est déclenché tant que la grille commerciale n’est pas configurée.</span>
               </div>
             </div>
           )}
@@ -145,7 +256,11 @@ export function BillingPage() {
               <article className={current ? 'billing-plan-card current' : 'billing-plan-card'} key={plan.id}>
                 {current && <span className="current-badge">Forfait actuel</span>}
                 <span className="plan-code">{plan.name}</span>
-                <h3>{formatPrice(plan.monthly_price_cents, plan.currency)}</h3>
+                <h3>
+                  {billingInterval === 'annual'
+                    ? formatPrice(plan.annual_price_cents, plan.currency)
+                    : formatPrice(plan.monthly_price_cents, plan.currency)}
+                </h3>
                 <p>{plan.description}</p>
 
                 <div className="billing-plan-features">
@@ -167,12 +282,23 @@ export function BillingPage() {
                   )}
                 </div>
 
-                <button
-                  className={current ? 'secondary-button full' : 'primary-button full'}
-                  disabled
-                >
-                  {current ? 'Forfait actuel' : 'Sélection bientôt disponible'}
-                </button>
+                {paymentMode?.demo_enabled ? (
+                  <button
+                    className={current ? 'secondary-button full' : 'primary-button full'}
+                    disabled={paymentLoading}
+                    onClick={() => void startDemoPayment(plan)}
+                  >
+                    <FlaskConical size={16} />
+                    Tester ce forfait
+                  </button>
+                ) : (
+                  <button
+                    className={current ? 'secondary-button full' : 'primary-button full'}
+                    disabled
+                  >
+                    {current ? 'Forfait actuel' : 'Sélection bientôt disponible'}
+                  </button>
+                )}
               </article>
             )
           })}

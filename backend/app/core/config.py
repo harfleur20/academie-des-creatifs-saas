@@ -9,7 +9,7 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-@dataclass(frozen=True)
+@dataclass
 class Settings:
     app_name: str = "Académie des Créatifs SaaS API"
     app_version: str = "0.3.0"

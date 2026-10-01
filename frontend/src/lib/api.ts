@@ -251,3 +251,49 @@ export const listPlans = () =>
 
 export const getCurrentSubscription = () =>
   request<Subscription>('/billing/subscription')
+
+
+export type PaymentMode = {
+  mode: string
+  demo_enabled: boolean
+}
+
+export type DemoPaymentAttempt = {
+  id: number
+  organization_id: number
+  plan_id: number
+  billing_interval: 'monthly' | 'annual'
+  provider: 'demo'
+  provider_reference: string
+  status: 'pending' | 'paid' | 'failed' | 'cancelled'
+  amount_cents: number
+  currency: string
+  confirmed_at: string | null
+  plan: Plan
+}
+
+export type DemoPaymentConfirmation = {
+  payment: DemoPaymentAttempt
+  subscription: Subscription
+}
+
+export const getPaymentMode = () =>
+  request<PaymentMode>('/billing/payment-mode', { organizationId: null })
+
+export const createDemoCheckout = (
+  planCode: string,
+  billingInterval: 'monthly' | 'annual',
+) =>
+  request<DemoPaymentAttempt>('/billing/demo/checkout', {
+    method: 'POST',
+    body: JSON.stringify({
+      plan_code: planCode,
+      billing_interval: billingInterval,
+    }),
+  })
+
+export const confirmDemoPayment = (paymentAttemptId: number) =>
+  request<DemoPaymentConfirmation>(
+    `/billing/demo/payments/${paymentAttemptId}/confirm`,
+    { method: 'POST' },
+  )
