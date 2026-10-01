@@ -1,5 +1,6 @@
 from app.models.entities import (
     FormationRecord,
+    OrganizationInvitationRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
     UserRecord,
@@ -7,6 +8,7 @@ from app.models.entities import (
 
 __all__ = [
     "FormationRecord",
+    "OrganizationInvitationRecord",
     "OrganizationMemberRecord",
     "OrganizationRecord",
     "UserRecord",
