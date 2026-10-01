@@ -54,6 +54,7 @@ class EntitlementCheckRead(BaseModel):
 class PaymentModeRead(BaseModel):
     mode: str
     demo_enabled: bool
+    tara_configured: bool
 
 
 class DemoCheckoutCreate(BaseModel):
@@ -74,9 +75,29 @@ class DemoPaymentAttemptRead(BaseModel):
     amount_cents: int
     currency: str
     confirmed_at: datetime | None
+    checkout_url: str | None
+    provider_transaction_id: str | None
+    activated_subscription_id: int | None
+    failure_reason: str | None
     plan: PlanRead
 
 
 class DemoPaymentConfirmationRead(BaseModel):
     payment: DemoPaymentAttemptRead
     subscription: SubscriptionRead
+
+
+class TaraCheckoutCreate(BaseModel):
+    plan_code: str = Field(min_length=1, max_length=64)
+    billing_interval: str = Field(pattern=r"^(monthly|annual)$")
+
+
+class TaraCheckoutRead(BaseModel):
+    payment: DemoPaymentAttemptRead
+    checkout_url: str
+
+
+class TaraReconcileRead(BaseModel):
+    payment: DemoPaymentAttemptRead
+    subscription: SubscriptionRead | None
+    status: str

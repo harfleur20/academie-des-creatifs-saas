@@ -296,8 +296,22 @@ class BillingPaymentAttemptRecord(TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    checkout_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provider_transaction_id: Mapped[str | None] = mapped_column(
+        String(180),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
+    activated_subscription_id: Mapped[int | None] = mapped_column(
+        ForeignKey("subscriptions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    failure_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     plan: Mapped["PlanRecord"] = relationship()
+    activated_subscription: Mapped["SubscriptionRecord | None"] = relationship()
 
 
 class FormationRecord(OrganizationOwnedMixin, TimestampMixin, Base):

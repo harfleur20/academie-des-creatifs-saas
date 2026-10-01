@@ -19,6 +19,15 @@ class Settings:
         "DATABASE_URL",
         "sqlite:///./academie_saas.db",
     ).strip()
+    frontend_url: str = os.getenv(
+        "FRONTEND_URL",
+        "http://localhost:5173",
+    ).rstrip("/")
+    backend_public_url: str = os.getenv(
+        "BACKEND_PUBLIC_URL",
+        "http://localhost:8000",
+    ).rstrip("/")
+
     jwt_secret_key: str = os.getenv(
         "JWT_SECRET_KEY",
         "academie-saas-development-secret-change-me",
@@ -34,12 +43,48 @@ class Settings:
         int(os.getenv("DEMO_PAYMENT_AMOUNT_CENTS", "100")),
     )
 
+    tara_api_base_url: str = os.getenv(
+        "TARAMONEY_API_BASE_URL",
+        "https://www.dklo.co",
+    ).rstrip("/")
+    tara_create_payment_path: str = os.getenv(
+        "TARAMONEY_CREATE_PAYMENT_PATH",
+        "/api/tara/paymentlinks",
+    )
+    tara_verify_payment_path: str = os.getenv(
+        "TARAMONEY_VERIFY_PAYMENT_PATH",
+        "/api/tara/transactions/status",
+    )
+    tara_api_key: str = os.getenv("TARAMONEY_API_KEY", "").strip()
+    tara_business_id: str = os.getenv("TARAMONEY_BUSINESS_ID", "").strip()
+    tara_webhook_secret: str = os.getenv("TARAMONEY_WEBHOOK_SECRET", "").strip()
+    tara_webhook_secret_header: str = os.getenv(
+        "TARAMONEY_WEBHOOK_SECRET_HEADER",
+        "",
+    ).strip().lower()
+    tara_product_picture_url: str = os.getenv(
+        "TARAMONEY_PRODUCT_PICTURE_URL",
+        "",
+    ).strip()
+    tara_timeout_seconds: float = max(
+        1.0,
+        float(os.getenv("TARAMONEY_TIMEOUT_SECONDS", "8")),
+    )
+
     @property
     def demo_payments_enabled(self) -> bool:
         return (
             self.environment != "production"
             and self.payment_mode == "demo"
             and self.allow_demo_payments
+        )
+
+    @property
+    def tara_configured(self) -> bool:
+        return bool(
+            self.tara_api_key
+            and self.tara_business_id
+            and self.tara_webhook_secret
         )
 
 
