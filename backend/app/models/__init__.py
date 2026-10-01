@@ -1,4 +1,5 @@
 from app.models.entities import (
+    BillingInvoiceRecord,
     BillingPaymentAttemptRecord,
     FormationRecord,
     OrganizationInvitationRecord,
@@ -12,6 +13,7 @@ from app.models.entities import (
 )
 
 __all__ = [
+    "BillingInvoiceRecord",
     "BillingPaymentAttemptRecord",
     "FormationRecord",
     "OrganizationInvitationRecord",

@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import settings
 from app.models.entities import (
-    PlanEntitlementRecord,
+    BillingInvoiceRecord,
     PlanRecord,
     SubscriptionRecord,
     UsageCounterRecord,
@@ -32,12 +34,24 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _aware_utc(value: datetime | None) -> datetime | None:
+def aware_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def period_end(start: datetime, billing_interval: str) -> datetime:
+    return start + timedelta(days=365 if billing_interval == "annual" else 30)
+
+
+def configured_plan_price(plan: PlanRecord, billing_interval: str) -> int | None:
+    return (
+        plan.annual_price_cents
+        if billing_interval == "annual"
+        else plan.monthly_price_cents
+    )
 
 
 def list_public_plans(db: Session) -> list[PlanRecord]:
@@ -54,39 +68,232 @@ def list_public_plans(db: Session) -> list[PlanRecord]:
     )
 
 
+def _subscription_query(organization_id: int):
+    return (
+        select(SubscriptionRecord)
+        .options(
+            selectinload(SubscriptionRecord.plan).selectinload(
+                PlanRecord.entitlements
+            )
+        )
+        .where(SubscriptionRecord.organization_id == organization_id)
+        .order_by(SubscriptionRecord.created_at.desc(), SubscriptionRecord.id.desc())
+    )
+
+
+def _create_open_renewal_invoice(
+    db: Session,
+    subscription: SubscriptionRecord,
+    *,
+    period_start_value: datetime,
+    grace_end: datetime,
+    now: datetime,
+) -> BillingInvoiceRecord | None:
+    price = configured_plan_price(subscription.plan, subscription.billing_interval)
+    if price is None or price <= 0:
+        return None
+
+    existing = db.scalar(
+        select(BillingInvoiceRecord).where(
+            BillingInvoiceRecord.subscription_id == subscription.id,
+            BillingInvoiceRecord.status == "open",
+        )
+    )
+    if existing is not None:
+        return existing
+
+    invoice = BillingInvoiceRecord(
+        organization_id=subscription.organization_id,
+        subscription_id=subscription.id,
+        plan_id=subscription.plan_id,
+        payment_attempt_id=None,
+        invoice_number=f"INV-{now:%Y%m%d}-{subscription.id}-{uuid4().hex[:8].upper()}",
+        status="open",
+        amount_cents=price,
+        currency=subscription.plan.currency,
+        billing_interval=subscription.billing_interval,
+        period_start=period_start_value,
+        period_end=period_end(period_start_value, subscription.billing_interval),
+        issued_at=now,
+        due_at=grace_end,
+        paid_at=None,
+    )
+    db.add(invoice)
+    return invoice
+
+
+def apply_subscription_lifecycle(
+    db: Session,
+    subscription: SubscriptionRecord,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    now = aware_utc(now) or utc_now()
+
+    if subscription.status == "trialing":
+        trial_end = aware_utc(subscription.trial_ends_at)
+        if trial_end is not None and trial_end <= now:
+            subscription.status = "suspended"
+            subscription.suspended_at = now
+            subscription.grace_period_ends_at = None
+            db.add(subscription)
+            return True
+        return False
+
+    if subscription.status == "active":
+        end = aware_utc(subscription.current_period_end)
+        if end is None or end > now:
+            return False
+
+        if subscription.cancel_at_period_end:
+            subscription.status = "cancelled"
+            subscription.cancelled_at = end
+            subscription.grace_period_ends_at = None
+            db.add(subscription)
+            return True
+
+        grace_end = end + timedelta(days=settings.billing_grace_period_days)
+        subscription.status = "past_due"
+        subscription.grace_period_ends_at = grace_end
+        _create_open_renewal_invoice(
+            db,
+            subscription,
+            period_start_value=end,
+            grace_end=grace_end,
+            now=now,
+        )
+        db.add(subscription)
+        return True
+
+    if subscription.status == "past_due":
+        grace_end = aware_utc(subscription.grace_period_ends_at)
+        if grace_end is not None and grace_end <= now:
+            subscription.status = "suspended"
+            subscription.suspended_at = now
+            db.add(subscription)
+            return True
+
+    return False
+
+
+def run_subscription_lifecycle(
+    db: Session,
+    *,
+    now: datetime | None = None,
+    organization_id: int | None = None,
+) -> tuple[int, int]:
+    query = (
+        select(SubscriptionRecord)
+        .options(selectinload(SubscriptionRecord.plan))
+        .where(SubscriptionRecord.status.in_(["trialing", "active", "past_due"]))
+    )
+    if organization_id is not None:
+        query = query.where(SubscriptionRecord.organization_id == organization_id)
+
+    subscriptions = list(db.scalars(query).all())
+    transitioned = 0
+    for subscription in subscriptions:
+        if apply_subscription_lifecycle(db, subscription, now=now):
+            transitioned += 1
+    db.commit()
+    return len(subscriptions), transitioned
+
+
 def get_current_subscription(
     db: Session,
     organization_id: int,
 ) -> SubscriptionRecord | None:
-    now = utc_now()
+    run_subscription_lifecycle(db, organization_id=organization_id)
+    subscriptions = list(db.scalars(_subscription_query(organization_id)).all())
+    return next(
+        (
+            subscription
+            for subscription in subscriptions
+            if subscription.status in ACTIVE_SUBSCRIPTION_STATUSES
+        ),
+        None,
+    )
 
-    subscriptions = list(
+
+def get_latest_subscription(
+    db: Session,
+    organization_id: int,
+) -> SubscriptionRecord | None:
+    run_subscription_lifecycle(db, organization_id=organization_id)
+    return db.scalar(_subscription_query(organization_id).limit(1))
+
+
+def list_invoices(
+    db: Session,
+    organization_id: int,
+) -> list[BillingInvoiceRecord]:
+    return list(
         db.scalars(
-            select(SubscriptionRecord)
+            select(BillingInvoiceRecord)
             .options(
-                selectinload(SubscriptionRecord.plan).selectinload(
+                selectinload(BillingInvoiceRecord.plan).selectinload(
                     PlanRecord.entitlements
                 )
             )
-            .where(
-                SubscriptionRecord.organization_id == organization_id,
+            .where(BillingInvoiceRecord.organization_id == organization_id)
+            .order_by(
+                BillingInvoiceRecord.issued_at.desc(),
+                BillingInvoiceRecord.id.desc(),
             )
-            .order_by(SubscriptionRecord.created_at.desc())
         ).all()
     )
 
-    for subscription in subscriptions:
-        if subscription.status == "trialing":
-            trial_end = _aware_utc(subscription.trial_ends_at)
-            if trial_end is not None and trial_end <= now:
-                subscription.status = "suspended"
-                db.commit()
-                continue
 
-        if subscription.status in ACTIVE_SUBSCRIPTION_STATUSES:
-            return subscription
+def request_cancel_at_period_end(
+    db: Session,
+    tenant: TenantContext,
+) -> SubscriptionRecord:
+    if tenant.user.platform_role != "super_admin" and tenant.organization_role not in {
+        "owner",
+        "admin",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission insuffisante pour modifier l'abonnement.",
+        )
 
-    return None
+    subscription = get_latest_subscription(db, tenant.organization_id)
+    if subscription is None or subscription.status not in {"trialing", "active", "past_due"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Aucun abonnement résiliable.",
+        )
+
+    subscription.cancel_at_period_end = True
+    db.commit()
+    db.refresh(subscription)
+    return db.scalar(_subscription_query(tenant.organization_id).limit(1))
+
+
+def resume_scheduled_cancellation(
+    db: Session,
+    tenant: TenantContext,
+) -> SubscriptionRecord:
+    if tenant.user.platform_role != "super_admin" and tenant.organization_role not in {
+        "owner",
+        "admin",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission insuffisante pour modifier l'abonnement.",
+        )
+
+    subscription = get_latest_subscription(db, tenant.organization_id)
+    if subscription is None or subscription.status not in {"trialing", "active", "past_due"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cet abonnement ne peut pas être réactivé.",
+        )
+
+    subscription.cancel_at_period_end = False
+    db.commit()
+    db.refresh(subscription)
+    return db.scalar(_subscription_query(tenant.organization_id).limit(1))
 
 
 def start_default_trial(
@@ -123,6 +330,8 @@ def start_default_trial(
         trial_ends_at=trial_end,
         current_period_start=now,
         current_period_end=trial_end,
+        grace_period_ends_at=None,
+        suspended_at=None,
     )
     db.add(subscription)
     db.flush()

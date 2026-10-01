@@ -71,6 +71,15 @@ class Settings:
         float(os.getenv("TARAMONEY_TIMEOUT_SECONDS", "8")),
     )
 
+    billing_grace_period_days: int = max(
+        0,
+        int(os.getenv("BILLING_GRACE_PERIOD_DAYS", "7")),
+    )
+    billing_cron_secret: str = os.getenv(
+        "BILLING_CRON_SECRET",
+        "",
+    ).strip()
+
     @property
     def demo_payments_enabled(self) -> bool:
         return (

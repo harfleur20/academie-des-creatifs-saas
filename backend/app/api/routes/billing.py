@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import hmac
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
 from app.core.config import settings
 from app.db.session import get_db
 from app.schemas.subscriptions import (
+    BillingInvoiceRead,
+    BillingLifecycleRunRead,
     DemoCheckoutCreate,
     DemoPaymentAttemptRead,
     DemoPaymentConfirmationRead,
@@ -28,8 +31,12 @@ from app.services.billing_payments import (
 )
 from app.services.subscriptions import (
     check_entitlement,
-    get_current_subscription,
+    get_latest_subscription,
+    list_invoices,
     list_public_plans,
+    request_cancel_at_period_end,
+    resume_scheduled_cancellation,
+    run_subscription_lifecycle,
 )
 from app.services.tara_webhook import verify_webhook_authentication
 from app.services.tenancy import TenantContext
@@ -60,13 +67,63 @@ def get_subscription(
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    subscription = get_current_subscription(db, tenant.organization_id)
+    subscription = get_latest_subscription(db, tenant.organization_id)
     if subscription is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Aucun abonnement actif pour cette école.",
+            detail="Aucun abonnement pour cette école.",
         )
     return subscription
+
+
+@router.post("/subscription/cancel-at-period-end", response_model=SubscriptionRead)
+def cancel_subscription_at_period_end(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return request_cancel_at_period_end(db, tenant)
+
+
+@router.post("/subscription/resume", response_model=SubscriptionRead)
+def resume_subscription(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return resume_scheduled_cancellation(db, tenant)
+
+
+@router.get("/invoices", response_model=list[BillingInvoiceRead])
+def get_invoices(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return list_invoices(db, tenant.organization_id)
+
+
+@router.post(
+    "/internal/lifecycle",
+    response_model=BillingLifecycleRunRead,
+    include_in_schema=False,
+)
+def run_lifecycle(
+    db: Session = Depends(get_db),
+    cron_secret: str | None = Header(default=None, alias="X-Billing-Cron-Secret"),
+):
+    if (
+        not settings.billing_cron_secret
+        or not cron_secret
+        or not hmac.compare_digest(settings.billing_cron_secret, cron_secret)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Secret cron invalide.",
+        )
+
+    processed, transitioned = run_subscription_lifecycle(db)
+    return BillingLifecycleRunRead(
+        processed=processed,
+        transitioned=transitioned,
+    )
 
 
 @router.get(
@@ -202,7 +259,6 @@ async def tara_webhook(
         )
 
     authenticated = verify_webhook_authentication(raw_body, request.headers)
-
     product_id = payload.get("productId") or payload.get("product_id")
     business_id = payload.get("businessId")
 
@@ -212,8 +268,6 @@ async def tara_webhook(
             detail="Référence TaraMoney invalide.",
         )
 
-    # Un webhook non authentifié est seulement un indice. On exige alors au
-    # minimum le businessId attendu avant la vérification serveur-to-server.
     if not authenticated and business_id != settings.tara_business_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

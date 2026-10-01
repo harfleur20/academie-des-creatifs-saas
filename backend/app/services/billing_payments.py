@@ -9,9 +9,15 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.models.entities import (
+    BillingInvoiceRecord,
     BillingPaymentAttemptRecord,
     PlanRecord,
     SubscriptionRecord,
+)
+from app.services.subscriptions import (
+    aware_utc,
+    configured_plan_price,
+    period_end,
 )
 from app.services.tara_money import (
     TaraPaymentVerification,
@@ -23,14 +29,6 @@ from app.services.tenancy import TenantContext
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
-
-
-def _aware_utc(value: datetime | None) -> datetime | None:
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
 
 
 def require_demo_payments_enabled() -> None:
@@ -73,29 +71,14 @@ def _get_plan(
     return plan
 
 
-def _configured_price(
-    plan: PlanRecord,
-    billing_interval: str,
-) -> int | None:
-    return (
-        plan.annual_price_cents
-        if billing_interval == "annual"
-        else plan.monthly_price_cents
-    )
-
-
 def _demo_price_for_plan(
     plan: PlanRecord,
     billing_interval: str,
 ) -> int:
-    configured = _configured_price(plan, billing_interval)
+    configured = configured_plan_price(plan, billing_interval)
     if configured is not None and configured > 0:
         return configured
     return settings.demo_payment_amount_cents
-
-
-def _period_end(now: datetime, billing_interval: str) -> datetime:
-    return now + timedelta(days=365 if billing_interval == "annual" else 30)
 
 
 def _load_attempt(
@@ -113,6 +96,83 @@ def _load_attempt(
     )
 
 
+def _load_subscription(
+    db: Session,
+    subscription_id: int,
+) -> SubscriptionRecord | None:
+    return db.scalar(
+        select(SubscriptionRecord)
+        .options(
+            selectinload(SubscriptionRecord.plan).selectinload(
+                PlanRecord.entitlements
+            )
+        )
+        .where(SubscriptionRecord.id == subscription_id)
+    )
+
+
+def _invoice_number(now: datetime, attempt_id: int) -> str:
+    return f"INV-{now:%Y%m%d}-{attempt_id:08d}"
+
+
+def _mark_or_create_paid_invoice(
+    db: Session,
+    *,
+    attempt: BillingPaymentAttemptRecord,
+    subscription: SubscriptionRecord,
+    paid_at: datetime,
+    period_start_value: datetime,
+    period_end_value: datetime,
+) -> BillingInvoiceRecord:
+    existing_for_attempt = db.scalar(
+        select(BillingInvoiceRecord).where(
+            BillingInvoiceRecord.payment_attempt_id == attempt.id
+        )
+    )
+    if existing_for_attempt is not None:
+        return existing_for_attempt
+
+    open_invoice = db.scalar(
+        select(BillingInvoiceRecord)
+        .where(
+            BillingInvoiceRecord.subscription_id == subscription.id,
+            BillingInvoiceRecord.status == "open",
+            BillingInvoiceRecord.plan_id == attempt.plan_id,
+            BillingInvoiceRecord.billing_interval == attempt.billing_interval,
+        )
+        .order_by(BillingInvoiceRecord.issued_at.desc())
+    )
+
+    if open_invoice is not None:
+        open_invoice.payment_attempt_id = attempt.id
+        open_invoice.status = "paid"
+        open_invoice.amount_cents = attempt.amount_cents
+        open_invoice.currency = attempt.currency
+        open_invoice.paid_at = paid_at
+        open_invoice.due_at = None
+        db.add(open_invoice)
+        return open_invoice
+
+    invoice = BillingInvoiceRecord(
+        organization_id=attempt.organization_id,
+        subscription_id=subscription.id,
+        plan_id=attempt.plan_id,
+        payment_attempt_id=attempt.id,
+        invoice_number=_invoice_number(paid_at, attempt.id),
+        status="paid",
+        amount_cents=attempt.amount_cents,
+        currency=attempt.currency,
+        billing_interval=attempt.billing_interval,
+        period_start=period_start_value,
+        period_end=period_end_value,
+        issued_at=paid_at,
+        due_at=None,
+        paid_at=paid_at,
+    )
+    db.add(invoice)
+    return invoice
+
+
 def _activate_paid_attempt(
     db: Session,
     attempt: BillingPaymentAttemptRecord,
@@ -122,51 +182,105 @@ def _activate_paid_attempt(
     provider_transaction_id: str | None = None,
 ) -> tuple[BillingPaymentAttemptRecord, SubscriptionRecord]:
     if attempt.activated_subscription_id is not None:
-        existing = db.scalar(
-            select(SubscriptionRecord)
-            .options(
-                selectinload(SubscriptionRecord.plan).selectinload(
-                    PlanRecord.entitlements
-                )
-            )
-            .where(SubscriptionRecord.id == attempt.activated_subscription_id)
-        )
+        existing = _load_subscription(db, attempt.activated_subscription_id)
         if existing is not None:
             return attempt, existing
 
-    now = paid_at or _utc_now()
+    now = aware_utc(paid_at) or _utc_now()
 
-    active_subscriptions = list(
-        db.scalars(
-            select(SubscriptionRecord)
-            .where(
-                SubscriptionRecord.organization_id == attempt.organization_id,
-                SubscriptionRecord.status.in_(["trialing", "active", "past_due"]),
-            )
-            .with_for_update()
-        ).all()
+    existing_same = db.scalar(
+        select(SubscriptionRecord)
+        .options(selectinload(SubscriptionRecord.plan))
+        .where(
+            SubscriptionRecord.organization_id == attempt.organization_id,
+            SubscriptionRecord.plan_id == attempt.plan_id,
+            SubscriptionRecord.billing_interval == attempt.billing_interval,
+            SubscriptionRecord.status.in_(["active", "past_due", "suspended"]),
+        )
+        .order_by(SubscriptionRecord.created_at.desc())
+        .with_for_update()
     )
-    for subscription in active_subscriptions:
-        subscription.status = "cancelled"
-        subscription.cancelled_at = now
-        subscription.cancel_at_period_end = False
+
+    if existing_same is not None:
+        old_end = aware_utc(existing_same.current_period_end)
+        if existing_same.status == "active" and old_end is not None and old_end > now:
+            new_period_start = old_end
+            new_period_end = period_end(old_end, attempt.billing_interval)
+            existing_same.current_period_end = new_period_end
+        else:
+            new_period_start = now
+            new_period_end = period_end(now, attempt.billing_interval)
+            existing_same.current_period_start = new_period_start
+            existing_same.current_period_end = new_period_end
+
+        existing_same.status = "active"
+        existing_same.trial_ends_at = None
+        existing_same.grace_period_ends_at = None
+        existing_same.suspended_at = None
+        existing_same.cancel_at_period_end = False
+        existing_same.cancelled_at = None
+        existing_same.provider = provider
+        existing_same.provider_subscription_id = (
+            f"{provider}:{attempt.provider_reference}"
+        )
+        subscription = existing_same
+
+        other_subscriptions = list(
+            db.scalars(
+                select(SubscriptionRecord)
+                .where(
+                    SubscriptionRecord.organization_id == attempt.organization_id,
+                    SubscriptionRecord.id != subscription.id,
+                    SubscriptionRecord.status.in_(
+                        ["trialing", "active", "past_due", "suspended"]
+                    ),
+                )
+                .with_for_update()
+            ).all()
+        )
+        for other in other_subscriptions:
+            other.status = "cancelled"
+            other.cancelled_at = now
+            other.cancel_at_period_end = False
+            db.add(other)
+    else:
+        active_subscriptions = list(
+            db.scalars(
+                select(SubscriptionRecord)
+                .where(
+                    SubscriptionRecord.organization_id == attempt.organization_id,
+                    SubscriptionRecord.status.in_(
+                        ["trialing", "active", "past_due", "suspended"]
+                    ),
+                )
+                .with_for_update()
+            ).all()
+        )
+        for old in active_subscriptions:
+            old.status = "cancelled"
+            old.cancelled_at = now
+            old.cancel_at_period_end = False
+            db.add(old)
+
+        new_period_start = now
+        new_period_end = period_end(now, attempt.billing_interval)
+        subscription = SubscriptionRecord(
+            organization_id=attempt.organization_id,
+            plan_id=attempt.plan_id,
+            status="active",
+            billing_interval=attempt.billing_interval,
+            started_at=now,
+            trial_ends_at=None,
+            current_period_start=new_period_start,
+            current_period_end=new_period_end,
+            grace_period_ends_at=None,
+            suspended_at=None,
+            cancel_at_period_end=False,
+            provider=provider,
+            provider_subscription_id=f"{provider}:{attempt.provider_reference}",
+        )
         db.add(subscription)
-
-    subscription = SubscriptionRecord(
-        organization_id=attempt.organization_id,
-        plan_id=attempt.plan_id,
-        status="active",
-        billing_interval=attempt.billing_interval,
-        started_at=now,
-        trial_ends_at=None,
-        current_period_start=now,
-        current_period_end=_period_end(now, attempt.billing_interval),
-        cancel_at_period_end=False,
-        provider=provider,
-        provider_subscription_id=f"{provider}:{attempt.provider_reference}",
-    )
-    db.add(subscription)
-    db.flush()
+        db.flush()
 
     attempt.status = "paid"
     attempt.confirmed_at = now
@@ -174,19 +288,20 @@ def _activate_paid_attempt(
     attempt.activated_subscription_id = subscription.id
     attempt.failure_reason = None
     db.add(attempt)
-    db.commit()
 
-    payment = _load_attempt(db, attempt.id)
-    subscription = db.scalar(
-        select(SubscriptionRecord)
-        .options(
-            selectinload(SubscriptionRecord.plan).selectinload(
-                PlanRecord.entitlements
-            )
-        )
-        .where(SubscriptionRecord.id == subscription.id)
+    _mark_or_create_paid_invoice(
+        db,
+        attempt=attempt,
+        subscription=subscription,
+        paid_at=now,
+        period_start_value=new_period_start,
+        period_end_value=new_period_end,
     )
-    return payment, subscription
+
+    db.commit()
+    payment = _load_attempt(db, attempt.id)
+    refreshed = _load_subscription(db, subscription.id)
+    return payment, refreshed
 
 
 def create_demo_payment_attempt(
@@ -278,7 +393,7 @@ def create_tara_payment_attempt(
             detail="TaraMoney exige un forfait configuré en XAF.",
         )
 
-    amount = _configured_price(plan, billing_interval)
+    amount = configured_plan_price(plan, billing_interval)
     if amount is None or amount <= 0:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -354,8 +469,8 @@ def _validate_tara_verification(
             detail="Le montant vérifié par TaraMoney est absent ou différent.",
         )
 
-    paid_at = _aware_utc(verification.paid_at)
-    created_at = _aware_utc(attempt.created_at)
+    paid_at = aware_utc(verification.paid_at)
+    created_at = aware_utc(attempt.created_at)
     if paid_at is not None and created_at is not None:
         skew = timedelta(minutes=10)
         if paid_at < created_at - skew or paid_at > received_at + skew:
@@ -441,7 +556,7 @@ def reconcile_tara_attempt(
         db,
         attempt,
         provider="taramoney",
-        paid_at=_aware_utc(verification.paid_at) or received_at,
+        paid_at=aware_utc(verification.paid_at) or received_at,
         provider_transaction_id=verification.transaction_id,
     )
     return payment, subscription, "paid"

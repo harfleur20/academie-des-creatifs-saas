@@ -37,9 +37,32 @@ class SubscriptionRead(BaseModel):
     trial_ends_at: datetime | None
     current_period_start: datetime | None
     current_period_end: datetime | None
+    grace_period_ends_at: datetime | None
+    suspended_at: datetime | None
     cancel_at_period_end: bool
     cancelled_at: datetime | None
     provider: str | None
+    plan: PlanRead
+
+
+class BillingInvoiceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organization_id: int
+    subscription_id: int | None
+    plan_id: int
+    payment_attempt_id: int | None
+    invoice_number: str
+    status: str
+    amount_cents: int
+    currency: str
+    billing_interval: str
+    period_start: datetime
+    period_end: datetime
+    issued_at: datetime
+    due_at: datetime | None
+    paid_at: datetime | None
     plan: PlanRead
 
 
@@ -101,3 +124,8 @@ class TaraReconcileRead(BaseModel):
     payment: DemoPaymentAttemptRead
     subscription: SubscriptionRead | None
     status: str
+
+
+class BillingLifecycleRunRead(BaseModel):
+    processed: int
+    transitioned: int

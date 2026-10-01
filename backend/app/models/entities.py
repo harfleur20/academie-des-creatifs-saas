@@ -218,6 +218,8 @@ class SubscriptionRecord(TimestampMixin, Base):
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     current_period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    grace_period_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     provider: Mapped[str | None] = mapped_column(String(40), nullable=True)
@@ -249,6 +251,68 @@ class UsageCounterRecord(TimestampMixin, Base):
     window_key: Mapped[str] = mapped_column(String(40), nullable=False, default="lifetime")
     current_value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+
+
+class BillingInvoiceRecord(TimestampMixin, Base):
+    __tablename__ = "billing_invoices"
+    __table_args__ = (
+        UniqueConstraint("invoice_number", name="uq_billing_invoices_number"),
+        UniqueConstraint(
+            "payment_attempt_id",
+            name="uq_billing_invoices_payment_attempt",
+        ),
+        Index(
+            "ix_billing_invoices_org_status",
+            "organization_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    subscription_id: Mapped[int | None] = mapped_column(
+        ForeignKey("subscriptions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("plans.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    payment_attempt_id: Mapped[int | None] = mapped_column(
+        ForeignKey("billing_payment_attempts.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+    invoice_number: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(24),
+        nullable=False,
+        default="open",
+        index=True,
+    )
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    billing_interval: Mapped[str] = mapped_column(String(16), nullable=False)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    plan: Mapped["PlanRecord"] = relationship()
+    subscription: Mapped["SubscriptionRecord | None"] = relationship()
 
 
 class BillingPaymentAttemptRecord(TimestampMixin, Base):
