@@ -448,3 +448,57 @@ export const resolveHostBranding = (hostname: string) =>
     `/organizations/resolve-host?hostname=${encodeURIComponent(hostname)}`,
     { organizationId: null },
   )
+
+
+export type AdminRevenueTotal = {
+  currency: string
+  amount: number
+  paid_invoices: number
+}
+
+export type AdminDashboard = {
+  organizations_total: number
+  organizations_active: number
+  organizations_suspended: number
+  subscriptions_trialing: number
+  subscriptions_active: number
+  subscriptions_past_due: number
+  subscriptions_suspended: number
+  users_total: number
+  revenue: AdminRevenueTotal[]
+}
+
+export type AdminOrganization = {
+  id: number
+  name: string
+  slug: string
+  subdomain: string | null
+  status: string
+  is_active: boolean
+  contact_email: string | null
+  logo_url: string | null
+  created_at: string
+  owner_name: string | null
+  owner_email: string | null
+  member_count: number
+  verified_domain_count: number
+  subscription: {
+    id: number
+    status: 'trialing' | 'active' | 'past_due' | 'suspended' | 'cancelled'
+    billing_interval: 'monthly' | 'annual'
+    plan_code: string
+    plan_name: string
+    trial_ends_at: string | null
+    current_period_end: string | null
+    grace_period_ends_at: string | null
+    provider: string | null
+  } | null
+}
+
+export const getAdminDashboard = () =>
+  request<AdminDashboard>('/admin/dashboard', { organizationId: null })
+
+export const listAdminOrganizations = () =>
+  request<AdminOrganization[]>('/admin/organizations', {
+    organizationId: null,
+  })

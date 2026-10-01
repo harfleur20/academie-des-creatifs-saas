@@ -13,6 +13,9 @@ import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
 import { TeamPage } from './pages/TeamPage'
 import { SchoolSettingsPage } from './pages/SchoolSettingsPage'
 import { BillingPage } from './pages/BillingPage'
+import { AdminLayout } from './admin/AdminLayout'
+import { AdminDashboardPage } from './pages/AdminDashboardPage'
+import { AdminSchoolsPage } from './pages/AdminSchoolsPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -23,6 +26,42 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
+function RequireSchoolUser({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return <div className="app-loading">Chargement de votre espace…</div>
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (user.platform_role === 'super_admin') {
+    return <Navigate to="/admin" replace />
+  }
+
+  return children
+}
+
+function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return <div className="app-loading">Chargement de l’administration…</div>
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (user.platform_role !== 'super_admin') {
+    return <Navigate to="/app" replace />
   }
 
   return children
@@ -39,15 +78,26 @@ export default function App() {
             <Route
               path="/app"
               element={
-                <RequireAuth>
+                <RequireSchoolUser>
                   <AppLayout />
-                </RequireAuth>
+                </RequireSchoolUser>
               }
             >
               <Route index element={<SchoolDashboardPage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="billing" element={<BillingPage />} />
               <Route path="settings" element={<SchoolSettingsPage />} />
+            </Route>
+            <Route
+              path="/admin"
+              element={
+                <RequireSuperAdmin>
+                  <AdminLayout />
+                </RequireSuperAdmin>
+              }
+            >
+              <Route index element={<AdminDashboardPage />} />
+              <Route path="schools" element={<AdminSchoolsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
