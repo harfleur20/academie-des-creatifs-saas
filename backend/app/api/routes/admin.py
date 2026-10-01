@@ -10,14 +10,20 @@ from app.schemas.admin import (
     AdminExtendTrialPayload,
     AdminOrganizationDetailRead,
     AdminOrganizationRead,
+    AdminPlanEntitlementsPayload,
+    AdminPlanRead,
+    AdminPlanUpdate,
 )
 from app.services.admin import (
     extend_trial,
     get_admin_dashboard,
     get_admin_organization,
     list_admin_organizations,
+    list_admin_plans,
     reactivate_organization,
+    replace_admin_plan_entitlements,
     suspend_organization,
+    update_admin_plan,
 )
 
 
@@ -105,4 +111,53 @@ def admin_extend_trial(
         organization_id=organization_id,
         days=payload.days,
         reason=payload.reason,
+    )
+
+
+
+@router.get("/plans", response_model=list[AdminPlanRead])
+def admin_plans(
+    db: Session = Depends(get_db),
+    _: UserRecord = Depends(get_super_admin),
+):
+    return list_admin_plans(db)
+
+
+@router.patch("/plans/{plan_id}", response_model=AdminPlanRead)
+def admin_update_plan(
+    plan_id: int,
+    payload: AdminPlanUpdate,
+    reason: str,
+    db: Session = Depends(get_db),
+    current_admin: UserRecord = Depends(get_super_admin),
+):
+    return update_admin_plan(
+        db,
+        actor=current_admin,
+        plan_id=plan_id,
+        values=payload.model_dump(exclude_unset=True),
+        reason=reason,
+    )
+
+
+@router.put(
+    "/plans/{plan_id}/entitlements",
+    response_model=AdminPlanRead,
+)
+def admin_replace_plan_entitlements(
+    plan_id: int,
+    payload: AdminPlanEntitlementsPayload,
+    reason: str,
+    db: Session = Depends(get_db),
+    current_admin: UserRecord = Depends(get_super_admin),
+):
+    return replace_admin_plan_entitlements(
+        db,
+        actor=current_admin,
+        plan_id=plan_id,
+        entitlements=[
+            item.model_dump()
+            for item in payload.entitlements
+        ],
+        reason=reason,
     )

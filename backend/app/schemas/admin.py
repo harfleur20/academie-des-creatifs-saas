@@ -72,3 +72,43 @@ class AdminAuditRead(BaseModel):
 
 class AdminOrganizationDetailRead(AdminOrganizationRead):
     audit_logs: list[AdminAuditRead]
+
+
+
+class AdminEntitlementUpdate(BaseModel):
+    feature_key: str = Field(
+        min_length=2,
+        max_length=120,
+        pattern=r"^[a-z0-9]+(?:_[a-z0-9]+)*$",
+    )
+    enabled: bool = True
+    limit_value: int | None = Field(default=None, ge=0)
+
+
+class AdminPlanUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    description: str | None = Field(default=None, max_length=2000)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    monthly_price_cents: int | None = Field(default=None, ge=0)
+    annual_price_cents: int | None = Field(default=None, ge=0)
+    trial_days: int | None = Field(default=None, ge=0, le=365)
+    is_public: bool | None = None
+    is_active: bool | None = None
+
+
+class AdminPlanRead(BaseModel):
+    id: int
+    code: str
+    name: str
+    description: str
+    currency: str
+    monthly_price_cents: int | None
+    annual_price_cents: int | None
+    trial_days: int
+    is_public: bool
+    is_active: bool
+    entitlements: list[AdminEntitlementUpdate]
+
+
+class AdminPlanEntitlementsPayload(BaseModel):
+    entitlements: list[AdminEntitlementUpdate]

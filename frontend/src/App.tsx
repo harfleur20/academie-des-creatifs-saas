@@ -17,6 +17,7 @@ import { AdminLayout } from './admin/AdminLayout'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminSchoolsPage } from './pages/AdminSchoolsPage'
 import { AdminSchoolDetailPage } from './pages/AdminSchoolDetailPage'
+import { AdminPlansPage } from './pages/AdminPlansPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -100,6 +101,7 @@ export default function App() {
               <Route index element={<AdminDashboardPage />} />
               <Route path="schools" element={<AdminSchoolsPage />} />
               <Route path="schools/:schoolId" element={<AdminSchoolDetailPage />} />
+              <Route path="plans" element={<AdminPlansPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

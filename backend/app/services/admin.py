@@ -5,7 +5,7 @@ import json
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import (
     BillingInvoiceRecord,
@@ -13,6 +13,7 @@ from app.models.entities import (
     OrganizationMemberRecord,
     OrganizationRecord,
     PlatformAdminAuditRecord,
+    PlanEntitlementRecord,
     PlanRecord,
     SubscriptionRecord,
     UserRecord,
@@ -23,6 +24,7 @@ from app.schemas.admin import (
     AdminOrganizationDetailRead,
     AdminOrganizationRead,
     AdminOrganizationSubscriptionRead,
+    AdminPlanRead,
     AdminRevenueTotal,
 )
 
@@ -254,7 +256,7 @@ def _write_admin_audit(
     db: Session,
     *,
     actor: UserRecord,
-    organization_id: int,
+    organization_id: int | None,
     action: str,
     reason: str,
     details: dict[str, object] | None = None,
@@ -471,3 +473,192 @@ def extend_trial(
     )
     db.commit()
     return get_admin_organization(db, organization.id)
+
+
+
+def _plan_to_admin_read(plan: PlanRecord) -> AdminPlanRead:
+    return AdminPlanRead(
+        id=plan.id,
+        code=plan.code,
+        name=plan.name,
+        description=plan.description,
+        currency=plan.currency,
+        monthly_price_cents=plan.monthly_price_cents,
+        annual_price_cents=plan.annual_price_cents,
+        trial_days=plan.trial_days,
+        is_public=plan.is_public,
+        is_active=plan.is_active,
+        entitlements=[
+            {
+                "feature_key": item.feature_key,
+                "enabled": item.enabled,
+                "limit_value": item.limit_value,
+            }
+            for item in sorted(
+                plan.entitlements,
+                key=lambda entitlement: entitlement.feature_key,
+            )
+        ],
+    )
+
+
+def list_admin_plans(db: Session) -> list[AdminPlanRead]:
+    plans = list(
+        db.scalars(
+            select(PlanRecord)
+            .options(selectinload(PlanRecord.entitlements))
+            .order_by(PlanRecord.id)
+        ).all()
+    )
+    return [_plan_to_admin_read(plan) for plan in plans]
+
+
+def update_admin_plan(
+    db: Session,
+    *,
+    actor: UserRecord,
+    plan_id: int,
+    values: dict[str, object],
+    reason: str,
+) -> AdminPlanRead:
+    plan = db.scalar(
+        select(PlanRecord)
+        .options(selectinload(PlanRecord.entitlements))
+        .where(PlanRecord.id == plan_id)
+    )
+    if plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Forfait introuvable.",
+        )
+
+    previous = {
+        "name": plan.name,
+        "description": plan.description,
+        "currency": plan.currency,
+        "monthly_price_cents": plan.monthly_price_cents,
+        "annual_price_cents": plan.annual_price_cents,
+        "trial_days": plan.trial_days,
+        "is_public": plan.is_public,
+        "is_active": plan.is_active,
+    }
+
+    for key, value in values.items():
+        if key == "currency" and isinstance(value, str):
+            value = value.strip().upper()
+        if key in {"name", "description"} and isinstance(value, str):
+            value = value.strip()
+        setattr(plan, key, value)
+
+    db.add(plan)
+    _write_admin_audit(
+        db,
+        actor=actor,
+        organization_id=None,
+        action="plan.updated",
+        reason=reason,
+        details={
+            "plan_id": plan.id,
+            "plan_code": plan.code,
+            "previous": previous,
+            "current": {
+                "name": plan.name,
+                "description": plan.description,
+                "currency": plan.currency,
+                "monthly_price_cents": plan.monthly_price_cents,
+                "annual_price_cents": plan.annual_price_cents,
+                "trial_days": plan.trial_days,
+                "is_public": plan.is_public,
+                "is_active": plan.is_active,
+            },
+        },
+    )
+    db.commit()
+
+    refreshed = db.scalar(
+        select(PlanRecord)
+        .options(selectinload(PlanRecord.entitlements))
+        .where(PlanRecord.id == plan.id)
+    )
+    return _plan_to_admin_read(refreshed)
+
+
+def replace_admin_plan_entitlements(
+    db: Session,
+    *,
+    actor: UserRecord,
+    plan_id: int,
+    entitlements: list[dict[str, object]],
+    reason: str,
+) -> AdminPlanRead:
+    plan = db.scalar(
+        select(PlanRecord)
+        .options(selectinload(PlanRecord.entitlements))
+        .where(PlanRecord.id == plan_id)
+    )
+    if plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Forfait introuvable.",
+        )
+
+    normalized: dict[str, dict[str, object]] = {}
+    for item in entitlements:
+        key = str(item["feature_key"]).strip().lower()
+        normalized[key] = {
+            "feature_key": key,
+            "enabled": bool(item.get("enabled", True)),
+            "limit_value": item.get("limit_value"),
+        }
+
+    previous = [
+        {
+            "feature_key": item.feature_key,
+            "enabled": item.enabled,
+            "limit_value": item.limit_value,
+        }
+        for item in plan.entitlements
+    ]
+
+    existing_by_key = {item.feature_key: item for item in plan.entitlements}
+    for key, item in normalized.items():
+        existing = existing_by_key.get(key)
+        if existing is None:
+            db.add(
+                PlanEntitlementRecord(
+                    plan_id=plan.id,
+                    feature_key=key,
+                    enabled=bool(item["enabled"]),
+                    limit_value=item["limit_value"],
+                )
+            )
+        else:
+            existing.enabled = bool(item["enabled"])
+            existing.limit_value = item["limit_value"]
+            db.add(existing)
+
+    for key, existing in existing_by_key.items():
+        if key not in normalized:
+            db.delete(existing)
+
+    _write_admin_audit(
+        db,
+        actor=actor,
+        organization_id=None,
+        action="plan.entitlements_replaced",
+        reason=reason,
+        details={
+            "plan_id": plan.id,
+            "plan_code": plan.code,
+            "previous": previous,
+            "current": list(normalized.values()),
+        },
+    )
+    db.commit()
+
+    refreshed = db.scalar(
+        select(PlanRecord)
+        .options(selectinload(PlanRecord.entitlements))
+        .where(PlanRecord.id == plan.id)
+    )
+    return _plan_to_admin_read(refreshed)

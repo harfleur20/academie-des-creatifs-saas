@@ -32,11 +32,10 @@ export function AdminLayout() {
             <Building2 size={18} />
             Écoles
           </NavLink>
-          <span className="admin-nav-disabled">
+          <NavLink to="/admin/plans">
             <Settings2 size={18} />
             Plans & quotas
-            <small>Bientôt</small>
-          </span>
+          </NavLink>
         </nav>
 
         <div className="admin-user">

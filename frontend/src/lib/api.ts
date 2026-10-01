@@ -564,3 +564,55 @@ export const extendAdminTrial = (
       organizationId: null,
     },
   )
+
+
+export type AdminPlanEntitlement = {
+  feature_key: string
+  enabled: boolean
+  limit_value: number | null
+}
+
+export type AdminPlan = {
+  id: number
+  code: string
+  name: string
+  description: string
+  currency: string
+  monthly_price_cents: number | null
+  annual_price_cents: number | null
+  trial_days: number
+  is_public: boolean
+  is_active: boolean
+  entitlements: AdminPlanEntitlement[]
+}
+
+export const listAdminPlans = () =>
+  request<AdminPlan[]>('/admin/plans', { organizationId: null })
+
+export const updateAdminPlan = (
+  planId: number,
+  payload: Partial<Omit<AdminPlan, 'id' | 'code' | 'entitlements'>>,
+  reason: string,
+) =>
+  request<AdminPlan>(
+    `/admin/plans/${planId}?reason=${encodeURIComponent(reason)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+      organizationId: null,
+    },
+  )
+
+export const replaceAdminPlanEntitlements = (
+  planId: number,
+  entitlements: AdminPlanEntitlement[],
+  reason: string,
+) =>
+  request<AdminPlan>(
+    `/admin/plans/${planId}/entitlements?reason=${encodeURIComponent(reason)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ entitlements }),
+      organizationId: null,
+    },
+  )
