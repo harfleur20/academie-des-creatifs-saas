@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AdminRevenueTotal(BaseModel):
@@ -48,3 +48,27 @@ class AdminOrganizationRead(BaseModel):
     member_count: int
     verified_domain_count: int
     subscription: AdminOrganizationSubscriptionRead | None
+
+
+
+class AdminActionPayload(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class AdminExtendTrialPayload(AdminActionPayload):
+    days: int = Field(ge=1, le=365)
+
+
+class AdminAuditRead(BaseModel):
+    id: int
+    action: str
+    reason: str
+    details: str | None
+    actor_user_id: int | None
+    actor_name: str | None
+    actor_email: str | None
+    created_at: datetime
+
+
+class AdminOrganizationDetailRead(AdminOrganizationRead):
+    audit_logs: list[AdminAuditRead]

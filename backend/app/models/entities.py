@@ -425,6 +425,31 @@ class BillingPaymentAttemptRecord(TimestampMixin, Base):
     activated_subscription: Mapped["SubscriptionRecord | None"] = relationship()
 
 
+class PlatformAdminAuditRecord(TimestampMixin, Base):
+    __tablename__ = "platform_admin_audit_logs"
+    __table_args__ = (
+        Index("ix_platform_admin_audit_org_created", "organization_id", "created_at"),
+        Index("ix_platform_admin_audit_actor_created", "actor_user_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    action: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    actor: Mapped["UserRecord | None"] = relationship()
+
+
 class FormationRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "formations"
     __table_args__ = (

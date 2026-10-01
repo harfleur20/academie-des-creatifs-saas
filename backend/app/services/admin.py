@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from datetime import UTC, datetime, timedelta
+import json
 
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -10,12 +12,15 @@ from app.models.entities import (
     OrganizationDomainRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
+    PlatformAdminAuditRecord,
     PlanRecord,
     SubscriptionRecord,
     UserRecord,
 )
 from app.schemas.admin import (
+    AdminAuditRead,
     AdminDashboardRead,
+    AdminOrganizationDetailRead,
     AdminOrganizationRead,
     AdminOrganizationSubscriptionRead,
     AdminRevenueTotal,
@@ -230,3 +235,239 @@ def list_admin_organizations(db: Session) -> list[AdminOrganizationRead]:
         )
 
     return result
+
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _aware_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _write_admin_audit(
+    db: Session,
+    *,
+    actor: UserRecord,
+    organization_id: int,
+    action: str,
+    reason: str,
+    details: dict[str, object] | None = None,
+) -> PlatformAdminAuditRecord:
+    record = PlatformAdminAuditRecord(
+        actor_user_id=actor.id,
+        organization_id=organization_id,
+        action=action,
+        reason=reason.strip(),
+        details=json.dumps(details, ensure_ascii=False, sort_keys=True)
+        if details
+        else None,
+    )
+    db.add(record)
+    return record
+
+
+def _get_organization_or_404(
+    db: Session,
+    organization_id: int,
+) -> OrganizationRecord:
+    organization = db.get(OrganizationRecord, organization_id)
+    if organization is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="École introuvable.",
+        )
+    return organization
+
+
+def get_admin_organization(
+    db: Session,
+    organization_id: int,
+) -> AdminOrganizationDetailRead:
+    organization = _get_organization_or_404(db, organization_id)
+    item = next(
+        (
+            candidate
+            for candidate in list_admin_organizations(db)
+            if candidate.id == organization.id
+        ),
+        None,
+    )
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="École introuvable.",
+        )
+
+    audit_rows = db.execute(
+        select(
+            PlatformAdminAuditRecord,
+            UserRecord.full_name,
+            UserRecord.email,
+        )
+        .outerjoin(
+            UserRecord,
+            UserRecord.id == PlatformAdminAuditRecord.actor_user_id,
+        )
+        .where(
+            PlatformAdminAuditRecord.organization_id == organization.id
+        )
+        .order_by(
+            PlatformAdminAuditRecord.created_at.desc(),
+            PlatformAdminAuditRecord.id.desc(),
+        )
+        .limit(50)
+    ).all()
+
+    return AdminOrganizationDetailRead(
+        **item.model_dump(),
+        audit_logs=[
+            AdminAuditRead(
+                id=record.id,
+                action=record.action,
+                reason=record.reason,
+                details=record.details,
+                actor_user_id=record.actor_user_id,
+                actor_name=actor_name,
+                actor_email=actor_email,
+                created_at=record.created_at,
+            )
+            for record, actor_name, actor_email in audit_rows
+        ],
+    )
+
+
+def suspend_organization(
+    db: Session,
+    *,
+    actor: UserRecord,
+    organization_id: int,
+    reason: str,
+) -> AdminOrganizationDetailRead:
+    organization = _get_organization_or_404(db, organization_id)
+
+    if not organization.is_active and organization.status == "suspended":
+        return get_admin_organization(db, organization_id)
+
+    previous = {
+        "status": organization.status,
+        "is_active": organization.is_active,
+    }
+    organization.status = "suspended"
+    organization.is_active = False
+    db.add(organization)
+
+    _write_admin_audit(
+        db,
+        actor=actor,
+        organization_id=organization.id,
+        action="organization.suspended",
+        reason=reason,
+        details={
+            "previous": previous,
+            "current": {"status": "suspended", "is_active": False},
+        },
+    )
+    db.commit()
+    return get_admin_organization(db, organization.id)
+
+
+def reactivate_organization(
+    db: Session,
+    *,
+    actor: UserRecord,
+    organization_id: int,
+    reason: str,
+) -> AdminOrganizationDetailRead:
+    organization = _get_organization_or_404(db, organization_id)
+
+    if organization.is_active and organization.status == "active":
+        return get_admin_organization(db, organization_id)
+
+    previous = {
+        "status": organization.status,
+        "is_active": organization.is_active,
+    }
+    organization.status = "active"
+    organization.is_active = True
+    db.add(organization)
+
+    _write_admin_audit(
+        db,
+        actor=actor,
+        organization_id=organization.id,
+        action="organization.reactivated",
+        reason=reason,
+        details={
+            "previous": previous,
+            "current": {"status": "active", "is_active": True},
+        },
+    )
+    db.commit()
+    return get_admin_organization(db, organization.id)
+
+
+def extend_trial(
+    db: Session,
+    *,
+    actor: UserRecord,
+    organization_id: int,
+    days: int,
+    reason: str,
+) -> AdminOrganizationDetailRead:
+    organization = _get_organization_or_404(db, organization_id)
+
+    subscription = db.scalar(
+        select(SubscriptionRecord)
+        .where(
+            SubscriptionRecord.organization_id == organization.id,
+            SubscriptionRecord.trial_ends_at.is_not(None),
+            SubscriptionRecord.status.in_(["trialing", "suspended"]),
+        )
+        .order_by(
+            SubscriptionRecord.created_at.desc(),
+            SubscriptionRecord.id.desc(),
+        )
+        .with_for_update()
+    )
+    if subscription is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cette école n'a pas d'essai prolongeable.",
+        )
+
+    now = _utc_now()
+    previous_end = _aware_utc(subscription.trial_ends_at)
+    base = previous_end if previous_end and previous_end > now else now
+    new_end = base + timedelta(days=days)
+
+    previous_status = subscription.status
+    subscription.status = "trialing"
+    subscription.trial_ends_at = new_end
+    subscription.current_period_end = new_end
+    subscription.grace_period_ends_at = None
+    subscription.suspended_at = None
+    subscription.cancel_at_period_end = False
+    db.add(subscription)
+
+    _write_admin_audit(
+        db,
+        actor=actor,
+        organization_id=organization.id,
+        action="subscription.trial_extended",
+        reason=reason,
+        details={
+            "subscription_id": subscription.id,
+            "days": days,
+            "previous_status": previous_status,
+            "previous_trial_end": previous_end.isoformat() if previous_end else None,
+            "new_trial_end": new_end.isoformat(),
+        },
+    )
+    db.commit()
+    return get_admin_organization(db, organization.id)
