@@ -237,9 +237,11 @@ export function BillingPage() {
         : await cancelSubscriptionAtPeriodEnd()
       setSubscription(updated)
       setMessage(
-        updated.cancel_at_period_end
-          ? 'La résiliation est programmée à la fin de la période en cours.'
-          : 'La résiliation programmée a été annulée.',
+        updated.status === 'cancelled'
+          ? 'L’abonnement est maintenant résilié.'
+          : updated.cancel_at_period_end
+            ? 'La résiliation est programmée à la fin de la période en cours.'
+            : 'La résiliation programmée a été annulée.',
       )
     } catch (err) {
       setError(
@@ -456,7 +458,11 @@ export function BillingPage() {
                 onClick={() => void toggleCancellation()}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'Mise à jour…' : 'Résilier à la fin de la période'}
+                {actionLoading
+                  ? 'Mise à jour…'
+                  : subscription.status === 'past_due'
+                    ? 'Résilier maintenant'
+                    : 'Résilier à la fin de la période'}
               </button>
             </div>
           )}
