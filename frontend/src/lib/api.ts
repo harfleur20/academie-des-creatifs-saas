@@ -50,6 +50,42 @@ export type Invitation = {
   acceptance_token?: string
 }
 
+export type PlanEntitlement = {
+  feature_key: string
+  enabled: boolean
+  limit_value: number | null
+}
+
+export type Plan = {
+  id: number
+  code: string
+  name: string
+  description: string
+  currency: string
+  monthly_price_cents: number | null
+  annual_price_cents: number | null
+  trial_days: number
+  is_public: boolean
+  entitlements: PlanEntitlement[]
+}
+
+export type Subscription = {
+  id: number
+  organization_id: number
+  status: 'trialing' | 'active' | 'past_due' | 'suspended' | 'cancelled'
+  billing_interval: 'monthly' | 'annual'
+  started_at: string
+  trial_ends_at: string | null
+  current_period_start: string | null
+  current_period_end: string | null
+  grace_period_ends_at: string | null
+  suspended_at: string | null
+  cancel_at_period_end: boolean
+  cancelled_at: string | null
+  provider: string | null
+  plan: Plan
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const TOKEN_KEY = 'academie_saas_access_token'
 const ORGANIZATION_KEY = 'academie_saas_organization_id'
@@ -211,3 +247,123 @@ export const cancelInvitation = (invitationId: number) =>
     `/organizations/current/invitations/${invitationId}/cancel`,
     { method: 'POST' },
   )
+
+export const listPlans = () =>
+  request<Plan[]>('/billing/plans', { organizationId: null })
+
+export const getCurrentSubscription = () =>
+  request<Subscription>('/billing/subscription')
+
+
+export type PaymentMode = {
+  mode: string
+  demo_enabled: boolean
+  tara_configured: boolean
+}
+
+export type DemoPaymentAttempt = {
+  id: number
+  organization_id: number
+  plan_id: number
+  billing_interval: 'monthly' | 'annual'
+  provider: string
+  provider_reference: string
+  status: 'pending' | 'paid' | 'failed' | 'cancelled'
+  amount_cents: number
+  currency: string
+  confirmed_at: string | null
+  checkout_url: string | null
+  provider_transaction_id: string | null
+  activated_subscription_id: number | null
+  failure_reason: string | null
+  plan: Plan
+}
+
+export type BillingInvoice = {
+  id: number
+  organization_id: number
+  subscription_id: number | null
+  plan_id: number
+  payment_attempt_id: number | null
+  invoice_number: string
+  status: 'open' | 'paid' | 'void'
+  amount_cents: number
+  currency: string
+  billing_interval: 'monthly' | 'annual'
+  period_start: string
+  period_end: string
+  issued_at: string
+  due_at: string | null
+  paid_at: string | null
+  plan: Plan
+}
+
+export type DemoPaymentConfirmation = {
+  payment: DemoPaymentAttempt
+  subscription: Subscription
+}
+
+export const getPaymentMode = () =>
+  request<PaymentMode>('/billing/payment-mode', { organizationId: null })
+
+export const createDemoCheckout = (
+  planCode: string,
+  billingInterval: 'monthly' | 'annual',
+) =>
+  request<DemoPaymentAttempt>('/billing/demo/checkout', {
+    method: 'POST',
+    body: JSON.stringify({
+      plan_code: planCode,
+      billing_interval: billingInterval,
+    }),
+  })
+
+export const confirmDemoPayment = (paymentAttemptId: number) =>
+  request<DemoPaymentConfirmation>(
+    `/billing/demo/payments/${paymentAttemptId}/confirm`,
+    { method: 'POST' },
+  )
+
+
+export type TaraCheckout = {
+  payment: DemoPaymentAttempt
+  checkout_url: string
+}
+
+export type TaraReconcile = {
+  payment: DemoPaymentAttempt
+  subscription: Subscription | null
+  status: 'pending' | 'paid' | 'failed'
+}
+
+export const createTaraCheckout = (
+  planCode: string,
+  billingInterval: 'monthly' | 'annual',
+) =>
+  request<TaraCheckout>('/billing/tara/checkout', {
+    method: 'POST',
+    body: JSON.stringify({
+      plan_code: planCode,
+      billing_interval: billingInterval,
+    }),
+  })
+
+export const reconcileTaraPayment = (providerReference: string) =>
+  request<TaraReconcile>(
+    `/billing/tara/reconcile/${encodeURIComponent(providerReference)}`,
+    { method: 'POST' },
+  )
+
+
+export const listBillingInvoices = () =>
+  request<BillingInvoice[]>('/billing/invoices')
+
+export const cancelSubscriptionAtPeriodEnd = () =>
+  request<Subscription>('/billing/subscription/cancel-at-period-end', {
+    method: 'POST',
+  })
+
+export const resumeSubscription = () =>
+  request<Subscription>('/billing/subscription/resume', {
+    method: 'POST',
+  })

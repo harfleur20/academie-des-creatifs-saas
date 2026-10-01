@@ -12,6 +12,7 @@ import { LoginPage } from './pages/LoginPage'
 import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
 import { TeamPage } from './pages/TeamPage'
 import { SchoolSettingsPage } from './pages/SchoolSettingsPage'
+import { BillingPage } from './pages/BillingPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -45,6 +46,7 @@ export default function App() {
             >
               <Route index element={<SchoolDashboardPage />} />
               <Route path="team" element={<TeamPage />} />
+              <Route path="billing" element={<BillingPage />} />
               <Route path="settings" element={<SchoolSettingsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -8,6 +8,7 @@ from app.models.entities import (
     UserRecord,
 )
 from app.schemas.organizations import OrganizationCreate
+from app.services.subscriptions import start_default_trial
 
 
 class OrganizationConflictError(ValueError):
@@ -69,6 +70,10 @@ def create_organization(
             role="owner",
             status="active",
         )
+    )
+    start_default_trial(
+        db,
+        organization_id=organization.id,
     )
     db.commit()
     db.refresh(organization)

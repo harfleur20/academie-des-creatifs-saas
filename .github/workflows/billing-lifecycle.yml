@@ -1,0 +1,28 @@
+name: Billing lifecycle
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+jobs:
+  lifecycle:
+    runs-on: ubuntu-latest
+    env:
+      BILLING_CRON_URL: ${{ secrets.BILLING_CRON_URL }}
+      BILLING_CRON_SECRET: ${{ secrets.BILLING_CRON_SECRET }}
+    steps:
+      - name: Check billing cron configuration
+        if: ${{ env.BILLING_CRON_URL == '' || env.BILLING_CRON_SECRET == '' }}
+        run: echo "Billing lifecycle skipped because GitHub secrets are not configured."
+
+      - name: Apply subscription lifecycle
+        if: ${{ env.BILLING_CRON_URL != '' && env.BILLING_CRON_SECRET != '' }}
+        run: |
+          curl --fail --silent --show-error \
+            --max-time 30 \
+            --retry 2 \
+            --retry-delay 5 \
+            -X POST \
+            -H "X-Billing-Cron-Secret: $BILLING_CRON_SECRET" \
+            "$BILLING_CRON_URL/api/v1/billing/internal/lifecycle"
