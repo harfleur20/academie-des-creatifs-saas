@@ -21,6 +21,14 @@ from app.db.base import Base
 ORGANIZATION_ROLES = {"owner", "admin", "manager", "teacher", "student"}
 ORGANIZATION_MEMBER_STATUSES = {"active", "suspended"}
 ORGANIZATION_INVITATION_STATUSES = {"pending", "accepted", "cancelled", "expired"}
+SUBSCRIPTION_STATUSES = {
+    "trialing",
+    "active",
+    "past_due",
+    "suspended",
+    "cancelled",
+}
+BILLING_INTERVALS = {"monthly", "annual"}
 
 
 class TimestampMixin:
@@ -74,6 +82,10 @@ class OrganizationRecord(TimestampMixin, Base):
     locale: Mapped[str] = mapped_column(String(16), nullable=False, default="fr-FR")
 
     members: Mapped[list["OrganizationMemberRecord"]] = relationship(
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+    subscriptions: Mapped[list["SubscriptionRecord"]] = relationship(
         back_populates="organization",
         cascade="all, delete-orphan",
     )
@@ -142,6 +154,100 @@ class OrganizationInvitationRecord(TimestampMixin, Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PlanRecord(TimestampMixin, Base):
+    __tablename__ = "plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="EUR")
+    monthly_price_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    annual_price_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    trial_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    entitlements: Mapped[list["PlanEntitlementRecord"]] = relationship(
+        back_populates="plan",
+        cascade="all, delete-orphan",
+    )
+
+
+class PlanEntitlementRecord(TimestampMixin, Base):
+    __tablename__ = "plan_entitlements"
+    __table_args__ = (
+        UniqueConstraint("plan_id", "feature_key", name="uq_plan_entitlements_plan_feature"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("plans.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    feature_key: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    limit_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    plan: Mapped["PlanRecord"] = relationship(back_populates="entitlements")
+
+
+class SubscriptionRecord(TimestampMixin, Base):
+    __tablename__ = "subscriptions"
+    __table_args__ = (
+        Index("ix_subscriptions_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("plans.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="trialing", index=True)
+    billing_interval: Mapped[str] = mapped_column(String(16), nullable=False, default="monthly")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    current_period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    provider_customer_id: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    provider_subscription_id: Mapped[str | None] = mapped_column(String(180), nullable=True)
+
+    organization: Mapped["OrganizationRecord"] = relationship(back_populates="subscriptions")
+    plan: Mapped["PlanRecord"] = relationship()
+
+
+class UsageCounterRecord(TimestampMixin, Base):
+    __tablename__ = "usage_counters"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "metric_key",
+            "window_key",
+            name="uq_usage_counter_org_metric_window",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    metric_key: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    window_key: Mapped[str] = mapped_column(String(40), nullable=False, default="lifetime")
+    current_value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class FormationRecord(OrganizationOwnedMixin, TimestampMixin, Base):

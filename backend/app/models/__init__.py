@@ -3,6 +3,10 @@ from app.models.entities import (
     OrganizationInvitationRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
+    PlanEntitlementRecord,
+    PlanRecord,
+    SubscriptionRecord,
+    UsageCounterRecord,
     UserRecord,
 )
 
@@ -11,5 +15,9 @@ __all__ = [
     "OrganizationInvitationRecord",
     "OrganizationMemberRecord",
     "OrganizationRecord",
+    "PlanEntitlementRecord",
+    "PlanRecord",
+    "SubscriptionRecord",
+    "UsageCounterRecord",
     "UserRecord",
 ]
