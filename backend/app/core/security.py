@@ -3,15 +3,37 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 from app.core.config import settings
+
+
+password_hasher = PasswordHasher()
 
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def create_access_token(user_id: int, *, minutes: int = 60) -> str:
+def hash_password(password: str) -> str:
+    return password_hasher.hash(password)
+
+
+def verify_password(password: str, password_hash: str | None) -> bool:
+    if not password_hash:
+        return False
+    try:
+        return password_hasher.verify(password_hash, password)
+    except VerifyMismatchError:
+        return False
+
+
+def create_access_token(
+    user_id: int,
+    *,
+    minutes: int = 60,
+) -> str:
     now = utc_now()
     payload = {
         "sub": str(user_id),
