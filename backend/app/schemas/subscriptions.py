@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PlanEntitlementRead(BaseModel):
@@ -49,3 +49,34 @@ class EntitlementCheckRead(BaseModel):
     limit_value: int | None
     current_value: int | None
     allowed: bool
+
+
+class PaymentModeRead(BaseModel):
+    mode: str
+    demo_enabled: bool
+
+
+class DemoCheckoutCreate(BaseModel):
+    plan_code: str = Field(min_length=1, max_length=64)
+    billing_interval: str = Field(pattern=r"^(monthly|annual)$")
+
+
+class DemoPaymentAttemptRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organization_id: int
+    plan_id: int
+    billing_interval: str
+    provider: str
+    provider_reference: str
+    status: str
+    amount_cents: int
+    currency: str
+    confirmed_at: datetime | None
+    plan: PlanRead
+
+
+class DemoPaymentConfirmationRead(BaseModel):
+    payment: DemoPaymentAttemptRead
+    subscription: SubscriptionRead

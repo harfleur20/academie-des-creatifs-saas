@@ -250,6 +250,56 @@ class UsageCounterRecord(TimestampMixin, Base):
     current_value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
+
+class BillingPaymentAttemptRecord(TimestampMixin, Base):
+    __tablename__ = "billing_payment_attempts"
+    __table_args__ = (
+        Index(
+            "ix_billing_payment_attempts_org_status",
+            "organization_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("plans.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    billing_interval: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default="monthly",
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    provider_reference: Mapped[str] = mapped_column(
+        String(180),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="pending",
+        index=True,
+    )
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    plan: Mapped["PlanRecord"] = relationship()
+
+
 class FormationRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "formations"
     __table_args__ = (
