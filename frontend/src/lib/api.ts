@@ -256,6 +256,7 @@ export const getCurrentSubscription = () =>
 export type PaymentMode = {
   mode: string
   demo_enabled: boolean
+  tara_configured: boolean
 }
 
 export type DemoPaymentAttempt = {
@@ -295,5 +296,35 @@ export const createDemoCheckout = (
 export const confirmDemoPayment = (paymentAttemptId: number) =>
   request<DemoPaymentConfirmation>(
     `/billing/demo/payments/${paymentAttemptId}/confirm`,
+    { method: 'POST' },
+  )
+
+
+export type TaraCheckout = {
+  payment: DemoPaymentAttempt
+  checkout_url: string
+}
+
+export type TaraReconcile = {
+  payment: DemoPaymentAttempt
+  subscription: Subscription | null
+  status: 'pending' | 'paid' | 'failed'
+}
+
+export const createTaraCheckout = (
+  planCode: string,
+  billingInterval: 'monthly' | 'annual',
+) =>
+  request<TaraCheckout>('/billing/tara/checkout', {
+    method: 'POST',
+    body: JSON.stringify({
+      plan_code: planCode,
+      billing_interval: billingInterval,
+    }),
+  })
+
+export const reconcileTaraPayment = (providerReference: string) =>
+  request<TaraReconcile>(
+    `/billing/tara/reconcile/${encodeURIComponent(providerReference)}`,
     { method: 'POST' },
   )

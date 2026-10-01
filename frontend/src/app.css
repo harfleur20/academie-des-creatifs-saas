@@ -1206,3 +1206,46 @@
     flex-direction: column;
   }
 }
+
+
+.payment-provider-banner {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 17px 18px;
+  border: 1px solid #dbe5ef;
+  border-radius: 16px;
+  color: #33485f;
+  background: #fff;
+}
+
+.payment-provider-banner > svg {
+  color: var(--green);
+}
+
+.payment-provider-banner strong,
+.payment-provider-banner span {
+  display: block;
+}
+
+.payment-provider-banner strong {
+  font-size: 13px;
+}
+
+.payment-provider-banner span {
+  margin-top: 3px;
+  color: #728197;
+  font-size: 11px;
+}
+
+@media (max-width: 720px) {
+  .payment-provider-banner {
+    grid-template-columns: 28px 1fr;
+  }
+
+  .payment-provider-banner .billing-interval-switch {
+    grid-column: 1 / -1;
+  }
+}

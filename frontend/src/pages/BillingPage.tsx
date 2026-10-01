@@ -3,17 +3,21 @@ import {
   Check,
   Clock3,
   CreditCard,
+  ExternalLink,
   FlaskConical,
   ShieldCheck,
 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import {
   ApiError,
   confirmDemoPayment,
   createDemoCheckout,
+  createTaraCheckout,
   getCurrentSubscription,
   getPaymentMode,
   listPlans,
+  reconcileTaraPayment,
   type DemoPaymentAttempt,
   type PaymentMode,
   type Plan,
@@ -29,13 +33,22 @@ function formatDate(value: string | null) {
   }).format(new Date(value))
 }
 
-function formatPrice(cents: number | null, currency: string) {
-  if (cents === null) return 'Tarif à définir'
+function formatPrice(amount: number | null, currency: string) {
+  if (amount === null) return 'Tarif à définir'
+
+  if (currency.toUpperCase() === 'XAF') {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'XAF',
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency,
     maximumFractionDigits: 2,
-  }).format(cents / 100)
+  }).format(amount / 100)
 }
 
 const statusLabels: Record<Subscription['status'], string> = {
@@ -48,6 +61,7 @@ const statusLabels: Record<Subscription['status'], string> = {
 
 export function BillingPage() {
   const { activeOrganization } = useTenant()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [plans, setPlans] = useState<Plan[]>([])
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [paymentMode, setPaymentMode] = useState<PaymentMode | null>(null)
@@ -88,6 +102,55 @@ export function BillingPage() {
     void loadBilling()
   }, [activeOrganization?.id])
 
+  useEffect(() => {
+    const taraOrder = searchParams.get('tara_order')
+    if (!taraOrder || !activeOrganization) return
+
+    let cancelled = false
+    setPaymentLoading(true)
+    setError('')
+
+    reconcileTaraPayment(taraOrder)
+      .then(async (result) => {
+        if (cancelled) return
+
+        if (result.status === 'paid' && result.subscription) {
+          setSubscription(result.subscription)
+          setMessage(
+            `Paiement TaraMoney vérifié. Le forfait ${result.subscription.plan.name} est maintenant actif.`,
+          )
+          await loadBilling()
+        } else if (result.status === 'pending') {
+          setMessage(
+            'Le paiement a bien été retrouvé mais TaraMoney ne le confirme pas encore. Vous pouvez actualiser dans quelques instants.',
+          )
+        } else {
+          setError('TaraMoney indique que ce paiement a échoué ou expiré.')
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : 'Impossible de vérifier le paiement TaraMoney.',
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setPaymentLoading(false)
+          const next = new URLSearchParams(searchParams)
+          next.delete('tara_order')
+          setSearchParams(next, { replace: true })
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeOrganization?.id, searchParams, setSearchParams])
+
   const remainingTrialDays = useMemo(() => {
     if (!subscription?.trial_ends_at || subscription.status !== 'trialing') return null
     const diff = new Date(subscription.trial_ends_at).getTime() - Date.now()
@@ -116,7 +179,9 @@ export function BillingPage() {
       const confirmed = await confirmDemoPayment(demoAttempt.id)
       setDemoAttempt(confirmed.payment)
       setSubscription(confirmed.subscription)
-      setMessage(`Paiement démo confirmé. Le forfait ${confirmed.subscription.plan.name} est maintenant actif.`)
+      setMessage(
+        `Paiement démo confirmé. Le forfait ${confirmed.subscription.plan.name} est maintenant actif.`,
+      )
       await loadBilling()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Confirmation du paiement impossible.')
@@ -125,9 +190,29 @@ export function BillingPage() {
     }
   }
 
+  async function startTaraPayment(plan: Plan) {
+    setPaymentLoading(true)
+    setError('')
+    setMessage('')
+    try {
+      const checkout = await createTaraCheckout(plan.code, billingInterval)
+      window.location.assign(checkout.checkout_url)
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Impossible de démarrer le paiement TaraMoney.',
+      )
+      setPaymentLoading(false)
+    }
+  }
+
   if (!activeOrganization) {
     return <div className="page-state">Créez d’abord une école.</div>
   }
+
+  const taraAvailable =
+    paymentMode?.mode === 'production' && paymentMode.tara_configured
 
   return (
     <main className="app-page">
@@ -149,6 +234,36 @@ export function BillingPage() {
             <strong>Mode paiement démo actif</strong>
             <span>
               Aucun paiement réel ne sera envoyé à Tara. Vous pouvez tester tout le parcours d’abonnement.
+            </span>
+          </div>
+          <div className="billing-interval-switch">
+            <button
+              className={billingInterval === 'monthly' ? 'active' : ''}
+              onClick={() => setBillingInterval('monthly')}
+            >
+              Mensuel
+            </button>
+            <button
+              className={billingInterval === 'annual' ? 'active' : ''}
+              onClick={() => setBillingInterval('annual')}
+            >
+              Annuel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!paymentMode?.demo_enabled && (
+        <div className="payment-provider-banner">
+          <ShieldCheck size={19} />
+          <div>
+            <strong>
+              {taraAvailable ? 'Paiements sécurisés par TaraMoney' : 'TaraMoney à configurer'}
+            </strong>
+            <span>
+              {taraAvailable
+                ? 'L’abonnement ne sera activé qu’après vérification serveur du paiement.'
+                : 'Renseignez les variables TaraMoney du backend avant d’accepter de vrais paiements.'}
             </span>
           </div>
           <div className="billing-interval-switch">
@@ -252,15 +367,16 @@ export function BillingPage() {
         <div className="billing-plan-grid">
           {plans.map((plan) => {
             const current = subscription?.plan.code === plan.code
+            const displayedPrice =
+              billingInterval === 'annual'
+                ? plan.annual_price_cents
+                : plan.monthly_price_cents
+
             return (
               <article className={current ? 'billing-plan-card current' : 'billing-plan-card'} key={plan.id}>
                 {current && <span className="current-badge">Forfait actuel</span>}
                 <span className="plan-code">{plan.name}</span>
-                <h3>
-                  {billingInterval === 'annual'
-                    ? formatPrice(plan.annual_price_cents, plan.currency)
-                    : formatPrice(plan.monthly_price_cents, plan.currency)}
-                </h3>
+                <h3>{formatPrice(displayedPrice, plan.currency)}</h3>
                 <p>{plan.description}</p>
 
                 <div className="billing-plan-features">
@@ -291,12 +407,21 @@ export function BillingPage() {
                     <FlaskConical size={16} />
                     Tester ce forfait
                   </button>
+                ) : taraAvailable ? (
+                  <button
+                    className={current ? 'secondary-button full' : 'primary-button full'}
+                    disabled={paymentLoading || displayedPrice === null}
+                    onClick={() => void startTaraPayment(plan)}
+                  >
+                    <ExternalLink size={16} />
+                    {current ? 'Renouveler avec Tara' : 'Payer avec Tara'}
+                  </button>
                 ) : (
                   <button
                     className={current ? 'secondary-button full' : 'primary-button full'}
                     disabled
                   >
-                    {current ? 'Forfait actuel' : 'Sélection bientôt disponible'}
+                    {current ? 'Forfait actuel' : 'Paiement indisponible'}
                   </button>
                 )}
               </article>
