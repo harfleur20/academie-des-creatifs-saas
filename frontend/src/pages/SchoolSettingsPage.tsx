@@ -1,9 +1,21 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Palette, RotateCcw, Save } from 'lucide-react'
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { CheckCircle2, Copy, Globe2, Palette, RotateCcw, Save, Trash2 } from 'lucide-react'
 import { useTenant } from '../app/TenantContext'
 import { BrandLogo } from '../brand/BrandLogo'
 import { DEFAULT_BRAND_COLORS, resolveBrandLogo } from '../brand/branding'
-import { ApiError, updateCurrentOrganization } from '../lib/api'
+import {
+  ApiError,
+  createOrganizationDomain,
+  deleteOrganizationDomain,
+  getOrganizationDomainConfig,
+  listOrganizationDomains,
+  setPrimaryOrganizationDomain,
+  updateCurrentOrganization,
+  updateCurrentSubdomain,
+  verifyOrganizationDomain,
+  type OrganizationDomain,
+  type OrganizationDomainConfig,
+} from '../lib/api'
 
 export function SchoolSettingsPage() {
   const { activeOrganization, refreshOrganizations } = useTenant()
@@ -15,9 +27,28 @@ export function SchoolSettingsPage() {
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_BRAND_COLORS.primary)
   const [secondaryColor, setSecondaryColor] = useState(DEFAULT_BRAND_COLORS.secondary)
   const [accentColor, setAccentColor] = useState(DEFAULT_BRAND_COLORS.accent)
+  const [subdomain, setSubdomain] = useState('')
+  const [domains, setDomains] = useState<OrganizationDomain[]>([])
+  const [domainConfig, setDomainConfig] = useState<OrganizationDomainConfig | null>(null)
+  const [newDomain, setNewDomain] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [domainLoading, setDomainLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  async function loadDomains() {
+    if (!activeOrganization) return
+    try {
+      const [items, config] = await Promise.all([
+        listOrganizationDomains(),
+        getOrganizationDomainConfig(),
+      ])
+      setDomains(items)
+      setDomainConfig(config)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Impossible de charger les domaines.')
+    }
+  }
 
   useEffect(() => {
     if (!activeOrganization) return
@@ -29,6 +60,8 @@ export function SchoolSettingsPage() {
     setPrimaryColor(activeOrganization.primary_color || DEFAULT_BRAND_COLORS.primary)
     setSecondaryColor(activeOrganization.secondary_color || DEFAULT_BRAND_COLORS.secondary)
     setAccentColor(activeOrganization.accent_color || DEFAULT_BRAND_COLORS.accent)
+    setSubdomain(activeOrganization.subdomain ?? '')
+    void loadDomains()
   }, [activeOrganization?.id])
 
   if (!activeOrganization) {
@@ -41,18 +74,21 @@ export function SchoolSettingsPage() {
     setMessage('')
     setError('')
     try {
-      await updateCurrentOrganization({
-        name,
-        contact_email: contactEmail || null,
-        timezone,
-        locale,
-        logo_url: logoUrl || null,
-        primary_color: primaryColor,
-        secondary_color: secondaryColor,
-        accent_color: accentColor,
-      })
+      await Promise.all([
+        updateCurrentOrganization({
+          name,
+          contact_email: contactEmail || null,
+          timezone,
+          locale,
+          logo_url: logoUrl || null,
+          primary_color: primaryColor,
+          secondary_color: secondaryColor,
+          accent_color: accentColor,
+        }),
+        updateCurrentSubdomain(subdomain || null),
+      ])
       await refreshOrganizations()
-      setMessage('Paramètres et identité visuelle enregistrés.')
+      setMessage('Paramètres, identité et sous-domaine enregistrés.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.')
     } finally {
@@ -67,13 +103,44 @@ export function SchoolSettingsPage() {
     setAccentColor(DEFAULT_BRAND_COLORS.accent)
   }
 
+  async function addDomain() {
+    if (!newDomain.trim()) return
+    setDomainLoading(true)
+    setError('')
+    setMessage('')
+    try {
+      await createOrganizationDomain(newDomain)
+      setNewDomain('')
+      await loadDomains()
+      setMessage('Domaine ajouté. Configurez maintenant le TXT de vérification.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Impossible d’ajouter ce domaine.')
+    } finally {
+      setDomainLoading(false)
+    }
+  }
+
+  async function verifyDomain(domain: OrganizationDomain) {
+    setDomainLoading(true)
+    setError('')
+    try {
+      await verifyOrganizationDomain(domain.id)
+      await loadDomains()
+      setMessage('Domaine vérifié avec succès.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Vérification impossible.')
+    } finally {
+      setDomainLoading(false)
+    }
+  }
+
   return (
     <main className="app-page">
       <header className="app-page-header">
         <div>
           <span className="page-kicker">Paramètres</span>
           <h1>Informations & identité de l’école</h1>
-          <p>Personnalisez les informations et l’apparence de votre espace.</p>
+          <p>Personnalisez l’apparence et les adresses utilisées par votre école.</p>
         </div>
       </header>
 
@@ -168,7 +235,7 @@ export function SchoolSettingsPage() {
                 '--preview-primary': primaryColor,
                 '--preview-secondary': secondaryColor,
                 '--preview-accent': accentColor,
-              } as React.CSSProperties}
+              } as CSSProperties}
             >
               <div className="brand-preview-sidebar">
                 <BrandLogo logoUrl={resolveBrandLogo(logoUrl)} alt={name} />
@@ -182,6 +249,136 @@ export function SchoolSettingsPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="app-card domain-settings-card">
+          <div className="settings-section-heading">
+            <div>
+              <span className="section-label">Adresses</span>
+              <h2>Sous-domaine & domaine personnalisé</h2>
+              <p>Donnez à votre école une adresse propre et reconnaissable.</p>
+            </div>
+          </div>
+
+          <div className="subdomain-field">
+            <label>
+              Sous-domaine SaaS
+              <span className="subdomain-input">
+                <input
+                  value={subdomain}
+                  onChange={(event) => setSubdomain(event.target.value.toLowerCase())}
+                  maxLength={63}
+                  pattern="^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+                  placeholder="mon-ecole"
+                />
+                <span>
+                  {domainConfig?.base_domain ? `.${domainConfig.base_domain}` : '.votre-domaine-saas'}
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className="custom-domain-add">
+            <label>
+              Domaine personnalisé
+              <input
+                value={newDomain}
+                onChange={(event) => setNewDomain(event.target.value)}
+                placeholder="formation.mondomaine.com"
+                maxLength={253}
+              />
+            </label>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void addDomain()}
+              disabled={domainLoading || !newDomain.trim()}
+            >
+              <Globe2 size={16} />
+              Ajouter
+            </button>
+          </div>
+
+          <div className="domain-list">
+            {domains.map((domain) => (
+              <article className="domain-item" key={domain.id}>
+                <div className="domain-main">
+                  <Globe2 size={17} />
+                  <div>
+                    <strong>{domain.hostname}</strong>
+                    <small>
+                      {domain.status === 'verified'
+                        ? 'Domaine vérifié'
+                        : 'Vérification DNS requise'}
+                      {domain.is_primary ? ' · Principal' : ''}
+                    </small>
+                  </div>
+                </div>
+
+                {domain.status !== 'verified' && (
+                  <div className="dns-instructions">
+                    <span>TXT</span>
+                    <code>_academie-verification.{domain.hostname}</code>
+                    <code>{domain.verification_token}</code>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      title="Copier le token"
+                      onClick={() => void navigator.clipboard.writeText(domain.verification_token)}
+                    >
+                      <Copy size={15} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="domain-actions">
+                  {domain.status !== 'verified' ? (
+                    <button
+                      type="button"
+                      className="secondary-button compact-action"
+                      onClick={() => void verifyDomain(domain)}
+                      disabled={domainLoading}
+                    >
+                      <CheckCircle2 size={15} />
+                      Vérifier
+                    </button>
+                  ) : !domain.is_primary ? (
+                    <button
+                      type="button"
+                      className="secondary-button compact-action"
+                      onClick={async () => {
+                        await setPrimaryOrganizationDomain(domain.id)
+                        await loadDomains()
+                      }}
+                    >
+                      Définir principal
+                    </button>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    className="icon-button danger-icon"
+                    title="Supprimer"
+                    onClick={async () => {
+                      await deleteOrganizationDomain(domain.id)
+                      await loadDomains()
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </article>
+            ))}
+            {domains.length === 0 && (
+              <div className="empty-row">Aucun domaine personnalisé.</div>
+            )}
+          </div>
+
+          {domainConfig?.cname_target && (
+            <div className="cname-note">
+              Pour le trafic web, faites aussi pointer votre CNAME vers <code>{domainConfig.cname_target}</code>.
+            </div>
+          )}
         </section>
 
         {message && <div className="form-success">{message}</div>}

@@ -85,6 +85,15 @@ class Settings:
         "",
     ).strip()
 
+    saas_base_domain: str = os.getenv(
+        "SAAS_BASE_DOMAIN",
+        "",
+    ).strip().lower().strip(".")
+    saas_cname_target: str = os.getenv(
+        "SAAS_CNAME_TARGET",
+        "",
+    ).strip().lower().strip(".")
+
     @property
     def demo_payments_enabled(self) -> bool:
         return (

@@ -110,3 +110,45 @@ class OrganizationInvitationCreated(OrganizationInvitationRead):
 class OrganizationInvitationAcceptResult(BaseModel):
     organization: OrganizationRead
     membership: OrganizationMemberRead
+
+
+
+class OrganizationSubdomainUpdate(BaseModel):
+    subdomain: str | None = Field(
+        default=None,
+        max_length=63,
+        pattern=r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+    )
+
+
+class OrganizationDomainCreate(BaseModel):
+    hostname: str = Field(min_length=3, max_length=253)
+
+
+class OrganizationDomainRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organization_id: int
+    hostname: str
+    status: str
+    verification_token: str
+    is_primary: bool
+    verified_at: datetime | None
+    created_at: datetime
+
+
+class OrganizationDomainConfigRead(BaseModel):
+    base_domain: str | None
+    cname_target: str | None
+    verification_record_prefix: str = "_academie-verification"
+
+
+class OrganizationHostBrandingRead(BaseModel):
+    organization_id: int
+    name: str
+    hostname: str
+    logo_url: str | None
+    primary_color: str
+    secondary_color: str
+    accent_color: str
