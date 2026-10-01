@@ -1,5 +1,5 @@
 export const DEFAULT_PLATFORM_LOGO_URL =
-  'https://academiecreatif.com/logo_ico_hd.png'
+  '/logo_ico_hd.png'
 
 export const DEFAULT_BRAND_COLORS = {
   primary: '#1768FF',
