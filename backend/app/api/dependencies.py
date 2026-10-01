@@ -64,3 +64,15 @@ def get_tenant_context(
         user=current_user,
         organization_id=organization_id,
     )
+
+
+
+def get_super_admin(
+    current_user: UserRecord = Depends(get_current_user),
+) -> UserRecord:
+    if current_user.platform_role != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès super-administrateur requis.",
+        )
+    return current_user
