@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.dependencies import get_current_user, get_tenant_context
+from app.api.dependencies import get_non_support_user, get_tenant_context
 from app.db.session import get_db
 from app.models.entities import OrganizationMemberRecord, UserRecord
 from app.schemas.organizations import (
@@ -55,7 +55,7 @@ router = APIRouter(prefix="/organizations", tags=["organizations"])
 @router.get("", response_model=list[OrganizationRead])
 def list_organizations_route(
     db: Session = Depends(get_db),
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(get_non_support_user),
 ):
     return list_user_organizations(db, current_user)
 
@@ -68,7 +68,7 @@ def list_organizations_route(
 def create_organization_route(
     payload: OrganizationCreate,
     db: Session = Depends(get_db),
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(get_non_support_user),
 ):
     try:
         return create_organization(db, user=current_user, payload=payload)
@@ -203,7 +203,7 @@ def cancel_current_invitation(
 def accept_organization_invitation(
     token: str,
     db: Session = Depends(get_db),
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: UserRecord = Depends(get_non_support_user),
 ):
     organization, membership = accept_invitation(
         db,

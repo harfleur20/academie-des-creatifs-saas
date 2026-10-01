@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -117,6 +117,7 @@ def get_current_user(
 
 
 def get_tenant_context(
+    request: Request,
     session: AuthenticatedSession = Depends(get_authenticated_session),
     db: Session = Depends(get_db),
     organization_id: Annotated[int | None, Header(alias=settings.tenant_header)] = None,
@@ -137,6 +138,11 @@ def get_tenant_context(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cette session support est limitée à une autre école.",
+            )
+        if request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Le mode support est en lecture seule.",
             )
 
     return resolve_tenant_context(
@@ -170,3 +176,15 @@ def get_support_session(
             detail="Session support requise.",
         )
     return session
+
+
+
+def get_non_support_user(
+    session: AuthenticatedSession = Depends(get_authenticated_session),
+) -> UserRecord:
+    if session.support_session is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cette action n'est pas disponible en mode support.",
+        )
+    return session.user
