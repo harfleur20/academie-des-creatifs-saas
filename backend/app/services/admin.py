@@ -657,10 +657,12 @@ def replace_admin_plan_entitlements(
         },
     )
     db.commit()
+    db.expire(plan, ["entitlements"])
 
     refreshed = db.scalar(
         select(PlanRecord)
         .options(selectinload(PlanRecord.entitlements))
+        .execution_options(populate_existing=True)
         .where(PlanRecord.id == plan.id)
     )
     return _plan_to_admin_read(refreshed)
