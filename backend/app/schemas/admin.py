@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 
 class AdminRevenueTotal(BaseModel):
@@ -50,7 +50,6 @@ class AdminOrganizationRead(BaseModel):
     subscription: AdminOrganizationSubscriptionRead | None
 
 
-
 class AdminActionPayload(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
 
@@ -68,12 +67,6 @@ class AdminAuditRead(BaseModel):
     actor_name: str | None
     actor_email: str | None
     created_at: datetime
-
-
-class AdminOrganizationDetailRead(AdminOrganizationRead):
-    commercial_access: AdminCommercialAccessRead | None = None
-    audit_logs: list[AdminAuditRead]
-
 
 
 class AdminEntitlementUpdate(BaseModel):
@@ -115,7 +108,6 @@ class AdminPlanEntitlementsPayload(BaseModel):
     entitlements: list[AdminEntitlementUpdate]
 
 
-
 class AdminCommercialAccessPayload(BaseModel):
     plan_id: int = Field(gt=0)
     days: int = Field(ge=1, le=365)
@@ -131,6 +123,11 @@ class AdminCommercialAccessRead(BaseModel):
     ends_at: datetime
     reason: str
     status: str
+
+
+class AdminOrganizationDetailRead(AdminOrganizationRead):
+    commercial_access: AdminCommercialAccessRead | None = None
+    audit_logs: list[AdminAuditRead]
 
 
 class AdminSupportSessionPayload(BaseModel):
