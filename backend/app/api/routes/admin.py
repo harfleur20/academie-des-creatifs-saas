@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_super_admin
@@ -127,7 +127,7 @@ def admin_plans(
 def admin_update_plan(
     plan_id: int,
     payload: AdminPlanUpdate,
-    reason: str,
+    reason: str = Query(min_length=3, max_length=500),
     db: Session = Depends(get_db),
     current_admin: UserRecord = Depends(get_super_admin),
 ):
@@ -147,7 +147,7 @@ def admin_update_plan(
 def admin_replace_plan_entitlements(
     plan_id: int,
     payload: AdminPlanEntitlementsPayload,
-    reason: str,
+    reason: str = Query(min_length=3, max_length=500),
     db: Session = Depends(get_db),
     current_admin: UserRecord = Depends(get_super_admin),
 ):
