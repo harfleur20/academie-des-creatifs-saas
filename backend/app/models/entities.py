@@ -450,6 +450,76 @@ class PlatformAdminAuditRecord(TimestampMixin, Base):
     actor: Mapped["UserRecord | None"] = relationship()
 
 
+class OrganizationPlanOverrideRecord(TimestampMixin, Base):
+    __tablename__ = "organization_plan_overrides"
+    __table_args__ = (
+        Index(
+            "ix_organization_plan_overrides_org_status_end",
+            "organization_id",
+            "status",
+            "ends_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("plans.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    granted_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="active", index=True)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    plan: Mapped["PlanRecord"] = relationship()
+    granted_by: Mapped["UserRecord | None"] = relationship()
+
+
+class PlatformSupportSessionRecord(TimestampMixin, Base):
+    __tablename__ = "platform_support_sessions"
+    __table_args__ = (
+        Index(
+            "ix_platform_support_sessions_actor_end",
+            "actor_user_id",
+            "ended_at",
+        ),
+        Index(
+            "ix_platform_support_sessions_org_expiry",
+            "organization_id",
+            "expires_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    actor_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    actor: Mapped["UserRecord"] = relationship()
+
+
 class FormationRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "formations"
     __table_args__ = (

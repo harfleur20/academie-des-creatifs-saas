@@ -19,6 +19,7 @@ class TenantContext:
     organization: OrganizationRecord
     user: UserRecord
     membership: OrganizationMemberRecord | None
+    support_mode: bool = False
 
     @property
     def organization_id(self) -> int:
@@ -38,6 +39,7 @@ def resolve_tenant_context(
     *,
     user: UserRecord,
     organization_id: int,
+    support_mode: bool = False,
 ) -> TenantContext:
     organization = db.get(OrganizationRecord, organization_id)
     if organization is None or not organization.is_active or organization.status != "active":
@@ -47,7 +49,12 @@ def resolve_tenant_context(
         )
 
     if user.platform_role == "super_admin":
-        return TenantContext(organization=organization, user=user, membership=None)
+        return TenantContext(
+            organization=organization,
+            user=user,
+            membership=None,
+            support_mode=support_mode,
+        )
 
     membership = db.scalar(
         select(OrganizationMemberRecord).where(

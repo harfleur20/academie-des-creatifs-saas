@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models.entities import UserRecord
 from app.schemas.admin import (
     AdminActionPayload,
+    AdminCommercialAccessPayload,
     AdminDashboardRead,
     AdminExtendTrialPayload,
     AdminOrganizationDetailRead,
@@ -13,15 +14,20 @@ from app.schemas.admin import (
     AdminPlanEntitlementsPayload,
     AdminPlanRead,
     AdminPlanUpdate,
+    AdminSupportSessionPayload,
+    AdminSupportSessionRead,
 )
 from app.services.admin import (
+    cancel_commercial_access,
     extend_trial,
     get_admin_dashboard,
     get_admin_organization,
     list_admin_organizations,
+    grant_commercial_access,
     list_admin_plans,
     reactivate_organization,
     replace_admin_plan_entitlements,
+    start_support_session,
     suspend_organization,
     update_admin_plan,
 )
@@ -160,4 +166,61 @@ def admin_replace_plan_entitlements(
             for item in payload.entitlements
         ],
         reason=reason,
+    )
+
+
+
+@router.post(
+    "/organizations/{organization_id}/commercial-access",
+    response_model=AdminOrganizationDetailRead,
+)
+def admin_grant_commercial_access(
+    organization_id: int,
+    payload: AdminCommercialAccessPayload,
+    db: Session = Depends(get_db),
+    current_admin: UserRecord = Depends(get_super_admin),
+):
+    return grant_commercial_access(
+        db,
+        actor=current_admin,
+        organization_id=organization_id,
+        plan_id=payload.plan_id,
+        days=payload.days,
+        reason=payload.reason,
+    )
+
+
+@router.delete(
+    "/organizations/{organization_id}/commercial-access",
+    response_model=AdminOrganizationDetailRead,
+)
+def admin_cancel_commercial_access(
+    organization_id: int,
+    payload: AdminActionPayload,
+    db: Session = Depends(get_db),
+    current_admin: UserRecord = Depends(get_super_admin),
+):
+    return cancel_commercial_access(
+        db,
+        actor=current_admin,
+        organization_id=organization_id,
+        reason=payload.reason,
+    )
+
+
+@router.post(
+    "/organizations/{organization_id}/support-session",
+    response_model=AdminSupportSessionRead,
+)
+def admin_start_support_session(
+    organization_id: int,
+    payload: AdminSupportSessionPayload,
+    db: Session = Depends(get_db),
+    current_admin: UserRecord = Depends(get_super_admin),
+):
+    return start_support_session(
+        db,
+        actor=current_admin,
+        organization_id=organization_id,
+        reason=payload.reason,
     )

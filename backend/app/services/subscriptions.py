@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import settings
 from app.models.entities import (
     BillingInvoiceRecord,
+    OrganizationPlanOverrideRecord,
     PlanRecord,
     SubscriptionRecord,
     UsageCounterRecord,
@@ -364,6 +365,46 @@ def start_default_trial(
     return subscription
 
 
+def get_active_plan_override(
+    db: Session,
+    organization_id: int,
+    *,
+    now: datetime | None = None,
+) -> OrganizationPlanOverrideRecord | None:
+    now = aware_utc(now) or utc_now()
+    return db.scalar(
+        select(OrganizationPlanOverrideRecord)
+        .options(
+            selectinload(OrganizationPlanOverrideRecord.plan).selectinload(
+                PlanRecord.entitlements
+            )
+        )
+        .where(
+            OrganizationPlanOverrideRecord.organization_id == organization_id,
+            OrganizationPlanOverrideRecord.status == "active",
+            OrganizationPlanOverrideRecord.starts_at <= now,
+            OrganizationPlanOverrideRecord.ends_at > now,
+        )
+        .order_by(
+            OrganizationPlanOverrideRecord.created_at.desc(),
+            OrganizationPlanOverrideRecord.id.desc(),
+        )
+        .limit(1)
+    )
+
+
+def get_effective_plan(
+    db: Session,
+    organization_id: int,
+) -> PlanRecord | None:
+    override = get_active_plan_override(db, organization_id)
+    if override is not None:
+        return override.plan
+
+    subscription = get_current_subscription(db, organization_id)
+    return subscription.plan if subscription is not None else None
+
+
 def get_usage(
     db: Session,
     *,
@@ -420,8 +461,8 @@ def check_entitlement(
     feature_key: str,
     usage_metric_key: str | None = None,
 ) -> EntitlementDecision:
-    subscription = get_current_subscription(db, organization_id)
-    if subscription is None:
+    plan = get_effective_plan(db, organization_id)
+    if plan is None:
         return EntitlementDecision(
             feature_key=feature_key,
             enabled=False,
@@ -433,7 +474,7 @@ def check_entitlement(
     entitlement = next(
         (
             item
-            for item in subscription.plan.entitlements
+            for item in plan.entitlements
             if item.feature_key == feature_key
         ),
         None,

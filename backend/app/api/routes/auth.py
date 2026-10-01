@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import AuthenticatedSession, get_current_user, get_support_session
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.entities import UserRecord
 from app.schemas.auth import AuthResponse, AuthUser, LoginPayload, RegisterPayload
+from app.services.admin import end_support_session
 from app.services.auth import (
     EmailAlreadyUsedError,
     authenticate_user,
@@ -66,3 +67,17 @@ def me(
     current_user: UserRecord = Depends(get_current_user),
 ) -> AuthUser:
     return AuthUser.model_validate(current_user)
+
+
+
+@router.post("/support/end", status_code=status.HTTP_204_NO_CONTENT)
+def end_support(
+    db: Session = Depends(get_db),
+    session: AuthenticatedSession = Depends(get_support_session),
+):
+    end_support_session(
+        db,
+        actor=session.user,
+        support_session=session.support_session,
+    )
+    return None

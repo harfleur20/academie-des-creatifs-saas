@@ -33,15 +33,21 @@ def create_access_token(
     user_id: int,
     *,
     minutes: int = 60,
+    additional_claims: dict[str, object] | None = None,
 ) -> str:
     now = utc_now()
-    payload = {
+    payload: dict[str, object] = {
         "sub": str(user_id),
         "iss": settings.jwt_issuer,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=minutes)).timestamp()),
         "type": "access",
     }
+    if additional_claims:
+        protected = {"sub", "iss", "iat", "exp", "type"}
+        if protected.intersection(additional_claims):
+            raise ValueError("additional_claims cannot override protected JWT claims")
+        payload.update(additional_claims)
     return jwt.encode(
         payload,
         settings.jwt_secret_key,

@@ -7,12 +7,15 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.security import create_access_token
 from app.models.entities import (
     BillingInvoiceRecord,
     OrganizationDomainRecord,
     OrganizationMemberRecord,
+    OrganizationPlanOverrideRecord,
     OrganizationRecord,
     PlatformAdminAuditRecord,
+    PlatformSupportSessionRecord,
     PlanEntitlementRecord,
     PlanRecord,
     SubscriptionRecord,
@@ -21,8 +24,10 @@ from app.models.entities import (
 from app.schemas.admin import (
     AdminAuditRead,
     AdminDashboardRead,
+    AdminCommercialAccessRead,
     AdminOrganizationDetailRead,
     AdminOrganizationRead,
+    AdminSupportSessionRead,
     AdminOrganizationSubscriptionRead,
     AdminPlanRead,
     AdminRevenueTotal,
@@ -326,8 +331,39 @@ def get_admin_organization(
         .limit(50)
     ).all()
 
+    now = _utc_now()
+    active_override = db.scalar(
+        select(OrganizationPlanOverrideRecord)
+        .options(selectinload(OrganizationPlanOverrideRecord.plan))
+        .where(
+            OrganizationPlanOverrideRecord.organization_id == organization.id,
+            OrganizationPlanOverrideRecord.status == "active",
+            OrganizationPlanOverrideRecord.starts_at <= now,
+            OrganizationPlanOverrideRecord.ends_at > now,
+        )
+        .order_by(
+            OrganizationPlanOverrideRecord.created_at.desc(),
+            OrganizationPlanOverrideRecord.id.desc(),
+        )
+        .limit(1)
+    )
+
+    commercial_access = None
+    if active_override is not None:
+        commercial_access = AdminCommercialAccessRead(
+            id=active_override.id,
+            plan_id=active_override.plan_id,
+            plan_code=active_override.plan.code,
+            plan_name=active_override.plan.name,
+            starts_at=active_override.starts_at,
+            ends_at=active_override.ends_at,
+            reason=active_override.reason,
+            status=active_override.status,
+        )
+
     return AdminOrganizationDetailRead(
         **item.model_dump(),
+        commercial_access=commercial_access,
         audit_logs=[
             AdminAuditRead(
                 id=record.id,
@@ -666,3 +702,215 @@ def replace_admin_plan_entitlements(
         .where(PlanRecord.id == plan.id)
     )
     return _plan_to_admin_read(refreshed)
+
+
+
+def grant_commercial_access(
+    db: Session,
+    *,
+    actor: UserRecord,
+    organization_id: int,
+    plan_id: int,
+    days: int,
+    reason: str,
+) -> AdminOrganizationDetailRead:
+    organization = _get_organization_or_404(db, organization_id)
+    plan = db.get(PlanRecord, plan_id)
+    if plan is None or not plan.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ce forfait n'est pas disponible pour une dérogation.",
+        )
+
+    now = _utc_now()
+    existing = list(
+        db.scalars(
+            select(OrganizationPlanOverrideRecord).where(
+                OrganizationPlanOverrideRecord.organization_id == organization.id,
+                OrganizationPlanOverrideRecord.status == "active",
+                OrganizationPlanOverrideRecord.ends_at > now,
+            )
+        ).all()
+    )
+    for item in existing:
+        item.status = "cancelled"
+        item.cancelled_at = now
+        db.add(item)
+
+    override = OrganizationPlanOverrideRecord(
+        organization_id=organization.id,
+        plan_id=plan.id,
+        granted_by_user_id=actor.id,
+        status="active",
+        reason=reason.strip(),
+        starts_at=now,
+        ends_at=now + timedelta(days=days),
+        cancelled_at=None,
+    )
+    db.add(override)
+    db.flush()
+
+    _write_admin_audit(
+        db,
+        actor=actor,
+        organization_id=organization.id,
+        action="commercial_access.granted",
+        reason=reason,
+        details={
+            "override_id": override.id,
+            "plan_id": plan.id,
+            "plan_code": plan.code,
+            "days": days,
+            "starts_at": override.starts_at.isoformat(),
+            "ends_at": override.ends_at.isoformat(),
+        },
+    )
+    db.commit()
+    return get_admin_organization(db, organization.id)
+
+
+def cancel_commercial_access(
+    db: Session,
+    *,
+    actor: UserRecord,
+    organization_id: int,
+    reason: str,
+) -> AdminOrganizationDetailRead:
+    organization = _get_organization_or_404(db, organization_id)
+    now = _utc_now()
+    override = db.scalar(
+        select(OrganizationPlanOverrideRecord)
+        .where(
+            OrganizationPlanOverrideRecord.organization_id == organization.id,
+            OrganizationPlanOverrideRecord.status == "active",
+            OrganizationPlanOverrideRecord.ends_at > now,
+        )
+        .order_by(
+            OrganizationPlanOverrideRecord.created_at.desc(),
+            OrganizationPlanOverrideRecord.id.desc(),
+        )
+        .limit(1)
+        .with_for_update()
+    )
+    if override is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Aucun accès commercial temporaire actif.",
+        )
+
+    override.status = "cancelled"
+    override.cancelled_at = now
+    db.add(override)
+
+    _write_admin_audit(
+        db,
+        actor=actor,
+        organization_id=organization.id,
+        action="commercial_access.cancelled",
+        reason=reason,
+        details={
+            "override_id": override.id,
+            "plan_id": override.plan_id,
+            "scheduled_end": override.ends_at.isoformat(),
+            "cancelled_at": now.isoformat(),
+        },
+    )
+    db.commit()
+    return get_admin_organization(db, organization.id)
+
+
+def start_support_session(
+    db: Session,
+    *,
+    actor: UserRecord,
+    organization_id: int,
+    reason: str,
+    minutes: int = 30,
+) -> AdminSupportSessionRead:
+    organization = _get_organization_or_404(db, organization_id)
+    if not organization.is_active or organization.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Réactivez l'école avant d'ouvrir une session support.",
+        )
+
+    now = _utc_now()
+    open_sessions = list(
+        db.scalars(
+            select(PlatformSupportSessionRecord).where(
+                PlatformSupportSessionRecord.actor_user_id == actor.id,
+                PlatformSupportSessionRecord.ended_at.is_(None),
+                PlatformSupportSessionRecord.expires_at > now,
+            )
+        ).all()
+    )
+    for item in open_sessions:
+        item.ended_at = now
+        db.add(item)
+
+    support_session = PlatformSupportSessionRecord(
+        actor_user_id=actor.id,
+        organization_id=organization.id,
+        reason=reason.strip(),
+        expires_at=now + timedelta(minutes=minutes),
+        ended_at=None,
+    )
+    db.add(support_session)
+    db.flush()
+
+    _write_admin_audit(
+        db,
+        actor=actor,
+        organization_id=organization.id,
+        action="support.started",
+        reason=reason,
+        details={
+            "support_session_id": support_session.id,
+            "expires_at": support_session.expires_at.isoformat(),
+            "mode": "read_only",
+        },
+    )
+    db.commit()
+
+    token = create_access_token(
+        actor.id,
+        minutes=minutes,
+        additional_claims={
+            "support_session_id": support_session.id,
+            "support_org_id": organization.id,
+            "support_mode": "read_only",
+        },
+    )
+    return AdminSupportSessionRead(
+        session_id=support_session.id,
+        organization_id=organization.id,
+        organization_name=organization.name,
+        access_token=token,
+        expires_at=support_session.expires_at,
+    )
+
+
+def end_support_session(
+    db: Session,
+    *,
+    actor: UserRecord,
+    support_session: PlatformSupportSessionRecord,
+) -> None:
+    if support_session.ended_at is not None:
+        return
+
+    now = _utc_now()
+    support_session.ended_at = now
+    db.add(support_session)
+    _write_admin_audit(
+        db,
+        actor=actor,
+        organization_id=support_session.organization_id,
+        action="support.ended",
+        reason="Fin de la session support.",
+        details={
+            "support_session_id": support_session.id,
+            "ended_at": now.isoformat(),
+        },
+    )
+    db.commit()

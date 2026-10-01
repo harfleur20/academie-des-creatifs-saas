@@ -71,6 +71,7 @@ class AdminAuditRead(BaseModel):
 
 
 class AdminOrganizationDetailRead(AdminOrganizationRead):
+    commercial_access: AdminCommercialAccessRead | None = None
     audit_logs: list[AdminAuditRead]
 
 
@@ -112,3 +113,34 @@ class AdminPlanRead(BaseModel):
 
 class AdminPlanEntitlementsPayload(BaseModel):
     entitlements: list[AdminEntitlementUpdate]
+
+
+
+class AdminCommercialAccessPayload(BaseModel):
+    plan_id: int = Field(gt=0)
+    days: int = Field(ge=1, le=365)
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class AdminCommercialAccessRead(BaseModel):
+    id: int
+    plan_id: int
+    plan_code: str
+    plan_name: str
+    starts_at: datetime
+    ends_at: datetime
+    reason: str
+    status: str
+
+
+class AdminSupportSessionPayload(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class AdminSupportSessionRead(BaseModel):
+    session_id: int
+    organization_id: int
+    organization_name: str
+    access_token: str
+    token_type: str = "Bearer"
+    expires_at: datetime
