@@ -1,16 +1,30 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.dependencies import get_current_user, get_tenant_context
 from app.db.session import get_db
 from app.models.entities import OrganizationMemberRecord, UserRecord
 from app.schemas.organizations import (
     OrganizationCreate,
+    OrganizationInvitationAcceptResult,
+    OrganizationInvitationCreate,
+    OrganizationInvitationCreated,
+    OrganizationInvitationRead,
     OrganizationMemberCreate,
     OrganizationMemberRead,
+    OrganizationMemberUpdate,
     OrganizationRead,
+    OrganizationUpdate,
+)
+from app.services.organization_management import (
+    accept_invitation,
+    add_member,
+    cancel_invitation,
+    create_invitation,
+    list_invitations,
+    update_member,
+    update_organization_settings,
 )
 from app.services.organizations import (
     OrganizationConflictError,
@@ -57,6 +71,15 @@ def get_current_organization(
     return tenant.organization
 
 
+@router.patch("/current", response_model=OrganizationRead)
+def update_current_organization(
+    payload: OrganizationUpdate,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return update_organization_settings(db, tenant, payload)
+
+
 @router.get("/current/members", response_model=list[OrganizationMemberRead])
 def list_current_members(
     db: Session = Depends(get_db),
@@ -66,11 +89,15 @@ def list_current_members(
     return list(
         db.scalars(
             select(OrganizationMemberRecord)
+            .options(selectinload(OrganizationMemberRecord.user))
             .where(
                 OrganizationMemberRecord.organization_id == tenant.organization_id,
-                OrganizationMemberRecord.status == "active",
             )
-            .order_by(OrganizationMemberRecord.id)
+            .order_by(
+                OrganizationMemberRecord.status,
+                OrganizationMemberRecord.role,
+                OrganizationMemberRecord.id,
+            )
         ).all()
     )
 
@@ -85,41 +112,95 @@ def add_current_member(
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    require_organization_roles(tenant, "owner", "admin")
-
-    existing = db.scalar(
-        select(OrganizationMemberRecord).where(
-            OrganizationMemberRecord.organization_id == tenant.organization_id,
-            OrganizationMemberRecord.user_id == payload.user_id,
-        )
-    )
-    if existing is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Cet utilisateur appartient déjà à cette organisation.",
-        )
-
     user = db.get(UserRecord, payload.user_id)
-    if user is None:
+    if user is None or user.status != "active":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Utilisateur introuvable.",
         )
+    return add_member(db, tenant, user=user, role=payload.role)
 
-    member = OrganizationMemberRecord(
-        organization_id=tenant.organization_id,
-        user_id=user.id,
-        role=payload.role,
-        status="active",
+
+@router.patch(
+    "/current/members/{member_id}",
+    response_model=OrganizationMemberRead,
+)
+def update_current_member(
+    member_id: int,
+    payload: OrganizationMemberUpdate,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return update_member(db, tenant, member_id, payload)
+
+
+@router.get(
+    "/current/invitations",
+    response_model=list[OrganizationInvitationRead],
+)
+def list_current_invitations(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return list_invitations(db, tenant)
+
+
+@router.post(
+    "/current/invitations",
+    response_model=OrganizationInvitationCreated,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_current_invitation(
+    payload: OrganizationInvitationCreate,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    invitation, token = create_invitation(db, tenant, payload)
+    return OrganizationInvitationCreated(
+        id=invitation.id,
+        organization_id=invitation.organization_id,
+        email=invitation.email,
+        role=invitation.role,
+        status=invitation.status,
+        invited_by_user_id=invitation.invited_by_user_id,
+        expires_at=invitation.expires_at,
+        created_at=invitation.created_at,
+        acceptance_token=token,
     )
-    db.add(member)
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Impossible d'ajouter ce membre.",
-        ) from exc
-    db.refresh(member)
-    return member
+
+
+@router.post(
+    "/current/invitations/{invitation_id}/cancel",
+    response_model=OrganizationInvitationRead,
+)
+def cancel_current_invitation(
+    invitation_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return cancel_invitation(db, tenant, invitation_id)
+
+
+@router.post(
+    "/invitations/{token}/accept",
+    response_model=OrganizationInvitationAcceptResult,
+)
+def accept_organization_invitation(
+    token: str,
+    db: Session = Depends(get_db),
+    current_user: UserRecord = Depends(get_current_user),
+):
+    organization, membership = accept_invitation(
+        db,
+        current_user=current_user,
+        token=token,
+    )
+    membership = db.scalar(
+        select(OrganizationMemberRecord)
+        .options(selectinload(OrganizationMemberRecord.user))
+        .where(OrganizationMemberRecord.id == membership.id)
+    )
+    return OrganizationInvitationAcceptResult(
+        organization=OrganizationRead.model_validate(organization),
+        membership=OrganizationMemberRead.model_validate(membership),
+    )

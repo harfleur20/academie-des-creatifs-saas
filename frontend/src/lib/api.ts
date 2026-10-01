@@ -1,0 +1,213 @@
+export type AuthUser = {
+  id: number
+  full_name: string
+  email: string
+  status: string
+  platform_role: string
+}
+
+export type AuthResponse = {
+  message: string
+  user: AuthUser
+  access_token: string
+  token_type: string
+}
+
+export type Organization = {
+  id: number
+  name: string
+  slug: string
+  status: string
+  is_active: boolean
+  contact_email: string | null
+  timezone: string
+  locale: string
+  created_at: string
+}
+
+export type Member = {
+  id: number
+  organization_id: number
+  user_id: number
+  role: 'owner' | 'admin' | 'manager' | 'teacher' | 'student'
+  status: 'active' | 'suspended'
+  user: {
+    id: number
+    full_name: string
+    email: string
+  }
+}
+
+export type Invitation = {
+  id: number
+  organization_id: number
+  email: string
+  role: 'admin' | 'manager' | 'teacher' | 'student'
+  status: string
+  invited_by_user_id: number | null
+  expires_at: string
+  created_at: string
+  acceptance_token?: string
+}
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+const TOKEN_KEY = 'academie_saas_access_token'
+const ORGANIZATION_KEY = 'academie_saas_organization_id'
+
+export class ApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+export function getAccessToken() {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function setAccessToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearSession() {
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(ORGANIZATION_KEY)
+}
+
+export function getStoredOrganizationId(): number | null {
+  const raw = localStorage.getItem(ORGANIZATION_KEY)
+  if (!raw) return null
+  const parsed = Number(raw)
+  return Number.isInteger(parsed) ? parsed : null
+}
+
+export function setStoredOrganizationId(id: number | null) {
+  if (id === null) {
+    localStorage.removeItem(ORGANIZATION_KEY)
+    return
+  }
+  localStorage.setItem(ORGANIZATION_KEY, String(id))
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit & { organizationId?: number | null } = {},
+): Promise<T> {
+  const headers = new Headers(options.headers)
+  headers.set('Content-Type', 'application/json')
+
+  const token = getAccessToken()
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
+  const organizationId =
+    options.organizationId === undefined
+      ? getStoredOrganizationId()
+      : options.organizationId
+
+  if (organizationId !== null && organizationId !== undefined) {
+    headers.set('X-Organization-Id', String(organizationId))
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    let message = 'Une erreur est survenue.'
+    try {
+      const body = await response.json()
+      if (typeof body?.detail === 'string') message = body.detail
+    } catch {
+      // Keep generic message.
+    }
+    throw new ApiError(response.status, message)
+  }
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  return response.json() as Promise<T>
+}
+
+export async function login(email: string, password: string) {
+  const response = await request<AuthResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+    organizationId: null,
+  })
+  setAccessToken(response.access_token)
+  return response
+}
+
+export async function register(fullName: string, email: string, password: string) {
+  const response = await request<AuthResponse>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ full_name: fullName, email, password }),
+    organizationId: null,
+  })
+  setAccessToken(response.access_token)
+  return response
+}
+
+export const getMe = () =>
+  request<AuthUser>('/auth/me', { organizationId: null })
+
+export const listOrganizations = () =>
+  request<Organization[]>('/organizations', { organizationId: null })
+
+export const createOrganization = (payload: { name: string; slug: string }) =>
+  request<Organization>('/organizations', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    organizationId: null,
+  })
+
+export const getCurrentOrganization = () =>
+  request<Organization>('/organizations/current')
+
+export const updateCurrentOrganization = (payload: {
+  name?: string
+  contact_email?: string | null
+  timezone?: string
+  locale?: string
+}) =>
+  request<Organization>('/organizations/current', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+
+export const listMembers = () =>
+  request<Member[]>('/organizations/current/members')
+
+export const updateMember = (
+  memberId: number,
+  payload: { role?: Member['role']; status?: Member['status'] },
+) =>
+  request<Member>(`/organizations/current/members/${memberId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+
+export const listInvitations = () =>
+  request<Invitation[]>('/organizations/current/invitations')
+
+export const createInvitation = (payload: {
+  email: string
+  role: Invitation['role']
+}) =>
+  request<Invitation>('/organizations/current/invitations', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const cancelInvitation = (invitationId: number) =>
+  request<Invitation>(
+    `/organizations/current/invitations/${invitationId}/cancel`,
+    { method: 'POST' },
+  )

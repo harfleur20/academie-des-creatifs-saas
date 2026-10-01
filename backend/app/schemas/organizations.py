@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class OrganizationCreate(BaseModel):
@@ -12,6 +12,13 @@ class OrganizationCreate(BaseModel):
     )
 
 
+class OrganizationUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=180)
+    contact_email: EmailStr | None = None
+    timezone: str | None = Field(default=None, min_length=2, max_length=80)
+    locale: str | None = Field(default=None, min_length=2, max_length=16)
+
+
 class OrganizationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -20,7 +27,18 @@ class OrganizationRead(BaseModel):
     slug: str
     status: str
     is_active: bool
+    contact_email: str | None
+    timezone: str
+    locale: str
     created_at: datetime
+
+
+class OrganizationUserSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    full_name: str
+    email: str
 
 
 class OrganizationMemberRead(BaseModel):
@@ -31,8 +49,47 @@ class OrganizationMemberRead(BaseModel):
     user_id: int
     role: str
     status: str
+    user: OrganizationUserSummary
 
 
 class OrganizationMemberCreate(BaseModel):
     user_id: int
     role: str = Field(pattern=r"^(owner|admin|manager|teacher|student)$")
+
+
+class OrganizationMemberUpdate(BaseModel):
+    role: str | None = Field(
+        default=None,
+        pattern=r"^(owner|admin|manager|teacher|student)$",
+    )
+    status: str | None = Field(
+        default=None,
+        pattern=r"^(active|suspended)$",
+    )
+
+
+class OrganizationInvitationCreate(BaseModel):
+    email: EmailStr
+    role: str = Field(pattern=r"^(admin|manager|teacher|student)$")
+
+
+class OrganizationInvitationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organization_id: int
+    email: str
+    role: str
+    status: str
+    invited_by_user_id: int | None
+    expires_at: datetime
+    created_at: datetime
+
+
+class OrganizationInvitationCreated(OrganizationInvitationRead):
+    acceptance_token: str
+
+
+class OrganizationInvitationAcceptResult(BaseModel):
+    organization: OrganizationRead
+    membership: OrganizationMemberRead
