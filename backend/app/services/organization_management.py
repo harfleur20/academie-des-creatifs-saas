@@ -37,6 +37,12 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def _active_owner_count(db: Session, organization_id: int) -> int:
     return int(
         db.scalar(
@@ -99,6 +105,50 @@ def update_organization_settings(
     db.commit()
     db.refresh(tenant.organization)
     return tenant.organization
+
+
+def add_member(
+    db: Session,
+    tenant: TenantContext,
+    *,
+    user: UserRecord,
+    role: str,
+) -> OrganizationMemberRecord:
+    actor_role = _actor_role(tenant)
+    if not _can_assign_role(actor_role, role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous ne pouvez pas attribuer ce rôle.",
+        )
+
+    existing = db.scalar(
+        select(OrganizationMemberRecord).where(
+            OrganizationMemberRecord.organization_id == tenant.organization_id,
+            OrganizationMemberRecord.user_id == user.id,
+        )
+    )
+    if existing is not None:
+        if existing.status == "active":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cet utilisateur appartient déjà à cette école.",
+            )
+        existing.role = role
+        existing.status = "active"
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    member = OrganizationMemberRecord(
+        organization_id=tenant.organization_id,
+        user_id=user.id,
+        role=role,
+        status="active",
+    )
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+    return member
 
 
 def update_member(
@@ -167,7 +217,9 @@ def create_invitation(
 
     email = _normalize_email(str(payload.email))
 
-    existing_user = db.scalar(select(UserRecord).where(func.lower(UserRecord.email) == email))
+    existing_user = db.scalar(
+        select(UserRecord).where(func.lower(UserRecord.email) == email)
+    )
     if existing_user is not None:
         existing_member = db.scalar(
             select(OrganizationMemberRecord).where(
@@ -294,7 +346,7 @@ def accept_invitation(
             detail="Cette invitation n'est plus valide.",
         )
 
-    if invitation.expires_at <= now:
+    if _aware_utc(invitation.expires_at) <= now:
         invitation.status = "expired"
         db.commit()
         raise HTTPException(
