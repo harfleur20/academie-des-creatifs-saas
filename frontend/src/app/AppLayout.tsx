@@ -4,6 +4,7 @@ import {
   Building2,
   ChevronDown,
   CreditCard,
+  Eye,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -13,11 +14,12 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { BrandLogo } from '../brand/BrandLogo'
 import { DEFAULT_BRAND_COLORS, resolveBrandLogo } from '../brand/branding'
+import { endAdminSupportMode } from '../lib/api'
 import { useTenant } from './TenantContext'
 
 export function AppLayout() {
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
+  const { user, signOut, supportMode } = useAuth()
   const {
     organizations,
     activeOrganization,
@@ -31,6 +33,16 @@ export function AppLayout() {
   } as CSSProperties
 
   const activeLogo = resolveBrandLogo(activeOrganization?.logo_url)
+
+  async function leaveSupportMode() {
+    if (!supportMode) return
+    const organizationId = supportMode.organization_id
+    try {
+      await endAdminSupportMode()
+    } finally {
+      window.location.assign(`/admin/schools/${organizationId}`)
+    }
+  }
 
   return (
     <div className="saas-app" style={brandStyle}>
@@ -57,12 +69,12 @@ export function AppLayout() {
             )}
           </span>
           <label>
-            <small>École active</small>
+            <small>{supportMode ? 'École consultée' : 'École active'}</small>
             <span className="select-shell">
               <select
                 value={activeOrganization?.id ?? ''}
                 onChange={(event) => selectOrganization(Number(event.target.value))}
-                disabled={organizations.length === 0}
+                disabled={organizations.length === 0 || Boolean(supportMode)}
               >
                 {organizations.length === 0 && <option value="">Aucune école</option>}
                 {organizations.map((organization) => (
@@ -71,7 +83,7 @@ export function AppLayout() {
                   </option>
                 ))}
               </select>
-              <ChevronDown size={14} />
+              {!supportMode && <ChevronDown size={14} />}
             </span>
           </label>
         </div>
@@ -102,7 +114,7 @@ export function AppLayout() {
           </div>
           <div>
             <strong>{user?.full_name}</strong>
-            <small>{user?.email}</small>
+            <small>{supportMode ? 'Super-admin · support' : user?.email}</small>
           </div>
           <button
             title="Se déconnecter"
@@ -117,6 +129,26 @@ export function AppLayout() {
       </aside>
 
       <div className="app-content">
+        {supportMode && (
+          <div className="support-mode-banner">
+            <div>
+              <span className="support-mode-icon"><Eye size={17} /></span>
+              <span>
+                <strong>Mode support — {supportMode.organization_name}</strong>
+                <small>
+                  Lecture seule · session temporaire jusqu’à{' '}
+                  {new Intl.DateTimeFormat('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }).format(new Date(supportMode.expires_at))}
+                </small>
+              </span>
+            </div>
+            <button type="button" onClick={() => void leaveSupportMode()}>
+              Quitter le mode support
+            </button>
+          </div>
+        )}
         <Outlet />
       </div>
     </div>

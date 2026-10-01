@@ -4,17 +4,25 @@ import {
   Building2,
   CalendarPlus,
   CheckCircle2,
+  Gift,
+  LifeBuoy,
   ShieldAlert,
+  XCircle,
 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { BrandLogo } from '../brand/BrandLogo'
 import {
   ApiError,
+  cancelAdminCommercialAccess,
   extendAdminTrial,
   getAdminOrganization,
+  grantAdminCommercialAccess,
+  listAdminPlans,
   reactivateAdminOrganization,
+  startAdminSupportMode,
   suspendAdminOrganization,
   type AdminOrganizationDetail,
+  type AdminPlan,
 } from '../lib/api'
 
 function formatDate(value: string | null) {
@@ -32,14 +40,23 @@ const actionLabels: Record<string, string> = {
   'organization.suspended': 'École suspendue',
   'organization.reactivated': 'École réactivée',
   'subscription.trial_extended': 'Essai prolongé',
+  'commercial_access.granted': 'Accès commercial temporaire accordé',
+  'commercial_access.cancelled': 'Accès commercial temporaire retiré',
+  'support.started': 'Session support ouverte',
+  'support.ended': 'Session support terminée',
 }
 
 export function AdminSchoolDetailPage() {
   const params = useParams()
   const organizationId = Number(params.schoolId)
   const [school, setSchool] = useState<AdminOrganizationDetail | null>(null)
+  const [plans, setPlans] = useState<AdminPlan[]>([])
   const [reason, setReason] = useState('')
   const [trialDays, setTrialDays] = useState(7)
+  const [commercialPlanId, setCommercialPlanId] = useState<number | null>(null)
+  const [commercialDays, setCommercialDays] = useState(30)
+  const [commercialReason, setCommercialReason] = useState('')
+  const [supportReason, setSupportReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -59,6 +76,15 @@ export function AdminSchoolDetailPage() {
 
   useEffect(() => {
     void loadSchool()
+    listAdminPlans()
+      .then((items) => {
+        const activePlans = items.filter((item) => item.is_active)
+        setPlans(activePlans)
+        setCommercialPlanId((current) => current ?? activePlans[0]?.id ?? null)
+      })
+      .catch(() => {
+        // La fiche reste utilisable même si la liste des plans ne charge pas.
+      })
   }, [organizationId])
 
   async function runStatusAction() {
@@ -108,6 +134,83 @@ export function AdminSchoolDetailPage() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Prolongation impossible.')
     } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function grantCommercialAccess(event: FormEvent) {
+    event.preventDefault()
+    if (!school || !commercialPlanId) {
+      setError('Choisissez un forfait temporaire.')
+      return
+    }
+    if (commercialReason.trim().length < 3) {
+      setError('Indiquez le motif de cette dérogation commerciale.')
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+    setMessage('')
+    try {
+      const updated = await grantAdminCommercialAccess(
+        school.id,
+        commercialPlanId,
+        commercialDays,
+        commercialReason.trim(),
+      )
+      setSchool(updated)
+      setCommercialReason('')
+      setMessage(
+        `Accès ${updated.commercial_access?.plan_name || 'temporaire'} accordé pour ${commercialDays} jours.`,
+      )
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Dérogation impossible.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function removeCommercialAccess() {
+    if (!school || commercialReason.trim().length < 3) {
+      setError('Indiquez le motif du retrait de l’accès temporaire.')
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+    setMessage('')
+    try {
+      const updated = await cancelAdminCommercialAccess(
+        school.id,
+        commercialReason.trim(),
+      )
+      setSchool(updated)
+      setCommercialReason('')
+      setMessage('Accès commercial temporaire retiré.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Retrait impossible.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function enterSupportMode() {
+    if (!school || supportReason.trim().length < 3) {
+      setError('Indiquez la raison de la session support.')
+      return
+    }
+    setSubmitting(true)
+    setError('')
+    try {
+      await startAdminSupportMode(school.id, supportReason.trim())
+      window.location.assign('/app')
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Impossible d’ouvrir le mode support.',
+      )
       setSubmitting(false)
     }
   }
@@ -180,7 +283,7 @@ export function AdminSchoolDetailPage() {
         </article>
 
         <article className="admin-card">
-          <span className="section-label">Abonnement</span>
+          <span className="section-label">Abonnement réel</span>
           <h2>{school.subscription?.plan_name || 'Aucun forfait'}</h2>
           <dl className="admin-detail-list">
             <div><dt>Statut</dt><dd>{school.subscription?.status || '—'}</dd></div>
@@ -190,6 +293,16 @@ export function AdminSchoolDetailPage() {
             <div><dt>Grâce jusqu’au</dt><dd>{formatDate(school.subscription?.grace_period_ends_at || null)}</dd></div>
             <div><dt>Fournisseur</dt><dd>{school.subscription?.provider || 'Interne / essai'}</dd></div>
           </dl>
+
+          {school.commercial_access && (
+            <div className="commercial-access-summary">
+              <Gift size={17} />
+              <span>
+                <strong>Accès temporaire : {school.commercial_access.plan_name}</strong>
+                <small>Jusqu’au {formatDate(school.commercial_access.ends_at)}</small>
+              </span>
+            </div>
+          )}
         </article>
       </section>
 
@@ -252,6 +365,105 @@ export function AdminSchoolDetailPage() {
             {trialExtendable ? 'Prolonger l’essai' : 'Essai non prolongeable'}
           </button>
         </form>
+      </section>
+
+      <section className="admin-detail-grid">
+        <form className="admin-card admin-action-card" onSubmit={grantCommercialAccess}>
+          <div>
+            <span className="section-label">Dérogation commerciale</span>
+            <h2>Accès temporaire à un forfait</h2>
+            <p>
+              Donne temporairement les fonctionnalités du forfait choisi sans modifier
+              l’abonnement réel, Tara ou les factures.
+            </p>
+          </div>
+
+          <div className="admin-inline-fields">
+            <label>
+              Forfait temporaire
+              <select
+                value={commercialPlanId ?? ''}
+                onChange={(event) => setCommercialPlanId(Number(event.target.value))}
+              >
+                {plans.map((plan) => (
+                  <option key={plan.id} value={plan.id}>{plan.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Durée (jours)
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={commercialDays}
+                onChange={(event) => setCommercialDays(Number(event.target.value))}
+              />
+            </label>
+          </div>
+
+          <label>
+            Motif obligatoire
+            <textarea
+              value={commercialReason}
+              onChange={(event) => setCommercialReason(event.target.value)}
+              maxLength={500}
+              placeholder="Ex. Essai commercial Pro avant décision d’achat"
+            />
+          </label>
+
+          <div className="admin-action-row">
+            <button
+              className="primary-button"
+              disabled={submitting || !commercialPlanId}
+            >
+              <Gift size={16} />
+              {school.commercial_access ? 'Remplacer l’accès temporaire' : 'Accorder l’accès temporaire'}
+            </button>
+            {school.commercial_access && (
+              <button
+                className="admin-danger-button"
+                type="button"
+                disabled={submitting}
+                onClick={() => void removeCommercialAccess()}
+              >
+                <XCircle size={16} />
+                Retirer
+              </button>
+            )}
+          </div>
+        </form>
+
+        <article className="admin-card admin-action-card support-entry-card">
+          <div>
+            <span className="section-label">Support</span>
+            <h2>Entrer dans l’école</h2>
+            <p>
+              Ouvre pendant 30 minutes une vue de cette école en lecture seule.
+              Aucun mot de passe client n’est utilisé.
+            </p>
+          </div>
+
+          <label>
+            Raison de l’accès
+            <textarea
+              value={supportReason}
+              onChange={(event) => setSupportReason(event.target.value)}
+              maxLength={500}
+              placeholder="Ex. Diagnostiquer l’affichage signalé par le propriétaire"
+            />
+          </label>
+
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={submitting || !school.is_active}
+            onClick={() => void enterSupportMode()}
+          >
+            <LifeBuoy size={16} />
+            {school.is_active ? 'Entrer en mode support' : 'Réactivez d’abord l’école'}
+          </button>
+        </article>
       </section>
 
       <section className="admin-card admin-audit-card">

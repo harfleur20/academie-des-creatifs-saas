@@ -94,6 +94,15 @@ export type Subscription = {
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const TOKEN_KEY = 'academie_saas_access_token'
 const ORGANIZATION_KEY = 'academie_saas_organization_id'
+const SUPPORT_MODE_KEY = 'academie_saas_support_mode'
+const ORIGINAL_ADMIN_TOKEN_KEY = 'academie_saas_original_admin_token'
+
+export type SupportModeState = {
+  session_id: number
+  organization_id: number
+  organization_name: string
+  expires_at: string
+}
 
 export class ApiError extends Error {
   status: number
@@ -112,9 +121,50 @@ export function setAccessToken(token: string) {
   localStorage.setItem(TOKEN_KEY, token)
 }
 
+function restoreOriginalAdminSession() {
+  const originalToken = localStorage.getItem(ORIGINAL_ADMIN_TOKEN_KEY)
+  if (originalToken) {
+    localStorage.setItem(TOKEN_KEY, originalToken)
+  } else {
+    localStorage.removeItem(TOKEN_KEY)
+  }
+  localStorage.removeItem(ORIGINAL_ADMIN_TOKEN_KEY)
+  localStorage.removeItem(SUPPORT_MODE_KEY)
+  localStorage.removeItem(ORGANIZATION_KEY)
+}
+
+export function getSupportMode(): SupportModeState | null {
+  const raw = localStorage.getItem(SUPPORT_MODE_KEY)
+  if (!raw) return null
+
+  try {
+    const state = JSON.parse(raw) as SupportModeState
+    if (
+      !Number.isInteger(state.session_id) ||
+      !Number.isInteger(state.organization_id) ||
+      !state.organization_name ||
+      !state.expires_at
+    ) {
+      restoreOriginalAdminSession()
+      return null
+    }
+
+    if (new Date(state.expires_at).getTime() <= Date.now()) {
+      restoreOriginalAdminSession()
+      return null
+    }
+    return state
+  } catch {
+    restoreOriginalAdminSession()
+    return null
+  }
+}
+
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(ORGANIZATION_KEY)
+  localStorage.removeItem(SUPPORT_MODE_KEY)
+  localStorage.removeItem(ORIGINAL_ADMIN_TOKEN_KEY)
 }
 
 export function getStoredOrganizationId(): number | null {
@@ -515,7 +565,19 @@ export type AdminAuditLog = {
   created_at: string
 }
 
+export type AdminCommercialAccess = {
+  id: number
+  plan_id: number
+  plan_code: string
+  plan_name: string
+  starts_at: string
+  ends_at: string
+  reason: string
+  status: string
+}
+
 export type AdminOrganizationDetail = AdminOrganization & {
+  commercial_access: AdminCommercialAccess | null
   audit_logs: AdminAuditLog[]
 }
 
@@ -616,3 +678,92 @@ export const replaceAdminPlanEntitlements = (
       organizationId: null,
     },
   )
+
+
+export const grantAdminCommercialAccess = (
+  organizationId: number,
+  planId: number,
+  days: number,
+  reason: string,
+) =>
+  request<AdminOrganizationDetail>(
+    `/admin/organizations/${organizationId}/commercial-access`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_id: planId,
+        days,
+        reason,
+      }),
+      organizationId: null,
+    },
+  )
+
+export const cancelAdminCommercialAccess = (
+  organizationId: number,
+  reason: string,
+) =>
+  request<AdminOrganizationDetail>(
+    `/admin/organizations/${organizationId}/commercial-access`,
+    {
+      method: 'DELETE',
+      body: JSON.stringify({ reason }),
+      organizationId: null,
+    },
+  )
+
+export type AdminSupportSession = {
+  session_id: number
+  organization_id: number
+  organization_name: string
+  access_token: string
+  token_type: string
+  expires_at: string
+}
+
+export async function startAdminSupportMode(
+  organizationId: number,
+  reason: string,
+) {
+  const adminToken = getAccessToken()
+  if (!adminToken) {
+    throw new ApiError(401, 'Session administrateur introuvable.')
+  }
+
+  const response = await request<AdminSupportSession>(
+    `/admin/organizations/${organizationId}/support-session`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+      organizationId: null,
+    },
+  )
+
+  localStorage.setItem(ORIGINAL_ADMIN_TOKEN_KEY, adminToken)
+  setAccessToken(response.access_token)
+  setStoredOrganizationId(response.organization_id)
+  localStorage.setItem(
+    SUPPORT_MODE_KEY,
+    JSON.stringify({
+      session_id: response.session_id,
+      organization_id: response.organization_id,
+      organization_name: response.organization_name,
+      expires_at: response.expires_at,
+    } satisfies SupportModeState),
+  )
+  return response
+}
+
+export async function endAdminSupportMode() {
+  const state = getSupportMode()
+  try {
+    if (state) {
+      await request<void>('/auth/support/end', {
+        method: 'POST',
+        organizationId: null,
+      })
+    }
+  } finally {
+    restoreOriginalAdminSession()
+  }
+}

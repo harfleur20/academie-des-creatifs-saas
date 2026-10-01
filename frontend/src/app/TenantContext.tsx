@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  getCurrentOrganization,
   getStoredOrganizationId,
   listOrganizations,
   setStoredOrganizationId,
@@ -26,7 +27,7 @@ type TenantContextValue = {
 const TenantContext = createContext<TenantContextValue | null>(null)
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
+  const { user, supportMode } = useAuth()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [activeOrganization, setActiveOrganization] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(false)
@@ -40,6 +41,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     setLoading(true)
     try {
+      if (supportMode) {
+        setStoredOrganizationId(supportMode.organization_id)
+        const organization = await getCurrentOrganization()
+        setOrganizations([organization])
+        setActiveOrganization(organization)
+        return
+      }
+
       const items = await listOrganizations()
       setOrganizations(items)
 
@@ -54,7 +63,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, supportMode?.organization_id])
 
   useEffect(() => {
     void refreshOrganizations()
@@ -62,12 +71,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   const selectOrganization = useCallback(
     (id: number) => {
+      if (supportMode) return
       const selected = organizations.find((item) => item.id === id)
       if (!selected) return
       setActiveOrganization(selected)
       setStoredOrganizationId(selected.id)
     },
-    [organizations],
+    [organizations, supportMode],
   )
 
   const value = useMemo(

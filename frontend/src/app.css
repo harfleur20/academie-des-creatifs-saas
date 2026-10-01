@@ -2643,3 +2643,135 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+
+.support-mode-banner {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 22px;
+  color: #604500;
+  background: #fff4cf;
+  border-bottom: 1px solid #ecd57f;
+}
+
+.support-mode-banner > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.support-mode-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #765300;
+  background: rgba(255,255,255,.62);
+}
+
+.support-mode-banner strong,
+.support-mode-banner small {
+  display: block;
+}
+
+.support-mode-banner strong {
+  font-size: 12px;
+}
+
+.support-mode-banner small {
+  margin-top: 2px;
+  color: #866c2c;
+  font-size: 9px;
+}
+
+.support-mode-banner button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d4b84d;
+  border-radius: 9px;
+  color: #6c4d00;
+  background: #fff9e7;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.commercial-access-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 12px 13px;
+  border: 1px solid #cbeedc;
+  border-radius: 12px;
+  color: #08774f;
+  background: #effbf6;
+}
+
+.commercial-access-summary strong,
+.commercial-access-summary small {
+  display: block;
+}
+
+.commercial-access-summary strong {
+  font-size: 11px;
+}
+
+.commercial-access-summary small {
+  margin-top: 3px;
+  color: #4e806d;
+  font-size: 9px;
+}
+
+.admin-inline-fields {
+  display: grid;
+  grid-template-columns: 1fr 150px;
+  gap: 10px;
+}
+
+.admin-action-card select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #dce3eb;
+  border-radius: 11px;
+  padding: 0 11px;
+  color: #26364c;
+  background: #fff;
+  outline: none;
+}
+
+.admin-action-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.support-entry-card {
+  background:
+    radial-gradient(circle at 95% 10%, rgba(23,104,255,.08), transparent 34%),
+    #fff;
+}
+
+@media (max-width: 720px) {
+  .support-mode-banner {
+    position: static;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .support-mode-banner button {
+    width: 100%;
+  }
+
+  .admin-inline-fields {
+    grid-template-columns: 1fr;
+  }
+}

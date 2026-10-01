@@ -34,7 +34,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, supportMode, loading } = useAuth()
 
   if (loading) {
     return <div className="app-loading">Chargement de votre espace…</div>
@@ -44,7 +44,7 @@ function RequireSchoolUser({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
 
-  if (user.platform_role === 'super_admin') {
+  if (user.platform_role === 'super_admin' && !supportMode) {
     return <Navigate to="/admin" replace />
   }
 
@@ -52,7 +52,7 @@ function RequireSchoolUser({ children }: { children: React.ReactNode }) {
 }
 
 function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, supportMode, loading } = useAuth()
 
   if (loading) {
     return <div className="app-loading">Chargement de l’administration…</div>
@@ -60,6 +60,10 @@ function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (supportMode) {
+    return <Navigate to="/app" replace />
   }
 
   if (user.platform_role !== 'super_admin') {
