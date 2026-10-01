@@ -27,7 +27,7 @@ jobs:
       - name: Compile backend
         run: python -m compileall app
       - name: Run tenant isolation tests
-        run: pytest -q
+        run: python -m pytest -q
 
   frontend:
     runs-on: ubuntu-latest
