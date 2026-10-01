@@ -225,3 +225,71 @@ def test_plan_change_cancels_old_and_creates_new_subscription(monkeypatch) -> No
     assert changed.id != old.id
     assert changed.plan_id == pro.id
     assert changed.status == "active"
+
+
+
+def test_cancelled_trial_ends_as_cancelled(monkeypatch) -> None:
+    enable_demo(monkeypatch)
+    db = build_db()
+    _, org, starter, _, tenant = seed(db)
+    now = datetime.now(UTC)
+    trial_end = now + timedelta(days=2)
+    subscription = SubscriptionRecord(
+        organization_id=org.id,
+        plan_id=starter.id,
+        status="trialing",
+        billing_interval="monthly",
+        started_at=now,
+        trial_ends_at=trial_end,
+        current_period_start=now,
+        current_period_end=trial_end,
+    )
+    db.add(subscription)
+    db.commit()
+
+    request_cancel_at_period_end(db, tenant)
+    subscription.plan = starter
+    apply_subscription_lifecycle(
+        db,
+        subscription,
+        now=trial_end + timedelta(minutes=1),
+    )
+    db.commit()
+
+    assert subscription.status == "cancelled"
+    assert subscription.cancelled_at is not None
+    assert subscription.suspended_at is None
+
+
+def test_past_due_cancellation_is_immediate_and_voids_invoice(monkeypatch) -> None:
+    enable_demo(monkeypatch)
+    db = build_db()
+    _, org, starter, _, tenant = seed(db)
+    now = datetime.now(UTC)
+    subscription = SubscriptionRecord(
+        organization_id=org.id,
+        plan_id=starter.id,
+        status="active",
+        billing_interval="monthly",
+        started_at=now - timedelta(days=31),
+        current_period_start=now - timedelta(days=31),
+        current_period_end=now - timedelta(days=1),
+    )
+    db.add(subscription)
+    db.commit()
+    subscription.plan = starter
+    apply_subscription_lifecycle(db, subscription, now=now)
+    db.commit()
+
+    assert subscription.status == "past_due"
+    invoice = db.query(BillingInvoiceRecord).filter_by(
+        subscription_id=subscription.id,
+        status="open",
+    ).one()
+
+    updated = request_cancel_at_period_end(db, tenant)
+    db.refresh(invoice)
+
+    assert updated.status == "cancelled"
+    assert invoice.status == "void"
+    assert invoice.due_at is None

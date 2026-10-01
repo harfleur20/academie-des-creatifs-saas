@@ -133,8 +133,13 @@ def apply_subscription_lifecycle(
     if subscription.status == "trialing":
         trial_end = aware_utc(subscription.trial_ends_at)
         if trial_end is not None and trial_end <= now:
-            subscription.status = "suspended"
-            subscription.suspended_at = now
+            if subscription.cancel_at_period_end:
+                subscription.status = "cancelled"
+                subscription.cancelled_at = trial_end
+                subscription.suspended_at = None
+            else:
+                subscription.status = "suspended"
+                subscription.suspended_at = now
             subscription.grace_period_ends_at = None
             db.add(subscription)
             return True
@@ -264,7 +269,28 @@ def request_cancel_at_period_end(
             detail="Aucun abonnement résiliable.",
         )
 
-    subscription.cancel_at_period_end = True
+    if subscription.status == "past_due":
+        now = utc_now()
+        subscription.status = "cancelled"
+        subscription.cancelled_at = now
+        subscription.cancel_at_period_end = False
+        subscription.grace_period_ends_at = None
+
+        open_invoices = list(
+            db.scalars(
+                select(BillingInvoiceRecord).where(
+                    BillingInvoiceRecord.subscription_id == subscription.id,
+                    BillingInvoiceRecord.status == "open",
+                )
+            ).all()
+        )
+        for invoice in open_invoices:
+            invoice.status = "void"
+            invoice.due_at = None
+            db.add(invoice)
+    else:
+        subscription.cancel_at_period_end = True
+
     db.commit()
     db.refresh(subscription)
     return db.scalar(_subscription_query(tenant.organization_id).limit(1))
