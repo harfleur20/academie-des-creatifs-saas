@@ -50,6 +50,40 @@ export type Invitation = {
   acceptance_token?: string
 }
 
+export type PlanEntitlement = {
+  feature_key: string
+  enabled: boolean
+  limit_value: number | null
+}
+
+export type Plan = {
+  id: number
+  code: string
+  name: string
+  description: string
+  currency: string
+  monthly_price_cents: number | null
+  annual_price_cents: number | null
+  trial_days: number
+  is_public: boolean
+  entitlements: PlanEntitlement[]
+}
+
+export type Subscription = {
+  id: number
+  organization_id: number
+  status: 'trialing' | 'active' | 'past_due' | 'suspended' | 'cancelled'
+  billing_interval: 'monthly' | 'annual'
+  started_at: string
+  trial_ends_at: string | null
+  current_period_start: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+  cancelled_at: string | null
+  provider: string | null
+  plan: Plan
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const TOKEN_KEY = 'academie_saas_access_token'
 const ORGANIZATION_KEY = 'academie_saas_organization_id'
@@ -211,3 +245,9 @@ export const cancelInvitation = (invitationId: number) =>
     `/organizations/current/invitations/${invitationId}/cancel`,
     { method: 'POST' },
   )
+
+export const listPlans = () =>
+  request<Plan[]>('/billing/plans', { organizationId: null })
+
+export const getCurrentSubscription = () =>
+  request<Subscription>('/billing/subscription')

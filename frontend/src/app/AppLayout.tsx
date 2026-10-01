@@ -2,6 +2,7 @@ import {
   BookOpen,
   Building2,
   ChevronDown,
+  CreditCard,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -57,6 +58,9 @@ export function AppLayout() {
           <span className="nav-disabled"><BookOpen size={18} /> Formations <small>Bientôt</small></span>
           <NavLink to="/app/team">
             <Users size={18} /> Équipe & accès
+          </NavLink>
+          <NavLink to="/app/billing">
+            <CreditCard size={18} /> Abonnement
           </NavLink>
           <NavLink to="/app/settings">
             <Settings size={18} /> Paramètres
