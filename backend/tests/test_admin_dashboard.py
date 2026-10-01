@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_super_admin
+from app.api.dependencies import AuthenticatedSession, get_super_admin
 from app.db.base import Base
 from app.models.entities import (
     OrganizationMemberRecord,
@@ -33,7 +33,12 @@ def test_super_admin_dependency_rejects_regular_user() -> None:
     )
 
     with pytest.raises(HTTPException) as exc:
-        get_super_admin(user)
+        get_super_admin(
+            AuthenticatedSession(
+                user=user,
+                claims={"sub": "1", "type": "access"},
+            )
+        )
 
     assert exc.value.status_code == 403
 
