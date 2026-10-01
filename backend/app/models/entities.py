@@ -80,6 +80,22 @@ class OrganizationRecord(TimestampMixin, Base):
     contact_email: Mapped[str | None] = mapped_column(String(180), nullable=True)
     timezone: Mapped[str] = mapped_column(String(80), nullable=False, default="UTC")
     locale: Mapped[str] = mapped_column(String(16), nullable=False, default="fr-FR")
+    logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    primary_color: Mapped[str] = mapped_column(
+        String(7),
+        nullable=False,
+        default="#1768FF",
+    )
+    secondary_color: Mapped[str] = mapped_column(
+        String(7),
+        nullable=False,
+        default="#21C889",
+    )
+    accent_color: Mapped[str] = mapped_column(
+        String(7),
+        nullable=False,
+        default="#10233F",
+    )
 
     members: Mapped[list["OrganizationMemberRecord"]] = relationship(
         back_populates="organization",

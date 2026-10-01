@@ -22,6 +22,10 @@ export type Organization = {
   contact_email: string | null
   timezone: string
   locale: string
+  logo_url: string | null
+  primary_color: string
+  secondary_color: string
+  accent_color: string
   created_at: string
 }
 
@@ -212,6 +216,10 @@ export const updateCurrentOrganization = (payload: {
   contact_email?: string | null
   timezone?: string
   locale?: string
+  logo_url?: string | null
+  primary_color?: string
+  secondary_color?: string
+  accent_color?: string
 }) =>
   request<Organization>('/organizations/current', {
     method: 'PATCH',

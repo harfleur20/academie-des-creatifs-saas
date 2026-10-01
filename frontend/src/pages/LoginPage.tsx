@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { BrandLogo } from '../brand/BrandLogo'
 import { ArrowRight, Building2, Check, Eye, EyeOff } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -47,7 +48,7 @@ export function LoginPage() {
     <main className="auth-page">
       <section className="auth-panel auth-copy-panel">
         <a className="auth-logo" href="/">
-          <span className="brand-mark"><span /><span /></span>
+          <BrandLogo className="platform-brand-logo" />
           <span>Académie <strong>SaaS</strong></span>
         </a>
         <div>

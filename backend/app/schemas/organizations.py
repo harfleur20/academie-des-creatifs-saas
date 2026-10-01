@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl
 
 
 class OrganizationCreate(BaseModel):
@@ -17,6 +17,19 @@ class OrganizationUpdate(BaseModel):
     contact_email: EmailStr | None = None
     timezone: str | None = Field(default=None, min_length=2, max_length=80)
     locale: str | None = Field(default=None, min_length=2, max_length=16)
+    logo_url: HttpUrl | None = None
+    primary_color: str | None = Field(
+        default=None,
+        pattern=r"^#[0-9A-Fa-f]{6}$",
+    )
+    secondary_color: str | None = Field(
+        default=None,
+        pattern=r"^#[0-9A-Fa-f]{6}$",
+    )
+    accent_color: str | None = Field(
+        default=None,
+        pattern=r"^#[0-9A-Fa-f]{6}$",
+    )
 
 
 class OrganizationRead(BaseModel):
@@ -30,6 +43,10 @@ class OrganizationRead(BaseModel):
     contact_email: str | None
     timezone: str
     locale: str
+    logo_url: str | None
+    primary_color: str
+    secondary_color: str
+    accent_color: str
     created_at: datetime
 
 
