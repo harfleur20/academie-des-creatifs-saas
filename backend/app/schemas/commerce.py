@@ -152,6 +152,11 @@ class PublicFormationCardRead(BaseModel):
     can_purchase: bool
 
 
+class PublicProgramModuleRead(BaseModel):
+    title: str
+    chapters: list[str]
+
+
 class PublicFormationDetailRead(PublicFormationCardRead):
     description: str
     objectives: str
@@ -159,6 +164,7 @@ class PublicFormationDetailRead(PublicFormationCardRead):
     public_program: str
     allow_installments: bool
     installment_count: int
+    modules: list[PublicProgramModuleRead]
     sessions: list[PublicSessionRead]
     teacher_names: list[str]
 

@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.base import Base
 from app.models.entities import (
+    ChapterRecord,
     CouponRecord,
+    CourseRecord,
     EnrollmentRecord,
     FormationRecord,
     FormationSessionRecord,
@@ -114,6 +116,34 @@ def test_public_formation_requires_available_session(monkeypatch) -> None:
     detail = public_formation_detail(db, org.slug, formation.slug)
     assert detail.can_purchase is False
     assert detail.available_session_count == 0
+
+
+def test_public_formation_exposes_published_modules_from_next_session() -> None:
+    db = build_db()
+    org, _user, formation, session = seed(db)
+    course = CourseRecord(
+        organization_id=org.id,
+        session_id=session.id,
+        title="Fondamentaux",
+        description="",
+        status="published",
+    )
+    db.add(course)
+    db.flush()
+    db.add(
+        ChapterRecord(
+            organization_id=org.id,
+            course_id=course.id,
+            title="Principes de base",
+            order_index=0,
+        )
+    )
+    db.commit()
+
+    detail = public_formation_detail(db, org.slug, formation.slug)
+    assert len(detail.modules) == 1
+    assert detail.modules[0].title == "Fondamentaux"
+    assert detail.modules[0].chapters == ["Principes de base"]
 
 
 def test_promotion_and_coupon_rules() -> None:

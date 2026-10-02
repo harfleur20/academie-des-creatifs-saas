@@ -2015,6 +2015,11 @@ export type PublicFormationCard = {
   can_purchase: boolean
 }
 
+export type PublicProgramModule = {
+  title: string
+  chapters: string[]
+}
+
 export type PublicFormationDetail = PublicFormationCard & {
   description: string
   objectives: string
@@ -2022,6 +2027,7 @@ export type PublicFormationDetail = PublicFormationCard & {
   public_program: string
   allow_installments: boolean
   installment_count: number
+  modules: PublicProgramModule[]
   sessions: PublicSession[]
   teacher_names: string[]
 }
