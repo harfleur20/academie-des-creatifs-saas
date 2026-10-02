@@ -134,6 +134,9 @@ def _serialize_session(session: FormationSessionRecord) -> SessionRead:
         end_date=session.end_date,
         campus_label=session.campus_label,
         seat_capacity=session.seat_capacity,
+        enrollment_open_at=session.enrollment_open_at,
+        enrollment_close_at=session.enrollment_close_at,
+        price_override_cents=session.price_override_cents,
         status=session.status,
         teachers=[
             TeacherAssignmentRead(
@@ -275,6 +278,17 @@ def _serialize_formation_summary(
         level=formation.level,
         format_type=formation.format_type,
         training_hours=formation.training_hours,
+        short_description=formation.short_description,
+        cover_image_url=formation.cover_image_url,
+        objectives=formation.objectives,
+        prerequisites=formation.prerequisites,
+        public_program=formation.public_program,
+        price_cents=formation.price_cents,
+        currency=formation.currency,
+        allow_installments=formation.allow_installments,
+        installment_count=formation.installment_count,
+        is_featured=formation.is_featured,
+        featured_order=formation.featured_order,
         status=formation.status,
         session_count=session_count,
         teacher_count=teacher_count,
@@ -402,6 +416,17 @@ def create_formation(
         level=payload.level.strip(),
         format_type=payload.format_type,
         training_hours=payload.training_hours,
+        short_description=payload.short_description.strip(),
+        cover_image_url=payload.cover_image_url,
+        objectives=payload.objectives.strip(),
+        prerequisites=payload.prerequisites.strip(),
+        public_program=payload.public_program.strip(),
+        price_cents=payload.price_cents,
+        currency=payload.currency.upper(),
+        allow_installments=payload.allow_installments,
+        installment_count=payload.installment_count,
+        is_featured=payload.is_featured,
+        featured_order=payload.featured_order,
         status=payload.status,
     )
     db.add(formation)
@@ -429,6 +454,8 @@ def update_formation(
     for key, value in payload.model_dump(exclude_unset=True).items():
         if isinstance(value, str):
             value = value.strip()
+        if key == "currency" and value:
+            value = value.upper()
         setattr(formation, key, value)
     db.commit()
     db.refresh(formation)
@@ -452,6 +479,9 @@ def create_session(
         end_date=payload.end_date,
         campus_label=payload.campus_label.strip() if payload.campus_label else None,
         seat_capacity=payload.seat_capacity,
+        enrollment_open_at=payload.enrollment_open_at,
+        enrollment_close_at=payload.enrollment_close_at,
+        price_override_cents=payload.price_override_cents,
         status=payload.status,
     )
     db.add(record)
