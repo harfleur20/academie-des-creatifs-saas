@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.entities import (
     OrganizationInvitationRecord,
     OrganizationMemberRecord,
@@ -97,6 +98,40 @@ def update_organization_settings(
         )
 
     values = payload.model_dump(exclude_unset=True)
+
+    requested_name = values.get("name")
+    if requested_name is not None:
+        normalized_name = requested_name.strip()
+        if normalized_name != tenant.organization.name:
+            if actor_role not in {"super_admin", "owner"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Seul le propriétaire de l'école peut modifier son nom.",
+                )
+
+            if (
+                actor_role != "super_admin"
+                and tenant.organization.name_changed_at is not None
+            ):
+                last_change = _aware_utc(tenant.organization.name_changed_at)
+                next_change = last_change + timedelta(
+                    days=settings.organization_name_change_cooldown_days
+                )
+                now = _utc_now()
+                if now < next_change:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=(
+                            "Le nom de l'école ne peut être modifié qu'une fois "
+                            f"tous les {settings.organization_name_change_cooldown_days} jours. "
+                            "Prochain changement possible à partir du "
+                            f"{next_change.strftime('%d/%m/%Y à %H:%M UTC')}."
+                        ),
+                    )
+
+            values["name"] = normalized_name
+            tenant.organization.name_changed_at = _utc_now()
+
     for key, value in values.items():
         if value is not None and key == "logo_url":
             value = str(value)

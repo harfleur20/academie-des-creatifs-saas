@@ -32,11 +32,16 @@ class OrganizationUpdate(BaseModel):
     )
 
 
+class OrganizationPolicyRead(BaseModel):
+    name_change_cooldown_days: int
+
+
 class OrganizationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     name: str
+    name_changed_at: datetime | None
     slug: str
     subdomain: str | None
     status: str

@@ -93,6 +93,10 @@ class Settings:
         "SAAS_CNAME_TARGET",
         "",
     ).strip().lower().strip(".")
+    organization_name_change_cooldown_days: int = max(
+        1,
+        int(os.getenv("ORGANIZATION_NAME_CHANGE_COOLDOWN_DAYS", "30")),
+    )
 
     @property
     def demo_payments_enabled(self) -> bool:

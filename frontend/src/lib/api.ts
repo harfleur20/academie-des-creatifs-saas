@@ -16,6 +16,7 @@ export type AuthResponse = {
 export type Organization = {
   id: number
   name: string
+  name_changed_at: string | null
   slug: string
   subdomain: string | null
   status: string
@@ -256,6 +257,15 @@ export const createOrganization = (payload: { name: string; slug: string }) =>
   request<Organization>('/organizations', {
     method: 'POST',
     body: JSON.stringify(payload),
+    organizationId: null,
+  })
+
+export type OrganizationPolicy = {
+  name_change_cooldown_days: number
+}
+
+export const getOrganizationPolicy = () =>
+  request<OrganizationPolicy>('/organizations/policy', {
     organizationId: null,
   })
 

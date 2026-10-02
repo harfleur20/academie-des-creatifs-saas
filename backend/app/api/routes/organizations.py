@@ -14,6 +14,7 @@ from app.schemas.organizations import (
     OrganizationMemberCreate,
     OrganizationMemberRead,
     OrganizationMemberUpdate,
+    OrganizationPolicyRead,
     OrganizationRead,
     OrganizationUpdate,
     OrganizationSubdomainUpdate,
@@ -220,6 +221,13 @@ def accept_organization_invitation(
         membership=OrganizationMemberRead.model_validate(membership),
     )
 
+
+
+@router.get("/policy", response_model=OrganizationPolicyRead)
+def get_organization_policy():
+    return OrganizationPolicyRead(
+        name_change_cooldown_days=settings.organization_name_change_cooldown_days,
+    )
 
 
 @router.get("/domain-config", response_model=OrganizationDomainConfigRead)

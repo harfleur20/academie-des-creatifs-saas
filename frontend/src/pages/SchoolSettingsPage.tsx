@@ -8,6 +8,7 @@ import {
   createOrganizationDomain,
   deleteOrganizationDomain,
   getOrganizationDomainConfig,
+  getOrganizationPolicy,
   listOrganizationDomains,
   setPrimaryOrganizationDomain,
   updateCurrentOrganization,
@@ -15,6 +16,7 @@ import {
   verifyOrganizationDomain,
   type OrganizationDomain,
   type OrganizationDomainConfig,
+  type OrganizationPolicy,
 } from '../lib/api'
 
 export function SchoolSettingsPage() {
@@ -30,6 +32,7 @@ export function SchoolSettingsPage() {
   const [subdomain, setSubdomain] = useState('')
   const [domains, setDomains] = useState<OrganizationDomain[]>([])
   const [domainConfig, setDomainConfig] = useState<OrganizationDomainConfig | null>(null)
+  const [organizationPolicy, setOrganizationPolicy] = useState<OrganizationPolicy | null>(null)
   const [newDomain, setNewDomain] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [domainLoading, setDomainLoading] = useState(false)
@@ -39,12 +42,14 @@ export function SchoolSettingsPage() {
   async function loadDomains() {
     if (!activeOrganization) return
     try {
-      const [items, config] = await Promise.all([
+      const [items, config, policy] = await Promise.all([
         listOrganizationDomains(),
         getOrganizationDomainConfig(),
+        getOrganizationPolicy(),
       ])
       setDomains(items)
       setDomainConfig(config)
+      setOrganizationPolicy(policy)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible de charger les domaines.')
     }
@@ -67,6 +72,17 @@ export function SchoolSettingsPage() {
   if (!activeOrganization) {
     return <div className="page-state">Créez d’abord une école.</div>
   }
+
+  const cooldownDays = organizationPolicy?.name_change_cooldown_days ?? 30
+  const nextNameChangeAt = activeOrganization.name_changed_at
+    ? new Date(
+        new Date(activeOrganization.name_changed_at).getTime()
+          + cooldownDays * 24 * 60 * 60 * 1000,
+      )
+    : null
+  const nameChangeLocked = Boolean(
+    nextNameChangeAt && nextNameChangeAt.getTime() > Date.now(),
+  )
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -156,7 +172,22 @@ export function SchoolSettingsPage() {
           <div className="settings-grid">
             <label>
               Nom de l’école
-              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={180} />
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+                maxLength={180}
+                disabled={nameChangeLocked}
+              />
+              <small className={nameChangeLocked ? 'name-change-lock' : 'settings-help'}>
+                {nameChangeLocked && nextNameChangeAt
+                  ? `Nom verrouillé jusqu’au ${new Intl.DateTimeFormat('fr-FR', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                    }).format(nextNameChangeAt)}. Un changement est autorisé tous les ${cooldownDays} jours.`
+                  : `Le propriétaire peut renommer l’école une fois tous les ${cooldownDays} jours.`}
+              </small>
             </label>
             <label>
               Email de contact
