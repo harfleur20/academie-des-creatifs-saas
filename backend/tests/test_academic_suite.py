@@ -111,7 +111,7 @@ def seed(db: Session):
         label="Cohorte 2025",
         start_date=date(2025, 1, 1),
         end_date=date(2025, 2, 1),
-        status="completed",
+        status="open",
     )
     db.add(session)
     db.flush()
@@ -261,11 +261,22 @@ def test_quiz_attempt_creates_grade_and_teacher_result() -> None:
 
 def test_lesson_progress_badge_and_certificate_are_real() -> None:
     db = build_db()
-    org, teacher, student, _, session, enrollment, _, lesson, _ = seed(db)
+    org, teacher, student, _, session, enrollment, _, lesson, day = seed(db)
     student_tenant = ctx(db, org, student)
+    teacher_tenant = ctx(db, org, teacher)
 
     learning = mark_lesson_complete(db, student_tenant, lesson.id)
     assert learning.courses[0].chapters[0].lessons[0].completed is True
+
+    mark_attendance(
+        db,
+        teacher_tenant,
+        day.id,
+        AttendanceMarkPayload(
+            enrollment_id=enrollment.id,
+            status="present",
+        ),
+    )
 
     progress = student_progress(db, student_tenant)[0]
     assert progress.lesson_progress_pct == 100
