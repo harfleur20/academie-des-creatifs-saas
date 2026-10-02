@@ -1322,3 +1322,403 @@ export async function uploadAssignmentAsset(file: File) {
     body: form,
   })
 }
+
+
+export type AcademicResource = {
+  id: number
+  session_id: number
+  course_day_id: number | null
+  teacher_id: number | null
+  teacher_name: string | null
+  formation_title: string
+  session_label: string
+  title: string
+  resource_type: 'link' | 'pdf' | 'image' | 'video' | 'file'
+  url: string
+  published_at: string | null
+  created_at: string
+}
+
+export const listTeacherResources = (sessionId: number) =>
+  request<AcademicResource[]>('/academic/teacher/sessions/' + sessionId + '/resources')
+
+export const createTeacherResource = (
+  sessionId: number,
+  payload: {
+    title: string
+    resource_type: AcademicResource['resource_type']
+    url: string
+    course_day_id?: number | null
+    publish_now?: boolean
+  },
+) =>
+  request<AcademicResource>('/academic/teacher/sessions/' + sessionId + '/resources', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const listStudentResources = () =>
+  request<AcademicResource[]>('/academic/student/resources')
+
+export type TeacherQuizQuestion = {
+  id: number
+  order_index: number
+  text: string
+  options: string[]
+  correct_index: number
+}
+
+export type TeacherQuiz = {
+  id: number
+  session_id: number
+  course_day_id: number | null
+  teacher_id: number | null
+  teacher_name: string | null
+  title: string
+  assessment_type: 'quiz' | 'exam'
+  duration_minutes: number | null
+  scheduled_at: string | null
+  status: 'draft' | 'active' | 'closed'
+  pass_pct: number
+  questions: TeacherQuizQuestion[]
+  attempts_count: number
+  created_at: string
+}
+
+export type StudentQuizQuestion = {
+  id: number
+  order_index: number
+  text: string
+  options: string[]
+}
+
+export type QuizAttempt = {
+  id: number
+  attempt_number: number
+  score_pct: number
+  submitted_at: string
+}
+
+export type StudentQuiz = {
+  id: number
+  session_id: number
+  enrollment_id: number
+  formation_title: string
+  session_label: string
+  teacher_name: string | null
+  title: string
+  assessment_type: 'quiz' | 'exam'
+  duration_minutes: number | null
+  scheduled_at: string | null
+  pass_pct: number
+  questions: StudentQuizQuestion[]
+  attempts: QuizAttempt[]
+  best_score_pct: number | null
+  passed: boolean
+  can_attempt: boolean
+  attempts_remaining: number
+}
+
+export type TeacherQuizResults = {
+  quiz_id: number
+  title: string
+  total_students: number
+  attempts: Array<{
+    enrollment_id: number
+    student_name: string
+    attempt_number: number
+    score_pct: number
+    submitted_at: string
+  }>
+}
+
+export const listTeacherQuizzes = (sessionId: number) =>
+  request<TeacherQuiz[]>('/academic/teacher/sessions/' + sessionId + '/quizzes')
+
+export const createTeacherQuiz = (
+  sessionId: number,
+  payload: {
+    title: string
+    assessment_type: 'quiz' | 'exam'
+    duration_minutes?: number | null
+    scheduled_at?: string | null
+    course_day_id?: number | null
+    pass_pct?: number
+    questions: Array<{
+      text: string
+      options: string[]
+      correct_index: number
+    }>
+  },
+) =>
+  request<TeacherQuiz>('/academic/teacher/sessions/' + sessionId + '/quizzes', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const updateTeacherQuizStatus = (
+  quizId: number,
+  status: 'draft' | 'active' | 'closed',
+) =>
+  request<TeacherQuiz>('/academic/teacher/quizzes/' + quizId, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+
+export const getTeacherQuizResults = (quizId: number) =>
+  request<TeacherQuizResults>('/academic/teacher/quizzes/' + quizId + '/results')
+
+export const listStudentQuizzes = () =>
+  request<StudentQuiz[]>('/academic/student/quizzes')
+
+export const submitStudentQuizAttempt = (quizId: number, answers: number[]) =>
+  request<StudentQuiz>('/academic/student/quizzes/' + quizId + '/attempt', {
+    method: 'POST',
+    body: JSON.stringify({ answers }),
+  })
+
+export type LearningLesson = {
+  id: number
+  title: string
+  order_index: number
+  lesson_type: string
+  content: string | null
+  video_url: string | null
+  file_url: string | null
+  completed: boolean
+}
+
+export type LearningChapter = {
+  id: number
+  title: string
+  order_index: number
+  lessons: LearningLesson[]
+}
+
+export type LearningCourse = {
+  id: number
+  title: string
+  description: string
+  teacher_name: string | null
+  chapters: LearningChapter[]
+}
+
+export type LearningSession = {
+  enrollment_id: number
+  session_id: number
+  formation_id: number
+  formation_title: string
+  session_label: string
+  courses: LearningCourse[]
+}
+
+export const listStudentLearning = () =>
+  request<LearningSession[]>('/academic/student/learning')
+
+export const completeStudentLesson = (lessonId: number) =>
+  request<LearningSession>('/academic/student/lessons/' + lessonId + '/complete', {
+    method: 'POST',
+  })
+
+export type AttendanceCourseDay = {
+  course_day_id: number
+  session_id: number
+  title: string
+  scheduled_at: string
+  teacher_id: number | null
+  teacher_name: string | null
+  can_edit: boolean
+  rows: Array<{
+    enrollment_id: number
+    student_id: number
+    student_name: string
+    status: 'present' | 'absent' | 'excused' | null
+  }>
+}
+
+export type StudentAttendance = {
+  course_day_id: number
+  title: string
+  scheduled_at: string
+  status: 'present' | 'absent' | 'excused' | null
+}
+
+export const getTeacherAttendance = (sessionId: number) =>
+  request<AttendanceCourseDay[]>('/academic/teacher/sessions/' + sessionId + '/attendance')
+
+export const markTeacherAttendance = (
+  courseDayId: number,
+  enrollmentId: number,
+  status: 'present' | 'absent' | 'excused',
+) =>
+  request<AttendanceCourseDay>('/academic/teacher/course-days/' + courseDayId + '/attendance', {
+    method: 'PUT',
+    body: JSON.stringify({ enrollment_id: enrollmentId, status }),
+  })
+
+export const listStudentAttendance = () =>
+  request<StudentAttendance[]>('/academic/student/attendance')
+
+export type StudentGrade = {
+  id: number
+  session_id: number
+  label: string
+  source_type: string
+  score: number
+  max_score: number
+  note: string
+  created_at: string
+}
+
+export const listStudentGrades = () =>
+  request<StudentGrade[]>('/academic/student/grades')
+
+export type StudentBadge = {
+  level: 'aventurier' | 'debutant' | 'intermediaire' | 'semi_pro' | 'professionnel'
+  label: string
+  score_pct: number
+  next_level: string | null
+  lesson_progress_pct: number
+  assignment_progress_pct: number | null
+  quiz_progress_pct: number | null
+  attendance_pct: number | null
+  grade_average_pct: number | null
+  final_project_validated: boolean
+}
+
+export type StudentProgress = {
+  enrollment_id: number
+  session_id: number
+  formation_title: string
+  session_label: string
+  completed_lessons: number
+  total_lessons: number
+  lesson_progress_pct: number
+  submitted_assignments: number
+  total_assignments: number
+  attempted_quizzes: number
+  total_quizzes: number
+  attendance_present: number
+  attendance_total: number
+  grade_average_pct: number | null
+  badge: StudentBadge
+}
+
+export const listStudentProgress = () =>
+  request<StudentProgress[]>('/academic/student/progress')
+
+export type TeacherPerformance = {
+  total_sessions: number
+  total_students: number
+  attendance_rate_pct: number | null
+  pending_reviews_count: number
+  sessions: Array<{
+    session_id: number
+    formation_title: string
+    session_label: string
+    enrolled_count: number
+    progress_pct: number
+    attendance_rate_pct: number | null
+    quiz_average_score_pct: number | null
+    pending_reviews_count: number
+  }>
+}
+
+export const getTeacherPerformance = () =>
+  request<TeacherPerformance>('/academic/teacher/performance')
+
+export type StudentClass = {
+  session_id: number
+  formation_title: string
+  session_label: string
+  classmates: Array<{
+    user_id: number
+    enrollment_id: number
+    full_name: string
+    is_current_user: boolean
+    badge: StudentBadge
+  }>
+}
+
+export type DiscussionPost = {
+  id: number
+  author: {
+    user_id: number
+    full_name: string
+    role: string
+    is_current_user: boolean
+  }
+  body: string
+  image_url: string | null
+  created_at: string
+  replies: Array<{
+    id: number
+    author: {
+      user_id: number
+      full_name: string
+      role: string
+      is_current_user: boolean
+    }
+    body: string
+    image_url: string | null
+    created_at: string
+  }>
+}
+
+export const listStudentClasses = () =>
+  request<StudentClass[]>('/academic/student/classes')
+
+export const listClassDiscussion = (sessionId: number) =>
+  request<DiscussionPost[]>('/academic/classes/' + sessionId + '/discussion')
+
+export const createClassDiscussionPost = (
+  sessionId: number,
+  payload: { body?: string; image_url?: string | null },
+) =>
+  request<DiscussionPost>('/academic/classes/' + sessionId + '/discussion', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const createClassDiscussionReply = (
+  sessionId: number,
+  postId: number,
+  payload: { body?: string; image_url?: string | null },
+) =>
+  request<DiscussionPost['replies'][number]>(
+    '/academic/classes/' + sessionId + '/discussion/' + postId + '/replies',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+
+export type CertificateInfo = {
+  enrollment_id: number
+  certificate_number: string
+  student_name: string
+  formation_title: string
+  issued_at: string
+  status: string
+  verification_token: string
+}
+
+export type CertificateEligibility = {
+  enrollment_id: number
+  eligible: boolean
+  reason: string | null
+  certificate: CertificateInfo | null
+}
+
+export const getCertificateEligibility = (enrollmentId: number) =>
+  request<CertificateEligibility>('/academic/student/enrollments/' + enrollmentId + '/certificate')
+
+export const issueStudentCertificate = (enrollmentId: number) =>
+  request<CertificateInfo>('/academic/student/enrollments/' + enrollmentId + '/certificate', {
+    method: 'POST',
+  })
+
+export const verifyCertificate = (token: string) =>
+  request<CertificateInfo>('/academic/certificates/verify/' + encodeURIComponent(token), {
+    organizationId: null,
+  })
