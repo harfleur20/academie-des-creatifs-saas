@@ -13,7 +13,10 @@ import {
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { BrandLogo } from '../brand/BrandLogo'
-import { DEFAULT_BRAND_COLORS, resolveBrandLogo } from '../brand/branding'
+import {
+  DEFAULT_BRAND_COLORS,
+  DEFAULT_PLATFORM_LOGO_URL,
+} from '../brand/branding'
 import { endAdminSupportMode } from '../lib/api'
 import { useTenant } from './TenantContext'
 
@@ -32,7 +35,6 @@ export function AppLayout() {
     '--tenant-accent': activeOrganization?.accent_color || DEFAULT_BRAND_COLORS.accent,
   } as CSSProperties
 
-  const activeLogo = resolveBrandLogo(activeOrganization?.logo_url)
 
   async function leaveSupportMode() {
     if (!supportMode) return
@@ -49,11 +51,11 @@ export function AppLayout() {
       <aside className="app-sidebar">
         <div className="app-brand">
           <BrandLogo
-            logoUrl={activeLogo}
-            alt={activeOrganization?.name || 'Académie des Créatifs'}
+            logoUrl={DEFAULT_PLATFORM_LOGO_URL}
+            alt="Académie des Créatifs"
             className="app-brand-logo"
           />
-          <span>{activeOrganization?.name || 'Académie'}</span>
+          <span>Académie des Créatifs</span>
         </div>
 
         <div className="school-switcher">
