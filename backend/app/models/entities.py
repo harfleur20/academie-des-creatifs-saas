@@ -1042,6 +1042,7 @@ class CertificateRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     formation_title: Mapped[str] = mapped_column(String(255), nullable=False)
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="valid")
+    branding_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
 
 class OrganizationPublicSiteRecord(OrganizationOwnedMixin, TimestampMixin, Base):
@@ -1271,6 +1272,8 @@ class CommunicationOutboxRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     branding_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
+    attempts_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 

@@ -89,6 +89,42 @@ class Settings:
         "",
     ).strip()
 
+    email_provider: str = os.getenv("EMAIL_PROVIDER", "brevo").strip().lower()
+    brevo_api_key: str = os.getenv("BREVO_API_KEY", "").strip()
+    brevo_api_base_url: str = os.getenv(
+        "BREVO_API_BASE_URL",
+        "https://api.brevo.com/v3",
+    ).rstrip("/")
+    brevo_timeout_seconds: float = max(
+        1.0,
+        float(os.getenv("BREVO_TIMEOUT_SECONDS", "15")),
+    )
+    smtp_host: str = os.getenv("SMTP_HOST", "").strip()
+    smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user: str = os.getenv("SMTP_USER", "").strip()
+    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
+    smtp_from: str = os.getenv("SMTP_FROM", "").strip()
+    smtp_from_name: str = os.getenv(
+        "SMTP_FROM_NAME",
+        "Académie des Créatifs",
+    ).strip()
+
+    wapino_enabled: bool = _env_bool("WAPINO_ENABLED", False)
+    wapino_base_url: str = os.getenv(
+        "WAPINO_BASE_URL",
+        "https://api.wapino.consolidis.com",
+    ).rstrip("/")
+    wapino_api_key: str = os.getenv("WAPINO_API_KEY", "").strip()
+    wapino_instance: str = os.getenv("WAPINO_INSTANCE", "AcademieCreatifs").strip()
+    wapino_text_endpoint: str = os.getenv(
+        "WAPINO_TEXT_ENDPOINT",
+        "/message/send-text",
+    ).strip()
+    wapino_timeout_seconds: float = max(
+        1.0,
+        float(os.getenv("WAPINO_TIMEOUT_SECONDS", "15")),
+    )
+
     saas_base_domain: str = os.getenv(
         "SAAS_BASE_DOMAIN",
         "",
