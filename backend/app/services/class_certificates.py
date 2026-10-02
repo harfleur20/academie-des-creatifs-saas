@@ -36,6 +36,7 @@ from app.services.academic_access import (
 )
 from app.services.learning_progress import badge_for_enrollment, progress_for_enrollment
 from app.services.school_branding import branding_snapshot
+from app.services.school_communications import queue_school_event
 from app.services.tenancy import TenantContext
 
 
@@ -413,6 +414,17 @@ def issue_certificate(
     )
     enrollment.status = "completed"
     db.add(row)
+    if student:
+        queue_school_event(
+            db,
+            org=tenant.organization,
+            user=student,
+            event_key="student.certificate.issued",
+            context={
+                "formation_title": formation.title,
+                "certificate_number": row.certificate_number,
+            },
+        )
     db.commit()
     db.refresh(row)
     return _certificate_view(row)

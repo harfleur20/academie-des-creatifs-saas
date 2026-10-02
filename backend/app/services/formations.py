@@ -38,6 +38,7 @@ from app.schemas.formations import (
     LessonRead,
 )
 from app.services.membership_roles import member_has_role
+from app.services.school_communications import queue_session_students_event
 from app.services.tenancy import TenantContext, scoped_select
 
 
@@ -683,6 +684,18 @@ def create_course(
         status=payload.status,
     )
     db.add(course)
+    db.flush()
+    if course.status == "published":
+        queue_session_students_event(
+            db,
+            org=tenant.organization,
+            session_id=session.id,
+            event_key="student.course.published",
+            context={
+                "course_title": course.title,
+                "session_label": session.label,
+            },
+        )
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 
@@ -716,10 +729,22 @@ def update_course(
     elif "teacher_id" in values and values["teacher_id"] is not None:
         _require_member(db, tenant, user_id=values["teacher_id"], role="teacher")
 
+    previous_status = course.status
     for key, value in values.items():
         if isinstance(value, str):
             value = value.strip()
         setattr(course, key, value)
+    if course.status == "published" and previous_status != "published":
+        queue_session_students_event(
+            db,
+            org=tenant.organization,
+            session_id=session.id,
+            event_key="student.course.published",
+            context={
+                "course_title": course.title,
+                "session_label": session.label,
+            },
+        )
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 

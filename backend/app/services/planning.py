@@ -19,6 +19,7 @@ from app.schemas.planning import (
     CourseDayUpdate,
     SessionPlanningRead,
 )
+from app.services.school_communications import queue_session_students_event
 from app.services.tenancy import TenantContext
 
 
@@ -289,6 +290,18 @@ def create_course_day(
             status="planned",
         )
     )
+    if session.formation.format_type == "live":
+        queue_session_students_event(
+            db,
+            org=tenant.organization,
+            session_id=session.id,
+            event_key="student.live.scheduled",
+            context={
+                "course_day_title": payload.title,
+                "scheduled_at": _aware(payload.scheduled_at).strftime("%d/%m/%Y %H:%M"),
+                "session_label": session.label,
+            },
+        )
     db.commit()
     return get_session_planning(db, tenant, session.id)
 
