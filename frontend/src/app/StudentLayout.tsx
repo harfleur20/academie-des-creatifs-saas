@@ -20,13 +20,13 @@ export function StudentLayout() {
       navItems={[
         {
           to: '/app/student',
-          label: 'Tableau de bord',
+          label: "Vue d'ensemble",
           icon: <LayoutDashboard size={18} />,
           end: true,
         },
         {
           to: '/app/student/formations',
-          label: 'Mes formations',
+          label: 'Mes parcours',
           icon: <GraduationCap size={18} />,
         },
         {
@@ -40,6 +40,16 @@ export function StudentLayout() {
           icon: <BookOpen size={18} />,
         },
         {
+          to: '/app/student/class',
+          label: 'Ma classe',
+          icon: <Users size={18} />,
+        },
+        {
+          to: '/app/student/quizzes',
+          label: 'Quiz & Examens',
+          icon: <CheckCircle2 size={18} />,
+        },
+        {
           to: '/app/student/resources',
           label: 'Ressources',
           icon: <FileText size={18} />,
@@ -50,24 +60,14 @@ export function StudentLayout() {
           icon: <ClipboardCheck size={18} />,
         },
         {
-          to: '/app/student/quizzes',
-          label: 'Quiz / Examens',
-          icon: <CheckCircle2 size={18} />,
-        },
-        {
           to: '/app/student/results',
-          label: 'Résultats',
+          label: 'Mes résultats',
           icon: <BarChart3 size={18} />,
         },
         {
           to: '/app/student/progress',
           label: 'Progression',
           icon: <Award size={18} />,
-        },
-        {
-          to: '/app/student/class',
-          label: 'Ma classe',
-          icon: <Users size={18} />,
         },
         {
           to: '/app/student/certificates',

@@ -5482,3 +5482,1192 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* White-label teacher/student shell — mirrors the established Academy UX */
+.tenant-role-shell {
+  --role-sidebar-w: 250px;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--role-sidebar-w) minmax(0, 1fr);
+  background: #f3f7fb;
+  color: #101a3d;
+}
+
+.tenant-role-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 18px 14px 12px;
+  background: #fff;
+  border-right: 1px solid color-mix(in srgb, var(--school-primary) 16%, #e5e7eb);
+  overflow-y: auto;
+}
+
+.tenant-role-brand {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 12px;
+  color: #101a3d;
+  text-decoration: none;
+}
+
+.tenant-role-brand__logo {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.tenant-role-brand > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.tenant-role-brand strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.tenant-role-brand small {
+  color: #8a96aa;
+  font-size: 8px;
+  font-weight: 650;
+}
+
+.tenant-role-badge {
+  margin: 10px 0 13px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  color: color-mix(in srgb, var(--school-primary) 85%, #10233f);
+  background: color-mix(in srgb, var(--school-secondary) 20%, white);
+  text-align: center;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.tenant-role-school-select {
+  display: grid;
+  gap: 4px;
+  margin: 0 4px 10px;
+}
+
+.tenant-role-school-select small {
+  color: #8b97a9;
+  font-size: 7px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.tenant-role-school-select select {
+  width: 100%;
+  border: 1px solid #e5eaf0;
+  border-radius: 8px;
+  padding: 7px 8px;
+  color: #38465d;
+  background: #fff;
+  font-size: 9px;
+}
+
+.tenant-role-nav {
+  display: grid;
+  gap: 3px;
+  padding-top: 9px;
+  border-top: 1px solid #edf1f4;
+}
+
+.tenant-role-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  color: #1e2953;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 750;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.tenant-role-nav a > span {
+  width: 20px;
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--school-primary) 75%, #10233f);
+}
+
+.tenant-role-nav a:hover {
+  background: color-mix(in srgb, var(--school-secondary) 8%, white);
+}
+
+.tenant-role-nav a.active {
+  color: color-mix(in srgb, var(--school-primary) 82%, #10233f);
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(25, 43, 72, .09);
+}
+
+.tenant-role-sidebar__bottom {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.tenant-role-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--school-secondary) 10%, white);
+}
+
+.tenant-role-user-pill > div:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.tenant-role-user-pill strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.tenant-role-user-pill small {
+  color: #7e8b9e;
+  font-size: 8px;
+}
+
+.tenant-role-avatar {
+  width: 35px;
+  height: 35px;
+  flex: 0 0 35px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, var(--school-primary), var(--school-secondary));
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.tenant-role-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tenant-role-powered {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px 0 2px;
+  opacity: .58;
+}
+
+.tenant-role-powered > small {
+  font-size: 6px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+
+.tenant-role-powered > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 7px;
+}
+
+.tenant-role-powered__logo {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+}
+
+.tenant-role-main {
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.tenant-role-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 64px;
+  display: grid;
+  grid-template-columns: auto minmax(140px, .7fr) minmax(240px, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 0 30px;
+  background: rgba(255, 255, 255, .96);
+  border-bottom: 1px solid #e7ebf0;
+  backdrop-filter: blur(12px);
+}
+
+.tenant-role-menu {
+  display: none;
+  border: 0;
+  background: transparent;
+}
+
+.tenant-role-topbar__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.tenant-role-search {
+  position: relative;
+  width: min(390px, 100%);
+  justify-self: center;
+}
+
+.tenant-role-search > svg {
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  transform: translateY(-50%);
+  color: #8d99aa;
+}
+
+.tenant-role-search input {
+  width: 100%;
+  height: 40px;
+  border: 0;
+  border-radius: 11px;
+  padding: 0 14px 0 38px;
+  outline: none;
+  color: #29364c;
+  background: #f2f4f7;
+}
+
+.tenant-role-search__results {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  right: 0;
+  z-index: 80;
+  display: grid;
+  gap: 2px;
+  padding: 7px;
+  border: 1px solid #e4e9ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(18, 32, 57, .13);
+}
+
+.tenant-role-search__results button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 9px;
+  color: #38465d;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tenant-role-search__results button:hover {
+  background: color-mix(in srgb, var(--school-primary) 8%, white);
+}
+
+.tenant-role-topbar__actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tenant-role-icon-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  color: #435069;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tenant-role-icon-button:hover {
+  background: #f2f5f8;
+}
+
+.tenant-role-profile-button {
+  min-width: 180px;
+  display: grid;
+  grid-template-columns: 35px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  padding: 4px 5px;
+  color: #132044;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tenant-role-avatar--header {
+  width: 35px;
+  height: 35px;
+}
+
+.tenant-role-profile-button > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.tenant-role-profile-button strong,
+.tenant-role-profile-button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tenant-role-profile-button strong {
+  font-size: 10px;
+}
+
+.tenant-role-profile-button small {
+  color: #8c98aa;
+  font-size: 8px;
+}
+
+.tenant-role-profile-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 255px;
+  padding: 7px;
+  border: 1px solid #e5eaf0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 18px 45px rgba(18, 32, 57, .14);
+}
+
+.tenant-role-profile-menu__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px;
+  margin-bottom: 5px;
+  border-bottom: 1px solid #edf1f4;
+}
+
+.tenant-role-profile-menu__head > div:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.tenant-role-profile-menu__head strong,
+.tenant-role-profile-menu__head small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tenant-role-profile-menu__head strong {
+  font-size: 10px;
+}
+
+.tenant-role-profile-menu__head small {
+  color: #7f8b9d;
+  font-size: 8px;
+}
+
+.tenant-role-profile-menu > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #344158;
+  background: transparent;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.tenant-role-profile-menu > button:hover {
+  background: #f4f6f9;
+}
+
+.tenant-role-profile-menu > button.is-danger {
+  color: #b42318;
+}
+
+.tenant-role-content {
+  min-width: 0;
+  padding: 22px 30px 34px;
+}
+
+.role-overview {
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.role-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 355px;
+  gap: 18px;
+}
+
+.role-overview-main,
+.role-overview-side {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.role-hero {
+  position: relative;
+  min-height: 235px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38%;
+  overflow: hidden;
+  border-radius: 18px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 47% 110%, rgba(255,255,255,.06) 0 110px, transparent 111px),
+    linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--school-accent) 88%, #091937),
+      color-mix(in srgb, var(--school-primary) 68%, var(--school-secondary))
+    );
+}
+
+.role-hero__copy {
+  position: relative;
+  z-index: 2;
+  align-self: center;
+  display: grid;
+  gap: 7px;
+  padding: 36px;
+}
+
+.role-hero__copy > span {
+  color: rgba(255,255,255,.62);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.role-hero__copy h1 {
+  margin: 0 0 3px;
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1;
+}
+
+.role-hero__copy p,
+.role-hero__copy small {
+  margin: 0;
+  font-size: 10px;
+}
+
+.role-hero__copy p {
+  color: rgba(255,255,255,.75);
+}
+
+.role-hero__copy strong {
+  color: #fff;
+}
+
+.role-hero__copy small {
+  margin-top: 2px;
+  color: rgba(255,255,255,.72);
+  line-height: 1.5;
+}
+
+.role-hero__visual {
+  position: relative;
+  min-height: 235px;
+}
+
+.role-hero__visual::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--school-secondary) 24%, transparent);
+}
+
+.role-hero__visual img {
+  position: absolute;
+  right: 0;
+  bottom: -8px;
+  width: min(390px, 115%);
+  max-height: 250px;
+  object-fit: contain;
+  object-position: right bottom;
+}
+
+.role-hero--student {
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+
+.role-hero__student-progress {
+  align-self: center;
+  justify-self: center;
+  width: 145px;
+  height: 145px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(255,255,255,.09);
+  backdrop-filter: blur(4px);
+}
+
+.role-hero__student-progress span {
+  font-size: 8px;
+}
+
+.role-hero__student-progress strong {
+  font-size: 25px;
+}
+
+.role-kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.role-kpi {
+  position: relative;
+  min-height: 118px;
+  display: grid;
+  align-content: center;
+  overflow: hidden;
+  padding: 17px;
+  border-radius: 15px;
+}
+
+.role-kpi > span {
+  font-size: 7px;
+  font-weight: 950;
+  letter-spacing: .08em;
+}
+
+.role-kpi > strong {
+  margin: 4px 0 1px;
+  font-size: 24px;
+}
+
+.role-kpi > small {
+  font-size: 8px;
+}
+
+.role-kpi > svg {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  opacity: .16;
+}
+
+.role-kpi--primary {
+  color: color-mix(in srgb, var(--school-primary) 70%, #10233f);
+  background: color-mix(in srgb, var(--school-primary) 22%, white);
+}
+
+.role-kpi--secondary {
+  color: color-mix(in srgb, var(--school-secondary) 55%, #6e4900);
+  background: color-mix(in srgb, var(--school-secondary) 20%, #fff0c7);
+}
+
+.role-kpi--mint {
+  color: color-mix(in srgb, var(--school-secondary) 72%, #0c563d);
+  background: color-mix(in srgb, var(--school-secondary) 24%, white);
+}
+
+.role-kpi--accent {
+  color: color-mix(in srgb, var(--school-accent) 75%, #2f1e65);
+  background: color-mix(in srgb, var(--school-accent) 15%, white);
+}
+
+.role-calendar-card,
+.role-side-card {
+  border: 1px solid #e8edf2;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(26, 44, 73, .035);
+}
+
+.role-calendar-card > header,
+.role-side-card > header {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 17px;
+  border-bottom: 1px solid #edf1f4;
+}
+
+.role-calendar-card > header > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.role-calendar-card > header strong,
+.role-side-card > header strong {
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.role-calendar-card > header a {
+  color: var(--school-primary);
+  font-size: 9px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.role-side-card > header > span {
+  min-width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--school-secondary) 75%, #10233f);
+  background: color-mix(in srgb, var(--school-secondary) 18%, white);
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.role-next-course {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 16px 17px;
+  background:
+    linear-gradient(
+      100deg,
+      color-mix(in srgb, var(--school-secondary) 17%, white),
+      color-mix(in srgb, var(--school-primary) 8%, white)
+    );
+}
+
+.role-next-course > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.role-next-course span {
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: color-mix(in srgb, var(--school-secondary) 76%, #0f665b);
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.role-next-course strong {
+  font-size: 12px;
+}
+
+.role-next-course p {
+  margin: 0;
+  color: #5e6d80;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.role-next-course > a {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--school-primary) 18%, #d9e1e9);
+  border-radius: 999px;
+  color: #20304a;
+  background: rgba(255,255,255,.66);
+  text-decoration: none;
+  font-size: 8px;
+  font-weight: 850;
+}
+
+.role-next-course.is-empty {
+  min-height: 82px;
+}
+
+.role-calendar-layout {
+  display: grid;
+  grid-template-columns: 255px minmax(0, 1fr);
+  gap: 20px;
+  padding: 17px;
+}
+
+.role-mini-calendar {
+  min-width: 0;
+}
+
+.role-mini-calendar > header {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.role-mini-calendar > header button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--school-primary) 82%, #10233f);
+  background: transparent;
+  cursor: pointer;
+}
+
+.role-mini-calendar > header strong {
+  text-align: center;
+  font-size: 10px;
+}
+
+.role-mini-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.role-mini-calendar__weekday {
+  padding: 4px 0;
+  color: #96a0af;
+  text-align: center;
+  font-size: 6px;
+  font-weight: 850;
+}
+
+.role-mini-calendar__grid button {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #30405a;
+  background: transparent;
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.role-mini-calendar__grid button:hover,
+.role-mini-calendar__grid button.is-selected {
+  color: color-mix(in srgb, var(--school-primary) 85%, #10233f);
+  background: color-mix(in srgb, var(--school-secondary) 16%, white);
+}
+
+.role-mini-calendar__grid button.is-today {
+  font-weight: 950;
+}
+
+.role-mini-calendar__grid button i {
+  position: absolute;
+  bottom: 3px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--school-secondary);
+}
+
+.role-calendar-day {
+  min-width: 0;
+  padding-left: 18px;
+  border-left: 1px solid #edf1f4;
+}
+
+.role-calendar-day > header {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 9px;
+}
+
+.role-calendar-day > header strong {
+  font-size: 10px;
+}
+
+.role-calendar-day > header span {
+  color: var(--school-primary);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.role-calendar-events {
+  display: grid;
+}
+
+.role-calendar-events article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid #f0f2f5;
+}
+
+.role-calendar-events article strong {
+  font-size: 10px;
+}
+
+.role-calendar-events article p {
+  margin: 3px 0 0;
+  color: #718095;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.role-calendar-events article p b {
+  color: color-mix(in srgb, var(--school-secondary) 78%, #0c5b4f);
+}
+
+.role-calendar-events article a {
+  padding: 7px 9px;
+  border: 1px solid #e3e8ee;
+  border-radius: 999px;
+  color: #24334d;
+  text-decoration: none;
+  font-size: 7px;
+  font-weight: 850;
+}
+
+.role-calendar-empty {
+  display: grid;
+  place-items: center;
+  min-height: 115px;
+  color: #9aa5b5;
+  font-size: 9px;
+}
+
+.role-side-list,
+.role-recent-list,
+.role-action-stack {
+  display: grid;
+  padding: 8px 13px 12px;
+}
+
+.role-side-list a,
+.role-recent-list a,
+.role-action-stack a {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f0f2f5;
+  color: #192645;
+  text-decoration: none;
+}
+
+.role-side-list a > i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--school-primary) 35%, white);
+  background: var(--school-primary);
+}
+
+.role-side-list a > span,
+.role-recent-list a > span:last-child,
+.role-action-stack a > span {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.role-side-list a strong,
+.role-recent-list a strong,
+.role-action-stack a strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+}
+
+.role-side-list a small,
+.role-recent-list a small,
+.role-action-stack a small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #7f8b9d;
+  font-size: 7px;
+}
+
+.role-side-list a b {
+  color: color-mix(in srgb, var(--school-secondary) 74%, #0d6154);
+  font-size: 7px;
+}
+
+.role-side-list > p,
+.role-recent-list > p {
+  margin: 10px 0;
+  color: #8b97a8;
+  font-size: 8px;
+}
+
+.role-priority {
+  display: flex;
+  gap: 10px;
+  margin: 12px 13px 14px;
+  padding: 13px;
+  border-radius: 11px;
+  color: #755500;
+  background: #fff6dc;
+  text-decoration: none;
+}
+
+.role-priority.is-ok {
+  color: color-mix(in srgb, var(--school-secondary) 80%, #0a5a4c);
+  background: color-mix(in srgb, var(--school-secondary) 12%, white);
+}
+
+.role-priority > span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.role-priority strong {
+  font-size: 9px;
+}
+
+.role-priority small {
+  color: #748193;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.role-recent-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--school-secondary) 80%, #0d6658);
+  background: color-mix(in srgb, var(--school-secondary) 12%, white);
+}
+
+.role-progress-summary {
+  padding: 14px;
+}
+
+.role-progress-summary > div > span {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1f5;
+}
+
+.role-progress-summary i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--school-primary), var(--school-secondary));
+}
+
+.role-progress-summary p {
+  margin: 9px 0;
+  color: #758196;
+  font-size: 8px;
+}
+
+.role-progress-summary a {
+  color: var(--school-primary);
+  font-size: 8px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.tenant-role-backdrop {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .role-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .role-overview-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .role-kpi-grid {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .tenant-role-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .tenant-role-sidebar {
+    position: fixed;
+    left: 0;
+    transform: translateX(-105%);
+    width: min(285px, 86vw);
+    transition: transform .2s ease;
+    box-shadow: 16px 0 45px rgba(17, 31, 54, .18);
+  }
+
+  .tenant-role-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .tenant-role-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    display: block;
+    border: 0;
+    background: rgba(10, 22, 40, .45);
+  }
+
+  .tenant-role-topbar {
+    grid-template-columns: auto minmax(120px, .7fr) minmax(150px, 1fr) auto;
+    padding: 0 16px;
+  }
+
+  .tenant-role-menu {
+    display: grid;
+    place-items: center;
+  }
+
+  .tenant-role-profile-button {
+    min-width: 40px;
+    grid-template-columns: 35px;
+  }
+
+  .tenant-role-profile-button > span:nth-child(2),
+  .tenant-role-profile-button > svg {
+    display: none;
+  }
+
+  .tenant-role-content {
+    padding: 18px;
+  }
+
+  .role-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .role-calendar-day {
+    padding: 14px 0 0;
+    border-top: 1px solid #edf1f4;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .tenant-role-topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 9px;
+  }
+
+  .tenant-role-search {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    padding-bottom: 8px;
+  }
+
+  .tenant-role-topbar {
+    height: auto;
+    min-height: 62px;
+    padding-top: 9px;
+  }
+
+  .tenant-role-icon-button {
+    display: none;
+  }
+
+  .tenant-role-topbar__actions {
+    justify-self: end;
+  }
+
+  .tenant-role-content {
+    padding: 12px;
+  }
+
+  .role-hero,
+  .role-hero--student {
+    min-height: 220px;
+    grid-template-columns: 1fr;
+  }
+
+  .role-hero__copy {
+    padding: 26px 22px;
+  }
+
+  .role-hero__visual {
+    display: none;
+  }
+
+  .role-hero__student-progress {
+    position: absolute;
+    top: 22px;
+    right: 18px;
+    width: 95px;
+    height: 95px;
+    opacity: .35;
+  }
+
+  .role-overview-side {
+    grid-template-columns: 1fr;
+  }
+
+  .role-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .role-next-course {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .role-calendar-events article {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .role-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
