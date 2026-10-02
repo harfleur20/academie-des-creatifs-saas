@@ -17,6 +17,7 @@ class TeacherSessionWorkspaceRead(BaseModel):
 
 
 class TeacherWorkspaceRead(BaseModel):
+    teacher_code: str
     sessions: list[TeacherSessionWorkspaceRead]
     total_sessions: int
     total_students: int
@@ -37,6 +38,7 @@ class StudentSessionWorkspaceRead(BaseModel):
 
 
 class StudentWorkspaceRead(BaseModel):
+    student_code: str | None
     sessions: list[StudentSessionWorkspaceRead]
     total_sessions: int
     total_courses: int

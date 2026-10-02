@@ -1272,3 +1272,21 @@ class CommunicationOutboxRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     branding_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+
+class OrganizationTeacherProfileRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "organization_teacher_profiles"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "user_id", name="uq_teacher_profile_org_user"),
+        UniqueConstraint("organization_id", "teacher_code", name="uq_teacher_profile_org_code"),
+        Index("ix_teacher_profiles_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    teacher_code: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="active")
+    first_assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["UserRecord"] = relationship()
