@@ -200,3 +200,36 @@ def test_capacity_is_enforced() -> None:
         assert False, "capacity should have blocked enrollment"
     except HTTPException as exc:
         assert exc.status_code == 409
+
+
+
+def test_teacher_formation_detail_hides_unassigned_sibling_session() -> None:
+    db = build_db()
+    org, manager, teacher, student, other_teacher, formation, session = seed(db)
+
+    sibling = FormationSessionRecord(
+        organization_id=org.id,
+        formation_id=formation.id,
+        label="Cohorte privée",
+        start_date=date(2026, 11, 1),
+        end_date=date(2026, 12, 1),
+        status="open",
+    )
+    db.add(sibling)
+    db.flush()
+    db.add(
+        SessionTeacherRecord(
+            organization_id=org.id,
+            session_id=sibling.id,
+            teacher_id=other_teacher.id,
+            role="principal",
+        )
+    )
+    db.commit()
+
+    tenant = resolve_tenant_context(db, user=teacher, organization_id=org.id)
+    detail = get_formation_detail(db, tenant, formation.id)
+
+    assert detail is not None
+    assert [item.id for item in detail.sessions] == [session.id]
+    assert detail.session_count == 1

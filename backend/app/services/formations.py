@@ -165,24 +165,62 @@ def _serialize_session(session: FormationSessionRecord) -> SessionRead:
     )
 
 
+def _visible_session_ids(
+    db: Session,
+    tenant: TenantContext,
+    formation_id: int,
+) -> set[int] | None:
+    if (
+        tenant.user.platform_role == "super_admin"
+        or tenant.support_mode
+        or tenant.organization_roles.intersection({"owner", "admin", "manager"})
+    ):
+        return None
+
+    visible: set[int] = set()
+    if tenant.has_role("teacher"):
+        visible.update(
+            db.scalars(
+                select(FormationSessionRecord.id)
+                .join(
+                    SessionTeacherRecord,
+                    SessionTeacherRecord.session_id == FormationSessionRecord.id,
+                )
+                .where(
+                    FormationSessionRecord.organization_id == tenant.organization_id,
+                    FormationSessionRecord.formation_id == formation_id,
+                    SessionTeacherRecord.organization_id == tenant.organization_id,
+                    SessionTeacherRecord.teacher_id == tenant.user.id,
+                )
+            ).all()
+        )
+    return visible
+
+
 def _formation_counts(
     db: Session,
     organization_id: int,
     formation_id: int,
+    visible_session_ids: set[int] | None = None,
 ) -> tuple[int, int, int, int]:
-    session_ids = select(FormationSessionRecord.id).where(
+    session_ids_query = select(FormationSessionRecord.id).where(
         FormationSessionRecord.organization_id == organization_id,
         FormationSessionRecord.formation_id == formation_id,
     )
-    session_count = int(
-        db.scalar(
-            select(func.count(FormationSessionRecord.id)).where(
-                FormationSessionRecord.organization_id == organization_id,
-                FormationSessionRecord.formation_id == formation_id,
-            )
+    if visible_session_ids is not None:
+        session_ids_query = session_ids_query.where(
+            FormationSessionRecord.id.in_(visible_session_ids)
         )
-        or 0
+    session_ids = session_ids_query
+    session_count_stmt = select(func.count(FormationSessionRecord.id)).where(
+        FormationSessionRecord.organization_id == organization_id,
+        FormationSessionRecord.formation_id == formation_id,
     )
+    if visible_session_ids is not None:
+        session_count_stmt = session_count_stmt.where(
+            FormationSessionRecord.id.in_(visible_session_ids)
+        )
+    session_count = int(db.scalar(session_count_stmt) or 0)
     teacher_count = int(
         db.scalar(
             select(func.count(func.distinct(SessionTeacherRecord.teacher_id))).where(
@@ -220,10 +258,12 @@ def _serialize_formation_summary(
     tenant: TenantContext,
     formation: FormationRecord,
 ) -> FormationSummaryRead:
+    visible_session_ids = _visible_session_ids(db, tenant, formation.id)
     session_count, teacher_count, student_count, course_count = _formation_counts(
         db,
         tenant.organization_id,
         formation.id,
+        visible_session_ids,
     )
     return FormationSummaryRead(
         id=formation.id,
@@ -255,9 +295,24 @@ def list_formations(
             .order_by(FormationRecord.created_at.desc())
         ).all()
     )
+    if (
+        tenant.user.platform_role == "super_admin"
+        or tenant.support_mode
+        or tenant.organization_roles.intersection({"owner", "admin", "manager"})
+    ):
+        return [
+            _serialize_formation_summary(db, tenant, record)
+            for record in records
+        ]
+
+    visible_records = [
+        record
+        for record in records
+        if _visible_session_ids(db, tenant, record.id)
+    ]
     return [
         _serialize_formation_summary(db, tenant, record)
-        for record in records
+        for record in visible_records
     ]
 
 
@@ -306,13 +361,26 @@ def get_formation_detail(
     if formation is None:
         return None
 
+    visible_session_ids = _visible_session_ids(db, tenant, formation.id)
+    if visible_session_ids is not None and not visible_session_ids:
+        return None
+
+    visible_sessions = (
+        formation.sessions
+        if visible_session_ids is None
+        else [
+            item
+            for item in formation.sessions
+            if item.id in visible_session_ids
+        ]
+    )
     summary = _serialize_formation_summary(db, tenant, formation)
     return FormationDetailRead(
         **summary.model_dump(),
         sessions=[
             _serialize_session(item)
             for item in sorted(
-                formation.sessions,
+                visible_sessions,
                 key=lambda item: (item.start_date, item.id),
                 reverse=True,
             )

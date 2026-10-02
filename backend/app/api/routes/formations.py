@@ -46,6 +46,7 @@ def list_formations_route(
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
+    require_organization_roles(tenant, "owner", "admin", "manager", "teacher")
     return list_formations(db, tenant)
 
 
@@ -72,6 +73,7 @@ def get_formation_route(
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
+    require_organization_roles(tenant, "owner", "admin", "manager", "teacher")
     formation = get_formation_detail(db, tenant, formation_id)
     if formation is None:
         raise HTTPException(status_code=404, detail="Formation introuvable.")
