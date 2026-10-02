@@ -97,4 +97,4 @@ def test_teacher_invitation_is_branded_and_creates_teacher_profile() -> None:
         )
     )
     assert profile is not None
-    assert profile.teacher_code.startswith("SC-P")
+    assert profile.teacher_code.startswith("SB-P")
