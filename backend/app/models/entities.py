@@ -1043,6 +1043,7 @@ class CertificateRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="valid")
     branding_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    pdf_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
 
 class OrganizationPublicSiteRecord(OrganizationOwnedMixin, TimestampMixin, Base):
@@ -1250,6 +1251,7 @@ class OrderInvoiceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     installment_id: Mapped[int | None] = mapped_column(ForeignKey("order_installments.id", ondelete="SET NULL"), nullable=True, index=True)
     invoice_number: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="paid")
+    pdf_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     branding_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
