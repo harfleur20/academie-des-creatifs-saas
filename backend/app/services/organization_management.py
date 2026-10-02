@@ -104,6 +104,7 @@ def _reload_member(
             selectinload(OrganizationMemberRecord.roles),
         )
         .where(OrganizationMemberRecord.id == member_id)
+        .execution_options(populate_existing=True)
     )
 
 
