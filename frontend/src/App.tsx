@@ -11,6 +11,7 @@ import { TeacherLayout } from './app/TeacherLayout'
 import { StudentLayout } from './app/StudentLayout'
 import LandingPage from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
+import { InvitationAcceptPage } from './pages/InvitationAcceptPage'
 import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
 import { TeamPage } from './pages/TeamPage'
 import { SchoolSettingsPage } from './pages/SchoolSettingsPage'
@@ -162,6 +163,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/invite/:token" element={<InvitationAcceptPage />} />
             <Route path="/certificates/verify/:token" element={<CertificateVerifyPage />} />
             <Route path="/school/:schoolSlug" element={<SchoolPublicLayout />}>
               <Route index element={<SchoolHomePage />} />

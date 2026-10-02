@@ -51,7 +51,7 @@ export type Invitation = {
   id: number
   organization_id: number
   email: string
-  role: 'admin' | 'manager' | 'teacher' | 'student'
+  role: 'admin' | 'manager' | 'teacher'
   status: string
   invited_by_user_id: number | null
   expires_at: string
@@ -409,6 +409,36 @@ export const createInvitation = (payload: {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+
+
+
+export type InvitationPreview = {
+  organization_id: number
+  organization_name: string
+  email: string
+  role: 'admin' | 'manager' | 'teacher'
+  expires_at: string
+  logo_url: string | null
+  primary_color: string
+  secondary_color: string
+}
+
+export type InvitationAcceptResult = {
+  organization: Organization
+  membership: Member
+}
+
+export const getInvitationPreview = (token: string) =>
+  request<InvitationPreview>(
+    '/organizations/invitations/' + encodeURIComponent(token),
+    { organizationId: null },
+  )
+
+export const acceptOrganizationInvitation = (token: string) =>
+  request<InvitationAcceptResult>(
+    '/organizations/invitations/' + encodeURIComponent(token) + '/accept',
+    { method: 'POST', organizationId: null },
+  )
 
 export const cancelInvitation = (invitationId: number) =>
   request<Invitation>(

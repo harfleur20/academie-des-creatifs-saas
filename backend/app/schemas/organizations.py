@@ -135,6 +135,17 @@ class OrganizationInvitationCreated(OrganizationInvitationRead):
     acceptance_token: str
 
 
+class OrganizationInvitationPreview(BaseModel):
+    organization_id: int
+    organization_name: str
+    email: str
+    role: str
+    expires_at: datetime
+    logo_url: str | None = None
+    primary_color: str
+    secondary_color: str
+
+
 class OrganizationInvitationAcceptResult(BaseModel):
     organization: OrganizationRead
     membership: OrganizationMemberRead

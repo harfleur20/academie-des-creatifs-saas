@@ -79,7 +79,7 @@ export function TeamPage() {
     try {
       await createInvitation({ email, role })
       setEmail('')
-      setMessage('Invitation créée. L’envoi par email sera branché au service Brevo.')
+      setMessage('Invitation créée et transmise au service d’envoi email.')
       await load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Invitation impossible.')
