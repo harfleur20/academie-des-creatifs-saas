@@ -32,7 +32,10 @@ export function SchoolCheckoutPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const item = getSchoolCart(schoolSlug)
+  const storedItem = getSchoolCart(schoolSlug)
+  const item = storedItem?.organization_id === school.organization_id
+    ? storedItem
+    : null
 
   const [preview, setPreview] = useState<PricePreview | null>(null)
   const [coupon, setCoupon] = useState('')

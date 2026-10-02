@@ -587,6 +587,8 @@ export type OrganizationDomainConfig = {
 export type HostBranding = {
   organization_id: number
   name: string
+  slug: string
+  subdomain: string | null
   hostname: string
   logo_url: string | null
   primary_color: string

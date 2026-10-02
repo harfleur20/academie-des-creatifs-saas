@@ -4,9 +4,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getPublicSchoolFormation, type PublicFormationDetail, type PublicSession } from '../lib/api'
 import { setSchoolCart } from '../public/schoolCart'
 import { formatSchoolDate, formatSchoolMoney } from '../public/publicHelpers'
+import { usePublicSchool } from '../public/SchoolPublicLayout'
 
 export function SchoolFormationDetailPage() {
   const { schoolSlug = '', formationSlug = '' } = useParams()
+  const { school } = usePublicSchool()
   const navigate=useNavigate()
   const [formation,setFormation]=useState<PublicFormationDetail|null>(null)
   const [sessionId,setSessionId]=useState<number|null>(null)
@@ -17,7 +19,7 @@ export function SchoolFormationDetailPage() {
     if(!formation) return
     const target=selected || (formation.sessions.filter((s)=>s.can_purchase).length===1?formation.sessions.find((s)=>s.can_purchase)??null:null)
     if(!target){setToast('Aucune nouvelle session disponible pour cette formation.');setTimeout(()=>setToast(''),3200);return}
-    setSchoolCart(schoolSlug,{formation_slug:formation.slug,formation_title:formation.title,session_id:target.id,session_label:target.label,price_cents:target.current_price_cents,currency:target.currency,cover_image_url:formation.cover_image_url})
+    setSchoolCart(schoolSlug,{organization_id:school.organization_id,formation_id:formation.id,formation_slug:formation.slug,formation_title:formation.title,session_id:target.id,session_label:target.label,price_cents:target.current_price_cents,currency:target.currency,cover_image_url:formation.cover_image_url})
     navigate('/school/'+schoolSlug+'/panier')
   }
   if(!formation)return <main className="school-section"><div className="school-empty">Chargement…</div></main>

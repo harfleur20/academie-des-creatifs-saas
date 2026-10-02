@@ -54,6 +54,7 @@ import { PedagogicalMonitoringPage } from './pages/PedagogicalMonitoringPage'
 import { SchoolPerformancePage } from './pages/SchoolPerformancePage'
 import { StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
 import { SchoolPublicLayout } from './public/SchoolPublicLayout'
+import { HostSchoolRedirect } from './public/HostSchoolRedirect'
 import { SchoolHomePage } from './pages/SchoolHomePage'
 import { SchoolFormationsPage } from './pages/SchoolFormationsPage'
 import { SchoolFormationDetailPage } from './pages/SchoolFormationDetailPage'
@@ -163,7 +164,16 @@ export default function App() {
       <AuthProvider>
         <TenantProvider>
           <Routes>
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<HostSchoolRedirect fallback={<LandingPage />} />} />
+            <Route path="/formations" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/formations/:formationSlug" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/contact" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/panier" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/checkout" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/mentions-legales" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/cgv" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/confidentialite" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/remboursement" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/invite/:token" element={<InvitationAcceptPage />} />
             <Route path="/certificates/verify/:token" element={<CertificateVerifyPage />} />
