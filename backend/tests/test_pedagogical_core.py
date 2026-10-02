@@ -205,31 +205,79 @@ def test_capacity_is_enforced() -> None:
 
 def test_teacher_formation_detail_hides_unassigned_sibling_session() -> None:
     db = build_db()
-    org, manager, teacher, student, other_teacher, formation, session = seed(db)
+    owner_tenant, teacher, _student, _outsider = seed(db)
 
-    sibling = FormationSessionRecord(
-        organization_id=org.id,
-        formation_id=formation.id,
-        label="Cohorte privée",
-        start_date=date(2026, 11, 1),
-        end_date=date(2026, 12, 1),
-        status="open",
+    other_teacher = UserRecord(
+        email="teacher2@test.dev",
+        full_name="Teacher Two",
+        status="active",
     )
-    db.add(sibling)
+    db.add(other_teacher)
     db.flush()
     db.add(
-        SessionTeacherRecord(
-            organization_id=org.id,
-            session_id=sibling.id,
-            teacher_id=other_teacher.id,
-            role="principal",
+        OrganizationMemberRecord(
+            organization_id=owner_tenant.organization_id,
+            user_id=other_teacher.id,
+            role="teacher",
+            status="active",
         )
     )
     db.commit()
 
-    tenant = resolve_tenant_context(db, user=teacher, organization_id=org.id)
-    detail = get_formation_detail(db, tenant, formation.id)
+    formation = create_formation(
+        db,
+        owner_tenant,
+        FormationCreate(slug="scoped", title="Scoped formation"),
+    )
+    first = create_session(
+        db,
+        owner_tenant,
+        formation.id,
+        SessionCreate(
+            label="Cohorte du professeur",
+            start_date=date(2026, 10, 5),
+            end_date=date(2026, 10, 31),
+        ),
+    )
+    assigned_session_id = first.sessions[0].id
+    assign_teacher(
+        db,
+        owner_tenant,
+        formation.id,
+        assigned_session_id,
+        TeacherAssignmentCreate(user_id=teacher.id, role="principal"),
+    )
+
+    second = create_session(
+        db,
+        owner_tenant,
+        formation.id,
+        SessionCreate(
+            label="Cohorte privée",
+            start_date=date(2026, 11, 1),
+            end_date=date(2026, 12, 1),
+        ),
+    )
+    sibling_session_id = next(
+        item.id
+        for item in second.sessions
+        if item.label == "Cohorte privée"
+    )
+    assign_teacher(
+        db,
+        owner_tenant,
+        formation.id,
+        sibling_session_id,
+        TeacherAssignmentCreate(user_id=other_teacher.id, role="principal"),
+    )
+
+    teacher_tenant = resolve_tenant_context(
+        db,
+        user=teacher,
+        organization_id=owner_tenant.organization_id,
+    )
+    detail = get_formation_detail(db, teacher_tenant, formation.id)
 
     assert detail is not None
-    assert [item.id for item in detail.sessions] == [session.id]
+    assert [item.id for item in detail.sessions] == [assigned_session_id]
     assert detail.session_count == 1
