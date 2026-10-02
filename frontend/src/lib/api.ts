@@ -887,6 +887,17 @@ export type FormationSummary = {
   level: string
   format_type: 'live' | 'ligne' | 'presentiel'
   training_hours: number | null
+  short_description: string
+  cover_image_url: string | null
+  objectives: string
+  prerequisites: string
+  public_program: string
+  price_cents: number
+  currency: string
+  allow_installments: boolean
+  installment_count: number
+  is_featured: boolean
+  featured_order: number
   status: 'draft' | 'published' | 'archived'
   session_count: number
   teacher_count: number
@@ -948,6 +959,9 @@ export type FormationSession = {
   end_date: string
   campus_label: string | null
   seat_capacity: number
+  enrollment_open_at: string | null
+  enrollment_close_at: string | null
+  price_override_cents: number | null
   status: 'planned' | 'open' | 'completed' | 'cancelled'
   teachers: SessionTeacher[]
   enrollments: Enrollment[]
@@ -973,6 +987,17 @@ export const createFormation = (payload: {
   level?: string
   format_type?: 'live' | 'ligne' | 'presentiel'
   training_hours?: number | null
+  short_description?: string
+  cover_image_url?: string | null
+  objectives?: string
+  prerequisites?: string
+  public_program?: string
+  price_cents?: number
+  currency?: string
+  allow_installments?: boolean
+  installment_count?: number
+  is_featured?: boolean
+  featured_order?: number
   status?: 'draft' | 'published'
 }) =>
   request<FormationSummary>('/formations', {
@@ -987,7 +1012,10 @@ export const updateFormation = (
   formationId: number,
   payload: Partial<Pick<
     FormationSummary,
-    'title' | 'description' | 'category' | 'level' | 'format_type' | 'training_hours' | 'status'
+    'title' | 'description' | 'category' | 'level' | 'format_type' | 'training_hours' |
+    'short_description' | 'cover_image_url' | 'objectives' | 'prerequisites' |
+    'public_program' | 'price_cents' | 'currency' | 'allow_installments' |
+    'installment_count' | 'is_featured' | 'featured_order' | 'status'
   >>,
 ) =>
   request<FormationSummary>(`/formations/${formationId}`, {
@@ -1003,11 +1031,35 @@ export const createFormationSession = (
     end_date: string
     campus_label?: string | null
     seat_capacity?: number
+    enrollment_open_at?: string | null
+    enrollment_close_at?: string | null
+    price_override_cents?: number | null
     status?: 'planned' | 'open'
   },
 ) =>
   request<FormationDetail>(`/formations/${formationId}/sessions`, {
     method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+
+export const updateFormationSession = (
+  formationId: number,
+  sessionId: number,
+  payload: Partial<{
+    label: string
+    start_date: string
+    end_date: string
+    campus_label: string | null
+    seat_capacity: number
+    enrollment_open_at: string | null
+    enrollment_close_at: string | null
+    price_override_cents: number | null
+    status: 'planned' | 'open' | 'completed' | 'cancelled'
+  }>,
+) =>
+  request<FormationDetail>(`/formations/${formationId}/sessions/${sessionId}`, {
+    method: 'PATCH',
     body: JSON.stringify(payload),
   })
 
@@ -1033,19 +1085,6 @@ export const removeSessionTeacher = (
   request<FormationDetail>(
     `/formations/${formationId}/sessions/${sessionId}/teachers/${teacherId}`,
     { method: 'DELETE' },
-  )
-
-export const enrollSessionStudent = (
-  formationId: number,
-  sessionId: number,
-  userId: number,
-) =>
-  request<FormationDetail>(
-    `/formations/${formationId}/sessions/${sessionId}/enrollments`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ user_id: userId }),
-    },
   )
 
 export const createSessionCourse = (
@@ -2145,3 +2184,18 @@ export const getCommercialDashboard = () =>
 export const listSchoolOrders = () => request<SchoolOrder[]>('/commerce/orders')
 export const listSchoolInvoices = () => request<SchoolInvoice[]>('/commerce/invoices')
 export const listManagedStudents = () => request<ManagedStudent[]>('/commerce/students')
+
+
+export const uploadSchoolAsset = (file: File) => {
+  const body = new FormData()
+  body.append('file', file)
+  return request<{
+    filename: string
+    public_url: string
+    size: number
+    content_type: string
+  }>('/commerce/assets', {
+    method: 'POST',
+    body,
+  })
+}

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hmac
 import json
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_tenant_context
@@ -26,6 +26,7 @@ from app.schemas.commerce import (
     SchoolIdentityRead,
     StudentManagementRead,
 )
+from app.services.assets import store_school_asset
 from app.services.public_catalog import get_public_organization
 from app.services.school_branding import get_school_identity, update_school_identity
 from app.services.school_commerce import (
@@ -71,6 +72,18 @@ def save_identity(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return update_school_identity(db, tenant, payload)
+
+
+@router.post("/assets", status_code=201)
+async def upload_school_asset(
+    file: UploadFile = File(...),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    if tenant.support_mode:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Le mode support est en lecture seule.")
+    if not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Accès gestion requis.")
+    return await store_school_asset(file, tenant.organization_id)
 
 
 @router.get("/dashboard", response_model=CommercialDashboardRead)
