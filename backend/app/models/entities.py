@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -852,3 +853,176 @@ class AssignmentCommentRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     author_role: Mapped[str] = mapped_column(String(16), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False, default="")
     attachment_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+
+
+class ResourceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "resources"
+    __table_args__ = (
+        Index("ix_resources_org_session", "organization_id", "session_id"),
+        Index("ix_resources_org_teacher", "organization_id", "teacher_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_day_id: Mapped[int | None] = mapped_column(ForeignKey("session_course_days.id", ondelete="SET NULL"), nullable=True, index=True)
+    teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(24), nullable=False, default="link")
+    url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    teacher: Mapped["UserRecord | None"] = relationship()
+
+
+class QuizRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "quizzes"
+    __table_args__ = (
+        Index("ix_quizzes_org_session", "organization_id", "session_id"),
+        Index("ix_quizzes_org_teacher", "organization_id", "teacher_id"),
+        Index("ix_quizzes_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_day_id: Mapped[int | None] = mapped_column(ForeignKey("session_course_days.id", ondelete="SET NULL"), nullable=True, index=True)
+    teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    assessment_type: Mapped[str] = mapped_column(String(16), nullable=False, default="quiz")
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    pass_pct: Mapped[float] = mapped_column(Float, nullable=False, default=80)
+
+    teacher: Mapped["UserRecord | None"] = relationship()
+    questions: Mapped[list["QuizQuestionRecord"]] = relationship(
+        back_populates="quiz",
+        cascade="all, delete-orphan",
+        order_by="QuizQuestionRecord.order_index",
+    )
+
+
+class QuizQuestionRecord(OrganizationOwnedMixin, Base):
+    __tablename__ = "quiz_questions"
+    __table_args__ = (
+        Index("ix_quiz_questions_org_quiz", "organization_id", "quiz_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    quiz_id: Mapped[int] = mapped_column(ForeignKey("quizzes.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    options: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    correct_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    quiz: Mapped["QuizRecord"] = relationship(back_populates="questions")
+
+
+class QuizAttemptRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "quiz_attempts"
+    __table_args__ = (
+        UniqueConstraint("quiz_id", "enrollment_id", "attempt_number", name="uq_quiz_attempt"),
+        Index("ix_quiz_attempts_org_quiz", "organization_id", "quiz_id"),
+        Index("ix_quiz_attempts_org_enrollment", "organization_id", "enrollment_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    quiz_id: Mapped[int] = mapped_column(ForeignKey("quizzes.id", ondelete="CASCADE"), nullable=False, index=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    answers: Mapped[list[int]] = mapped_column(JSON, nullable=False)
+    score_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class LessonProgressRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "lesson_progress"
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", "lesson_id", name="uq_lesson_progress_enrollment_lesson"),
+        Index("ix_lesson_progress_org_enrollment", "organization_id", "enrollment_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False, index=True)
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AttendanceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "attendance"
+    __table_args__ = (
+        UniqueConstraint("course_day_id", "enrollment_id", name="uq_attendance_course_day_enrollment"),
+        Index("ix_attendance_org_course_day", "organization_id", "course_day_id"),
+        Index("ix_attendance_org_enrollment", "organization_id", "enrollment_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_day_id: Mapped[int] = mapped_column(ForeignKey("session_course_days.id", ondelete="CASCADE"), nullable=False, index=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="present")
+    marked_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    marked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class GradeRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "grades"
+    __table_args__ = (
+        Index("ix_grades_org_session", "organization_id", "session_id"),
+        Index("ix_grades_org_enrollment", "organization_id", "enrollment_id"),
+        Index("ix_grades_source", "organization_id", "source_type", "source_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    source_type: Mapped[str] = mapped_column(String(24), nullable=False, default="manual")
+    source_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    label: Mapped[str] = mapped_column(String(255), nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    max_score: Mapped[float] = mapped_column(Float, nullable=False, default=20)
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class ClassDiscussionPostRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "class_discussion_posts"
+    __table_args__ = (
+        Index("ix_class_posts_org_session", "organization_id", "session_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_role: Mapped[str] = mapped_column(String(16), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+
+
+class ClassDiscussionReplyRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "class_discussion_replies"
+    __table_args__ = (
+        Index("ix_class_replies_org_post", "organization_id", "post_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("class_discussion_posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_role: Mapped[str] = mapped_column(String(16), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+
+
+class CertificateRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "certificates"
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", name="uq_certificates_enrollment"),
+        UniqueConstraint("certificate_number", name="uq_certificates_number"),
+        Index("ix_certificates_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    certificate_number: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    student_name: Mapped[str] = mapped_column(String(180), nullable=False)
+    formation_title: Mapped[str] = mapped_column(String(255), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="valid")

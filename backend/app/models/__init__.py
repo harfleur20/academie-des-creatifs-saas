@@ -1,4 +1,14 @@
 from app.models.entities import (
+    CertificateRecord,
+    ClassDiscussionReplyRecord,
+    ClassDiscussionPostRecord,
+    GradeRecord,
+    AttendanceRecord,
+    LessonProgressRecord,
+    QuizAttemptRecord,
+    QuizQuestionRecord,
+    QuizRecord,
+    ResourceRecord,
     BillingInvoiceRecord,
     AssignmentCommentRecord,
     AssignmentRecord,
@@ -28,6 +38,16 @@ from app.models.entities import (
 )
 
 __all__ = [
+    "CertificateRecord",
+    "ClassDiscussionReplyRecord",
+    "ClassDiscussionPostRecord",
+    "GradeRecord",
+    "AttendanceRecord",
+    "LessonProgressRecord",
+    "QuizAttemptRecord",
+    "QuizQuestionRecord",
+    "QuizRecord",
+    "ResourceRecord",
     "BillingInvoiceRecord",
     "AssignmentCommentRecord",
     "AssignmentRecord",
