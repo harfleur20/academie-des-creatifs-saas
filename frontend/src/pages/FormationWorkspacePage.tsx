@@ -92,7 +92,7 @@ export function FormationWorkspacePage() {
 
   return (
     <main className="app-page formation-workspace-page">
-      <Link className="admin-back-link" to="/app/formations">
+      <Link className="admin-back-link" to="/app/manage/formations">
         <ArrowLeft size={15} /> Toutes les formations
       </Link>
 

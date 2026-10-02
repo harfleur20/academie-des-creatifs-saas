@@ -15,6 +15,7 @@ import {
   listInvitations,
   listMembers,
   updateMember,
+  updateMemberFunctionalRoles,
   type Invitation,
   type Member,
 } from '../lib/api'
@@ -79,6 +80,30 @@ export function TeamPage() {
       setError(err instanceof ApiError ? err.message : 'Invitation impossible.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function hasRole(member: Member, role: 'teacher' | 'student') {
+    return member.role === role || member.roles.some((item) => item.role === role)
+  }
+
+  async function toggleFunctionalRole(
+    member: Member,
+    role: 'teacher' | 'student',
+  ) {
+    if (member.role === role) return
+    const current = new Set(
+      (['teacher', 'student'] as const).filter((item) => hasRole(member, item)),
+    )
+    if (current.has(role)) current.delete(role)
+    else current.add(role)
+
+    setError('')
+    try {
+      await updateMemberFunctionalRoles(member.id, [...current])
+      await load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Modification des accès impossible.')
     }
   }
 
@@ -158,7 +183,7 @@ export function TeamPage() {
 
         <div className="member-table">
           <div className="member-row member-header">
-            <span>Membre</span><span>Rôle</span><span>Statut</span><span />
+            <span>Membre</span><span>Rôle principal</span><span>Accès pédagogiques</span><span>Statut</span><span />
           </div>
           {members.map((member) => (
             <div className="member-row" key={member.id}>
@@ -188,6 +213,25 @@ export function TeamPage() {
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+
+              <div className="member-functional-roles">
+                {(['teacher', 'student'] as const).map((functionalRole) => {
+                  const active = hasRole(member, functionalRole)
+                  const locked = member.role === functionalRole
+                  return (
+                    <button
+                      key={functionalRole}
+                      type="button"
+                      className={`functional-role-toggle ${active ? 'active' : ''}`}
+                      disabled={locked}
+                      title={locked ? 'Ce rôle est déjà le rôle principal.' : undefined}
+                      onClick={() => void toggleFunctionalRole(member, functionalRole)}
+                    >
+                      {functionalRole === 'teacher' ? 'Professeur' : 'Étudiant'}
+                    </button>
+                  )
+                })}
+              </div>
 
               <button
                 className={member.status === 'active' ? 'member-status active' : 'member-status suspended'}

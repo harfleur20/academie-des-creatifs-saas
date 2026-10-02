@@ -37,6 +37,7 @@ export type Member = {
   user_id: number
   role: 'owner' | 'admin' | 'manager' | 'teacher' | 'student'
   status: 'active' | 'suspended'
+  roles: Array<{ role: 'owner' | 'admin' | 'manager' | 'teacher' | 'student' }>
   user: {
     id: number
     full_name: string
@@ -287,6 +288,19 @@ export const updateCurrentOrganization = (payload: {
     body: JSON.stringify(payload),
   })
 
+export type WorkspaceSpace = 'manage' | 'teacher' | 'student'
+
+export type OrganizationAccessProfile = {
+  organization_id: number
+  primary_role: Member['role'] | 'super_admin'
+  roles: string[]
+  spaces: WorkspaceSpace[]
+  default_space: WorkspaceSpace | ''
+}
+
+export const getOrganizationAccessProfile = () =>
+  request<OrganizationAccessProfile>('/organizations/current/access-profile')
+
 export const listMembers = () =>
   request<Member[]>('/organizations/current/members')
 
@@ -298,6 +312,18 @@ export const updateMember = (
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
+
+export const updateMemberFunctionalRoles = (
+  memberId: number,
+  functionalRoles: Array<'teacher' | 'student'>,
+) =>
+  request<Member>(
+    `/organizations/current/members/${memberId}/functional-roles`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ functional_roles: functionalRoles }),
+    },
+  )
 
 export const listInvitations = () =>
   request<Invitation[]>('/organizations/current/invitations')
@@ -1037,3 +1063,49 @@ export const createChapterLesson = (
       body: JSON.stringify(payload),
     },
   )
+
+
+export type TeacherWorkspaceSession = {
+  formation_id: number
+  formation_title: string
+  session_id: number
+  session_label: string
+  start_date: string
+  end_date: string
+  status: string
+  assignment_role: 'principal' | 'intervenant'
+  student_count: number
+  course_count: number
+}
+
+export type TeacherWorkspace = {
+  sessions: TeacherWorkspaceSession[]
+  total_sessions: number
+  total_students: number
+  total_courses: number
+}
+
+export type StudentWorkspaceSession = {
+  enrollment_id: number
+  formation_id: number
+  formation_title: string
+  session_id: number
+  session_label: string
+  start_date: string
+  end_date: string
+  session_status: string
+  enrollment_status: string
+  course_count: number
+}
+
+export type StudentWorkspace = {
+  sessions: StudentWorkspaceSession[]
+  total_sessions: number
+  total_courses: number
+}
+
+export const getTeacherWorkspace = () =>
+  request<TeacherWorkspace>('/workspace/teacher')
+
+export const getStudentWorkspace = () =>
+  request<StudentWorkspace>('/workspace/student')

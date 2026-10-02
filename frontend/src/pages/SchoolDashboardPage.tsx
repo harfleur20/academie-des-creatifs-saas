@@ -57,7 +57,7 @@ export function SchoolDashboardPage() {
       })
       setStoredOrganizationId(organization.id)
       await refreshOrganizations()
-      navigate('/app/onboarding')
+      navigate('/app/manage/onboarding')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossible de créer cette école.')
     } finally {
@@ -149,7 +149,7 @@ export function SchoolDashboardPage() {
               Reprenez exactement là où vous vous êtes arrêté.
             </p>
           </div>
-          <a className="primary-button" href="/app/onboarding">
+          <a className="primary-button" href="/app/manage/onboarding">
             Continuer la configuration <ArrowRight size={17} />
           </a>
         </section>
@@ -162,7 +162,7 @@ export function SchoolDashboardPage() {
               Continuez à développer votre équipe et vos contenus depuis votre espace.
             </p>
           </div>
-          <a className="primary-button" href="/app/team">
+          <a className="primary-button" href="/app/manage/team">
             Gérer mon équipe <ArrowRight size={17} />
           </a>
         </section>

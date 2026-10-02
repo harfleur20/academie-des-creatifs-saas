@@ -179,7 +179,7 @@ export function FormationsManagementPage() {
                 <span><BookOpen size={14} /> {formation.course_count} cours</span>
               </div>
 
-              <Link className="secondary-button" to={`/app/formations/${formation.id}`}>
+              <Link className="secondary-button" to={`/app/manage/formations/${formation.id}`}>
                 Ouvrir la formation <ArrowRight size={15} />
               </Link>
             </article>
