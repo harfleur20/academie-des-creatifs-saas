@@ -1,12 +1,13 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { BrandLogo } from '../brand/BrandLogo'
 import { ArrowRight, Building2, Check, Eye, EyeOff } from 'lucide-react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError, resolveHostBranding, type HostBranding } from '../lib/api'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const location = useLocation()
   const { user, signIn, signUp } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>(() =>

@@ -45,6 +45,14 @@ import { StudentCertificatesPage } from './pages/StudentCertificatesPage'
 import { StudentPlanningPage } from './pages/StudentPlanningPage'
 import { CertificateVerifyPage } from './pages/CertificateVerifyPage'
 import { StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
+import { SchoolPublicLayout } from './public/SchoolPublicLayout'
+import { SchoolHomePage } from './pages/SchoolHomePage'
+import { SchoolFormationsPage } from './pages/SchoolFormationsPage'
+import { SchoolFormationDetailPage } from './pages/SchoolFormationDetailPage'
+import { SchoolContactPage } from './pages/SchoolContactPage'
+import { SchoolLegalPage } from './pages/SchoolLegalPage'
+import { SchoolCheckoutPage } from './pages/SchoolCheckoutPage'
+import './public-site.css'
 import type { WorkspaceSpace } from './lib/api'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
@@ -150,6 +158,14 @@ export default function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/certificates/verify/:token" element={<CertificateVerifyPage />} />
+            <Route path="/schools/:schoolSlug" element={<SchoolPublicLayout />}>
+              <Route index element={<SchoolHomePage />} />
+              <Route path="formations" element={<SchoolFormationsPage />} />
+              <Route path="formations/:formationSlug" element={<SchoolFormationDetailPage />} />
+              <Route path="contact" element={<SchoolContactPage />} />
+              <Route path="legal/:legalType" element={<SchoolLegalPage />} />
+              <Route path="checkout" element={<SchoolCheckoutPage />} />
+            </Route>
 
             <Route
               path="/app"
