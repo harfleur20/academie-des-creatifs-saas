@@ -19,6 +19,8 @@ import { AdminSchoolsPage } from './pages/AdminSchoolsPage'
 import { AdminSchoolDetailPage } from './pages/AdminSchoolDetailPage'
 import { AdminPlansPage } from './pages/AdminPlansPage'
 import { OnboardingPage } from './pages/OnboardingPage'
+import { FormationsManagementPage } from './pages/FormationsManagementPage'
+import { FormationWorkspacePage } from './pages/FormationWorkspacePage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -92,6 +94,8 @@ export default function App() {
             >
               <Route index element={<SchoolDashboardPage />} />
               <Route path="onboarding" element={<OnboardingPage />} />
+              <Route path="formations" element={<FormationsManagementPage />} />
+              <Route path="formations/:formationId" element={<FormationWorkspacePage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="billing" element={<BillingPage />} />
               <Route path="settings" element={<SchoolSettingsPage />} />

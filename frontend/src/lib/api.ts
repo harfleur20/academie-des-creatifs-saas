@@ -814,26 +814,226 @@ export type OnboardingStatus = {
 export const getOnboardingStatus = () =>
   request<OnboardingStatus>('/onboarding/status')
 
-export type Formation = {
+export type FormationSummary = {
   id: number
   organization_id: number
   slug: string
   title: string
   description: string
-  status: string
+  category: string
+  level: string
+  format_type: 'live' | 'ligne' | 'presentiel'
+  training_hours: number | null
+  status: 'draft' | 'published' | 'archived'
+  session_count: number
+  teacher_count: number
+  student_count: number
+  course_count: number
   created_at: string
 }
+
+export type SessionTeacher = {
+  id: number
+  teacher_id: number
+  teacher_name: string
+  teacher_email: string
+  role: 'principal' | 'intervenant'
+  assigned_at: string
+}
+
+export type Enrollment = {
+  id: number
+  student_id: number
+  student_name: string
+  student_email: string
+  status: 'active' | 'completed' | 'cancelled'
+  created_at: string
+}
+
+export type Lesson = {
+  id: number
+  title: string
+  order_index: number
+  lesson_type: 'text' | 'video' | 'pdf' | 'quiz' | 'assignment' | 'resource'
+  content: string | null
+  video_url: string | null
+  file_url: string | null
+}
+
+export type Chapter = {
+  id: number
+  title: string
+  order_index: number
+  lessons: Lesson[]
+}
+
+export type Course = {
+  id: number
+  title: string
+  description: string
+  teacher_id: number | null
+  teacher_name: string | null
+  status: 'draft' | 'published' | 'archived'
+  chapters: Chapter[]
+  created_at: string
+}
+
+export type FormationSession = {
+  id: number
+  label: string
+  start_date: string
+  end_date: string
+  campus_label: string | null
+  seat_capacity: number
+  status: 'planned' | 'open' | 'completed' | 'cancelled'
+  teachers: SessionTeacher[]
+  enrollments: Enrollment[]
+  courses: Course[]
+  created_at: string
+}
+
+export type FormationDetail = FormationSummary & {
+  sessions: FormationSession[]
+}
+
+export const listFormations = () =>
+  request<FormationSummary[]>('/formations')
+
+export const getFormation = (formationId: number) =>
+  request<FormationDetail>(`/formations/${formationId}`)
 
 export const createFormation = (payload: {
   slug: string
   title: string
   description?: string
+  category?: string
+  level?: string
+  format_type?: 'live' | 'ligne' | 'presentiel'
+  training_hours?: number | null
+  status?: 'draft' | 'published'
 }) =>
-  request<Formation>('/formations', {
+  request<FormationSummary>('/formations', {
     method: 'POST',
     body: JSON.stringify({
-      slug: payload.slug,
-      title: payload.title,
+      ...payload,
       description: payload.description ?? '',
     }),
   })
+
+export const updateFormation = (
+  formationId: number,
+  payload: Partial<Pick<
+    FormationSummary,
+    'title' | 'description' | 'category' | 'level' | 'format_type' | 'training_hours' | 'status'
+  >>,
+) =>
+  request<FormationSummary>(`/formations/${formationId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+
+export const createFormationSession = (
+  formationId: number,
+  payload: {
+    label: string
+    start_date: string
+    end_date: string
+    campus_label?: string | null
+    seat_capacity?: number
+    status?: 'planned' | 'open'
+  },
+) =>
+  request<FormationDetail>(`/formations/${formationId}/sessions`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const assignSessionTeacher = (
+  formationId: number,
+  sessionId: number,
+  userId: number,
+  role: 'principal' | 'intervenant',
+) =>
+  request<FormationDetail>(
+    `/formations/${formationId}/sessions/${sessionId}/teachers`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, role }),
+    },
+  )
+
+export const removeSessionTeacher = (
+  formationId: number,
+  sessionId: number,
+  teacherId: number,
+) =>
+  request<FormationDetail>(
+    `/formations/${formationId}/sessions/${sessionId}/teachers/${teacherId}`,
+    { method: 'DELETE' },
+  )
+
+export const enrollSessionStudent = (
+  formationId: number,
+  sessionId: number,
+  userId: number,
+) =>
+  request<FormationDetail>(
+    `/formations/${formationId}/sessions/${sessionId}/enrollments`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    },
+  )
+
+export const createSessionCourse = (
+  formationId: number,
+  sessionId: number,
+  payload: {
+    title: string
+    description?: string
+    teacher_id?: number | null
+  },
+) =>
+  request<FormationDetail>(
+    `/formations/${formationId}/sessions/${sessionId}/courses`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+
+export const createCourseChapter = (
+  formationId: number,
+  sessionId: number,
+  courseId: number,
+  payload: { title: string; order_index?: number },
+) =>
+  request<FormationDetail>(
+    `/formations/${formationId}/sessions/${sessionId}/courses/${courseId}/chapters`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+
+export const createChapterLesson = (
+  formationId: number,
+  sessionId: number,
+  courseId: number,
+  chapterId: number,
+  payload: {
+    title: string
+    order_index?: number
+    lesson_type?: Lesson['lesson_type']
+    content?: string | null
+    video_url?: string | null
+    file_url?: string | null
+  },
+) =>
+  request<FormationDetail>(
+    `/formations/${formationId}/sessions/${sessionId}/courses/${courseId}/chapters/${chapterId}/lessons`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )

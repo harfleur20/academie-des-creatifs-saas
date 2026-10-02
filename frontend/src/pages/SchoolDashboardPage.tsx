@@ -3,7 +3,9 @@ import { ArrowRight, Building2, GraduationCap, ShieldCheck, Users } from 'lucide
 import {
   createOrganization,
   getOnboardingStatus,
+  listFormations,
   setStoredOrganizationId,
+  type FormationSummary,
   type OnboardingStatus,
 } from '../lib/api'
 import { useTenant } from '../app/TenantContext'
@@ -26,15 +28,22 @@ export function SchoolDashboardPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null)
+  const [formations, setFormations] = useState<FormationSummary[]>([])
 
   useEffect(() => {
     if (!activeOrganization) {
       setOnboarding(null)
       return
     }
-    getOnboardingStatus()
-      .then(setOnboarding)
-      .catch(() => setOnboarding(null))
+    void Promise.all([getOnboardingStatus(), listFormations()])
+      .then(([onboardingStatus, formationItems]) => {
+        setOnboarding(onboardingStatus)
+        setFormations(formationItems)
+      })
+      .catch(() => {
+        setOnboarding(null)
+        setFormations([])
+      })
   }, [activeOrganization?.id])
 
   async function createSchool(event: FormEvent) {
@@ -116,8 +125,11 @@ export function SchoolDashboardPage() {
         <article>
           <span className="stat-icon"><GraduationCap size={20} /></span>
           <small>Formations</small>
-          <strong>Socle prêt</strong>
-          <p>Le portage des sessions et contenus arrive dans le bloc suivant.</p>
+          <strong>{formations.length} formation(s)</strong>
+          <p>
+            {formations.reduce((sum, item) => sum + item.session_count, 0)} session(s) ·{' '}
+            {formations.reduce((sum, item) => sum + item.course_count, 0)} cours.
+          </p>
         </article>
         <article>
           <span className="stat-icon"><ShieldCheck size={20} /></span>

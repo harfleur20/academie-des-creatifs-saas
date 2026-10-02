@@ -97,7 +97,9 @@ export function AppLayout() {
           <NavLink to="/app" end>
             <LayoutDashboard size={18} /> Tableau de bord
           </NavLink>
-          <span className="nav-disabled"><BookOpen size={18} /> Formations <small>Bientôt</small></span>
+          <NavLink to="/app/formations">
+            <BookOpen size={18} /> Formations
+          </NavLink>
           <NavLink to="/app/team">
             <Users size={18} /> Équipe & accès
           </NavLink>

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -543,4 +543,186 @@ class FormationRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(255), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    category: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    level: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    format_type: Mapped[str] = mapped_column(String(32), nullable=False, default="ligne")
+    training_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+
+    sessions: Mapped[list["FormationSessionRecord"]] = relationship(
+        back_populates="formation",
+        cascade="all, delete-orphan",
+    )
+
+
+class FormationSessionRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "formation_sessions"
+    __table_args__ = (
+        Index("ix_formation_sessions_org_formation", "organization_id", "formation_id"),
+        Index("ix_formation_sessions_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    formation_id: Mapped[int] = mapped_column(
+        ForeignKey("formations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    label: Mapped[str] = mapped_column(String(180), nullable=False)
+    start_date: Mapped[date] = mapped_column(nullable=False)
+    end_date: Mapped[date] = mapped_column(nullable=False)
+    campus_label: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    seat_capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+
+    formation: Mapped["FormationRecord"] = relationship(back_populates="sessions")
+    teachers: Mapped[list["SessionTeacherRecord"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+    )
+    enrollments: Mapped[list["EnrollmentRecord"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+    )
+    courses: Mapped[list["CourseRecord"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+    )
+
+
+class SessionTeacherRecord(OrganizationOwnedMixin, Base):
+    __tablename__ = "session_teachers"
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id",
+            "teacher_id",
+            name="uq_session_teachers_session_teacher",
+        ),
+        Index("ix_session_teachers_org_session", "organization_id", "session_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("formation_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    teacher_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    role: Mapped[str] = mapped_column(String(24), nullable=False, default="intervenant")
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    session: Mapped["FormationSessionRecord"] = relationship(back_populates="teachers")
+    teacher: Mapped["UserRecord"] = relationship()
+
+
+class EnrollmentRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "enrollments"
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id",
+            "student_id",
+            name="uq_enrollments_session_student",
+        ),
+        Index("ix_enrollments_org_session", "organization_id", "session_id"),
+        Index("ix_enrollments_org_student", "organization_id", "student_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("formation_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    student_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="active")
+
+    session: Mapped["FormationSessionRecord"] = relationship(back_populates="enrollments")
+    student: Mapped["UserRecord"] = relationship()
+
+
+class CourseRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "courses"
+    __table_args__ = (
+        Index("ix_courses_org_session", "organization_id", "session_id"),
+        Index("ix_courses_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("formation_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    teacher_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="draft")
+
+    session: Mapped["FormationSessionRecord"] = relationship(back_populates="courses")
+    teacher: Mapped["UserRecord | None"] = relationship()
+    chapters: Mapped[list["ChapterRecord"]] = relationship(
+        back_populates="course",
+        cascade="all, delete-orphan",
+        order_by="ChapterRecord.order_index",
+    )
+
+
+class ChapterRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "chapters"
+    __table_args__ = (
+        Index("ix_chapters_org_course", "organization_id", "course_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    course: Mapped["CourseRecord"] = relationship(back_populates="chapters")
+    lessons: Mapped[list["LessonRecord"]] = relationship(
+        back_populates="chapter",
+        cascade="all, delete-orphan",
+        order_by="LessonRecord.order_index",
+    )
+
+
+class LessonRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "lessons"
+    __table_args__ = (
+        Index("ix_lessons_org_chapter", "organization_id", "chapter_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chapter_id: Mapped[int] = mapped_column(
+        ForeignKey("chapters.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    lesson_type: Mapped[str] = mapped_column(String(24), nullable=False, default="text")
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    video_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    file_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    chapter: Mapped["ChapterRecord"] = relationship(back_populates="lessons")

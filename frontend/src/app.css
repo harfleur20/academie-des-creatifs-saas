@@ -3158,3 +3158,399 @@
     justify-self: start;
   }
 }
+
+
+.formations-page {
+  max-width: 1250px;
+}
+
+.formation-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.formation-metrics article {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #fff;
+}
+
+.formation-metrics svg {
+  color: var(--blue);
+}
+
+.formation-metrics strong,
+.formation-metrics span {
+  display: block;
+}
+
+.formation-metrics strong {
+  font-size: 20px;
+}
+
+.formation-metrics span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.formation-layout {
+  display: grid;
+  grid-template-columns: 360px minmax(0,1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.formation-create-card {
+  position: sticky;
+  top: 20px;
+}
+
+.formation-create-card label,
+.session-create-card label {
+  display: grid;
+  gap: 7px;
+  margin: 14px 0;
+  color: #405067;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.formation-create-card input,
+.formation-create-card textarea,
+.formation-create-card select,
+.session-create-card input,
+.session-create-card select,
+.inline-management-form input,
+.inline-management-form select,
+.course-create-row input,
+.course-create-row select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #dfe5ed;
+  border-radius: 10px;
+  padding: 0 11px;
+  color: #28384d;
+  background: #fff;
+  outline: none;
+}
+
+.formation-create-card textarea {
+  min-height: 100px;
+  padding-top: 10px;
+  resize: vertical;
+}
+
+.formation-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+
+.formation-list,
+.session-list,
+.course-list {
+  display: grid;
+  gap: 14px;
+}
+
+.formation-card {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.formation-card-head,
+.session-workspace-heading,
+.course-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.formation-card h2 {
+  margin: 7px 0 6px;
+  font-size: 21px;
+}
+
+.formation-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.formation-format,
+.formation-status {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.formation-format {
+  color: var(--blue);
+  background: #eef4ff;
+}
+
+.formation-status {
+  color: #846000;
+  background: #fff4d6;
+}
+
+.formation-status.published {
+  color: #08774f;
+  background: #e9f9f2;
+}
+
+.formation-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0;
+  padding-top: 14px;
+  border-top: 1px solid #eef1f4;
+}
+
+.formation-card-meta span,
+.session-workspace-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #78869a;
+  font-size: 9px;
+}
+
+.formation-empty {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  text-align: center;
+}
+
+.formation-empty strong {
+  margin-top: 10px;
+}
+
+.formation-empty p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.formation-workspace-page {
+  max-width: 1180px;
+}
+
+.session-create-grid {
+  display: grid;
+  grid-template-columns: minmax(180px,1.5fr) 1fr 1fr .65fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.session-create-grid label {
+  margin: 0;
+}
+
+.session-workspace-card {
+  padding: 24px;
+}
+
+.session-workspace-heading h2 {
+  margin: 5px 0 5px;
+}
+
+.session-workspace-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.session-workspace-stats {
+  display: flex;
+  gap: 10px;
+}
+
+.session-management-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.session-management-grid > section {
+  padding: 16px;
+  border: 1px solid #e8ecf1;
+  border-radius: 13px;
+  background: #fafbfd;
+}
+
+.session-management-grid h3,
+.session-course-section h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.inline-management-form {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.compact-person-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 11px;
+}
+
+.compact-person-list > span {
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: #fff;
+  border: 1px solid #e6ebf0;
+}
+
+.compact-person-list strong,
+.compact-person-list small {
+  display: block;
+}
+
+.compact-person-list strong {
+  font-size: 9px;
+}
+
+.compact-person-list small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.session-course-section {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #edf0f4;
+}
+
+.course-create-row {
+  display: grid;
+  grid-template-columns: minmax(180px,1.4fr) minmax(170px,.8fr) auto;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.course-card {
+  padding: 16px;
+  border: 1px solid #e5eaf0;
+  border-radius: 13px;
+  background: #fbfcfd;
+}
+
+.course-card-heading strong,
+.course-card-heading small {
+  display: block;
+}
+
+.course-card-heading strong {
+  font-size: 12px;
+}
+
+.course-card-heading small,
+.course-card-heading > span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.module-list {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.module-item {
+  padding: 12px;
+  border: 1px solid #e8ecf1;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.module-item > strong,
+.module-item > small {
+  display: block;
+}
+
+.module-item > strong {
+  font-size: 10px;
+}
+
+.module-item > small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.lesson-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 0;
+}
+
+.lesson-list span {
+  padding: 5px 7px;
+  border-radius: 7px;
+  color: #5c6b7f;
+  background: #f3f6f9;
+  font-size: 8px;
+}
+
+@media (max-width: 1050px) {
+  .formation-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .formation-create-card {
+    position: static;
+  }
+
+  .session-create-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .formation-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .formation-form-grid,
+  .session-management-grid,
+  .formation-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .session-create-grid,
+  .course-create-row {
+    grid-template-columns: 1fr;
+  }
+
+  .formation-card-head,
+  .session-workspace-heading {
+    flex-direction: column;
+  }
+}
