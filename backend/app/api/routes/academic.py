@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
 from app.db.session import get_db
+from app.models.entities import CertificateRecord
 from app.schemas.academic import (
     AttendanceCourseDayRead,
     AttendanceMarkPayload,
@@ -36,6 +37,7 @@ from app.services.class_certificates import (
     list_student_classes,
     verify_certificate_token,
 )
+from app.services.school_documents import build_certificate_pdf
 from app.services.learning_progress import (
     mark_attendance,
     mark_lesson_complete,
@@ -319,6 +321,54 @@ def create_certificate(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return issue_certificate(db, tenant, enrollment_id)
+
+
+@router.get("/student/enrollments/{enrollment_id}/certificate.pdf")
+def download_student_certificate(
+    enrollment_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    issue_certificate(db, tenant, enrollment_id)
+    certificate = db.query(CertificateRecord).filter(
+        CertificateRecord.organization_id == tenant.organization_id,
+        CertificateRecord.enrollment_id == enrollment_id,
+    ).first()
+    if certificate is None:
+        return Response(status_code=404)
+    filename, content = build_certificate_pdf(certificate)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@router.get("/certificates/{token}/download")
+def download_verified_certificate(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    verify_certificate_token(db, token)
+    try:
+        certificate_id = int(token.split(".", 1)[0])
+    except (ValueError, TypeError):
+        return Response(status_code=404)
+    certificate = db.get(CertificateRecord, certificate_id)
+    if certificate is None:
+        return Response(status_code=404)
+    filename, content = build_certificate_pdf(certificate)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
 
 
 @router.get(

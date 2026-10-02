@@ -822,6 +822,23 @@ def process_installment_lifecycle(
         if now <= _aware(row.grace_until):
             if row.status == "pending":
                 row.status = "due"
+                user = db.get(UserRecord, order.user_id)
+                formation = db.get(FormationRecord, order.formation_id)
+                if user and formation:
+                    _queue_message(
+                        db,
+                        org=org,
+                        user=user,
+                        event_key="student.payment.due",
+                        subject="Échéance de paiement à régler",
+                        body=(
+                            f"Bonjour {user.full_name},\n"
+                            f"une échéance de {row.amount_cents} {order.currency} "
+                            f"pour {formation.title} est arrivée à échéance.\n"
+                            f"Vous disposez du délai de grâce jusqu'au "
+                            f"{_aware(row.grace_until):%d/%m/%Y}."
+                        ),
+                    )
                 changed += 1
             continue
         if row.status != "late":

@@ -3,13 +3,13 @@ from __future__ import annotations
 import hmac
 import json
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_tenant_context
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.entities import UserRecord
+from app.models.entities import OrderInvoiceRecord, StudentOrderRecord, UserRecord
 from app.schemas.commerce import (
     CheckoutCreate,
     CheckoutRead,
@@ -27,6 +27,8 @@ from app.schemas.commerce import (
     StudentManagementRead,
 )
 from app.services.assets import store_school_asset
+from app.services.communication_delivery import process_communication_outbox
+from app.services.school_documents import build_invoice_pdf
 from app.services.public_catalog import get_public_organization
 from app.services.school_branding import get_school_identity, update_school_identity
 from app.services.school_commerce import (
@@ -108,6 +110,92 @@ def invoices(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return list_invoices(db, tenant)
+
+
+@router.get("/invoices/{invoice_id}/pdf")
+def download_invoice_pdf(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    if not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Accès gestion requis.")
+    invoice = db.get(OrderInvoiceRecord, invoice_id)
+    if invoice is None or invoice.organization_id != tenant.organization_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Facture introuvable.")
+    filename, content = build_invoice_pdf(db, invoice)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@router.get(
+    "/public/{school_key}/orders/{order_id}/invoices",
+    response_model=list[InvoiceRead],
+)
+def read_my_invoices(
+    school_key: str,
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: UserRecord = Depends(get_current_user),
+):
+    org = get_public_organization(db, school_key)
+    order = db.get(StudentOrderRecord, order_id)
+    if (
+        order is None
+        or order.organization_id != org.id
+        or order.user_id != user.id
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Commande introuvable.")
+    rows = db.query(OrderInvoiceRecord).filter(
+        OrderInvoiceRecord.organization_id == org.id,
+        OrderInvoiceRecord.order_id == order.id,
+    ).order_by(OrderInvoiceRecord.issued_at.desc()).all()
+    return [
+        InvoiceRead(
+            id=row.id,
+            order_id=row.order_id,
+            installment_id=row.installment_id,
+            invoice_number=row.invoice_number,
+            status=row.status,
+            amount_cents=row.amount_cents,
+            currency=row.currency,
+            branding_snapshot=row.branding_snapshot or {},
+            issued_at=row.issued_at,
+            paid_at=row.paid_at,
+        )
+        for row in rows
+    ]
+
+
+@router.get("/public/{school_key}/invoices/{invoice_id}/pdf")
+def download_my_invoice_pdf(
+    school_key: str,
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    user: UserRecord = Depends(get_current_user),
+):
+    org = get_public_organization(db, school_key)
+    invoice = db.get(OrderInvoiceRecord, invoice_id)
+    if invoice is None or invoice.organization_id != org.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Facture introuvable.")
+    order = db.get(StudentOrderRecord, invoice.order_id)
+    if order is None or order.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Facture introuvable.")
+    filename, content = build_invoice_pdf(db, invoice)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @router.get("/students", response_model=list[StudentManagementRead])
@@ -277,7 +365,12 @@ def commerce_lifecycle(
         or not hmac.compare_digest(settings.billing_cron_secret, cron_secret)
     ):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Secret cron invalide.")
-    return {"transitioned": process_installment_lifecycle(db)}
+    transitioned = process_installment_lifecycle(db)
+    communications = process_communication_outbox(db)
+    return {
+        "transitioned": transitioned,
+        "communications": communications,
+    }
 
 
 @router.post("/tara/webhook")
