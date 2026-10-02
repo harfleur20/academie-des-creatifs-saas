@@ -1804,6 +1804,11 @@ export type PublicSession = {
   seats_remaining: number | null
   price_cents: number
   currency: string
+  status: 'planned' | 'open' | 'completed' | 'cancelled'
+  public_enrollment_enabled: boolean
+  enrollment_opens_at: string | null
+  enrollment_closes_at: string | null
+  price_override_cents: number | null
   is_available: boolean
   unavailable_reason: string | null
 }

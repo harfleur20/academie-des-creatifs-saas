@@ -115,7 +115,23 @@ def _public_formation(db:Session,formation:FormationRecord,user_id:int|None=None
         base=s.price_override_cents if s.price_override_cents is not None else formation.base_price_cents
         direct,_=_active_promo(db,formation.organization_id,formation.id,s.id,base)
         if ok and (not session_views or base-direct<best_price-best_discount): best_price,best_discount=base,direct
-        session_views.append(PublicSessionRead(id=s.id,label=s.label,start_date=s.start_date,end_date=s.end_date,campus_label=s.campus_label,seats_remaining=remaining,price_cents=max(0,base-direct),currency=formation.currency,is_available=ok,unavailable_reason=reason))
+        session_views.append(PublicSessionRead(
+            id=s.id,
+            label=s.label,
+            start_date=s.start_date,
+            end_date=s.end_date,
+            campus_label=s.campus_label,
+            seats_remaining=remaining,
+            price_cents=max(0,base-direct),
+            currency=formation.currency,
+            status=s.status,
+            public_enrollment_enabled=s.public_enrollment_enabled,
+            enrollment_opens_at=s.enrollment_opens_at,
+            enrollment_closes_at=s.enrollment_closes_at,
+            price_override_cents=s.price_override_cents,
+            is_available=ok,
+            unavailable_reason=reason,
+        ))
     return PublicFormationRead(id=formation.id,slug=formation.slug,title=formation.title,short_description=formation.short_description,description=formation.description,cover_url=formation.cover_url,category=formation.category,level=formation.level,format_type=formation.format_type,training_hours=formation.training_hours,objectives=formation.objectives,prerequisites=formation.prerequisites,public_program=formation.public_program,base_price_cents=formation.base_price_cents,currency=formation.currency,display_price_cents=max(0,best_price-best_discount),direct_discount_cents=best_discount,featured_on_home=formation.featured_on_home,featured_order=formation.featured_order,is_public=formation.is_public,allow_installments=formation.allow_installments,installment_count=formation.installment_count,installment_grace_days=formation.installment_grace_days,sessions=session_views,can_buy=any(x.is_available for x in session_views))
 
 def public_school(db:Session,slug:str)->PublicSchoolRead:

@@ -51,6 +51,11 @@ class PublicSessionRead(BaseModel):
     seats_remaining: int | None
     price_cents: int
     currency: str
+    status: str
+    public_enrollment_enabled: bool
+    enrollment_opens_at: datetime | None
+    enrollment_closes_at: datetime | None
+    price_override_cents: int | None
     is_available: bool
     unavailable_reason: str | None
 
@@ -112,6 +117,7 @@ class CommercialFormationUpdate(BaseModel):
     featured_order: int | None = Field(default=None, ge=0, le=1000)
 
 class CommercialSessionUpdate(BaseModel):
+    status: Literal["planned", "open", "completed", "cancelled"] | None = None
     enrollment_opens_at: datetime | None = None
     enrollment_closes_at: datetime | None = None
     public_enrollment_enabled: bool | None = None
