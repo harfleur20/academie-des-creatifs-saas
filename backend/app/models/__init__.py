@@ -1,5 +1,8 @@
 from app.models.entities import (
     BillingInvoiceRecord,
+    AssignmentCommentRecord,
+    AssignmentRecord,
+    AssignmentSubmissionRecord,
     BillingPaymentAttemptRecord,
     ChapterRecord,
     CourseRecord,
@@ -26,6 +29,9 @@ from app.models.entities import (
 
 __all__ = [
     "BillingInvoiceRecord",
+    "AssignmentCommentRecord",
+    "AssignmentRecord",
+    "AssignmentSubmissionRecord",
     "BillingPaymentAttemptRecord",
     "ChapterRecord",
     "CourseRecord",

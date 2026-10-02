@@ -798,3 +798,56 @@ class LessonRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     file_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     chapter: Mapped["ChapterRecord"] = relationship(back_populates="lessons")
+
+
+class AssignmentRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "assignments"
+    __table_args__ = (
+        Index("ix_assignments_org_session", "organization_id", "session_id"),
+        Index("ix_assignments_org_teacher", "organization_id", "teacher_id"),
+        Index("ix_assignments_org_due", "organization_id", "due_date"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_day_id: Mapped[int | None] = mapped_column(ForeignKey("session_course_days.id", ondelete="SET NULL"), nullable=True, index=True)
+    teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    instructions: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    due_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    is_final_project: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    teacher: Mapped["UserRecord | None"] = relationship()
+
+
+class AssignmentSubmissionRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "assignment_submissions"
+    __table_args__ = (
+        UniqueConstraint("assignment_id", "enrollment_id", name="uq_assignment_submission"),
+        Index("ix_assignment_submissions_org_assignment", "organization_id", "assignment_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"), nullable=False, index=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    file_url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    is_reviewed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    review_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    review_max_score: Mapped[float] = mapped_column(Float, nullable=False, default=20)
+
+
+class AssignmentCommentRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "assignment_comments"
+    __table_args__ = (
+        Index("ix_assignment_comments_org_assignment", "organization_id", "assignment_id"),
+        Index("ix_assignment_comments_org_enrollment", "organization_id", "enrollment_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"), nullable=False, index=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_role: Mapped[str] = mapped_column(String(16), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    attachment_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
