@@ -44,6 +44,11 @@ import { StudentClassPage } from './pages/StudentClassPage'
 import { StudentCertificatesPage } from './pages/StudentCertificatesPage'
 import { StudentPlanningPage } from './pages/StudentPlanningPage'
 import { CertificateVerifyPage } from './pages/CertificateVerifyPage'
+import { SchoolPublicSitePage } from './pages/SchoolPublicSitePage'
+import { StudentsManagementPage } from './pages/StudentsManagementPage'
+import { TeachersManagementPage } from './pages/TeachersManagementPage'
+import { CommerceDashboardPage } from './pages/CommerceDashboardPage'
+import { PromotionsPage } from './pages/PromotionsPage'
 import { StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
 import { SchoolPublicLayout } from './public/SchoolPublicLayout'
 import { SchoolHomePage } from './pages/SchoolHomePage'
@@ -194,6 +199,11 @@ export default function App() {
               <Route path="onboarding" element={<OnboardingPage />} />
               <Route path="formations" element={<FormationsManagementPage />} />
               <Route path="formations/:formationId" element={<FormationWorkspacePage />} />
+              <Route path="students" element={<StudentsManagementPage />} />
+              <Route path="teachers" element={<TeachersManagementPage />} />
+              <Route path="commerce" element={<CommerceDashboardPage />} />
+              <Route path="promotions" element={<PromotionsPage />} />
+              <Route path="site-public" element={<SchoolPublicSitePage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="billing" element={<BillingPage />} />
               <Route path="settings" element={<SchoolSettingsPage />} />
