@@ -325,5 +325,6 @@ def branding_snapshot(
         "signature_url": cert.signature_url,
         "stamp_url": cert.stamp_url,
         "certificate_footer": cert.certificate_footer,
+        "student_code_prefix": site.student_code_prefix or _prefix_from_name(org.name),
         "captured_at": datetime.now(UTC).isoformat(),
     }

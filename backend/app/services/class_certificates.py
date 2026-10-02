@@ -15,6 +15,7 @@ from app.models.entities import (
     ClassDiscussionPostRecord,
     ClassDiscussionReplyRecord,
     EnrollmentRecord,
+    OrganizationStudentProfileRecord,
     UserRecord,
 )
 from app.schemas.academic import (
@@ -34,6 +35,7 @@ from app.services.academic_access import (
     require_student_enrollment,
 )
 from app.services.learning_progress import badge_for_enrollment, progress_for_enrollment
+from app.services.school_branding import branding_snapshot
 from app.services.tenancy import TenantContext
 
 
@@ -256,7 +258,11 @@ def delete_discussion_post(
     db.commit()
 
 
-def _certificate_number(enrollment_id: int, issued_at: datetime) -> str:
+def _certificate_number(
+    enrollment_id: int,
+    issued_at: datetime,
+    prefix: str = "AC",
+) -> str:
     message = f"saas-certificate:{enrollment_id}".encode()
     digest = hmac.new(
         settings.jwt_secret_key.encode(),
@@ -264,7 +270,8 @@ def _certificate_number(enrollment_id: int, issued_at: datetime) -> str:
         hashlib.sha256,
     ).digest()
     token = base64.b32encode(digest).decode("ascii").rstrip("=")[:12]
-    return f"CERT-{issued_at.year}-{token[:4]}-{token[4:8]}-{token[8:12]}"
+    safe_prefix = "".join(ch for ch in prefix.upper() if ch.isalnum())[:8] or "AC"
+    return f"{safe_prefix}-CERT-{issued_at.year}-{token[:4]}-{token[4:8]}-{token[8:12]}"
 
 
 def _verification_token(certificate: CertificateRecord) -> str:
@@ -370,14 +377,31 @@ def issue_certificate(
     student = db.get(UserRecord, enrollment.student_id)
     formation = formation_for_session(db, tenant, enrollment.session_id)
     issued_at = datetime.now(UTC)
+    session = get_session(db, tenant, enrollment.session_id)
+    profile = db.scalar(
+        select(OrganizationStudentProfileRecord).where(
+            OrganizationStudentProfileRecord.organization_id == tenant.organization_id,
+            OrganizationStudentProfileRecord.user_id == enrollment.student_id,
+        )
+    )
+    snapshot = branding_snapshot(db, tenant.organization)
+    snapshot["document"] = {
+        "student_code": profile.student_code if profile else None,
+        "session_label": session.label,
+        "session_start_date": session.start_date.isoformat(),
+        "session_end_date": session.end_date.isoformat(),
+        "training_hours": formation.training_hours,
+    }
+    prefix = str(snapshot.get("student_code_prefix") or "AC")
     row = CertificateRecord(
         organization_id=tenant.organization_id,
         enrollment_id=enrollment.id,
-        certificate_number=_certificate_number(enrollment.id, issued_at),
+        certificate_number=_certificate_number(enrollment.id, issued_at, prefix),
         student_name=student.full_name if student else "Étudiant",
         formation_title=formation.title,
         issued_at=issued_at,
         status="valid",
+        branding_snapshot=snapshot,
     )
     enrollment.status = "completed"
     db.add(row)
