@@ -61,6 +61,8 @@ class UserRecord(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(180), unique=True, index=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String(180), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     platform_role: Mapped[str] = mapped_column(

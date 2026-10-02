@@ -1,16 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import AuthenticatedSession, get_current_user, get_support_session
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.entities import UserRecord
-from app.schemas.auth import AuthResponse, AuthUser, LoginPayload, RegisterPayload
+from app.schemas.auth import (
+    AuthResponse,
+    AuthUser,
+    LoginPayload,
+    PasswordChangePayload,
+    ProfileUpdatePayload,
+    RegisterPayload,
+)
 from app.services.admin import end_support_session
+from app.services.assets import store_profile_avatar
 from app.services.auth import (
     EmailAlreadyUsedError,
     authenticate_user,
     create_user,
+    change_password,
+    update_avatar,
+    update_profile,
 )
 
 
@@ -68,6 +79,48 @@ def me(
 ) -> AuthUser:
     return AuthUser.model_validate(current_user)
 
+
+
+@router.patch("/me", response_model=AuthUser)
+def update_me(
+    payload: ProfileUpdatePayload,
+    db: Session = Depends(get_db),
+    current_user: UserRecord = Depends(get_current_user),
+) -> AuthUser:
+    return AuthUser.model_validate(update_profile(db, current_user, payload))
+
+
+@router.post("/me/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def update_my_password(
+    payload: PasswordChangePayload,
+    db: Session = Depends(get_db),
+    current_user: UserRecord = Depends(get_current_user),
+):
+    try:
+        change_password(
+            db,
+            current_user,
+            current_password=payload.current_password,
+            new_password=payload.new_password,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return None
+
+
+@router.post("/me/avatar", response_model=AuthUser)
+async def update_my_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserRecord = Depends(get_current_user),
+) -> AuthUser:
+    asset = await store_profile_avatar(file, current_user.id)
+    return AuthUser.model_validate(
+        update_avatar(db, current_user, asset["public_url"])
+    )
 
 
 @router.post("/support/end", status_code=status.HTTP_204_NO_CONTENT)
