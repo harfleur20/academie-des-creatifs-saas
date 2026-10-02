@@ -1412,6 +1412,14 @@
   flex: 0 0 38px;
 }
 
+.academy-default-logo {
+  filter:
+    drop-shadow(1px 0 0 #fff)
+    drop-shadow(-1px 0 0 #fff)
+    drop-shadow(0 1px 0 #fff)
+    drop-shadow(0 -1px 0 #fff);
+}
+
 .preview-logo .brand-logo-image {
   width: 24px;
   height: 24px;
