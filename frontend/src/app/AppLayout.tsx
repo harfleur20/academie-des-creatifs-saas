@@ -55,7 +55,10 @@ export function AppLayout() {
             alt="Académie des Créatifs"
             className="app-brand-logo"
           />
-          <span>Académie des Créatifs</span>
+          <span className="app-brand-text">
+            <strong>Académie des Créatifs</strong>
+            <small>Premium Virtual School</small>
+          </span>
         </div>
 
         <div className="school-switcher">
