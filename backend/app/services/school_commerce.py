@@ -439,6 +439,7 @@ def _apply_installment_payment(
     paid_time = _aware(paid_at) or utc_now()
     installment.status = "paid"
     installment.paid_at = paid_time
+    db.flush()
 
     order.paid_cents = int(
         db.scalar(
@@ -448,7 +449,7 @@ def _apply_installment_payment(
             )
         )
         or 0
-    ) + installment.amount_cents
+    )
     if order.paid_cents >= order.final_price_cents:
         order.status = "paid"
         order.paid_at = paid_time
@@ -986,4 +987,95 @@ def commercial_dashboard(db: Session, tenant) -> CommercialDashboardRead:
         collected_cents=sum(row.paid_cents for row in orders),
         outstanding_cents=sum(max(0,row.final_price_cents-row.paid_cents) for row in orders if row.status not in {"cancelled","refunded"}),
         late_installments=late,active_students=students,currency=currency,
+    )
+
+
+
+def get_order_for_user(
+    db: Session,
+    org: OrganizationRecord,
+    user: UserRecord,
+    order_id: int,
+) -> OrderRead:
+    order = db.scalar(
+        select(StudentOrderRecord)
+        .options(
+            selectinload(StudentOrderRecord.formation),
+            selectinload(StudentOrderRecord.session),
+        )
+        .where(
+            StudentOrderRecord.id == order_id,
+            StudentOrderRecord.organization_id == org.id,
+            StudentOrderRecord.user_id == user.id,
+        )
+    )
+    if order is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Commande introuvable.")
+    return _order_read(db, order)
+
+
+def reconcile_tara_for_user(
+    db: Session,
+    org: OrganizationRecord,
+    user: UserRecord,
+    provider_reference: str,
+) -> CheckoutRead:
+    installment = db.scalar(
+        select(OrderInstallmentRecord).where(
+            OrderInstallmentRecord.provider_reference == provider_reference,
+            OrderInstallmentRecord.organization_id == org.id,
+        )
+    )
+    if installment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paiement introuvable.")
+    order = db.scalar(
+        select(StudentOrderRecord).where(
+            StudentOrderRecord.id == installment.order_id,
+            StudentOrderRecord.user_id == user.id,
+        )
+    )
+    if order is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Commande introuvable.")
+    reconciled = reconcile_tara_reference(db, provider_reference)
+    reconciled = db.scalar(
+        select(StudentOrderRecord)
+        .options(
+            selectinload(StudentOrderRecord.formation),
+            selectinload(StudentOrderRecord.session),
+        )
+        .where(StudentOrderRecord.id == reconciled.id)
+    )
+    return _checkout_read(reconciled)
+
+
+def set_promotion_active(db: Session, tenant, promotion_id: int, active: bool) -> PromotionRead:
+    _require_manager(tenant)
+    if tenant.support_mode:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Le mode support est en lecture seule.")
+    row = db.scalar(select(PromotionRecord).where(PromotionRecord.id == promotion_id, PromotionRecord.organization_id == tenant.organization_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Promotion introuvable.")
+    row.is_active = active
+    db.commit(); db.refresh(row)
+    return PromotionRead(
+        id=row.id,name=row.name,formation_id=row.formation_id,session_id=row.session_id,
+        discount_type=row.discount_type,discount_value=row.discount_value,starts_at=row.starts_at,ends_at=row.ends_at,
+        max_uses=row.max_uses,uses_count=row.uses_count,is_active=row.is_active,created_at=row.created_at,
+    )
+
+
+def set_coupon_active(db: Session, tenant, coupon_id: int, active: bool) -> CouponRead:
+    _require_manager(tenant)
+    if tenant.support_mode:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Le mode support est en lecture seule.")
+    row = db.scalar(select(CouponRecord).where(CouponRecord.id == coupon_id, CouponRecord.organization_id == tenant.organization_id))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Code promo introuvable.")
+    row.is_active = active
+    db.commit(); db.refresh(row)
+    return CouponRead(
+        id=row.id,code=row.code,name=row.name,discount_type=row.discount_type,discount_value=row.discount_value,
+        valid_from=row.valid_from,valid_until=row.valid_until,max_uses=row.max_uses,max_uses_per_customer=row.max_uses_per_customer,
+        uses_count=row.uses_count,minimum_order_cents=row.minimum_order_cents,eligible_formation_ids=row.eligible_formation_ids or [],
+        eligible_session_ids=row.eligible_session_ids or [],allow_on_promotions=row.allow_on_promotions,is_active=row.is_active,created_at=row.created_at,
     )
