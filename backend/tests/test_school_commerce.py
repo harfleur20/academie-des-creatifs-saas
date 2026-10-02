@@ -226,6 +226,59 @@ def test_full_payment_creates_student_profile_membership_and_enrollment() -> Non
     assert enrollment.status == "active"
 
 
+
+def test_student_code_counter_continues_after_existing_profiles() -> None:
+    db = build_db()
+    org, _user, _formation, session = seed(db)
+    site, *_ = get_or_create_identity_records(db, org)
+
+    legacy_user = UserRecord(
+        email="legacy@student.test",
+        full_name="Legacy Student",
+        status="active",
+    )
+    next_user = UserRecord(
+        email="next@student.test",
+        full_name="Next Student",
+        status="active",
+    )
+    db.add_all([legacy_user, next_user])
+    db.flush()
+    code_year = datetime.now(UTC).strftime("%y")
+    db.add(
+        OrganizationStudentProfileRecord(
+            organization_id=org.id,
+            user_id=legacy_user.id,
+            student_code=f"SB{code_year}-007",
+            status="active",
+        )
+    )
+    site.student_code_sequence_year = 0
+    site.student_code_sequence = 0
+    db.commit()
+
+    checkout = create_checkout(
+        db,
+        org,
+        next_user,
+        CheckoutCreate(session_id=session.id, payment_mode="full"),
+    )
+    confirm_demo_checkout(db, org, next_user, checkout.order_id)
+
+    profile = db.scalar(
+        select(OrganizationStudentProfileRecord).where(
+            OrganizationStudentProfileRecord.organization_id == org.id,
+            OrganizationStudentProfileRecord.user_id == next_user.id,
+        )
+    )
+    assert profile is not None
+    assert profile.student_code == f"SB{code_year}-008"
+
+    db.refresh(site)
+    assert site.student_code_sequence_year == int(datetime.now(UTC).strftime("%Y"))
+    assert site.student_code_sequence == 8
+
+
 def test_installment_late_suspends_then_payment_reactivates() -> None:
     db = build_db()
     org, user, formation, session = seed(db)

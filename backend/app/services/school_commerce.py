@@ -17,6 +17,7 @@ from app.models.entities import (
     OrderInstallmentRecord,
     OrderInvoiceRecord,
     OrganizationMemberRecord,
+    OrganizationPublicSiteRecord,
     OrganizationRecord,
     OrganizationStudentProfileRecord,
     PromotionRecord,
@@ -224,30 +225,60 @@ def _student_code(
     db: Session,
     org: OrganizationRecord,
 ) -> str:
-    site, _legal, _comm, _cert = get_or_create_identity_records(db, org)
+    # Ensure the identity row exists, then lock it for the whole transaction.
+    # On PostgreSQL this makes matricule allocation atomic per school.
+    get_or_create_identity_records(db, org)
+    site = db.scalar(
+        select(OrganizationPublicSiteRecord)
+        .where(OrganizationPublicSiteRecord.organization_id == org.id)
+        .with_for_update()
+    )
+    if site is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Identité de l'école introuvable pour générer le matricule.",
+        )
+
     prefix = (site.student_code_prefix or "AC").upper()[:8]
-    year = utc_now().strftime("%y")
-    base = f"{prefix}{year}-"
-    existing = int(
-        db.scalar(
-            select(func.count(OrganizationStudentProfileRecord.id)).where(
+    now = utc_now()
+    sequence_year = int(now.strftime("%Y"))
+    code_year = now.strftime("%y")
+    base = f"{prefix}{code_year}-"
+
+    persisted_sequence = (
+        site.student_code_sequence
+        if site.student_code_sequence_year == sequence_year
+        else 0
+    )
+
+    # Migration-safe synchronization: if profiles already existed before the
+    # counter columns were introduced, continue after the highest real code.
+    existing_codes = list(
+        db.scalars(
+            select(OrganizationStudentProfileRecord.student_code).where(
                 OrganizationStudentProfileRecord.organization_id == org.id,
                 OrganizationStudentProfileRecord.student_code.like(f"{base}%"),
             )
-        )
-        or 0
+        ).all()
     )
-    for number in range(existing + 1, existing + 10_000):
-        candidate = f"{base}{number:03d}"
-        if db.scalar(
-            select(OrganizationStudentProfileRecord.id).where(
-                OrganizationStudentProfileRecord.organization_id == org.id,
-                OrganizationStudentProfileRecord.student_code == candidate,
-            )
-        ) is None:
-            return candidate
-    raise HTTPException(status.HTTP_409_CONFLICT, "Impossible de générer un matricule unique.")
+    highest_existing = 0
+    for code in existing_codes:
+        suffix = code[len(base):]
+        if suffix.isdigit():
+            highest_existing = max(highest_existing, int(suffix))
 
+    next_number = max(persisted_sequence, highest_existing) + 1
+    if next_number > 999_999:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "La séquence de matricules de cette école est épuisée.",
+        )
+
+    site.student_code_sequence_year = sequence_year
+    site.student_code_sequence = next_number
+    db.add(site)
+    db.flush()
+    return f"{base}{next_number:03d}"
 
 def _ensure_student_access(
     db: Session,
