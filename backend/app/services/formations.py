@@ -269,6 +269,16 @@ def get_formation_record(
     return _get_scoped(db, tenant, FormationRecord, formation_id)
 
 
+# Backward-compatible tenant-scoped accessor used by the isolation tests and
+# by older service callers. Detailed API responses use get_formation_detail.
+def get_formation(
+    db: Session,
+    tenant: TenantContext,
+    formation_id: int,
+) -> FormationRecord | None:
+    return get_formation_record(db, tenant, formation_id)
+
+
 def get_formation_detail(
     db: Session,
     tenant: TenantContext,
