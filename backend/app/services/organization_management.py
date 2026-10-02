@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.models.entities import (
-    CommunicationOutboxRecord,
     OrganizationInvitationRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
@@ -30,6 +29,7 @@ from app.schemas.organizations import (
     OrganizationUpdate,
 )
 from app.services.school_branding import branding_snapshot
+from app.services.school_communications import queue_school_event
 from app.services.school_profiles import ensure_teacher_profile
 from app.services.tenancy import TenantContext
 
@@ -377,31 +377,21 @@ def create_invitation(
         "manager": "manager",
         "admin": "administrateur",
     }.get(payload.role, payload.role)
-    acceptance_url = (
-        f"{settings.frontend_url.rstrip('/')}/invite/{token}"
-    )
-    db.add(
-        CommunicationOutboxRecord(
-            organization_id=tenant.organization_id,
-            user_id=existing_user.id if existing_user else None,
-            channel="email",
-            recipient=email,
-            event_key="school.team.invitation",
-            subject=(
-                f"[{snapshot['school_name']}] "
-                f"Invitation à rejoindre l'école"
-            ),
-            body=(
-                f"Bonjour,\n"
-                f"{tenant.user.full_name} vous invite à rejoindre "
-                f"{snapshot['school_name']} en tant que {role_label}.\n"
-                f"Accepter l'invitation : {acceptance_url}\n"
-                f"Cette invitation expire dans {INVITATION_TTL_DAYS} jours.\n\n"
-                f"{snapshot.get('email_signature') or snapshot['school_name']}"
-            ),
-            branding_snapshot=snapshot,
-            status="pending",
-        )
+    acceptance_url = f"{settings.frontend_url.rstrip('/')}/invite/{token}"
+    queue_school_event(
+        db,
+        org=tenant.organization,
+        event_key="school.team.invitation",
+        user=existing_user,
+        recipient_email=email,
+        context={
+            "inviter_name": tenant.user.full_name,
+            "role_label": role_label,
+            "acceptance_url": acceptance_url,
+            "expires_days": INVITATION_TTL_DAYS,
+            "school_name": snapshot["school_name"],
+        },
+        include_whatsapp=False,
     )
     db.commit()
     return invitation, token

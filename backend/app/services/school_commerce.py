@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.models.entities import (
-    CommunicationOutboxRecord,
     CouponRecord,
     EnrollmentRecord,
     FormationRecord,
@@ -50,6 +49,7 @@ from app.services.school_branding import (
     branding_snapshot,
     get_or_create_identity_records,
 )
+from app.services.school_communications import queue_school_event
 from app.services.tara_money import create_payment_link, verify_payment
 
 
@@ -347,45 +347,6 @@ def _ensure_student_access(
     return profile
 
 
-def _queue_message(
-    db: Session,
-    *,
-    org: OrganizationRecord,
-    user: UserRecord,
-    event_key: str,
-    subject: str,
-    body: str,
-) -> None:
-    snapshot = branding_snapshot(db, org)
-    db.add(
-        CommunicationOutboxRecord(
-            organization_id=org.id,
-            user_id=user.id,
-            channel="email",
-            recipient=user.email,
-            event_key=event_key,
-            subject=f"[{snapshot['school_name']}] {subject}",
-            body=f"{body}\n\n{snapshot.get('email_signature') or snapshot['school_name']}",
-            branding_snapshot=snapshot,
-            status="pending",
-        )
-    )
-    if user.phone:
-        db.add(
-            CommunicationOutboxRecord(
-                organization_id=org.id,
-                user_id=user.id,
-                channel="whatsapp",
-                recipient=user.phone,
-                event_key=event_key,
-                subject=None,
-                body=f"{body}\n\n{snapshot.get('whatsapp_signature') or snapshot['school_name']}",
-                branding_snapshot=snapshot,
-                status="pending",
-            )
-        )
-
-
 def _invoice_number(org: OrganizationRecord, order: StudentOrderRecord, sequence: int) -> str:
     return f"{org.slug[:8].upper()}-INV-{utc_now():%Y}-{order.id:06d}-{sequence:02d}"
 
@@ -487,8 +448,16 @@ def _apply_installment_payment(
     else:
         order.status = "partially_paid"
 
+    was_new_student = db.scalar(
+        select(OrganizationStudentProfileRecord.id).where(
+            OrganizationStudentProfileRecord.organization_id == org.id,
+            OrganizationStudentProfileRecord.user_id == order.user_id,
+        )
+    ) is None
+    was_suspended = order.access_status == "suspended_payment"
     profile = _ensure_student_access(db, org, order)
     _refresh_order_access_after_payment(db, org, order)
+    reactivated = was_suspended and order.access_status == "active"
     _create_invoice(db, org, order, installment)
 
     if was_unpaid:
@@ -505,18 +474,34 @@ def _apply_installment_payment(
     formation = db.get(FormationRecord, order.formation_id)
     session = db.get(FormationSessionRecord, order.session_id)
     if user and formation and session:
-        _queue_message(
+        message_context = {
+            "formation_title": formation.title,
+            "session_label": session.label,
+            "student_code": profile.student_code,
+        }
+        if was_new_student:
+            queue_school_event(
+                db,
+                org=org,
+                user=user,
+                event_key="student.welcome",
+                context=message_context,
+            )
+        queue_school_event(
             db,
             org=org,
             user=user,
             event_key="student.payment.confirmed",
-            subject="Paiement confirmé",
-            body=(
-                f"Bonjour {user.full_name},\n"
-                f"votre paiement pour {formation.title} — {session.label} est confirmé.\n"
-                f"Votre matricule est {profile.student_code}."
-            ),
+            context=message_context,
         )
+        if reactivated:
+            queue_school_event(
+                db,
+                org=org,
+                user=user,
+                event_key="student.access.reactivated",
+                context=message_context,
+            )
     db.commit()
     db.refresh(order)
     return order
@@ -856,19 +841,16 @@ def process_installment_lifecycle(
                 user = db.get(UserRecord, order.user_id)
                 formation = db.get(FormationRecord, order.formation_id)
                 if user and formation:
-                    _queue_message(
+                    queue_school_event(
                         db,
                         org=org,
                         user=user,
                         event_key="student.payment.due",
-                        subject="Échéance de paiement à régler",
-                        body=(
-                            f"Bonjour {user.full_name},\n"
-                            f"une échéance de {row.amount_cents} {order.currency} "
-                            f"pour {formation.title} est arrivée à échéance.\n"
-                            f"Vous disposez du délai de grâce jusqu'au "
-                            f"{_aware(row.grace_until):%d/%m/%Y}."
-                        ),
+                        context={
+                            "amount_label": f"{row.amount_cents} {order.currency}",
+                            "formation_title": formation.title,
+                            "grace_date": f"{_aware(row.grace_until):%d/%m/%Y}",
+                        },
                     )
                 changed += 1
             continue
@@ -895,13 +877,24 @@ def process_installment_lifecycle(
                 profile.status = "suspended_payment"
             user = db.get(UserRecord, order.user_id)
             if user:
-                _queue_message(
+                formation = db.get(FormationRecord, order.formation_id)
+                event_context = {
+                    "amount_label": f"{row.amount_cents} {order.currency}",
+                    "formation_title": formation.title if formation else "votre formation",
+                }
+                queue_school_event(
                     db,
                     org=org,
                     user=user,
                     event_key="student.payment.overdue",
-                    subject="Échéance impayée",
-                    body="Une échéance de votre formation est en retard. Votre accès pédagogique est suspendu jusqu'à régularisation.",
+                    context=event_context,
+                )
+                queue_school_event(
+                    db,
+                    org=org,
+                    user=user,
+                    event_key="student.access.suspended",
+                    context=event_context,
                 )
             changed += 1
     db.commit()

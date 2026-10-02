@@ -5,8 +5,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.models.entities import CommunicationOutboxRecord, OrganizationRecord
+from app.models.entities import CommunicationOutboxRecord, OrganizationRecord, UserRecord
 from app.services.communication_delivery import process_communication_outbox
+from app.services.school_communications import queue_school_event
 
 
 def build_db() -> Session:
@@ -103,3 +104,38 @@ def test_failed_outbox_is_retryable_and_records_error() -> None:
     assert row.status == "failed"
     assert row.attempts_count == 1
     assert "non configuré" in (row.last_error or "")
+
+
+
+def test_central_school_template_queues_email_and_whatsapp() -> None:
+    db = build_db()
+    org = OrganizationRecord(name="School Business", slug="school-business")
+    user = UserRecord(
+        email="student@example.com",
+        full_name="Francis Test",
+        phone="+237680950319",
+        status="active",
+    )
+    db.add_all([org, user])
+    db.commit()
+
+    rows = queue_school_event(
+        db,
+        org=org,
+        user=user,
+        event_key="student.assignment.created",
+        context={
+            "assignment_title": "Projet final",
+            "session_label": "Octobre 2026",
+            "due_at": "30/10/2026 18:00",
+        },
+    )
+    db.commit()
+
+    assert {row.channel for row in rows} == {"email", "whatsapp"}
+    email = next(row for row in rows if row.channel == "email")
+    assert email.event_key == "student.assignment.created"
+    assert "School Business" in (email.subject or "")
+    assert "Projet final" in email.body
+    assert "30/10/2026 18:00" in email.body
+    assert email.branding_snapshot["school_name"] == "School Business"
