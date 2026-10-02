@@ -147,7 +147,7 @@ export function TeamPage() {
         <div>
           <span className="section-label">Ajouter quelqu’un</span>
           <h2>Inviter un membre</h2>
-          <p>L’invitation sera liée uniquement à cette école.</p>
+          <p>Invitez uniquement l’équipe administrative et les professeurs. Les étudiants arrivent par leurs achats.</p>
         </div>
         <form className="invite-form" onSubmit={invite}>
           <input
@@ -161,7 +161,6 @@ export function TeamPage() {
             <option value="admin">Administrateur</option>
             <option value="manager">Manager</option>
             <option value="teacher">Professeur</option>
-            <option value="student">Étudiant</option>
           </select>
           <button className="primary-button" disabled={submitting}>
             <MailPlus size={17} />
