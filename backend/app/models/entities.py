@@ -586,6 +586,19 @@ class FormationRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     level: Mapped[str] = mapped_column(String(120), nullable=False, default="")
     format_type: Mapped[str] = mapped_column(String(32), nullable=False, default="ligne")
     training_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    short_description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    cover_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    objectives: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    prerequisites: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    public_program: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    base_price_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="XAF")
+    allow_installments: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    installment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    installment_grace_days: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    featured_on_home: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    featured_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
 
     sessions: Mapped[list["FormationSessionRecord"]] = relationship(
@@ -612,6 +625,10 @@ class FormationSessionRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     end_date: Mapped[date] = mapped_column(nullable=False)
     campus_label: Mapped[str | None] = mapped_column(String(180), nullable=True)
     seat_capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    enrollment_opens_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    enrollment_closes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    public_enrollment_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    price_override_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
 
     formation: Mapped["FormationRecord"] = relationship(back_populates="sessions")
@@ -1028,3 +1045,190 @@ class CertificateRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     formation_title: Mapped[str] = mapped_column(String(255), nullable=False)
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="valid")
+
+
+class OrganizationPublicSiteRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "organization_public_sites"
+    __table_args__ = (
+        UniqueConstraint("organization_id", name="uq_org_public_site"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    hero_title: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    hero_subtitle: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    hero_image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    hero_button_label: Mapped[str] = mapped_column(String(80), nullable=False, default="Découvrir nos formations")
+    about_title: Mapped[str] = mapped_column(String(255), nullable=False, default="À propos")
+    about_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    about_image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    contact_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    social_links: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    footer_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    legal_notice: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    terms_of_sale: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    privacy_policy: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    refund_policy: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    legal_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    legal_registration_number: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    tax_number: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    billing_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    sender_name: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    reply_to_email: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    certificate_signatory_name: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    certificate_signatory_title: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    certificate_signature_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    certificate_stamp_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    student_code_prefix: Mapped[str | None] = mapped_column(String(8), nullable=True)
+
+
+class OrganizationStudentProfileRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "organization_student_profiles"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "user_id", name="uq_org_student_profile_user"),
+        UniqueConstraint("organization_id", "student_code", name="uq_org_student_code"),
+        Index("ix_org_student_profiles_code", "organization_id", "student_code"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    code_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    code_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    access_status: Mapped[str] = mapped_column(String(24), nullable=False, default="active")
+    access_suspended_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    access_suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["UserRecord"] = relationship()
+
+
+class PromotionRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "promotions"
+    __table_args__ = (
+        Index("ix_promotions_org_active_dates", "organization_id", "is_active", "starts_at", "ends_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(180), nullable=False)
+    formation_id: Mapped[int | None] = mapped_column(ForeignKey("formations.id", ondelete="CASCADE"), nullable=True, index=True)
+    session_id: Mapped[int | None] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=True, index=True)
+    discount_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    discount_value: Mapped[int] = mapped_column(Integer, nullable=False)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    max_uses: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    used_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class PromoCodeRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "promo_codes"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "code", name="uq_promo_codes_org_code"),
+        Index("ix_promo_codes_org_active", "organization_id", "is_active"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(40), nullable=False)
+    discount_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    discount_value: Mapped[int] = mapped_column(Integer, nullable=False)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    max_uses: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_uses_per_customer: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    minimum_order_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    formation_id: Mapped[int | None] = mapped_column(ForeignKey("formations.id", ondelete="CASCADE"), nullable=True, index=True)
+    session_id: Mapped[int | None] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=True, index=True)
+    allow_on_promotions: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    used_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class SchoolOrderRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "school_orders"
+    __table_args__ = (
+        UniqueConstraint("order_reference", name="uq_school_orders_reference"),
+        Index("ix_school_orders_org_status", "organization_id", "status"),
+        Index("ix_school_orders_student", "organization_id", "student_user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_reference: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    student_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    formation_id: Mapped[int] = mapped_column(ForeignKey("formations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="RESTRICT"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending", index=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="XAF")
+    base_price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    direct_discount_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    promo_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    promo_code_discount_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    final_price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    payment_plan: Mapped[str] = mapped_column(String(24), nullable=False, default="full")
+    installment_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    paid_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    access_granted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    brand_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+    student: Mapped["UserRecord"] = relationship()
+    formation: Mapped["FormationRecord"] = relationship()
+    session: Mapped["FormationSessionRecord"] = relationship()
+
+
+class PaymentInstallmentRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "payment_installments"
+    __table_args__ = (
+        UniqueConstraint("order_id", "installment_number", name="uq_payment_installment_order_number"),
+        Index("ix_payment_installments_org_status_due", "organization_id", "status", "due_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("school_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    installment_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    grace_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending", index=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SchoolPaymentRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "school_payments"
+    __table_args__ = (
+        UniqueConstraint("provider_reference", name="uq_school_payments_provider_reference"),
+        Index("ix_school_payments_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("school_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    installment_id: Mapped[int | None] = mapped_column(ForeignKey("payment_installments.id", ondelete="SET NULL"), nullable=True, index=True)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False, default="demo")
+    provider_reference: Mapped[str] = mapped_column(String(180), nullable=False, unique=True, index=True)
+    provider_transaction_id: Mapped[str | None] = mapped_column(String(180), nullable=True, unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending", index=True)
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    checkout_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class StudentInvoiceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "student_invoices"
+    __table_args__ = (
+        UniqueConstraint("invoice_number", name="uq_student_invoices_number"),
+        UniqueConstraint("payment_id", name="uq_student_invoices_payment"),
+        Index("ix_student_invoices_org_status", "organization_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("school_orders.id", ondelete="RESTRICT"), nullable=False, index=True)
+    payment_id: Mapped[int] = mapped_column(ForeignKey("school_payments.id", ondelete="RESTRICT"), nullable=False, unique=True, index=True)
+    invoice_number: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="paid")
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    brand_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
