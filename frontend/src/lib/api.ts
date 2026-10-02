@@ -2061,3 +2061,7 @@ export const listSchoolStudents = () =>
   request<SchoolStudentManagement[]>('/commerce/admin/students')
 export const getCommercialDashboard = () =>
   request<CommercialDashboard>('/commerce/admin/dashboard')
+
+
+export const getCommercialCatalog = () =>
+  request<PublicFormation[]>('/commerce/admin/catalog')
