@@ -1,7 +1,13 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, Building2, GraduationCap, ShieldCheck, Users } from 'lucide-react'
-import { createOrganization, setStoredOrganizationId } from '../lib/api'
+import {
+  createOrganization,
+  getOnboardingStatus,
+  setStoredOrganizationId,
+  type OnboardingStatus,
+} from '../lib/api'
 import { useTenant } from '../app/TenantContext'
+import { useNavigate } from 'react-router-dom'
 
 function slugify(value: string) {
   return value
@@ -14,10 +20,22 @@ function slugify(value: string) {
 }
 
 export function SchoolDashboardPage() {
+  const navigate = useNavigate()
   const { activeOrganization, refreshOrganizations, loading } = useTenant()
   const [schoolName, setSchoolName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null)
+
+  useEffect(() => {
+    if (!activeOrganization) {
+      setOnboarding(null)
+      return
+    }
+    getOnboardingStatus()
+      .then(setOnboarding)
+      .catch(() => setOnboarding(null))
+  }, [activeOrganization?.id])
 
   async function createSchool(event: FormEvent) {
     event.preventDefault()
@@ -30,6 +48,7 @@ export function SchoolDashboardPage() {
       })
       setStoredOrganizationId(organization.id)
       await refreshOrganizations()
+      navigate('/app/onboarding')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossible de créer cette école.')
     } finally {
@@ -108,19 +127,34 @@ export function SchoolDashboardPage() {
         </article>
       </div>
 
-      <section className="dashboard-callout">
-        <div>
-          <span>Prochaine étape</span>
-          <h2>Construisez votre équipe pédagogique.</h2>
-          <p>
-            Ajoutez vos administrateurs, managers, professeurs et étudiants depuis
-            l’espace Équipe & accès.
-          </p>
-        </div>
-        <a className="primary-button" href="/app/team">
-          Gérer mon équipe <ArrowRight size={17} />
-        </a>
-      </section>
+      {onboarding && !onboarding.is_complete ? (
+        <section className="dashboard-callout onboarding-dashboard-callout">
+          <div>
+            <span>Mise en route · {onboarding.completed_steps}/{onboarding.total_steps}</span>
+            <h2>{onboarding.next_step?.label || 'Finalisez votre école'}</h2>
+            <p>
+              Votre progression est enregistrée à partir des vraies données de l’école.
+              Reprenez exactement là où vous vous êtes arrêté.
+            </p>
+          </div>
+          <a className="primary-button" href="/app/onboarding">
+            Continuer la configuration <ArrowRight size={17} />
+          </a>
+        </section>
+      ) : (
+        <section className="dashboard-callout">
+          <div>
+            <span>École prête</span>
+            <h2>Votre socle de configuration est complet.</h2>
+            <p>
+              Continuez à développer votre équipe et vos contenus depuis votre espace.
+            </p>
+          </div>
+          <a className="primary-button" href="/app/team">
+            Gérer mon équipe <ArrowRight size={17} />
+          </a>
+        </section>
+      )}
     </main>
   )
 }

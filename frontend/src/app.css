@@ -2894,3 +2894,244 @@
   background: #f3f5f7;
   cursor: not-allowed;
 }
+
+
+.onboarding-workspace {
+  max-width: 980px;
+}
+
+.onboarding-progress-card,
+.onboarding-step-list,
+.onboarding-ready-card,
+.onboarding-next-card {
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.onboarding-progress-card {
+  padding: 24px;
+  margin-bottom: 18px;
+}
+
+.onboarding-progress-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: end;
+}
+
+.onboarding-progress-heading span,
+.onboarding-progress-heading strong {
+  display: block;
+}
+
+.onboarding-progress-heading span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.onboarding-progress-heading strong {
+  margin-top: 4px;
+  font-size: 30px;
+}
+
+.onboarding-progress-heading small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.onboarding-progress-track {
+  height: 8px;
+  margin-top: 16px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1f6;
+}
+
+.onboarding-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), var(--green));
+}
+
+.onboarding-step-list {
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+
+.onboarding-step {
+  min-height: 82px;
+  display: grid;
+  grid-template-columns: 38px minmax(0,1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.onboarding-step:last-child {
+  border-bottom: 0;
+}
+
+.onboarding-step-number {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #6f7e92;
+  background: #eef2f7;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.onboarding-step.complete .onboarding-step-number {
+  color: #08774f;
+  background: var(--green-soft);
+}
+
+.onboarding-step strong {
+  display: block;
+  font-size: 13px;
+}
+
+.onboarding-step p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.onboarding-done,
+.onboarding-current {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.onboarding-done {
+  color: #08774f;
+}
+
+.onboarding-current {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--blue);
+}
+
+.onboarding-formation-form {
+  margin-bottom: 18px;
+}
+
+.onboarding-formation-form label {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: #33435a;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.onboarding-formation-form input,
+.onboarding-formation-form textarea {
+  width: 100%;
+  border: 1px solid #dfe5ee;
+  border-radius: 12px;
+  padding: 12px 13px;
+  color: var(--ink);
+  background: #fff;
+  outline: none;
+}
+
+.onboarding-formation-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.onboarding-ready-card,
+.onboarding-next-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 24px;
+}
+
+.onboarding-ready-card > div,
+.onboarding-next-card {
+  display: flex;
+  align-items: center;
+}
+
+.onboarding-ready-card > div {
+  gap: 14px;
+}
+
+.onboarding-ready-card h2 {
+  margin: 4px 0;
+}
+
+.onboarding-ready-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.onboarding-ready-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #08774f;
+  background: var(--green-soft);
+}
+
+.onboarding-next-card > span {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--blue);
+  background: #eef4ff;
+}
+
+.onboarding-next-card > div {
+  flex: 1;
+  margin-left: 12px;
+}
+
+.onboarding-next-card small,
+.onboarding-next-card strong {
+  display: block;
+}
+
+.onboarding-next-card small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.onboarding-next-card strong {
+  margin-top: 3px;
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .onboarding-progress-heading,
+  .onboarding-ready-card,
+  .onboarding-next-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .onboarding-step {
+    grid-template-columns: 34px minmax(0,1fr);
+  }
+
+  .onboarding-step > :last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

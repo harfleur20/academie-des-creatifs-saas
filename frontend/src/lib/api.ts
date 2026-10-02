@@ -792,3 +792,48 @@ export async function endAdminSupportMode() {
     restoreOriginalAdminSession()
   }
 }
+
+
+export type OnboardingStep = {
+  key: 'school' | 'identity' | 'address' | 'team' | 'formation'
+  label: string
+  description: string
+  completed: boolean
+  path: string
+}
+
+export type OnboardingStatus = {
+  completed_steps: number
+  total_steps: number
+  progress_percent: number
+  is_complete: boolean
+  next_step: OnboardingStep | null
+  steps: OnboardingStep[]
+}
+
+export const getOnboardingStatus = () =>
+  request<OnboardingStatus>('/onboarding/status')
+
+export type Formation = {
+  id: number
+  organization_id: number
+  slug: string
+  title: string
+  description: string
+  status: string
+  created_at: string
+}
+
+export const createFormation = (payload: {
+  slug: string
+  title: string
+  description?: string
+}) =>
+  request<Formation>('/formations', {
+    method: 'POST',
+    body: JSON.stringify({
+      slug: payload.slug,
+      title: payload.title,
+      description: payload.description ?? '',
+    }),
+  })
