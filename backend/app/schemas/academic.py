@@ -338,6 +338,7 @@ class TeacherPerformanceRead(BaseModel):
 
 class SchoolPedagogyStudentRead(BaseModel):
     enrollment_id: int
+    session_id: int
     student_id: int
     student_name: str
     student_code: str | None

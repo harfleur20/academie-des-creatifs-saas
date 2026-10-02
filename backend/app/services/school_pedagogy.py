@@ -112,6 +112,7 @@ def _student_row(
     alert_level = "danger" if danger else "warning" if reasons else "good"
     return SchoolPedagogyStudentRead(
         enrollment_id=enrollment.id,
+        session_id=enrollment.session_id,
         student_id=enrollment.student_id,
         student_name=student.full_name if student else "Étudiant",
         student_code=profile.student_code if profile else None,
@@ -163,8 +164,7 @@ def school_pedagogy_overview(
         rows = [
             row
             for row in student_rows
-            if row.session_label == session.label
-            and row.formation_title == (formation.title if formation else "Formation")
+            if row.session_id == session.id
         ]
         session_enrollment_ids = [
             enrollment.id
@@ -247,12 +247,7 @@ def school_pedagogy_overview(
         teacher_students = [
             row
             for row in student_rows
-            if any(
-                session_row.session_id in session_ids
-                and session_row.session_label == row.session_label
-                and session_row.formation_title == row.formation_title
-                for session_row in session_rows
-            )
+            if row.session_id in session_ids
         ]
         attendance_values = [
             row.attendance_pct
