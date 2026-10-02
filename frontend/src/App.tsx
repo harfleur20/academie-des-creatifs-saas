@@ -29,6 +29,21 @@ import { TeacherSessionPlanningPage } from './pages/TeacherSessionPlanningPage'
 import { StudentSessionPlanningPage } from './pages/StudentSessionPlanningPage'
 import { TeacherAssignmentsPage } from './pages/TeacherAssignmentsPage'
 import { StudentAssignmentsPage } from './pages/StudentAssignmentsPage'
+import { TeacherResourcesPage } from './pages/TeacherResourcesPage'
+import { StudentResourcesPage } from './pages/StudentResourcesPage'
+import { TeacherQuizzesPage } from './pages/TeacherQuizzesPage'
+import { StudentQuizzesPage } from './pages/StudentQuizzesPage'
+import { TeacherCoursesPage } from './pages/TeacherCoursesPage'
+import { StudentCoursesPage } from './pages/StudentCoursesPage'
+import { TeacherAttendancePage } from './pages/TeacherAttendancePage'
+import { TeacherPerformancePage } from './pages/TeacherPerformancePage'
+import { TeacherStudentsPage } from './pages/TeacherStudentsPage'
+import { StudentResultsPage } from './pages/StudentResultsPage'
+import { StudentProgressPage } from './pages/StudentProgressPage'
+import { StudentClassPage } from './pages/StudentClassPage'
+import { StudentCertificatesPage } from './pages/StudentCertificatesPage'
+import { StudentPlanningPage } from './pages/StudentPlanningPage'
+import { CertificateVerifyPage } from './pages/CertificateVerifyPage'
 import type { WorkspaceSpace } from './lib/api'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
@@ -133,6 +148,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/certificates/verify/:token" element={<CertificateVerifyPage />} />
 
             <Route
               path="/app"
@@ -175,7 +191,13 @@ export default function App() {
               <Route index element={<TeacherDashboardPage />} />
               <Route path="sessions" element={<TeacherDashboardPage />} />
               <Route path="sessions/:sessionId" element={<TeacherSessionPlanningPage />} />
+              <Route path="courses" element={<TeacherCoursesPage />} />
+              <Route path="resources" element={<TeacherResourcesPage />} />
               <Route path="assignments" element={<TeacherAssignmentsPage />} />
+              <Route path="quizzes" element={<TeacherQuizzesPage />} />
+              <Route path="attendance" element={<TeacherAttendancePage />} />
+              <Route path="students" element={<TeacherStudentsPage />} />
+              <Route path="performance" element={<TeacherPerformancePage />} />
             </Route>
 
             <Route
@@ -191,7 +213,15 @@ export default function App() {
               <Route index element={<StudentDashboardPage />} />
               <Route path="formations" element={<StudentDashboardPage />} />
               <Route path="sessions/:sessionId" element={<StudentSessionPlanningPage />} />
+              <Route path="planning" element={<StudentPlanningPage />} />
+              <Route path="courses" element={<StudentCoursesPage />} />
+              <Route path="resources" element={<StudentResourcesPage />} />
               <Route path="assignments" element={<StudentAssignmentsPage />} />
+              <Route path="quizzes" element={<StudentQuizzesPage />} />
+              <Route path="results" element={<StudentResultsPage />} />
+              <Route path="progress" element={<StudentProgressPage />} />
+              <Route path="class" element={<StudentClassPage />} />
+              <Route path="certificates" element={<StudentCertificatesPage />} />
             </Route>
 
             <Route path="/app/onboarding" element={<Navigate to="/app/manage/onboarding" replace />} />
