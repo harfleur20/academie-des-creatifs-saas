@@ -73,6 +73,11 @@ class PublicFormationRead(BaseModel):
     display_price_cents: int
     direct_discount_cents: int
     featured_on_home: bool
+    featured_order: int
+    is_public: bool
+    allow_installments: bool
+    installment_count: int
+    installment_grace_days: int
     sessions: list[PublicSessionRead]
     can_buy: bool
 

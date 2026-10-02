@@ -1827,6 +1827,11 @@ export type PublicFormation = {
   display_price_cents: number
   direct_discount_cents: number
   featured_on_home: boolean
+  featured_order: number
+  is_public: boolean
+  allow_installments: boolean
+  installment_count: number
+  installment_grace_days: number
   sessions: PublicSession[]
   can_buy: boolean
 }
