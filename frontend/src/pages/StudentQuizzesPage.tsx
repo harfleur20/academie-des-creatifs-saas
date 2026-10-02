@@ -15,6 +15,7 @@ export function StudentQuizzesPage() {
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoSubmittedRef = useRef(false)
 
   useEffect(() => {
     listStudentQuizzes().then(setItems).catch((err) => setError(err instanceof ApiError ? err.message : 'Chargement impossible.'))
@@ -27,6 +28,7 @@ export function StudentQuizzesPage() {
     setActive(quiz)
     setAnswers({})
     setError('')
+    autoSubmittedRef.current = false
     if (timerRef.current) clearInterval(timerRef.current)
     if (quiz.duration_minutes) {
       setSecondsLeft(quiz.duration_minutes * 60)
@@ -52,16 +54,21 @@ export function StudentQuizzesPage() {
     setSecondsLeft(null)
   }
 
-  async function submit() {
+  async function submit(autoSubmit = false) {
     if (!active) return
-    if (active.questions.some((question) => answers[question.id] === undefined)) {
+    if (
+      !autoSubmit &&
+      active.questions.some((question) => answers[question.id] === undefined)
+    ) {
       setError('Répondez à toutes les questions.')
       return
     }
     setWorking(true)
     setError('')
     try {
-      const answerList = active.questions.map((question) => answers[question.id])
+      const answerList = active.questions.map(
+        (question) => answers[question.id] ?? 0,
+      )
       const updated = await submitStudentQuizAttempt(active.id, answerList)
       setItems((current) => current.map((item) => item.id === updated.id ? updated : item))
       closeQuiz()
@@ -71,6 +78,18 @@ export function StudentQuizzesPage() {
       setWorking(false)
     }
   }
+
+  useEffect(() => {
+    if (
+      secondsLeft === 0 &&
+      active &&
+      !working &&
+      !autoSubmittedRef.current
+    ) {
+      autoSubmittedRef.current = true
+      void submit(true)
+    }
+  }, [secondsLeft, active, working])
 
   function timerLabel() {
     if (secondsLeft === null) return null
@@ -133,7 +152,12 @@ export function StudentQuizzesPage() {
                 </article>
               ))}
             </div>
-            <div className="quiz-modal-footer"><button className="secondary-button" type="button" onClick={closeQuiz}>Annuler</button><button className="primary-button" type="button" disabled={working || secondsLeft === 0} onClick={() => void submit()}>{working ? 'Correction…' : 'Soumettre'}</button></div>
+            {secondsLeft === 0 && (
+              <div className="form-error">
+                Temps écoulé — soumission automatique en cours…
+              </div>
+            )}
+            <div className="quiz-modal-footer"><button className="secondary-button" type="button" onClick={closeQuiz}>Annuler</button><button className="primary-button" type="button" disabled={working || secondsLeft === 0} onClick={() => void submit(false)}>{working ? 'Correction…' : 'Soumettre'}</button></div>
           </div>
         </div>
       )}
