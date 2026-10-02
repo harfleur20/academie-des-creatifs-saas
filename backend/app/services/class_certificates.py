@@ -288,6 +288,8 @@ def _verification_token(certificate: CertificateRecord) -> str:
 
 
 def _certificate_view(certificate: CertificateRecord) -> CertificateRead:
+    snapshot = dict(certificate.branding_snapshot or {})
+    document = dict(snapshot.get("document") or {})
     return CertificateRead(
         enrollment_id=certificate.enrollment_id,
         certificate_number=certificate.certificate_number,
@@ -296,6 +298,12 @@ def _certificate_view(certificate: CertificateRecord) -> CertificateRead:
         issued_at=certificate.issued_at,
         status=certificate.status,
         verification_token=_verification_token(certificate),
+        school_name=snapshot.get("school_name"),
+        logo_url=snapshot.get("logo_url"),
+        primary_color=snapshot.get("primary_color"),
+        secondary_color=snapshot.get("secondary_color"),
+        student_code=document.get("student_code"),
+        session_label=document.get("session_label"),
     )
 
 

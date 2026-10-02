@@ -301,6 +301,12 @@ class CertificateRead(BaseModel):
     issued_at: datetime
     status: str
     verification_token: str
+    school_name: str | None = None
+    logo_url: str | None = None
+    primary_color: str | None = None
+    secondary_color: str | None = None
+    student_code: str | None = None
+    session_label: str | None = None
 
 
 class CertificateEligibilityRead(BaseModel):
