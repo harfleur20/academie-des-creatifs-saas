@@ -9,6 +9,8 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, signIn, signUp } = useAuth()
+  const returnPath = new URLSearchParams(location.search).get('return')
+  const schoolKey = new URLSearchParams(location.search).get('school')
   const [mode, setMode] = useState<'login' | 'register'>(() =>
     new URLSearchParams(location.search).get('mode') === 'register'
       ? 'register'
@@ -23,17 +25,30 @@ export function LoginPage() {
   const [hostBrand, setHostBrand] = useState<HostBranding | null>(null)
 
   useEffect(() => {
-    if (user) navigate('/app', { replace: true })
-  }, [user, navigate])
+    if (user) navigate(returnPath || '/app', { replace: true })
+  }, [user, navigate, returnPath])
 
   useEffect(() => {
+    if (schoolKey) {
+      import('../lib/api').then(({ getPublicSchoolIdentity }) =>
+        getPublicSchoolIdentity(schoolKey)
+          .then((school) => setHostBrand({
+            organization_id: school.organization_id,
+            name: school.site_name,
+            hostname: school.slug,
+            logo_url: school.logo_url,
+            primary_color: school.primary_color,
+            secondary_color: school.secondary_color,
+            accent_color: school.accent_color,
+          }))
+          .catch(() => setHostBrand(null)),
+      )
+      return
+    }
     const hostname = window.location.hostname
     if (hostname === 'localhost' || hostname === '127.0.0.1') return
-
-    resolveHostBranding(hostname)
-      .then(setHostBrand)
-      .catch(() => setHostBrand(null))
-  }, [])
+    resolveHostBranding(hostname).then(setHostBrand).catch(() => setHostBrand(null))
+  }, [schoolKey])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -46,7 +61,7 @@ export function LoginPage() {
       } else {
         await signUp(fullName, email, password)
       }
-      navigate('/app', { replace: true })
+      navigate(returnPath || '/app', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible de continuer.')
     } finally {
