@@ -301,3 +301,9 @@ def dashboard(db:Session,tenant:TenantContext)->CommercialDashboardRead:
     overdue=sum(x.amount_cents for x in db.scalars(select(PaymentInstallmentRecord).where(PaymentInstallmentRecord.organization_id==tenant.organization_id,PaymentInstallmentRecord.status=="late")).all())
     currency=orders[0].currency if orders else "XAF"
     return CommercialDashboardRead(paid_revenue_cents=paid,pending_revenue_cents=pending,overdue_cents=overdue,order_count=len(orders),student_count=profiles,currency=currency)
+
+
+def admin_catalog(db:Session,tenant:TenantContext)->list[PublicFormationRead]:
+    require_manager(tenant)
+    rows=list(db.scalars(select(FormationRecord).where(FormationRecord.organization_id==tenant.organization_id,FormationRecord.status!="archived").order_by(FormationRecord.created_at.desc())).all())
+    return [_public_formation(db,x) for x in rows]

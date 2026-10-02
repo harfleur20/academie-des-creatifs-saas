@@ -52,6 +52,9 @@ def admin_formation_commercial(formation_id:int,p:CommercialFormationUpdate,db:S
 def admin_session_commercial(formation_id:int,session_id:int,p:CommercialSessionUpdate,db:Session=Depends(get_db),tenant:TenantContext=Depends(get_tenant_context)):
     row=update_commercial_session(db,tenant,formation_id,session_id,p);return {"id":row.id,"ok":True}
 
+@router.get("/admin/catalog",response_model=list[PublicFormationRead])
+def catalog_admin(db:Session=Depends(get_db),tenant:TenantContext=Depends(get_tenant_context)): return admin_catalog(db,tenant)
+
 @router.get("/admin/promotions",response_model=list[PromotionRead])
 def promotions(db:Session=Depends(get_db),tenant:TenantContext=Depends(get_tenant_context)): return list_promotions(db,tenant)
 @router.post("/admin/promotions",response_model=PromotionRead,status_code=201)
