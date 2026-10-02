@@ -19,9 +19,14 @@ export function TeacherLayout() {
       navItems={[
         {
           to: '/app/teacher',
-          label: 'Tableau de bord',
+          label: "Vue d'ensemble",
           icon: <LayoutDashboard size={18} />,
           end: true,
+        },
+        {
+          to: '/app/teacher/performance',
+          label: 'Performance',
+          icon: <Activity size={18} />,
         },
         {
           to: '/app/teacher/sessions',
@@ -30,8 +35,13 @@ export function TeacherLayout() {
         },
         {
           to: '/app/teacher/courses',
-          label: 'Mes cours',
+          label: 'Cours',
           icon: <BookOpen size={18} />,
+        },
+        {
+          to: '/app/teacher/quizzes',
+          label: 'Quiz & Examens',
+          icon: <CheckCircle2 size={18} />,
         },
         {
           to: '/app/teacher/resources',
@@ -44,11 +54,6 @@ export function TeacherLayout() {
           icon: <ClipboardCheck size={18} />,
         },
         {
-          to: '/app/teacher/quizzes',
-          label: 'Quiz / Examens',
-          icon: <CheckCircle2 size={18} />,
-        },
-        {
           to: '/app/teacher/attendance',
           label: 'Présences',
           icon: <CalendarCheck2 size={18} />,
@@ -57,11 +62,6 @@ export function TeacherLayout() {
           to: '/app/teacher/students',
           label: 'Étudiants',
           icon: <Users size={18} />,
-        },
-        {
-          to: '/app/teacher/performance',
-          label: 'Performance',
-          icon: <Activity size={18} />,
         },
         {
           to: '/app/teacher/profile',

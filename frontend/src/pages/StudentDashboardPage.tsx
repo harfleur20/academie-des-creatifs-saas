@@ -1,95 +1,345 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  Award,
   BookOpen,
   CalendarDays,
-  GraduationCap,
-  Award,
-  BarChart3,
   CheckCircle2,
   ClipboardCheck,
-  FileText,
+  Clock3,
+  GraduationCap,
 } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext'
 import {
   ApiError,
+  getSessionPlanning,
   getStudentWorkspace,
+  listStudentAssignments,
+  listStudentProgress,
+  listStudentQuizzes,
+  type SessionPlanning,
+  type StudentAssignment,
+  type StudentProgress,
+  type StudentQuiz,
   type StudentWorkspace,
 } from '../lib/api'
 import { useTenant } from '../app/TenantContext'
+import {
+  RoleDashboardCalendar,
+  type RoleScheduleItem,
+} from '../components/RoleDashboardCalendar'
+
+function firstName(name?: string | null) {
+  return name?.trim().split(/\s+/)[0] || 'Étudiant'
+}
 
 export function StudentDashboardPage() {
+  const { user } = useAuth()
   const { activeOrganization } = useTenant()
   const [workspace, setWorkspace] = useState<StudentWorkspace | null>(null)
+  const [progress, setProgress] = useState<StudentProgress[]>([])
+  const [assignments, setAssignments] = useState<StudentAssignment[]>([])
+  const [quizzes, setQuizzes] = useState<StudentQuiz[]>([])
+  const [planning, setPlanning] = useState<SessionPlanning[]>([])
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!activeOrganization) return
-    getStudentWorkspace()
-      .then(setWorkspace)
-      .catch((err) => setError(
-        err instanceof ApiError ? err.message : 'Impossible de charger votre espace étudiant.',
-      ))
+    let cancelled = false
+
+    async function load() {
+      setError('')
+      try {
+        const nextWorkspace = await getStudentWorkspace()
+        if (cancelled) return
+        setWorkspace(nextWorkspace)
+
+        const [progressRows, assignmentRows, quizRows, planningRows] =
+          await Promise.all([
+            listStudentProgress().catch(() => []),
+            listStudentAssignments().catch(() => []),
+            listStudentQuizzes().catch(() => []),
+            Promise.all(
+              nextWorkspace.sessions.map((session) => (
+                getSessionPlanning(session.session_id).catch(() => null)
+              )),
+            ),
+          ])
+        if (cancelled) return
+        setProgress(progressRows)
+        setAssignments(assignmentRows)
+        setQuizzes(quizRows)
+        setPlanning(
+          planningRows.filter(
+            (item): item is SessionPlanning => item !== null,
+          ),
+        )
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : 'Impossible de charger votre espace étudiant.',
+          )
+        }
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
   }, [activeOrganization?.id])
+
+  const scheduleItems = useMemo<RoleScheduleItem[]>(() => (
+    planning.flatMap((plan) => (
+      plan.course_days
+        .filter((day) => day.status !== 'cancelled')
+        .map((day) => ({
+          id: `day-${day.id}`,
+          title: day.title,
+          detail: `${plan.formation_title} · ${plan.session_label}`,
+          startsAt: day.scheduled_at,
+          durationMinutes: day.duration_minutes,
+          href: `/app/student/sessions/${plan.session_id}`,
+          status: day.status === 'planned' ? 'Planifié' : day.status,
+        }))
+    ))
+  ), [planning])
+
+  const nextCourse = useMemo(() => {
+    const now = Date.now()
+    return scheduleItems
+      .filter((item) => (
+        new Date(item.startsAt).getTime() + item.durationMinutes * 60_000 >= now
+      ))
+      .sort((a, b) => (
+        new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()
+      ))[0] || null
+  }, [scheduleItems])
+
+  const focusSession =
+    workspace?.sessions.find((session) => session.enrollment_status === 'active')
+    || workspace?.sessions[0]
+    || null
+  const focusProgress =
+    progress.find((item) => item.session_id === focusSession?.session_id)
+    || progress[0]
+    || null
+  const pendingAssignments = assignments.filter(
+    (item) => item.student_status === 'pending',
+  ).length
+  const availableQuizzes = quizzes.filter((item) => item.can_attempt).length
 
   if (!workspace && !error) {
     return <div className="page-state">Chargement de votre espace étudiant…</div>
   }
 
   return (
-    <main className="app-page role-workspace-page">
-      <header className="app-page-header">
-        <div>
-          <span className="page-kicker">Espace étudiant</span>
-          <h1>Mes formations</h1>
-          <p>Vous ne voyez ici que les cohortes dans lesquelles vous êtes inscrit.</p>
-        </div>
-      </header>
-
+    <div className="role-overview">
       {error && <div className="form-error">{error}</div>}
-
       {workspace && (
-        <>
-          <section className="role-metric-grid">
-            <article><GraduationCap size={19} /><strong>{workspace.total_sessions}</strong><span>Formations / sessions</span></article>
-            <article><BookOpen size={19} /><strong>{workspace.total_courses}</strong><span>Cours disponibles</span></article>
-          </section>
-
-          <section className="workspace-shortcuts">
-            <Link to="/app/student/courses"><BookOpen size={17}/><span>Mes cours</span></Link>
-            <Link to="/app/student/resources"><FileText size={17}/><span>Ressources</span></Link>
-            <Link to="/app/student/assignments"><ClipboardCheck size={17}/><span>Devoirs</span></Link>
-            <Link to="/app/student/quizzes"><CheckCircle2 size={17}/><span>Quiz / Examens</span></Link>
-            <Link to="/app/student/results"><BarChart3 size={17}/><span>Résultats</span></Link>
-            <Link to="/app/student/progress"><Award size={17}/><span>Progression</span></Link>
-          </section>
-
-          <section className="role-session-list">
-            {workspace.sessions.map((session) => (
-              <article className="app-card role-session-card" key={session.enrollment_id}>
-                <div>
-                  <span className="section-label">{session.enrollment_status}</span>
-                  <h2>{session.formation_title}</h2>
-                  <p>{session.session_label}</p>
-                </div>
-                <div className="role-session-meta">
-                  <span><CalendarDays size={14} /> {new Date(session.start_date).toLocaleDateString('fr-FR')} → {new Date(session.end_date).toLocaleDateString('fr-FR')}</span>
-                  <span><BookOpen size={14} /> {session.course_count} cours</span>
-                  <Link className="secondary-button compact-action" to={`/app/student/sessions/${session.session_id}`}>
-                    Voir le planning
-                  </Link>
-                </div>
-              </article>
-            ))}
-            {workspace.sessions.length === 0 && (
-              <div className="app-card formation-empty">
-                <GraduationCap size={28} />
-                <strong>Aucune inscription active</strong>
-                <p>Vos formations apparaîtront ici dès que l’école vous inscrira dans une session.</p>
+        <div className="role-overview-grid">
+          <section className="role-overview-main">
+            <section className="role-hero role-hero--student">
+              <div className="role-hero__copy">
+                <span>ESPACE ÉTUDIANT</span>
+                <h1>Bonjour, {firstName(user?.full_name)}</h1>
+                <p>Matricule : <strong>—</strong></p>
+                <p>
+                  {focusSession
+                    ? `${focusSession.formation_title} · ${focusSession.session_label}`
+                    : 'Aucune session active'}
+                </p>
+                <small>
+                  Retrouvez vos cours, devoirs, résultats et votre progression.
+                </small>
               </div>
-            )}
+              <div className="role-hero__student-progress">
+                <Award size={24} />
+                <span>{focusProgress?.badge.label || 'Parcours'}</span>
+                <strong>{focusProgress?.badge.score_pct || 0}%</strong>
+              </div>
+            </section>
+
+            <section className="role-calendar-card">
+              <header>
+                <div>
+                  <CalendarDays size={17} />
+                  <strong>Mon calendrier</strong>
+                </div>
+                <Link to="/app/student/planning">Voir tout le planning</Link>
+              </header>
+
+              {nextCourse ? (
+                <div className="role-next-course">
+                  <div>
+                    <span>Prochain cours</span>
+                    <strong>{nextCourse.title}</strong>
+                    <p>
+                      {nextCourse.detail} ·{' '}
+                      {new Date(nextCourse.startsAt).toLocaleString('fr-FR', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                  <Link to={nextCourse.href}>Voir la séance</Link>
+                </div>
+              ) : (
+                <div className="role-next-course is-empty">
+                  <div>
+                    <span>Planning</span>
+                    <strong>Aucun prochain cours programmé</strong>
+                    <p>Les nouvelles séances apparaîtront ici.</p>
+                  </div>
+                </div>
+              )}
+
+              <RoleDashboardCalendar items={scheduleItems} />
+            </section>
           </section>
-        </>
+
+          <aside className="role-overview-side">
+            <section className="role-kpi-grid">
+              <article className="role-kpi role-kpi--primary">
+                <span>MES SESSIONS</span>
+                <strong>{workspace.total_sessions}</strong>
+                <small>Inscriptions</small>
+                <GraduationCap size={29} />
+              </article>
+              <article className="role-kpi role-kpi--secondary">
+                <span>COURS DISPONIBLES</span>
+                <strong>{workspace.total_courses}</strong>
+                <small>Dans mes parcours</small>
+                <BookOpen size={29} />
+              </article>
+              <article className="role-kpi role-kpi--mint">
+                <span>DEVOIRS À RENDRE</span>
+                <strong>{pendingAssignments}</strong>
+                <small>À traiter</small>
+                <ClipboardCheck size={29} />
+              </article>
+              <article className="role-kpi role-kpi--accent">
+                <span>QUIZ DISPONIBLES</span>
+                <strong>{availableQuizzes}</strong>
+                <small>À réaliser</small>
+                <CheckCircle2 size={29} />
+              </article>
+            </section>
+
+            <section className="role-side-card">
+              <header>
+                <strong>MES PARCOURS ACTIFS</strong>
+                <span>{workspace.sessions.length}</span>
+              </header>
+              <div className="role-side-list">
+                {workspace.sessions.slice(0, 4).map((session) => (
+                  <Link
+                    to={`/app/student/sessions/${session.session_id}`}
+                    key={session.enrollment_id}
+                  >
+                    <i />
+                    <span>
+                      <strong>{session.session_label}</strong>
+                      <small>{session.formation_title}</small>
+                    </span>
+                    <b>Ouvrir</b>
+                  </Link>
+                ))}
+                {workspace.sessions.length === 0 && (
+                  <p>Aucune formation active.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="role-side-card">
+              <header>
+                <strong>À FAIRE</strong>
+                <span>{pendingAssignments + availableQuizzes}</span>
+              </header>
+              {pendingAssignments + availableQuizzes === 0 ? (
+                <div className="role-priority is-ok">
+                  <CheckCircle2 size={18} />
+                  <span>
+                    <strong>Tout est à jour</strong>
+                    <small>Aucun devoir ou quiz urgent.</small>
+                  </span>
+                </div>
+              ) : (
+                <div className="role-action-stack">
+                  {pendingAssignments > 0 && (
+                    <Link to="/app/student/assignments">
+                      <ClipboardCheck size={16} />
+                      <span>
+                        <strong>{pendingAssignments} devoir(s) à rendre</strong>
+                        <small>Consultez les dates limites.</small>
+                      </span>
+                    </Link>
+                  )}
+                  {availableQuizzes > 0 && (
+                    <Link to="/app/student/quizzes">
+                      <CheckCircle2 size={16} />
+                      <span>
+                        <strong>{availableQuizzes} quiz/examen(s)</strong>
+                        <small>Évaluations disponibles.</small>
+                      </span>
+                    </Link>
+                  )}
+                </div>
+              )}
+            </section>
+
+            <section className="role-side-card">
+              <header>
+                <strong>MA PROGRESSION</strong>
+                <span>{focusProgress?.badge.score_pct || 0}%</span>
+              </header>
+              <div className="role-progress-summary">
+                <div>
+                  <span>
+                    <i style={{
+                      width: `${focusProgress?.badge.score_pct || 0}%`,
+                    }} />
+                  </span>
+                </div>
+                <p>
+                  {focusProgress
+                    ? `${focusProgress.completed_lessons}/${focusProgress.total_lessons} leçons · ${focusProgress.badge.label}`
+                    : 'Commencez votre parcours pour voir votre progression.'}
+                </p>
+                <Link to="/app/student/progress">
+                  Voir ma progression
+                </Link>
+              </div>
+            </section>
+
+            <section className="role-side-card">
+              <header>
+                <strong>PROCHAIN RENDEZ-VOUS</strong>
+                <Clock3 size={16} />
+              </header>
+              <div className="role-recent-list">
+                {scheduleItems.slice(0, 2).map((item) => (
+                  <Link to={item.href} key={item.id}>
+                    <span className="role-recent-icon">
+                      <CalendarDays size={14} />
+                    </span>
+                    <span>
+                      <strong>{item.title}</strong>
+                      <small>{item.detail}</small>
+                    </span>
+                  </Link>
+                ))}
+                {scheduleItems.length === 0 && <p>Aucun rendez-vous.</p>}
+              </div>
+            </section>
+          </aside>
+        </div>
       )}
-    </main>
+    </div>
   )
 }
