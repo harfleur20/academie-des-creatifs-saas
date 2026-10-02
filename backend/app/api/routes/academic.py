@@ -24,6 +24,7 @@ from app.schemas.academic import (
     StudentClassRead,
     StudentQuizRead,
     TeacherPerformanceRead,
+    SchoolPedagogyOverviewRead,
     TeacherQuizRead,
     TeacherQuizResultsRead,
 )
@@ -59,10 +60,24 @@ from app.services.resources_quizzes import (
     submit_quiz_attempt,
     teacher_quiz_results,
 )
-from app.services.tenancy import TenantContext
+from app.services.school_pedagogy import school_pedagogy_overview
+from app.services.tenancy import TenantContext, require_organization_roles
 
 
 router = APIRouter(prefix="/academic", tags=["academic"])
+
+
+
+@router.get(
+    "/manage/overview",
+    response_model=SchoolPedagogyOverviewRead,
+)
+def read_school_pedagogy_overview(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    require_organization_roles(tenant, "owner", "admin", "manager")
+    return school_pedagogy_overview(db, tenant)
 
 
 @router.get("/teacher/sessions/{session_id}/resources", response_model=list[ResourceRead])
