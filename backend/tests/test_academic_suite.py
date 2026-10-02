@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.models.entities import (
+    CertificateRecord,
     ChapterRecord,
     CourseRecord,
     EnrollmentRecord,
@@ -33,6 +34,7 @@ from app.services.class_certificates import (
     list_student_classes,
     verify_certificate_token,
 )
+from app.services.school_documents import build_certificate_pdf
 from app.services.learning_progress import (
     mark_attendance,
     mark_lesson_complete,
@@ -285,10 +287,23 @@ def test_lesson_progress_badge_and_certificate_are_real() -> None:
     certificate = issue_certificate(db, student_tenant, enrollment.id)
     assert certificate.student_name == "Student"
     assert certificate.formation_title == "Motion Design"
-    assert certificate.certificate_number.startswith("CERT-")
+    assert "-CERT-" in certificate.certificate_number
+    assert certificate.certificate_number.startswith("SC-CERT-")
 
     verified = verify_certificate_token(db, certificate.verification_token)
     assert verified.certificate_number == certificate.certificate_number
+
+    certificate_row = db.scalar(
+        select(CertificateRecord).where(
+            CertificateRecord.enrollment_id == enrollment.id
+        )
+    )
+    assert certificate_row is not None
+    assert certificate_row.branding_snapshot["school_name"] == "School"
+    assert certificate_row.branding_snapshot["document"]["session_label"] == "Cohorte 2025"
+    filename, pdf = build_certificate_pdf(certificate_row)
+    assert filename.endswith(".pdf")
+    assert pdf.startswith(b"%PDF")
 
 
 def test_attendance_is_owned_by_course_day_teacher() -> None:

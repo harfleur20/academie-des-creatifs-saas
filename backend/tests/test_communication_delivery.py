@@ -1,0 +1,105 @@
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+from app.db.base import Base
+from app.models.entities import CommunicationOutboxRecord, OrganizationRecord
+from app.services.communication_delivery import process_communication_outbox
+
+
+def build_db() -> Session:
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    return Session(engine, expire_on_commit=False)
+
+
+def test_branded_brevo_outbox_uses_school_sender_and_reply_to() -> None:
+    db = build_db()
+    org = OrganizationRecord(name="School Business", slug="school-business")
+    db.add(org)
+    db.flush()
+    row = CommunicationOutboxRecord(
+        organization_id=org.id,
+        channel="email",
+        recipient="student@example.com",
+        event_key="student.payment.confirmed",
+        subject="[School Business] Paiement confirmé",
+        body="Bonjour Francis\n\nL'équipe School Business",
+        branding_snapshot={
+            "school_name": "School Business",
+            "sender_name": "School Business",
+            "reply_to_email": "contact@school.test",
+            "primary_color": "#1122AA",
+            "accent_color": "#172033",
+            "logo_url": None,
+        },
+        status="pending",
+    )
+    db.add(row)
+    db.commit()
+
+    response = MagicMock()
+    response.status_code = 201
+    response.text = ""
+    with patch("app.services.communication_delivery.settings") as mocked_settings, patch(
+        "app.services.communication_delivery.httpx.post",
+        return_value=response,
+    ) as post:
+        mocked_settings.email_provider = "brevo"
+        mocked_settings.brevo_api_key = "test-key"
+        mocked_settings.smtp_from = "notifications@platform.test"
+        mocked_settings.smtp_from_name = "Académie"
+        mocked_settings.brevo_api_base_url = "https://api.brevo.com/v3"
+        mocked_settings.brevo_timeout_seconds = 15
+        mocked_settings.smtp_host = ""
+        result = process_communication_outbox(db)
+
+    assert result == {"processed": 1, "sent": 1, "failed": 0}
+    db.refresh(row)
+    assert row.status == "sent"
+    assert row.attempts_count == 1
+    payload = post.call_args.kwargs["json"]
+    assert payload["sender"] == {
+        "name": "School Business",
+        "email": "notifications@platform.test",
+    }
+    assert payload["replyTo"]["email"] == "contact@school.test"
+    assert "School Business" in payload["htmlContent"]
+    assert "Powered by Académie des Créatifs" in payload["htmlContent"]
+
+
+def test_failed_outbox_is_retryable_and_records_error() -> None:
+    db = build_db()
+    org = OrganizationRecord(name="School", slug="school")
+    db.add(org)
+    db.flush()
+    row = CommunicationOutboxRecord(
+        organization_id=org.id,
+        channel="email",
+        recipient="student@example.com",
+        event_key="test",
+        subject="Test",
+        body="Test",
+        branding_snapshot={"school_name": "School"},
+        status="pending",
+    )
+    db.add(row)
+    db.commit()
+
+    with patch("app.services.communication_delivery.settings") as mocked_settings:
+        mocked_settings.email_provider = "brevo"
+        mocked_settings.brevo_api_key = ""
+        mocked_settings.smtp_from = ""
+        mocked_settings.smtp_host = ""
+        result = process_communication_outbox(db)
+
+    assert result == {"processed": 1, "sent": 0, "failed": 1}
+    db.refresh(row)
+    assert row.status == "failed"
+    assert row.attempts_count == 1
+    assert "non configuré" in (row.last_error or "")

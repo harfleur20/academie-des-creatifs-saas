@@ -12,7 +12,9 @@ from app.models.entities import (
     EnrollmentRecord,
     FormationRecord,
     FormationSessionRecord,
+    CommunicationOutboxRecord,
     OrderInstallmentRecord,
+    OrderInvoiceRecord,
     OrganizationMemberRecord,
     OrganizationPublicSiteRecord,
     OrganizationRecord,
@@ -23,6 +25,7 @@ from app.models.entities import (
 )
 from app.schemas.commerce import CheckoutCreate
 from app.services.public_catalog import public_formation_detail
+from app.services.school_documents import build_invoice_pdf
 from app.services.school_branding import get_or_create_identity_records
 from app.services.school_commerce import (
     confirm_demo_checkout,
@@ -271,3 +274,71 @@ def test_installment_late_suspends_then_payment_reactivates() -> None:
     assert confirmed.paid_cents == 300_000
     db.refresh(enrollment)
     assert enrollment.status == "active"
+
+
+
+def test_paid_installment_generates_branded_pdf_invoice() -> None:
+    db = build_db()
+    org, user, formation, session = seed(db)
+    org.logo_url = None
+    site, legal, communication, _cert = get_or_create_identity_records(db, org)
+    site.site_name = "School Business"
+    legal.legal_name = "School Business SARL"
+    legal.tax_number = "TAX-001"
+    communication.sender_name = "School Business"
+    db.commit()
+
+    checkout = create_checkout(
+        db,
+        org,
+        user,
+        CheckoutCreate(session_id=session.id, payment_mode="full"),
+    )
+    confirm_demo_checkout(db, org, user, checkout.order_id)
+
+    invoice = db.scalar(
+        select(OrderInvoiceRecord).where(
+            OrderInvoiceRecord.order_id == checkout.order_id
+        )
+    )
+    assert invoice is not None
+    assert invoice.branding_snapshot["school_name"] == "School Business"
+    assert invoice.branding_snapshot["legal_name"] == "School Business SARL"
+    filename, pdf = build_invoice_pdf(db, invoice)
+    assert filename == f"{invoice.invoice_number}.pdf"
+    assert pdf.startswith(b"%PDF")
+
+
+def test_payment_confirmation_queues_school_branded_communications() -> None:
+    db = build_db()
+    org, user, formation, session = seed(db)
+    user.phone = "+237680950319"
+    site, _legal, comm, _cert = get_or_create_identity_records(db, org)
+    site.site_name = "School Business"
+    comm.sender_name = "School Business"
+    comm.email_signature = "L'équipe School Business"
+    comm.whatsapp_signature = "School Business"
+    db.commit()
+
+    checkout = create_checkout(
+        db,
+        org,
+        user,
+        CheckoutCreate(session_id=session.id, payment_mode="full"),
+    )
+    confirm_demo_checkout(db, org, user, checkout.order_id)
+
+    rows = list(
+        db.scalars(
+            select(CommunicationOutboxRecord)
+            .where(CommunicationOutboxRecord.organization_id == org.id)
+            .order_by(CommunicationOutboxRecord.id)
+        ).all()
+    )
+    assert {row.channel for row in rows} == {"email", "whatsapp"}
+    email = next(row for row in rows if row.channel == "email")
+    whatsapp = next(row for row in rows if row.channel == "whatsapp")
+    assert email.subject.startswith("[School Business]")
+    assert "L'équipe School Business" in email.body
+    assert email.branding_snapshot["school_name"] == "School Business"
+    assert whatsapp.body.endswith("School Business")
