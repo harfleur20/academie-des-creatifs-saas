@@ -35,6 +35,8 @@ export function LoginPage() {
           .then((school) => setHostBrand({
             organization_id: school.organization_id,
             name: school.site_name,
+            slug: school.slug,
+            subdomain: school.subdomain,
             hostname: school.slug,
             logo_url: school.logo_url,
             primary_color: school.primary_color,
