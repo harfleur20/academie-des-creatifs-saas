@@ -4,6 +4,9 @@ import {
   BookOpen,
   CalendarDays,
   GraduationCap,
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
   Users,
 } from 'lucide-react'
 import {
@@ -49,6 +52,13 @@ export function TeacherDashboardPage() {
             <article><CalendarDays size={19} /><strong>{workspace.total_sessions}</strong><span>Sessions</span></article>
             <article><Users size={19} /><strong>{workspace.total_students}</strong><span>Étudiants suivis</span></article>
             <article><BookOpen size={19} /><strong>{workspace.total_courses}</strong><span>Cours</span></article>
+          </section>
+
+          <section className="workspace-shortcuts">
+            <Link to="/app/teacher/courses"><BookOpen size={17}/><span>Mes cours</span></Link>
+            <Link to="/app/teacher/resources"><FileText size={17}/><span>Ressources</span></Link>
+            <Link to="/app/teacher/assignments"><ClipboardCheck size={17}/><span>Devoirs</span></Link>
+            <Link to="/app/teacher/quizzes"><CheckCircle2 size={17}/><span>Quiz / Examens</span></Link>
           </section>
 
           <section className="role-session-list">

@@ -67,7 +67,7 @@ export function StudentQuizzesPage() {
     setError('')
     try {
       const answerList = active.questions.map(
-        (question) => answers[question.id] ?? 0,
+        (question) => answers[question.id] ?? -1,
       )
       const updated = await submitStudentQuizAttempt(active.id, answerList)
       setItems((current) => current.map((item) => item.id === updated.id ? updated : item))

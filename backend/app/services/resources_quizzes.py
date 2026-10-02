@@ -439,9 +439,9 @@ def submit_quiz_attempt(
     correct = 0
     for index, question in enumerate(questions):
         answer = payload.answers[index]
-        if answer < 0 or answer >= len(question.options or []):
+        if answer < -1 or answer >= len(question.options or []):
             raise HTTPException(422, "Une réponse ne correspond pas aux options proposées.")
-        if answer == question.correct_index:
+        if answer >= 0 and answer == question.correct_index:
             correct += 1
 
     score_pct = round((correct / len(questions)) * 100, 1) if questions else 0.0

@@ -4,6 +4,11 @@ import {
   BookOpen,
   CalendarDays,
   GraduationCap,
+  Award,
+  BarChart3,
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
 } from 'lucide-react'
 import {
   ApiError,
@@ -47,6 +52,15 @@ export function StudentDashboardPage() {
           <section className="role-metric-grid">
             <article><GraduationCap size={19} /><strong>{workspace.total_sessions}</strong><span>Formations / sessions</span></article>
             <article><BookOpen size={19} /><strong>{workspace.total_courses}</strong><span>Cours disponibles</span></article>
+          </section>
+
+          <section className="workspace-shortcuts">
+            <Link to="/app/student/courses"><BookOpen size={17}/><span>Mes cours</span></Link>
+            <Link to="/app/student/resources"><FileText size={17}/><span>Ressources</span></Link>
+            <Link to="/app/student/assignments"><ClipboardCheck size={17}/><span>Devoirs</span></Link>
+            <Link to="/app/student/quizzes"><CheckCircle2 size={17}/><span>Quiz / Examens</span></Link>
+            <Link to="/app/student/results"><BarChart3 size={17}/><span>Résultats</span></Link>
+            <Link to="/app/student/progress"><Award size={17}/><span>Progression</span></Link>
           </section>
 
           <section className="role-session-list">

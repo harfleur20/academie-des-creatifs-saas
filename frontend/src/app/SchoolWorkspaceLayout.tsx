@@ -142,11 +142,15 @@ export function SchoolWorkspaceLayout({
 
         <div className="sidebar-user">
           <div className="user-avatar">
-            {user?.full_name
-              .split(' ')
-              .slice(0, 2)
-              .map((part) => part[0]?.toUpperCase())
-              .join('')}
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt={user.full_name} />
+            ) : (
+              user?.full_name
+                .split(' ')
+                .slice(0, 2)
+                .map((part) => part[0]?.toUpperCase())
+                .join('')
+            )}
           </div>
           <div>
             <strong>{user?.full_name}</strong>
