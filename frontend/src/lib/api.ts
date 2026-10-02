@@ -189,7 +189,9 @@ async function request<T>(
   options: RequestInit & { organizationId?: number | null } = {},
 ): Promise<T> {
   const headers = new Headers(options.headers)
-  headers.set('Content-Type', 'application/json')
+  if (!(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json')
+  }
 
   const token = getAccessToken()
   if (token) {
@@ -1179,3 +1181,144 @@ export const updateSessionCourseDay = (
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
+
+
+export type Assignment = {
+  id: number
+  session_id: number
+  course_day_id: number | null
+  teacher_id: number | null
+  teacher_name: string | null
+  title: string
+  instructions: string
+  due_date: string
+  is_final_project: boolean
+  submissions_count: number
+  created_at: string
+}
+
+export type StudentAssignmentStatus = 'pending' | 'submitted' | 'late' | 'reviewed'
+
+export type StudentAssignment = {
+  id: number
+  enrollment_id: number
+  session_id: number
+  session_label: string
+  formation_title: string
+  teacher_name: string | null
+  title: string
+  instructions: string
+  due_date: string
+  is_final_project: boolean
+  student_status: StudentAssignmentStatus
+  submitted_at: string | null
+  file_url: string | null
+  is_reviewed: boolean
+  review_score: number | null
+  review_max_score: number
+  comment_count: number
+}
+
+export type AssignmentSubmission = {
+  id: number
+  enrollment_id: number
+  student_name: string
+  file_url: string
+  submitted_at: string
+  is_reviewed: boolean
+  review_score: number | null
+  review_max_score: number
+  comment_count: number
+}
+
+export type AssignmentComment = {
+  id: number
+  assignment_id: number
+  enrollment_id: number
+  author_role: 'student' | 'teacher'
+  author_name: string
+  body: string
+  attachment_url: string | null
+  created_at: string
+}
+
+export const listTeacherAssignments = (sessionId: number) =>
+  request<Assignment[]>('/assignments/teacher/sessions/' + sessionId)
+
+export const createTeacherAssignment = (
+  sessionId: number,
+  payload: {
+    title: string
+    instructions: string
+    due_date: string
+    course_day_id?: number | null
+    is_final_project?: boolean
+  },
+) =>
+  request<Assignment>('/assignments/teacher/sessions/' + sessionId, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const listAssignmentSubmissions = (assignmentId: number) =>
+  request<AssignmentSubmission[]>('/assignments/teacher/' + assignmentId + '/submissions')
+
+export const reviewAssignmentSubmission = (
+  assignmentId: number,
+  submissionId: number,
+  reviewScore: number,
+) =>
+  request<AssignmentSubmission>(
+    '/assignments/teacher/' + assignmentId + '/submissions/' + submissionId,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ review_score: reviewScore }),
+    },
+  )
+
+export const listStudentAssignments = () =>
+  request<StudentAssignment[]>('/assignments/student')
+
+export const submitStudentAssignment = (
+  assignmentId: number,
+  fileUrl: string,
+) =>
+  request<StudentAssignment>('/assignments/student/' + assignmentId + '/submit', {
+    method: 'POST',
+    body: JSON.stringify({ file_url: fileUrl }),
+  })
+
+export const listAssignmentComments = (
+  assignmentId: number,
+  enrollmentId: number,
+) =>
+  request<AssignmentComment[]>(
+    '/assignments/' + assignmentId + '/enrollments/' + enrollmentId + '/comments',
+  )
+
+export const createAssignmentComment = (
+  assignmentId: number,
+  enrollmentId: number,
+  payload: { body?: string; attachment_url?: string | null },
+) =>
+  request<AssignmentComment>(
+    '/assignments/' + assignmentId + '/enrollments/' + enrollmentId + '/comments',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+
+export async function uploadAssignmentAsset(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return request<{
+    filename: string
+    public_url: string
+    size: number
+    content_type: string
+  }>('/assignments/assets', {
+    method: 'POST',
+    body: form,
+  })
+}
