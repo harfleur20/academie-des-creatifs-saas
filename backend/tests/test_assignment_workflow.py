@@ -32,6 +32,6 @@ def test_assignment_submission_review_flow():
 
 def test_student_cannot_submit_after_deadline():
  db=dbx();o,t,s,se=seed(db)
- a=create_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Projet",due_date=datetime(2026,10,2,18,tzinfo=UTC)))
+ a=create_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Projet",due_date=datetime(2026,10,1,18,tzinfo=UTC)))
  with pytest.raises(HTTPException) as exc: submit_assignment(db,ctx(db,o,s),a.id,AssignmentSubmit(file_url="x"))
  assert exc.value.status_code==400
