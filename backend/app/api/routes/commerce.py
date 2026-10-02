@@ -73,3 +73,20 @@ def student_management(db:Session=Depends(get_db),tenant:TenantContext=Depends(g
 def commercial_dashboard(db:Session=Depends(get_db),tenant:TenantContext=Depends(get_tenant_context)): return dashboard(db,tenant)
 @router.post("/admin/installments/lifecycle")
 def installment_lifecycle(db:Session=Depends(get_db),tenant:TenantContext=Depends(get_tenant_context)): return {"changed":apply_installment_lifecycle(db,tenant)}
+
+
+@router.get("/student/orders", response_model=list[OrderRead])
+def my_student_orders(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return student_orders(db, tenant)
+
+
+@router.post("/student/orders/{order_id}/checkout", response_model=PaymentCheckoutRead)
+def my_student_checkout(
+    order_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return student_order_checkout(db, tenant, order_id)

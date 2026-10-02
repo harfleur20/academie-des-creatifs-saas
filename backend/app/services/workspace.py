@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import (
     EnrollmentRecord,
+    OrganizationStudentProfileRecord,
     FormationSessionRecord,
     SessionTeacherRecord,
 )
@@ -81,6 +82,19 @@ def get_student_workspace(
     tenant: TenantContext,
 ) -> StudentWorkspaceRead:
     require_organization_roles(tenant, "student")
+    profile = db.scalar(
+        select(OrganizationStudentProfileRecord).where(
+            OrganizationStudentProfileRecord.organization_id == tenant.organization_id,
+            OrganizationStudentProfileRecord.user_id == tenant.user.id,
+        )
+    )
+    if profile is not None and profile.access_status == "suspended":
+        from fastapi import HTTPException
+        raise HTTPException(
+            402,
+            profile.access_suspended_reason
+            or "Votre accès pédagogique est suspendu en attente de régularisation.",
+        )
 
     enrollments = list(
         db.scalars(

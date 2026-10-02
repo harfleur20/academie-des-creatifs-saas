@@ -57,6 +57,22 @@ def require_teacher_assignment(
     return assignment
 
 
+def _ensure_student_access_active(db: Session, tenant: TenantContext) -> None:
+    from app.models.entities import OrganizationStudentProfileRecord
+    profile = db.scalar(
+        select(OrganizationStudentProfileRecord).where(
+            OrganizationStudentProfileRecord.organization_id == tenant.organization_id,
+            OrganizationStudentProfileRecord.user_id == tenant.user.id,
+        )
+    )
+    if profile is not None and profile.access_status == "suspended":
+        raise HTTPException(
+            402,
+            profile.access_suspended_reason
+            or "Votre accès pédagogique est suspendu en attente de régularisation.",
+        )
+
+
 def student_enrollment(
     db: Session,
     tenant: TenantContext,
@@ -79,6 +95,7 @@ def require_student_enrollment(
 ) -> EnrollmentRecord:
     if not tenant.has_role("student"):
         raise HTTPException(403, "Accès étudiant requis.")
+    _ensure_student_access_active(db, tenant)
     enrollment = student_enrollment(db, tenant, session_id)
     if enrollment is None:
         raise HTTPException(403, "Vous n'êtes pas inscrit à cette session.")
@@ -139,6 +156,10 @@ def can_view_session(
     if tenant.has_role("teacher") and teacher_assignment(db, tenant, session_id):
         return True
     if tenant.has_role("student") and student_enrollment(db, tenant, session_id):
+        try:
+            _ensure_student_access_active(db, tenant)
+        except HTTPException:
+            return False
         return True
     return False
 

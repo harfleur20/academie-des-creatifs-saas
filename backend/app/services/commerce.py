@@ -183,6 +183,24 @@ def _student_code(db:Session,school:OrganizationRecord,user:UserRecord)->Organiz
     row=OrganizationStudentProfileRecord(organization_id=school.id,user_id=user.id,student_code=f"{prefix}{year:02d}-{seq:03d}",code_year=year,code_sequence=seq,access_status="active")
     db.add(row);db.flush();return row
 
+def _has_blocking_overdue(db: Session, organization_id: int, user_id: int) -> bool:
+    order_ids = select(SchoolOrderRecord.id).where(
+        SchoolOrderRecord.organization_id == organization_id,
+        SchoolOrderRecord.student_user_id == user_id,
+        SchoolOrderRecord.status.notin_(["cancelled", "failed"]),
+    )
+    return (
+        db.scalar(
+            select(PaymentInstallmentRecord.id).where(
+                PaymentInstallmentRecord.organization_id == organization_id,
+                PaymentInstallmentRecord.order_id.in_(order_ids),
+                PaymentInstallmentRecord.status == "late",
+            ).limit(1)
+        )
+        is not None
+    )
+
+
 def _grant_access(db:Session,order:SchoolOrderRecord)->OrganizationStudentProfileRecord:
     school=db.get(OrganizationRecord,order.organization_id); user=db.get(UserRecord,order.student_user_id)
     member=db.scalar(select(OrganizationMemberRecord).where(OrganizationMemberRecord.organization_id==school.id,OrganizationMemberRecord.user_id==user.id))
@@ -192,7 +210,9 @@ def _grant_access(db:Session,order:SchoolOrderRecord)->OrganizationStudentProfil
     if member.role!="student":
         role=db.scalar(select(OrganizationMemberRoleRecord).where(OrganizationMemberRoleRecord.organization_id==school.id,OrganizationMemberRoleRecord.member_id==member.id,OrganizationMemberRoleRecord.role=="student"))
         if role is None: db.add(OrganizationMemberRoleRecord(organization_id=school.id,member_id=member.id,role="student"))
-    profile=_student_code(db,school,user);profile.access_status="active";profile.access_suspended_reason=None;profile.access_suspended_at=None
+    profile=_student_code(db,school,user)
+    if not _has_blocking_overdue(db, school.id, user.id):
+        profile.access_status="active";profile.access_suspended_reason=None;profile.access_suspended_at=None
     enrollment=db.scalar(select(EnrollmentRecord).where(EnrollmentRecord.organization_id==school.id,EnrollmentRecord.session_id==order.session_id,EnrollmentRecord.student_id==user.id))
     if enrollment is None: db.add(EnrollmentRecord(organization_id=school.id,session_id=order.session_id,student_id=user.id,status="active"))
     else: enrollment.status="active"
@@ -282,8 +302,8 @@ def apply_installment_lifecycle(db:Session,tenant:TenantContext|None=None)->int:
                 profile=db.scalar(select(OrganizationStudentProfileRecord).where(OrganizationStudentProfileRecord.organization_id==order.organization_id,OrganizationStudentProfileRecord.user_id==order.student_user_id))
                 if profile and profile.access_status!="suspended":
                     profile.access_status="suspended";profile.access_suspended_reason="Échéance de paiement impayée.";profile.access_suspended_at=now;changed+=1
-                    enrollments=list(db.scalars(select(EnrollmentRecord).where(EnrollmentRecord.organization_id==order.organization_id,EnrollmentRecord.student_id==order.student_user_id,EnrollmentRecord.status=="active")).all())
-                    for en in enrollments: en.status="cancelled"
+                    # Keep enrollments and all pedagogical history intact.
+                    # Access gating is handled by the organization student profile.
     db.commit();return changed
 
 def students(db:Session,tenant:TenantContext):
@@ -307,3 +327,30 @@ def admin_catalog(db:Session,tenant:TenantContext)->list[PublicFormationRead]:
     require_manager(tenant)
     rows=list(db.scalars(select(FormationRecord).where(FormationRecord.organization_id==tenant.organization_id,FormationRecord.status!="archived").order_by(FormationRecord.created_at.desc())).all())
     return [_public_formation(db,x) for x in rows]
+
+
+def student_orders(db: Session, tenant: TenantContext) -> list[OrderRead]:
+    if not tenant.has_role("student"):
+        raise HTTPException(403, "Accès étudiant requis.")
+    rows = list(
+        db.scalars(
+            select(SchoolOrderRecord)
+            .where(
+                SchoolOrderRecord.organization_id == tenant.organization_id,
+                SchoolOrderRecord.student_user_id == tenant.user.id,
+            )
+            .order_by(SchoolOrderRecord.created_at.desc())
+        ).all()
+    )
+    return [order_read(db, row) for row in rows]
+
+
+def student_order_checkout(
+    db: Session,
+    tenant: TenantContext,
+    order_id: int,
+) -> PaymentCheckoutRead:
+    if not tenant.has_role("student"):
+        raise HTTPException(403, "Accès étudiant requis.")
+    school = db.get(OrganizationRecord, tenant.organization_id)
+    return checkout_payment(db, school.slug, tenant.user, order_id)
