@@ -37,6 +37,7 @@ from app.schemas.formations import (
     ChapterRead,
     LessonRead,
 )
+from app.services.membership_roles import member_has_role
 from app.services.tenancy import TenantContext, scoped_select
 
 
@@ -62,11 +63,10 @@ def _require_member(
         .where(
             OrganizationMemberRecord.organization_id == tenant.organization_id,
             OrganizationMemberRecord.user_id == user_id,
-            OrganizationMemberRecord.role == role,
             OrganizationMemberRecord.status == "active",
         )
     )
-    if member is None:
+    if member is None or not member_has_role(db, member, role):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
@@ -89,9 +89,9 @@ def _teacher_can_manage_session(
     tenant: TenantContext,
     session: FormationSessionRecord,
 ) -> bool:
-    if tenant.organization_role in {"owner", "admin", "manager"}:
+    if tenant.organization_roles.intersection({"owner", "admin", "manager"}):
         return True
-    if tenant.organization_role != "teacher":
+    if not tenant.has_role("teacher"):
         return False
     return db.scalar(
         select(SessionTeacherRecord.id).where(
@@ -571,7 +571,7 @@ def create_course(
         raise HTTPException(status_code=403, detail="Vous n'êtes pas affecté à cette session.")
 
     teacher_id = payload.teacher_id
-    if tenant.organization_role == "teacher":
+    if tenant.has_role("teacher") and not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
         teacher_id = tenant.user.id
     elif teacher_id is not None:
         _require_member(db, tenant, user_id=teacher_id, role="teacher")
@@ -610,7 +610,7 @@ def update_course(
         raise HTTPException(status_code=403, detail="Vous n'êtes pas affecté à cette session.")
 
     values = payload.model_dump(exclude_unset=True)
-    if tenant.organization_role == "teacher":
+    if tenant.has_role("teacher") and not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
         values.pop("teacher_id", None)
         if course.teacher_id not in {None, tenant.user.id}:
             raise HTTPException(status_code=403, detail="Ce cours appartient à un autre professeur.")
@@ -645,7 +645,7 @@ def create_chapter(
         raise HTTPException(status_code=404, detail="Cours introuvable.")
     if not _teacher_can_manage_session(db, tenant, session):
         raise HTTPException(status_code=403, detail="Vous n'êtes pas affecté à cette session.")
-    if tenant.organization_role == "teacher" and course.teacher_id not in {None, tenant.user.id}:
+    if tenant.has_role("teacher") and not tenant.organization_roles.intersection({"owner", "admin", "manager"}) and course.teacher_id not in {None, tenant.user.id}:
         raise HTTPException(status_code=403, detail="Ce cours appartient à un autre professeur.")
 
     chapter = ChapterRecord(
@@ -682,7 +682,7 @@ def create_lesson(
         raise HTTPException(status_code=404, detail="Module introuvable.")
     if not _teacher_can_manage_session(db, tenant, session):
         raise HTTPException(status_code=403, detail="Vous n'êtes pas affecté à cette session.")
-    if tenant.organization_role == "teacher" and course.teacher_id not in {None, tenant.user.id}:
+    if tenant.has_role("teacher") and not tenant.organization_roles.intersection({"owner", "admin", "manager"}) and course.teacher_id not in {None, tenant.user.id}:
         raise HTTPException(status_code=403, detail="Ce cours appartient à un autre professeur.")
 
     lesson = LessonRecord(

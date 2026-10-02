@@ -22,6 +22,7 @@ from app.models.entities import (
     SubscriptionRecord,
     UserRecord,
 )
+from app.services.membership_roles import effective_member_roles
 from app.schemas.admin import (
     AdminAuditRead,
     AdminDashboardRead,
@@ -141,26 +142,22 @@ def list_admin_organizations(db: Session) -> list[AdminOrganizationRead]:
         ).all()
     )
 
-    role_count_rows = db.execute(
-        select(
-            OrganizationMemberRecord.organization_id,
-            OrganizationMemberRecord.role,
-            func.count(OrganizationMemberRecord.id),
-        )
-        .where(
-            OrganizationMemberRecord.organization_id.in_(organization_ids),
-            OrganizationMemberRecord.status == "active",
-            OrganizationMemberRecord.role.in_(["student", "teacher"]),
-        )
-        .group_by(
-            OrganizationMemberRecord.organization_id,
-            OrganizationMemberRecord.role,
-        )
-    ).all()
-    role_counts: dict[tuple[int, str], int] = {
-        (organization_id, role): int(count or 0)
-        for organization_id, role, count in role_count_rows
-    }
+    active_members = list(
+        db.scalars(
+            select(OrganizationMemberRecord)
+            .options(selectinload(OrganizationMemberRecord.roles))
+            .where(
+                OrganizationMemberRecord.organization_id.in_(organization_ids),
+                OrganizationMemberRecord.status == "active",
+            )
+        ).all()
+    )
+    role_counts: dict[tuple[int, str], int] = {}
+    for member in active_members:
+        for role in {"student", "teacher"}:
+            if role in effective_member_roles(member):
+                key = (member.organization_id, role)
+                role_counts[key] = role_counts.get(key, 0) + 1
 
     formation_counts = dict(
         db.execute(

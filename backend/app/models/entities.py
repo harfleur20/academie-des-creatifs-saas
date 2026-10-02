@@ -169,6 +169,41 @@ class OrganizationMemberRecord(TimestampMixin, Base):
 
     organization: Mapped["OrganizationRecord"] = relationship(back_populates="members")
     user: Mapped["UserRecord"] = relationship()
+    roles: Mapped[list["OrganizationMemberRoleRecord"]] = relationship(
+        back_populates="member",
+        cascade="all, delete-orphan",
+    )
+
+
+class OrganizationMemberRoleRecord(TimestampMixin, Base):
+    __tablename__ = "organization_member_roles"
+    __table_args__ = (
+        UniqueConstraint(
+            "member_id",
+            "role",
+            name="uq_organization_member_roles_member_role",
+        ),
+        Index(
+            "ix_organization_member_roles_org_role",
+            "organization_id",
+            "role",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    member_id: Mapped[int] = mapped_column(
+        ForeignKey("organization_members.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+
+    member: Mapped["OrganizationMemberRecord"] = relationship(back_populates="roles")
 
 
 class OrganizationInvitationRecord(TimestampMixin, Base):
