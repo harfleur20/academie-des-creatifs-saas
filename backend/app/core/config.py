@@ -80,6 +80,10 @@ class Settings:
         0,
         int(os.getenv("BILLING_GRACE_PERIOD_DAYS", "7")),
     )
+    commerce_grace_period_days: int = max(
+        0,
+        int(os.getenv("COMMERCE_GRACE_PERIOD_DAYS", "7")),
+    )
     billing_cron_secret: str = os.getenv(
         "BILLING_CRON_SECRET",
         "",
