@@ -232,6 +232,42 @@ async function request<T>(
   return response.json() as Promise<T>
 }
 
+async function requestBlob(
+  path: string,
+  options: RequestInit & { organizationId?: number | null } = {},
+): Promise<Blob> {
+  const headers = new Headers(options.headers)
+  const token = getAccessToken()
+  if (token) headers.set('Authorization', 'Bearer ' + token)
+
+  const organizationId =
+    options.organizationId === undefined
+      ? getStoredOrganizationId()
+      : options.organizationId
+
+  if (organizationId !== null && organizationId !== undefined) {
+    headers.set('X-Organization-Id', String(organizationId))
+  }
+
+  const response = await fetch(API_BASE + path, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    let message = 'Téléchargement impossible.'
+    try {
+      const body = await response.json()
+      if (typeof body?.detail === 'string') message = body.detail
+    } catch {
+      // Keep generic message.
+    }
+    throw new ApiError(response.status, message)
+  }
+
+  return response.blob()
+}
+
 export async function login(email: string, password: string) {
   const response = await request<AuthResponse>('/auth/login', {
     method: 'POST',
@@ -1775,6 +1811,12 @@ export type CertificateInfo = {
   issued_at: string
   status: string
   verification_token: string
+  school_name: string | null
+  logo_url: string | null
+  primary_color: string | null
+  secondary_color: string | null
+  student_code: string | null
+  session_label: string | null
 }
 
 export type CertificateEligibility = {
@@ -1794,6 +1836,14 @@ export const issueStudentCertificate = (enrollmentId: number) =>
 
 export const verifyCertificate = (token: string) =>
   request<CertificateInfo>('/academic/certificates/verify/' + encodeURIComponent(token), {
+    organizationId: null,
+  })
+
+export const downloadStudentCertificatePdf = (enrollmentId: number) =>
+  requestBlob('/academic/student/enrollments/' + enrollmentId + '/certificate.pdf')
+
+export const downloadVerifiedCertificatePdf = (token: string) =>
+  requestBlob('/academic/certificates/' + encodeURIComponent(token) + '/download', {
     organizationId: null,
   })
 
@@ -2183,6 +2233,18 @@ export const getCommercialDashboard = () =>
   request<CommercialDashboard>('/commerce/dashboard')
 export const listSchoolOrders = () => request<SchoolOrder[]>('/commerce/orders')
 export const listSchoolInvoices = () => request<SchoolInvoice[]>('/commerce/invoices')
+export const downloadSchoolInvoicePdf = (invoiceId: number) =>
+  requestBlob('/commerce/invoices/' + invoiceId + '/pdf')
+export const listPublicOrderInvoices = (schoolKey: string, orderId: number) =>
+  request<SchoolInvoice[]>(
+    '/commerce/public/' + encodeURIComponent(schoolKey) + '/orders/' + orderId + '/invoices',
+    { organizationId: null },
+  )
+export const downloadPublicInvoicePdf = (schoolKey: string, invoiceId: number) =>
+  requestBlob(
+    '/commerce/public/' + encodeURIComponent(schoolKey) + '/invoices/' + invoiceId + '/pdf',
+    { organizationId: null },
+  )
 export const listManagedStudents = () => request<ManagedStudent[]>('/commerce/students')
 
 
