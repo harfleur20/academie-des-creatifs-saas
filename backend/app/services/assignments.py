@@ -1,9 +1,10 @@
 from datetime import UTC, datetime, time
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
-from app.models.entities import AssignmentCommentRecord, AssignmentRecord, AssignmentSubmissionRecord, EnrollmentRecord, FormationRecord, FormationSessionRecord, SessionCourseDayRecord, SessionTeacherRecord, UserRecord
+from app.models.entities import AssignmentCommentRecord, AssignmentRecord, AssignmentSubmissionRecord, EnrollmentRecord, FormationRecord, FormationSessionRecord, GradeRecord, SessionCourseDayRecord, SessionTeacherRecord, UserRecord
 from app.schemas.assignments import *
+from app.services.grades import upsert_grade
 from app.services.tenancy import TenantContext
 
 def _utc(v:datetime)->datetime: return v.astimezone(UTC).replace(tzinfo=None) if v.tzinfo else v
@@ -73,6 +74,14 @@ def submit_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentSubmit
     else:
         sub=AssignmentSubmissionRecord(organization_id=tenant.organization_id,assignment_id=aid,enrollment_id=e.id,file_url=p.file_url,submitted_at=now)
         db.add(sub)
+    db.execute(
+        delete(GradeRecord).where(
+            GradeRecord.organization_id == tenant.organization_id,
+            GradeRecord.enrollment_id == e.id,
+            GradeRecord.source_type == "assignment",
+            GradeRecord.source_id == a.id,
+        )
+    )
     db.commit(); db.refresh(sub); return _student_view(db,a,e,sub,now)
 
 def list_submissions(db,tenant,aid):
@@ -90,7 +99,21 @@ def review_submission(db,tenant,aid,sid,p:ReviewSubmission):
     if a.teacher_id!=tenant.user.id: raise HTTPException(403,"La correction est réservée au professeur propriétaire du devoir.")
     s=db.scalar(select(AssignmentSubmissionRecord).where(AssignmentSubmissionRecord.id==sid,AssignmentSubmissionRecord.organization_id==tenant.organization_id,AssignmentSubmissionRecord.assignment_id==aid))
     if not s: raise HTTPException(404,"Soumission introuvable.")
-    s.review_score=p.review_score; s.review_max_score=20; s.is_reviewed=True; db.commit()
+    s.review_score=p.review_score; s.review_max_score=20; s.is_reviewed=True
+    upsert_grade(
+        db,
+        organization_id=tenant.organization_id,
+        session_id=a.session_id,
+        enrollment_id=s.enrollment_id,
+        teacher_id=a.teacher_id,
+        source_type="assignment",
+        source_id=a.id,
+        label=("Projet final : " if a.is_final_project else "Devoir : ") + a.title,
+        score=p.review_score,
+        max_score=20,
+        note="Note issue de la correction du devoir.",
+    )
+    db.commit()
     return next(x for x in list_submissions(db,tenant,aid) if x.id==sid)
 
 def _thread_access(db,tenant,a,enrollment_id):
