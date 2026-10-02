@@ -7,7 +7,6 @@ from app.schemas.formations import (
     ChapterCreate,
     CourseCreate,
     CourseUpdate,
-    EnrollmentCreate,
     EnrollmentUpdate,
     FormationCreate,
     FormationDetailRead,
@@ -26,7 +25,6 @@ from app.services.formations import (
     create_formation,
     create_lesson,
     create_session,
-    enroll_student,
     get_formation_detail,
     list_formations,
     remove_teacher,
@@ -149,21 +147,6 @@ def remove_teacher_route(
 ):
     require_organization_roles(tenant, "owner", "admin", "manager")
     return remove_teacher(db, tenant, formation_id, session_id, teacher_id)
-
-
-@router.post(
-    "/{formation_id}/sessions/{session_id}/enrollments",
-    response_model=FormationDetailRead,
-)
-def enroll_student_route(
-    formation_id: int,
-    session_id: int,
-    payload: EnrollmentCreate,
-    db: Session = Depends(get_db),
-    tenant: TenantContext = Depends(get_tenant_context),
-):
-    require_organization_roles(tenant, "owner", "admin", "manager")
-    return enroll_student(db, tenant, formation_id, session_id, payload)
 
 
 @router.patch(
