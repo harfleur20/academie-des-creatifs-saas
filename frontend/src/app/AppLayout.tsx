@@ -51,11 +51,7 @@ export function AppLayout() {
           <BrandLogo
             logoUrl={activeLogo}
             alt={activeOrganization?.name || 'Académie des Créatifs'}
-            className={
-              activeOrganization?.logo_url
-                ? 'app-brand-logo'
-                : 'app-brand-logo academy-default-logo'
-            }
+            className="app-brand-logo"
           />
           <span>{activeOrganization?.name || 'Académie'}</span>
         </div>
