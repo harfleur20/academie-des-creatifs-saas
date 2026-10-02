@@ -1,4 +1,15 @@
 from app.models.entities import (
+    CommunicationOutboxRecord,
+    OrderInvoiceRecord,
+    OrderInstallmentRecord,
+    StudentOrderRecord,
+    CouponRecord,
+    PromotionRecord,
+    OrganizationStudentProfileRecord,
+    OrganizationCertificationProfileRecord,
+    OrganizationCommunicationProfileRecord,
+    OrganizationLegalProfileRecord,
+    OrganizationPublicSiteRecord,
     CertificateRecord,
     ClassDiscussionReplyRecord,
     ClassDiscussionPostRecord,
@@ -38,6 +49,17 @@ from app.models.entities import (
 )
 
 __all__ = [
+    "CommunicationOutboxRecord",
+    "OrderInvoiceRecord",
+    "OrderInstallmentRecord",
+    "StudentOrderRecord",
+    "CouponRecord",
+    "PromotionRecord",
+    "OrganizationStudentProfileRecord",
+    "OrganizationCertificationProfileRecord",
+    "OrganizationCommunicationProfileRecord",
+    "OrganizationLegalProfileRecord",
+    "OrganizationPublicSiteRecord",
     "CertificateRecord",
     "ClassDiscussionReplyRecord",
     "ClassDiscussionPostRecord",
