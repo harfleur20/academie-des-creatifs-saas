@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_user, get_tenant_context
 from app.db.session import get_db
-from app.models.entities import UserRecord
+from app.models.entities import FormationRecord, FormationSessionRecord, OrganizationRecord, UserRecord
 from app.schemas.commerce import *
 from app.services.commerce import *
 from app.services.tenancy import TenantContext
