@@ -44,6 +44,7 @@ import { StudentClassPage } from './pages/StudentClassPage'
 import { StudentCertificatesPage } from './pages/StudentCertificatesPage'
 import { StudentPlanningPage } from './pages/StudentPlanningPage'
 import { CertificateVerifyPage } from './pages/CertificateVerifyPage'
+import { StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
 import type { WorkspaceSpace } from './lib/api'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
@@ -198,6 +199,7 @@ export default function App() {
               <Route path="attendance" element={<TeacherAttendancePage />} />
               <Route path="students" element={<TeacherStudentsPage />} />
               <Route path="performance" element={<TeacherPerformancePage />} />
+              <Route path="profile" element={<TeacherProfilePage />} />
             </Route>
 
             <Route
@@ -222,6 +224,7 @@ export default function App() {
               <Route path="progress" element={<StudentProgressPage />} />
               <Route path="class" element={<StudentClassPage />} />
               <Route path="certificates" element={<StudentCertificatesPage />} />
+              <Route path="profile" element={<StudentProfilePage />} />
             </Route>
 
             <Route path="/app/onboarding" element={<Navigate to="/app/manage/onboarding" replace />} />

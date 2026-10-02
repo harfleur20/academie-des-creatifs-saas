@@ -2,6 +2,8 @@ export type AuthUser = {
   id: number
   full_name: string
   email: string
+  phone: string | null
+  avatar_url: string | null
   status: string
   platform_role: string
 }
@@ -252,6 +254,39 @@ export async function register(fullName: string, email: string, password: string
 
 export const getMe = () =>
   request<AuthUser>('/auth/me', { organizationId: null })
+
+export const updateMyProfile = (payload: {
+  full_name: string
+  phone: string | null
+}) =>
+  request<AuthUser>('/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+    organizationId: null,
+  })
+
+export const changeMyPassword = (
+  currentPassword: string,
+  newPassword: string,
+) =>
+  request<void>('/auth/me/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+    organizationId: null,
+  })
+
+export const uploadMyAvatar = (file: File) => {
+  const body = new FormData()
+  body.append('file', file)
+  return request<AuthUser>('/auth/me/avatar', {
+    method: 'POST',
+    body,
+    organizationId: null,
+  })
+}
 
 export const listOrganizations = () =>
   request<Organization[]>('/organizations', { organizationId: null })

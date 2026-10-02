@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   FileText,
   LayoutDashboard,
+  UserRound,
   Users,
 } from 'lucide-react'
 import { SchoolWorkspaceLayout } from './SchoolWorkspaceLayout'
@@ -61,6 +62,11 @@ export function TeacherLayout() {
           to: '/app/teacher/performance',
           label: 'Performance',
           icon: <Activity size={18} />,
+        },
+        {
+          to: '/app/teacher/profile',
+          label: 'Mon profil',
+          icon: <UserRound size={18} />,
         },
       ]}
     />

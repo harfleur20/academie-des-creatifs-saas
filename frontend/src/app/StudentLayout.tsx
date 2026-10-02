@@ -8,6 +8,7 @@ import {
   FileText,
   GraduationCap,
   LayoutDashboard,
+  UserRound,
   Users,
 } from 'lucide-react'
 import { SchoolWorkspaceLayout } from './SchoolWorkspaceLayout'
@@ -72,6 +73,11 @@ export function StudentLayout() {
           to: '/app/student/certificates',
           label: 'Certificats',
           icon: <Award size={18} />,
+        },
+        {
+          to: '/app/student/profile',
+          label: 'Mon profil',
+          icon: <UserRound size={18} />,
         },
       ]}
     />
