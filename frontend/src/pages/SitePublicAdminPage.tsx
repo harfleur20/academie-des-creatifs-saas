@@ -1,0 +1,45 @@
+import { useEffect, useState, type FormEvent } from 'react'
+import { Eye, Save } from 'lucide-react'
+import { useTenant } from '../app/TenantContext'
+import {
+  ApiError,
+  getSchoolSiteAdmin,
+  updateCurrentOrganization,
+  updateSchoolSiteAdmin,
+  type SchoolSiteProfile,
+} from '../lib/api'
+
+const emptySite:SchoolSiteProfile={
+ organization_id:0,school_name:'',logo_url:null,primary_color:'#1768FF',secondary_color:'#21C889',accent_color:'#10233F',
+ hero_title:'',hero_subtitle:'',hero_image_url:null,hero_button_label:'Découvrir nos formations',about_title:'À propos',about_text:'',about_image_url:null,
+ contact_phone:null,contact_email:null,contact_address:null,social_links:{},footer_text:'',legal_notice:'',terms_of_sale:'',privacy_policy:'',refund_policy:'',
+ legal_name:null,legal_registration_number:null,tax_number:null,billing_address:null,sender_name:null,reply_to_email:null,
+ certificate_signatory_name:null,certificate_signatory_title:null,certificate_signature_url:null,certificate_stamp_url:null,student_code_prefix:null
+}
+
+export function SitePublicAdminPage(){
+ const {activeOrganization,refreshOrganizations}=useTenant()
+ const [data,setData]=useState<SchoolSiteProfile>(emptySite)
+ const [logo,setLogo]=useState('')
+ const [primary,setPrimary]=useState('#1768FF'),[secondary,setSecondary]=useState('#21C889'),[accent,setAccent]=useState('#10233F')
+ const [saving,setSaving]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('')
+ useEffect(()=>{if(!activeOrganization)return;getSchoolSiteAdmin().then((x)=>{setData(x);setLogo(x.logo_url||'');setPrimary(x.primary_color);setSecondary(x.secondary_color);setAccent(x.accent_color)}).catch((e)=>setError(e instanceof ApiError?e.message:'Chargement impossible.'))},[activeOrganization?.id])
+ function field<K extends keyof SchoolSiteProfile>(key:K,value:SchoolSiteProfile[K]){setData((x)=>({...x,[key]:value}))}
+ async function submit(e:FormEvent){e.preventDefault();setSaving(true);setError('');setMessage('');try{await Promise.all([updateCurrentOrganization({logo_url:logo||null,primary_color:primary,secondary_color:secondary,accent_color:accent}),updateSchoolSiteAdmin({
+ hero_title:data.hero_title,hero_subtitle:data.hero_subtitle,hero_image_url:data.hero_image_url,hero_button_label:data.hero_button_label,about_title:data.about_title,about_text:data.about_text,about_image_url:data.about_image_url,
+ contact_phone:data.contact_phone,contact_email:data.contact_email,contact_address:data.contact_address,social_links:data.social_links,footer_text:data.footer_text,legal_notice:data.legal_notice,terms_of_sale:data.terms_of_sale,privacy_policy:data.privacy_policy,refund_policy:data.refund_policy,
+ legal_name:data.legal_name,legal_registration_number:data.legal_registration_number,tax_number:data.tax_number,billing_address:data.billing_address,sender_name:data.sender_name,reply_to_email:data.reply_to_email,
+ certificate_signatory_name:data.certificate_signatory_name,certificate_signatory_title:data.certificate_signatory_title,certificate_signature_url:data.certificate_signature_url,certificate_stamp_url:data.certificate_stamp_url,student_code_prefix:data.student_code_prefix
+ })]);await refreshOrganizations();setMessage('Identité et site public enregistrés.')}catch(e){setError(e instanceof ApiError?e.message:'Enregistrement impossible.')}finally{setSaving(false)}}
+ if(!activeOrganization)return <div className="page-state">Créez d’abord une école.</div>
+ return <main className="app-page commerce-admin-page"><header className="app-page-header"><div><span className="page-kicker">Marque blanche</span><h1>Identité & site public</h1><p>Cette identité alimente le site public, les espaces professeur/étudiant, les factures, certificats et communications.</p></div><a className="secondary-button" target="_blank" rel="noreferrer" href={'/schools/'+activeOrganization.slug}><Eye size={15}/> Voir le site</a></header>
+ {message&&<div className="form-success">{message}</div>}{error&&<div className="form-error">{error}</div>}
+ <form className="commerce-settings-stack" onSubmit={submit}>
+  <section className="app-card commerce-settings-card"><h2>Identité visuelle</h2><div className="commerce-form-grid"><label>Logo<input type="url" value={logo} onChange={(e)=>setLogo(e.target.value)} placeholder="https://..."/></label><label>Préfixe matricule<input value={data.student_code_prefix||''} onChange={(e)=>field('student_code_prefix',e.target.value.toUpperCase())} maxLength={8} placeholder="SB"/></label><label>Couleur principale<input type="color" value={primary} onChange={(e)=>setPrimary(e.target.value.toUpperCase())}/></label><label>Couleur secondaire<input type="color" value={secondary} onChange={(e)=>setSecondary(e.target.value.toUpperCase())}/></label><label>Accent<input type="color" value={accent} onChange={(e)=>setAccent(e.target.value.toUpperCase())}/></label></div></section>
+  <section className="app-card commerce-settings-card"><h2>Accueil</h2><div className="commerce-form-grid"><label>Titre hero<input value={data.hero_title} onChange={(e)=>field('hero_title',e.target.value)}/></label><label>Texte du bouton<input value={data.hero_button_label} onChange={(e)=>field('hero_button_label',e.target.value)}/></label><label className="wide">Sous-titre<textarea value={data.hero_subtitle} onChange={(e)=>field('hero_subtitle',e.target.value)}/></label><label className="wide">Image hero<input type="url" value={data.hero_image_url||''} onChange={(e)=>field('hero_image_url',e.target.value||null)}/></label><label>Titre présentation<input value={data.about_title} onChange={(e)=>field('about_title',e.target.value)}/></label><label>Image présentation<input type="url" value={data.about_image_url||''} onChange={(e)=>field('about_image_url',e.target.value||null)}/></label><label className="wide">Présentation<textarea value={data.about_text} onChange={(e)=>field('about_text',e.target.value)}/></label></div></section>
+  <section className="app-card commerce-settings-card"><h2>Contact & communication</h2><div className="commerce-form-grid"><label>Email public<input type="email" value={data.contact_email||''} onChange={(e)=>field('contact_email',e.target.value||null)}/></label><label>Téléphone<input value={data.contact_phone||''} onChange={(e)=>field('contact_phone',e.target.value||null)}/></label><label className="wide">Adresse<input value={data.contact_address||''} onChange={(e)=>field('contact_address',e.target.value||null)}/></label><label>Nom d’expéditeur<input value={data.sender_name||''} onChange={(e)=>field('sender_name',e.target.value||null)}/></label><label>Reply-to email<input type="email" value={data.reply_to_email||''} onChange={(e)=>field('reply_to_email',e.target.value||null)}/></label><label className="wide">Texte du footer<textarea value={data.footer_text} onChange={(e)=>field('footer_text',e.target.value)}/></label></div></section>
+  <section className="app-card commerce-settings-card"><h2>Facturation & légal</h2><div className="commerce-form-grid"><label>Raison sociale<input value={data.legal_name||''} onChange={(e)=>field('legal_name',e.target.value||null)}/></label><label>RCCM / SIRET<input value={data.legal_registration_number||''} onChange={(e)=>field('legal_registration_number',e.target.value||null)}/></label><label>Identifiant fiscal<input value={data.tax_number||''} onChange={(e)=>field('tax_number',e.target.value||null)}/></label><label className="wide">Adresse de facturation<input value={data.billing_address||''} onChange={(e)=>field('billing_address',e.target.value||null)}/></label><label className="wide">Mentions légales<textarea value={data.legal_notice} onChange={(e)=>field('legal_notice',e.target.value)}/></label><label className="wide">Conditions générales de vente<textarea value={data.terms_of_sale} onChange={(e)=>field('terms_of_sale',e.target.value)}/></label><label className="wide">Politique de confidentialité<textarea value={data.privacy_policy} onChange={(e)=>field('privacy_policy',e.target.value)}/></label><label className="wide">Remboursement / annulation<textarea value={data.refund_policy} onChange={(e)=>field('refund_policy',e.target.value)}/></label></div></section>
+  <section className="app-card commerce-settings-card"><h2>Certificats</h2><div className="commerce-form-grid"><label>Nom du signataire<input value={data.certificate_signatory_name||''} onChange={(e)=>field('certificate_signatory_name',e.target.value||null)}/></label><label>Fonction<input value={data.certificate_signatory_title||''} onChange={(e)=>field('certificate_signatory_title',e.target.value||null)}/></label><label>URL signature<input type="url" value={data.certificate_signature_url||''} onChange={(e)=>field('certificate_signature_url',e.target.value||null)}/></label><label>URL cachet<input type="url" value={data.certificate_stamp_url||''} onChange={(e)=>field('certificate_stamp_url',e.target.value||null)}/></label></div></section>
+  <button className="primary-button commerce-save" disabled={saving}><Save size={16}/>{saving?'Enregistrement…':'Enregistrer'}</button>
+ </form></main>
+}
