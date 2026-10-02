@@ -344,6 +344,8 @@ def resolve_host_branding(
     return OrganizationHostBrandingRead(
         organization_id=organization.id,
         name=organization.name,
+        slug=organization.slug,
+        subdomain=organization.subdomain,
         hostname=normalized,
         logo_url=organization.logo_url,
         primary_color=organization.primary_color,

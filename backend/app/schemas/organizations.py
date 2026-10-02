@@ -186,6 +186,8 @@ class OrganizationDomainConfigRead(BaseModel):
 class OrganizationHostBrandingRead(BaseModel):
     organization_id: int
     name: str
+    slug: str
+    subdomain: str | None
     hostname: str
     logo_url: str | None
     primary_color: str

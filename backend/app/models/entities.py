@@ -1075,6 +1075,8 @@ class OrganizationPublicSiteRecord(OrganizationOwnedMixin, TimestampMixin, Base)
     font_heading: Mapped[str] = mapped_column(String(80), nullable=False, default="Inter")
     font_body: Mapped[str] = mapped_column(String(80), nullable=False, default="Inter")
     student_code_prefix: Mapped[str] = mapped_column(String(8), nullable=False, default="")
+    student_code_sequence_year: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    student_code_sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 

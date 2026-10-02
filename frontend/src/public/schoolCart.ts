@@ -1,4 +1,6 @@
 export type SchoolCartItem = {
+  organization_id: number
+  formation_id: number
   formation_slug: string
   formation_title: string
   session_id: number
@@ -12,13 +14,34 @@ function key(schoolSlug: string) {
   return 'academie_school_cart_' + schoolSlug
 }
 
+function isValidCartItem(value: unknown): value is SchoolCartItem {
+  if (!value || typeof value !== 'object') return false
+  const item = value as Partial<SchoolCartItem>
+  return (
+    Number.isInteger(item.organization_id)
+    && Number.isInteger(item.formation_id)
+    && Number.isInteger(item.session_id)
+    && typeof item.formation_slug === 'string'
+    && typeof item.formation_title === 'string'
+    && typeof item.session_label === 'string'
+    && typeof item.price_cents === 'number'
+    && typeof item.currency === 'string'
+  )
+}
+
 export function getSchoolCart(schoolSlug: string): SchoolCartItem | null {
-  const raw = localStorage.getItem(key(schoolSlug))
+  const storageKey = key(schoolSlug)
+  const raw = localStorage.getItem(storageKey)
   if (!raw) return null
   try {
-    return JSON.parse(raw) as SchoolCartItem
+    const parsed: unknown = JSON.parse(raw)
+    if (!isValidCartItem(parsed)) {
+      localStorage.removeItem(storageKey)
+      return null
+    }
+    return parsed
   } catch {
-    localStorage.removeItem(key(schoolSlug))
+    localStorage.removeItem(storageKey)
     return null
   }
 }

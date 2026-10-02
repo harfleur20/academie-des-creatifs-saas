@@ -4,9 +4,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getPublicSchoolFormation, type PublicFormationDetail, type PublicSession } from '../lib/api'
 import { setSchoolCart } from '../public/schoolCart'
 import { formatSchoolDate, formatSchoolMoney } from '../public/publicHelpers'
+import { usePublicSchool } from '../public/SchoolPublicLayout'
 
 export function SchoolFormationDetailPage() {
   const { schoolSlug = '', formationSlug = '' } = useParams()
+  const { school } = usePublicSchool()
   const navigate=useNavigate()
   const [formation,setFormation]=useState<PublicFormationDetail|null>(null)
   const [sessionId,setSessionId]=useState<number|null>(null)
@@ -17,7 +19,7 @@ export function SchoolFormationDetailPage() {
     if(!formation) return
     const target=selected || (formation.sessions.filter((s)=>s.can_purchase).length===1?formation.sessions.find((s)=>s.can_purchase)??null:null)
     if(!target){setToast('Aucune nouvelle session disponible pour cette formation.');setTimeout(()=>setToast(''),3200);return}
-    setSchoolCart(schoolSlug,{formation_slug:formation.slug,formation_title:formation.title,session_id:target.id,session_label:target.label,price_cents:target.current_price_cents,currency:target.currency,cover_image_url:formation.cover_image_url})
+    setSchoolCart(schoolSlug,{organization_id:school.organization_id,formation_id:formation.id,formation_slug:formation.slug,formation_title:formation.title,session_id:target.id,session_label:target.label,price_cents:target.current_price_cents,currency:target.currency,cover_image_url:formation.cover_image_url})
     navigate('/school/'+schoolSlug+'/panier')
   }
   if(!formation)return <main className="school-section"><div className="school-empty">Chargement…</div></main>
@@ -31,6 +33,7 @@ export function SchoolFormationDetailPage() {
         <div><h2>Présentation</h2><p>{formation.description}</p></div>
         {formation.objectives&&<div><h2>Objectifs</h2><p className="school-preline">{formation.objectives}</p></div>}
         {formation.public_program&&<div><h2>Programme</h2><p className="school-preline">{formation.public_program}</p></div>}
+        {formation.modules.length>0&&<div><h2>Modules</h2><div className="school-program-modules">{formation.modules.map((module,index)=><article key={module.title+'-'+index}><strong>Module {index+1} : {module.title}</strong>{module.chapters.length>0&&<ul>{module.chapters.map((chapter,chapterIndex)=><li key={chapter+'-'+chapterIndex}>{chapter}</li>)}</ul>}</article>)}</div></div>}
         {formation.prerequisites&&<div><h2>Prérequis</h2><p className="school-preline">{formation.prerequisites}</p></div>}
       </article>
       <aside className="school-session-panel"><h2>Choisissez votre session</h2><div className="school-session-list">{formation.sessions.length?formation.sessions.map((session)=><SessionChoice key={session.id} session={session} selected={session.id===sessionId} onSelect={()=>session.can_purchase&&setSessionId(session.id)}/>):<div className="school-no-session">Aucune session programmée.</div>}</div><button className={'school-buy-button '+(!formation.can_purchase?'is-locked':'')} type="button" onClick={add}><ShoppingBag size={16}/>{formation.can_purchase?'Ajouter au panier':'Pas de nouvelle session disponible'}</button>{available.length===0&&<small>Achat verrouillé jusqu'à l'ouverture d'une nouvelle session.</small>}</aside>

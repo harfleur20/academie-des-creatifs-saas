@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.entities import AssignmentCommentRecord, AssignmentRecord, AssignmentSubmissionRecord, EnrollmentRecord, FormationRecord, FormationSessionRecord, GradeRecord, SessionCourseDayRecord, SessionTeacherRecord, UserRecord
 from app.schemas.assignments import *
 from app.services.grades import upsert_grade
+from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.tenancy import TenantContext
 
 def _utc(v:datetime)->datetime: return v.astimezone(UTC).replace(tzinfo=None) if v.tzinfo else v
@@ -51,7 +52,19 @@ def create_assignment(db:Session,tenant:TenantContext,sid:int,p:AssignmentCreate
     due=_utc(p.due_date)
     if due<start or due>end: raise HTTPException(422,"La date limite doit rester dans les dates de la session.")
     a=AssignmentRecord(organization_id=tenant.organization_id,session_id=sid,course_day_id=p.course_day_id,teacher_id=tenant.user.id,title=p.title.strip(),instructions=p.instructions.strip(),due_date=p.due_date,is_final_project=p.is_final_project)
-    db.add(a); db.commit(); db.refresh(a); return _teacher_view(db,a)
+    db.add(a); db.flush()
+    queue_session_students_event(
+        db,
+        org=tenant.organization,
+        session_id=sid,
+        event_key="student.assignment.created",
+        context={
+            "assignment_title": a.title,
+            "session_label": s.label,
+            "due_at": a.due_date.strftime("%d/%m/%Y %H:%M"),
+        },
+    )
+    db.commit(); db.refresh(a); return _teacher_view(db,a)
 
 def list_student_assignments(db:Session,tenant:TenantContext):
     if not tenant.has_role("student"): raise HTTPException(403,"Accès étudiant requis.")
@@ -113,6 +126,19 @@ def review_submission(db,tenant,aid,sid,p:ReviewSubmission):
         max_score=20,
         note="Note issue de la correction du devoir.",
     )
+    enrollment = db.get(EnrollmentRecord, s.enrollment_id)
+    student = db.get(UserRecord, enrollment.student_id) if enrollment else None
+    if student:
+        queue_school_event(
+            db,
+            org=tenant.organization,
+            user=student,
+            event_key="student.assignment.reviewed",
+            context={
+                "assignment_title": a.title,
+                "score_label": f"{p.review_score}/20",
+            },
+        )
     db.commit()
     return next(x for x in list_submissions(db,tenant,aid) if x.id==sid)
 

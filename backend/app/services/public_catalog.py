@@ -7,6 +7,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import (
+    CourseRecord,
     EnrollmentRecord,
     FormationRecord,
     FormationSessionRecord,
@@ -221,7 +222,10 @@ def _public_formation_query(org_id: int):
         .options(
             selectinload(FormationRecord.sessions)
             .selectinload(FormationSessionRecord.teachers)
-            .selectinload(SessionTeacherRecord.teacher)
+            .selectinload(SessionTeacherRecord.teacher),
+            selectinload(FormationRecord.sessions)
+            .selectinload(FormationSessionRecord.courses)
+            .selectinload(CourseRecord.chapters),
         )
         .where(
             FormationRecord.organization_id == org_id,
@@ -326,6 +330,32 @@ def public_formation_detail(
         for item in sorted(formation.sessions, key=lambda value: (value.start_date, value.id))
         if item.status not in {"cancelled", "completed"}
     ]
+    source_session = next(
+        (
+            item
+            for item in formation.sessions
+            if card.next_session and item.id == card.next_session.id
+        ),
+        None,
+    )
+    modules = []
+    if source_session is not None:
+        for course in sorted(source_session.courses, key=lambda item: item.id):
+            if course.status != "published":
+                continue
+            modules.append(
+                {
+                    "title": course.title,
+                    "chapters": [
+                        chapter.title
+                        for chapter in sorted(
+                            course.chapters,
+                            key=lambda item: (item.order_index, item.id),
+                        )
+                    ],
+                }
+            )
+
     teacher_names: list[str] = []
     seen: set[int] = set()
     for session in formation.sessions:
@@ -341,6 +371,7 @@ def public_formation_detail(
         public_program=formation.public_program,
         allow_installments=formation.allow_installments,
         installment_count=formation.installment_count,
+        modules=modules,
         sessions=session_reads,
         teacher_names=teacher_names,
     )

@@ -37,6 +37,7 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.grades import upsert_grade
+from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.tenancy import TenantContext
 
 
@@ -292,7 +293,20 @@ def set_quiz_status(
             403,
             "Cette évaluation appartient à un autre professeur.",
         )
+    previous_status = quiz.status
     quiz.status = status_value
+    if status_value == "active" and previous_status != "active":
+        session = get_session(db, tenant, quiz.session_id)
+        queue_session_students_event(
+            db,
+            org=tenant.organization,
+            session_id=quiz.session_id,
+            event_key="student.quiz.published",
+            context={
+                "quiz_title": quiz.title,
+                "session_label": session.label,
+            },
+        )
     db.commit()
     db.refresh(quiz)
     return _teacher_quiz_view(db, quiz)
@@ -471,6 +485,16 @@ def submit_quiz_attempt(
         score=round((best_score / 100) * 20, 2),
         max_score=20,
         note="Note automatique calculée depuis le meilleur score.",
+    )
+    queue_school_event(
+        db,
+        org=tenant.organization,
+        user=tenant.user,
+        event_key="student.quiz.result",
+        context={
+            "quiz_title": quiz.title,
+            "score_pct": score_pct,
+        },
     )
     db.commit()
     return _student_quiz_view(db, tenant, quiz, enrollment)
