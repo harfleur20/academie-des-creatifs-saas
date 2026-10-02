@@ -1,6 +1,15 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+FORMATION_STATUSES = "^(draft|published|archived)$"
+FORMATION_FORMATS = "^(live|ligne|presentiel)$"
+SESSION_STATUSES = "^(planned|open|completed|cancelled)$"
+TEACHER_ROLES = "^(principal|intervenant)$"
+ENROLLMENT_STATUSES = "^(active|completed|cancelled)$"
+COURSE_STATUSES = "^(draft|published|archived)$"
+LESSON_TYPES = "^(text|video|pdf|quiz|assignment|resource)$"
 
 
 class FormationCreate(BaseModel):
@@ -11,15 +20,167 @@ class FormationCreate(BaseModel):
     )
     title: str = Field(min_length=2, max_length=255)
     description: str = Field(default="", max_length=5000)
+    category: str = Field(default="", max_length=120)
+    level: str = Field(default="", max_length=120)
+    format_type: str = Field(default="ligne", pattern=FORMATION_FORMATS)
+    training_hours: int | None = Field(default=None, ge=1, le=10000)
+    status: str = Field(default="draft", pattern=FORMATION_STATUSES)
 
 
-class FormationRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class FormationUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=255)
+    description: str | None = Field(default=None, max_length=5000)
+    category: str | None = Field(default=None, max_length=120)
+    level: str | None = Field(default=None, max_length=120)
+    format_type: str | None = Field(default=None, pattern=FORMATION_FORMATS)
+    training_hours: int | None = Field(default=None, ge=1, le=10000)
+    status: str | None = Field(default=None, pattern=FORMATION_STATUSES)
 
+
+class FormationSummaryRead(BaseModel):
     id: int
     organization_id: int
     slug: str
     title: str
     description: str
+    category: str
+    level: str
+    format_type: str
+    training_hours: int | None
+    status: str
+    session_count: int
+    teacher_count: int
+    student_count: int
+    course_count: int
+    created_at: datetime
+
+
+class SessionCreate(BaseModel):
+    label: str = Field(min_length=2, max_length=180)
+    start_date: date
+    end_date: date
+    campus_label: str | None = Field(default=None, max_length=180)
+    seat_capacity: int = Field(default=0, ge=0, le=100000)
+    status: str = Field(default="planned", pattern=SESSION_STATUSES)
+
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.end_date < self.start_date:
+            raise ValueError("La date de fin doit être postérieure ou égale à la date de début.")
+        return self
+
+
+class SessionUpdate(BaseModel):
+    label: str | None = Field(default=None, min_length=2, max_length=180)
+    start_date: date | None = None
+    end_date: date | None = None
+    campus_label: str | None = Field(default=None, max_length=180)
+    seat_capacity: int | None = Field(default=None, ge=0, le=100000)
+    status: str | None = Field(default=None, pattern=SESSION_STATUSES)
+
+
+class TeacherAssignmentCreate(BaseModel):
+    user_id: int = Field(gt=0)
+    role: str = Field(default="intervenant", pattern=TEACHER_ROLES)
+
+
+class EnrollmentCreate(BaseModel):
+    user_id: int = Field(gt=0)
+
+
+class EnrollmentUpdate(BaseModel):
+    status: str = Field(pattern=ENROLLMENT_STATUSES)
+
+
+class CourseCreate(BaseModel):
+    title: str = Field(min_length=2, max_length=255)
+    description: str = Field(default="", max_length=5000)
+    teacher_id: int | None = Field(default=None, gt=0)
+    status: str = Field(default="draft", pattern=COURSE_STATUSES)
+
+
+class CourseUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=255)
+    description: str | None = Field(default=None, max_length=5000)
+    teacher_id: int | None = Field(default=None, gt=0)
+    status: str | None = Field(default=None, pattern=COURSE_STATUSES)
+
+
+class ChapterCreate(BaseModel):
+    title: str = Field(min_length=2, max_length=255)
+    order_index: int = Field(default=0, ge=0, le=10000)
+
+
+class LessonCreate(BaseModel):
+    title: str = Field(min_length=2, max_length=255)
+    order_index: int = Field(default=0, ge=0, le=10000)
+    lesson_type: str = Field(default="text", pattern=LESSON_TYPES)
+    content: str | None = Field(default=None, max_length=100000)
+    video_url: str | None = Field(default=None, max_length=512)
+    file_url: str | None = Field(default=None, max_length=512)
+
+
+class TeacherAssignmentRead(BaseModel):
+    id: int
+    teacher_id: int
+    teacher_name: str
+    teacher_email: str
+    role: str
+    assigned_at: datetime
+
+
+class EnrollmentRead(BaseModel):
+    id: int
+    student_id: int
+    student_name: str
+    student_email: str
     status: str
     created_at: datetime
+
+
+class LessonRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    order_index: int
+    lesson_type: str
+    content: str | None
+    video_url: str | None
+    file_url: str | None
+
+
+class ChapterRead(BaseModel):
+    id: int
+    title: str
+    order_index: int
+    lessons: list[LessonRead]
+
+
+class CourseRead(BaseModel):
+    id: int
+    title: str
+    description: str
+    teacher_id: int | None
+    teacher_name: str | None
+    status: str
+    chapters: list[ChapterRead]
+    created_at: datetime
+
+
+class SessionRead(BaseModel):
+    id: int
+    label: str
+    start_date: date
+    end_date: date
+    campus_label: str | None
+    seat_capacity: int
+    status: str
+    teachers: list[TeacherAssignmentRead]
+    enrollments: list[EnrollmentRead]
+    courses: list[CourseRead]
+    created_at: datetime
+
+
+class FormationDetailRead(FormationSummaryRead):
+    sessions: list[SessionRead]

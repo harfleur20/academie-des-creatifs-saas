@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
 from app.models.entities import UserRecord
-from app.schemas.auth import RegisterPayload
+from app.schemas.auth import ProfileUpdatePayload, RegisterPayload
 
 
 class EmailAlreadyUsedError(ValueError):
@@ -51,4 +51,43 @@ def authenticate_user(
         return None
     if not verify_password(password, user.password_hash):
         return None
+    return user
+
+
+
+def update_profile(
+    db: Session,
+    user: UserRecord,
+    payload: ProfileUpdatePayload,
+) -> UserRecord:
+    user.full_name = payload.full_name.strip()
+    user.phone = payload.phone
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def change_password(
+    db: Session,
+    user: UserRecord,
+    *,
+    current_password: str,
+    new_password: str,
+) -> UserRecord:
+    if not verify_password(current_password, user.password_hash):
+        raise ValueError("Mot de passe actuel incorrect.")
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_avatar(
+    db: Session,
+    user: UserRecord,
+    avatar_url: str,
+) -> UserRecord:
+    user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(user)
     return user

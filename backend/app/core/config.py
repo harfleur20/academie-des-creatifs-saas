@@ -93,6 +93,17 @@ class Settings:
         "SAAS_CNAME_TARGET",
         "",
     ).strip().lower().strip(".")
+    storage_provider: str = os.getenv("STORAGE_PROVIDER", "local").strip().lower()
+    r2_endpoint_url: str = os.getenv("R2_ENDPOINT_URL", "").rstrip("/")
+    r2_bucket_name: str = os.getenv("R2_BUCKET_NAME", "").strip()
+    r2_access_key_id: str = os.getenv("R2_ACCESS_KEY_ID", "").strip()
+    r2_secret_access_key: str = os.getenv("R2_SECRET_ACCESS_KEY", "").strip()
+    r2_public_base_url: str = os.getenv("R2_PUBLIC_BASE_URL", "").rstrip("/")
+
+    @property
+    def r2_configured(self) -> bool:
+        return bool(self.r2_endpoint_url and self.r2_bucket_name and self.r2_access_key_id and self.r2_secret_access_key and self.r2_public_base_url)
+
     organization_name_change_cooldown_days: int = max(
         1,
         int(os.getenv("ORGANIZATION_NAME_CHANGE_COOLDOWN_DAYS", "30")),

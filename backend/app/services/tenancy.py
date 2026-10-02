@@ -5,13 +5,14 @@ from typing import TypeVar
 
 from fastapi import HTTPException, status
 from sqlalchemy import Select, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import (
     OrganizationMemberRecord,
     OrganizationRecord,
     UserRecord,
 )
+from app.services.membership_roles import effective_member_roles
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,17 @@ class TenantContext:
         if self.membership is None:
             return ""
         return self.membership.role
+
+    @property
+    def organization_roles(self) -> frozenset[str]:
+        if self.user.platform_role == "super_admin":
+            return frozenset({"super_admin"})
+        if self.membership is None:
+            return frozenset()
+        return effective_member_roles(self.membership)
+
+    def has_role(self, role: str) -> bool:
+        return role in self.organization_roles
 
 
 def resolve_tenant_context(
@@ -57,7 +69,9 @@ def resolve_tenant_context(
         )
 
     membership = db.scalar(
-        select(OrganizationMemberRecord).where(
+        select(OrganizationMemberRecord)
+        .options(selectinload(OrganizationMemberRecord.roles))
+        .where(
             OrganizationMemberRecord.organization_id == organization_id,
             OrganizationMemberRecord.user_id == user.id,
             OrganizationMemberRecord.status == "active",
@@ -83,7 +97,7 @@ def require_organization_roles(
     if tenant.user.platform_role == "super_admin":
         return tenant
 
-    if tenant.organization_role not in roles:
+    if not tenant.organization_roles.intersection(roles):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permission insuffisante dans cette organisation.",

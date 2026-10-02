@@ -1,5 +1,5 @@
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import (
     FormationRecord,
@@ -7,6 +7,7 @@ from app.models.entities import (
     OrganizationMemberRecord,
 )
 from app.schemas.onboarding import OnboardingStatusRead, OnboardingStepRead
+from app.services.membership_roles import effective_member_roles
 from app.services.tenancy import TenantContext
 
 
@@ -19,15 +20,20 @@ def get_onboarding_status(
 ) -> OnboardingStatusRead:
     organization = tenant.organization
 
-    active_team_count = int(
-        db.scalar(
-            select(func.count(OrganizationMemberRecord.id)).where(
+    active_members = list(
+        db.scalars(
+            select(OrganizationMemberRecord)
+            .options(selectinload(OrganizationMemberRecord.roles))
+            .where(
                 OrganizationMemberRecord.organization_id == tenant.organization_id,
                 OrganizationMemberRecord.status == "active",
-                OrganizationMemberRecord.role.in_(TEAM_ROLES),
             )
-        )
-        or 0
+        ).all()
+    )
+    active_team_count = sum(
+        1
+        for member in active_members
+        if effective_member_roles(member).intersection(TEAM_ROLES)
     )
     pending_team_invites = int(
         db.scalar(
@@ -54,35 +60,35 @@ def get_onboarding_status(
             label="École créée",
             description="Votre espace école est actif et isolé.",
             completed=True,
-            path="/app",
+            path="/app/manage",
         ),
         OnboardingStepRead(
             key="identity",
             label="Compléter l’identité",
             description="Ajoutez au minimum l’email de contact de votre école.",
             completed=bool(organization.contact_email),
-            path="/app/settings",
+            path="/app/manage/settings",
         ),
         OnboardingStepRead(
             key="address",
             label="Configurer l’adresse",
             description="Choisissez le sous-domaine utilisé par votre école.",
             completed=bool(organization.subdomain),
-            path="/app/settings",
+            path="/app/manage/settings",
         ),
         OnboardingStepRead(
             key="team",
             label="Construire l’équipe",
             description="Ajoutez ou invitez un administrateur, manager ou professeur.",
             completed=(active_team_count + pending_team_invites) > 0,
-            path="/app/team",
+            path="/app/manage/team",
         ),
         OnboardingStepRead(
             key="formation",
             label="Créer la première formation",
             description="Créez le premier espace pédagogique de votre école.",
             completed=formation_count > 0,
-            path="/app/onboarding",
+            path="/app/manage/onboarding",
         ),
     ]
 

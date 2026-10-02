@@ -6,7 +6,7 @@ import secrets
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.models.entities import (
@@ -15,8 +15,16 @@ from app.models.entities import (
     OrganizationRecord,
     UserRecord,
 )
+from app.services.membership_roles import (
+    FUNCTIONAL_ROLES,
+    effective_member_roles,
+    replace_effective_roles,
+    replace_functional_roles,
+    sync_primary_role,
+)
 from app.schemas.organizations import (
     OrganizationInvitationCreate,
+    OrganizationMemberFunctionalRolesUpdate,
     OrganizationMemberUpdate,
     OrganizationUpdate,
 )
@@ -83,6 +91,21 @@ def _can_manage_member(actor_role: str, target_role: str) -> bool:
     if actor_role == "manager":
         return target_role in {"teacher", "student"}
     return False
+
+
+def _reload_member(
+    db: Session,
+    member_id: int,
+) -> OrganizationMemberRecord:
+    return db.scalar(
+        select(OrganizationMemberRecord)
+        .options(
+            selectinload(OrganizationMemberRecord.user),
+            selectinload(OrganizationMemberRecord.roles),
+        )
+        .where(OrganizationMemberRecord.id == member_id)
+        .execution_options(populate_existing=True)
+    )
 
 
 def update_organization_settings(
@@ -174,9 +197,9 @@ def add_member(
             )
         existing.role = role
         existing.status = "active"
+        replace_effective_roles(db, existing, {role})
         db.commit()
-        db.refresh(existing)
-        return existing
+        return _reload_member(db, existing.id)
 
     member = OrganizationMemberRecord(
         organization_id=tenant.organization_id,
@@ -185,9 +208,10 @@ def add_member(
         status="active",
     )
     db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {role})
     db.commit()
-    db.refresh(member)
-    return member
+    return _reload_member(db, member.id)
 
 
 def update_member(
@@ -235,11 +259,54 @@ def update_member(
             detail="L'école doit conserver au moins un propriétaire actif.",
         )
 
+    previous_role = member.role
     member.role = new_role
     member.status = new_status
+    sync_primary_role(
+        db,
+        member,
+        previous_primary_role=previous_role,
+    )
     db.commit()
-    db.refresh(member)
-    return member
+    return _reload_member(db, member.id)
+
+
+def update_member_functional_roles(
+    db: Session,
+    tenant: TenantContext,
+    member_id: int,
+    payload: OrganizationMemberFunctionalRolesUpdate,
+) -> OrganizationMemberRecord:
+    member = db.scalar(
+        select(OrganizationMemberRecord).where(
+            OrganizationMemberRecord.id == member_id,
+            OrganizationMemberRecord.organization_id == tenant.organization_id,
+        )
+    )
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membre introuvable.",
+        )
+
+    actor_role = _actor_role(tenant)
+    if not _can_manage_member(actor_role, member.role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous ne pouvez pas modifier les accès de ce membre.",
+        )
+
+    requested = set(payload.functional_roles)
+    invalid = requested - FUNCTIONAL_ROLES
+    if invalid:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Les accès fonctionnels autorisés sont teacher et student.",
+        )
+
+    replace_functional_roles(db, member, requested)
+    db.commit()
+    return _reload_member(db, member.id)
 
 
 def create_invitation(
@@ -424,11 +491,12 @@ def accept_invitation(
         membership.role = invitation.role
         membership.status = "active"
 
+    replace_effective_roles(db, membership, {invitation.role})
+
     invitation.status = "accepted"
     invitation.accepted_by_user_id = current_user.id
     invitation.accepted_at = now
 
     db.commit()
-    db.refresh(membership)
     db.refresh(organization)
-    return organization, membership
+    return organization, _reload_member(db, membership.id)

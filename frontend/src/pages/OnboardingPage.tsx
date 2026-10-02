@@ -208,7 +208,7 @@ export function OnboardingPage() {
                   </p>
                 </div>
               </div>
-              <Link className="primary-button" to="/app">
+              <Link className="primary-button" to="/app/manage">
                 Ouvrir le tableau de bord <ArrowRight size={16} />
               </Link>
             </section>

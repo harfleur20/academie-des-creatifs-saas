@@ -11,7 +11,9 @@ from app.schemas.organizations import (
     OrganizationInvitationCreate,
     OrganizationInvitationCreated,
     OrganizationInvitationRead,
+    OrganizationAccessProfileRead,
     OrganizationMemberCreate,
+    OrganizationMemberFunctionalRolesUpdate,
     OrganizationMemberRead,
     OrganizationMemberUpdate,
     OrganizationPolicyRead,
@@ -40,6 +42,7 @@ from app.services.organization_management import (
     create_invitation,
     list_invitations,
     update_member,
+    update_member_functional_roles,
     update_organization_settings,
 )
 from app.services.organizations import (
@@ -105,7 +108,10 @@ def list_current_members(
     return list(
         db.scalars(
             select(OrganizationMemberRecord)
-            .options(selectinload(OrganizationMemberRecord.user))
+            .options(
+                selectinload(OrganizationMemberRecord.user),
+                selectinload(OrganizationMemberRecord.roles),
+            )
             .where(
                 OrganizationMemberRecord.organization_id == tenant.organization_id,
             )
@@ -148,6 +154,58 @@ def update_current_member(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return update_member(db, tenant, member_id, payload)
+
+
+@router.get(
+    "/current/access-profile",
+    response_model=OrganizationAccessProfileRead,
+)
+def get_current_access_profile(
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    roles = sorted(tenant.organization_roles)
+    spaces: list[str] = []
+    if tenant.user.platform_role == "super_admin" or tenant.support_mode or set(roles).intersection({"owner", "admin", "manager"}):
+        spaces.append("manage")
+    if "teacher" in roles:
+        spaces.append("teacher")
+    if "student" in roles:
+        spaces.append("student")
+
+    default_space = (
+        "manage"
+        if "manage" in spaces
+        else "teacher"
+        if "teacher" in spaces
+        else "student"
+        if "student" in spaces
+        else ""
+    )
+    return OrganizationAccessProfileRead(
+        organization_id=tenant.organization_id,
+        primary_role=tenant.organization_role,
+        roles=roles,
+        spaces=spaces,
+        default_space=default_space,
+    )
+
+
+@router.put(
+    "/current/members/{member_id}/functional-roles",
+    response_model=OrganizationMemberRead,
+)
+def update_current_member_functional_roles(
+    member_id: int,
+    payload: OrganizationMemberFunctionalRolesUpdate,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return update_member_functional_roles(
+        db,
+        tenant,
+        member_id,
+        payload,
+    )
 
 
 @router.get(
@@ -213,7 +271,10 @@ def accept_organization_invitation(
     )
     membership = db.scalar(
         select(OrganizationMemberRecord)
-        .options(selectinload(OrganizationMemberRecord.user))
+        .options(
+            selectinload(OrganizationMemberRecord.user),
+            selectinload(OrganizationMemberRecord.roles),
+        )
         .where(OrganizationMemberRecord.id == membership.id)
     )
     return OrganizationInvitationAcceptResult(

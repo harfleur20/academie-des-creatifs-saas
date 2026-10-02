@@ -64,6 +64,12 @@ class OrganizationUserSummary(BaseModel):
     email: str
 
 
+class OrganizationMemberRoleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    role: str
+
+
 class OrganizationMemberRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -72,6 +78,7 @@ class OrganizationMemberRead(BaseModel):
     user_id: int
     role: str
     status: str
+    roles: list[OrganizationMemberRoleRead] = []
     user: OrganizationUserSummary
 
 
@@ -89,6 +96,21 @@ class OrganizationMemberUpdate(BaseModel):
         default=None,
         pattern=r"^(active|suspended)$",
     )
+
+
+class OrganizationMemberFunctionalRolesUpdate(BaseModel):
+    functional_roles: list[str] = Field(
+        default_factory=list,
+        max_length=2,
+    )
+
+
+class OrganizationAccessProfileRead(BaseModel):
+    organization_id: int
+    primary_role: str
+    roles: list[str]
+    spaces: list[str]
+    default_space: str
 
 
 class OrganizationInvitationCreate(BaseModel):

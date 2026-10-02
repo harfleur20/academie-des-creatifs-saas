@@ -1,0 +1,90 @@
+import { useEffect, useState } from 'react'
+import {
+  ArrowLeft,
+  CalendarClock,
+  Clock3,
+  UserRound,
+} from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import {
+  ApiError,
+  getSessionPlanning,
+  type SessionPlanning,
+} from '../lib/api'
+
+export function StudentSessionPlanningPage() {
+  const { sessionId } = useParams()
+  const id = Number(sessionId)
+  const [planning, setPlanning] = useState<SessionPlanning | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!Number.isInteger(id)) return
+    getSessionPlanning(id)
+      .then(setPlanning)
+      .catch((err) => setError(
+        err instanceof ApiError ? err.message : 'Impossible de charger votre planning.',
+      ))
+  }, [id])
+
+  if (!planning && !error) {
+    return <div className="page-state">Chargement de votre planning…</div>
+  }
+
+  return (
+    <main className="app-page planning-page">
+      <Link className="planning-back-link" to="/app/student/formations">
+        <ArrowLeft size={15} /> Mes formations
+      </Link>
+
+      {planning && (
+        <header className="app-page-header">
+          <div>
+            <span className="page-kicker">Mon planning</span>
+            <h1>{planning.formation_title}</h1>
+            <p>{planning.session_label}</p>
+          </div>
+        </header>
+      )}
+
+      {error && <div className="form-error">{error}</div>}
+
+      {planning && (
+        <section className="planning-list student-planning-list">
+          {planning.course_days
+            .filter((day) => day.status !== 'cancelled')
+            .map((day) => (
+              <article className="app-card planning-day-card" key={day.id}>
+                <div className="planning-day-date">
+                  <strong>
+                    {new Intl.DateTimeFormat('fr-FR', { day: '2-digit' }).format(new Date(day.scheduled_at))}
+                  </strong>
+                  <span>
+                    {new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(new Date(day.scheduled_at))}
+                  </span>
+                </div>
+                <div className="planning-day-main">
+                  <div>
+                    <span className="section-label">Cours</span>
+                    <h3>{day.title}</h3>
+                  </div>
+                  <div className="planning-day-meta">
+                    <span><Clock3 size={14} /> {new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(day.scheduled_at))} · {day.duration_minutes} min</span>
+                    <span><UserRound size={14} /> {day.teacher_name || 'Professeur'}</span>
+                  </div>
+                </div>
+              </article>
+            ))}
+
+          {planning.course_days.filter((day) => day.status !== 'cancelled').length === 0 && (
+            <div className="app-card formation-empty">
+              <CalendarClock size={28} />
+              <strong>Planning en préparation</strong>
+              <p>Les séances publiées par vos professeurs apparaîtront ici.</p>
+            </div>
+          )}
+        </section>
+      )}
+    </main>
+  )
+}

@@ -25,6 +25,8 @@ class AuthUser(BaseModel):
     id: int
     full_name: str
     email: str
+    phone: str | None = None
+    avatar_url: str | None = None
     status: str
     platform_role: str
     created_at: datetime
@@ -35,3 +37,27 @@ class AuthResponse(BaseModel):
     user: AuthUser
     access_token: str
     token_type: str = "Bearer"
+
+
+
+class ProfileUpdatePayload(BaseModel):
+    full_name: str = Field(min_length=2, max_length=180)
+    phone: str | None = Field(default=None, max_length=40)
+
+    @field_validator("full_name")
+    @classmethod
+    def normalize_profile_name(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("phone")
+    @classmethod
+    def normalize_phone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class PasswordChangePayload(BaseModel):
+    current_password: str = Field(min_length=8, max_length=72)
+    new_password: str = Field(min_length=8, max_length=72)

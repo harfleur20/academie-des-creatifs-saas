@@ -8,6 +8,7 @@ from app.models.entities import (
     UserRecord,
 )
 from app.schemas.organizations import OrganizationCreate
+from app.services.membership_roles import replace_effective_roles
 from app.services.subscriptions import start_default_trial
 
 
@@ -63,14 +64,15 @@ def create_organization(
             "Ce slug d'organisation est déjà utilisé."
         ) from exc
 
-    db.add(
-        OrganizationMemberRecord(
-            organization_id=organization.id,
-            user_id=user.id,
-            role="owner",
-            status="active",
-        )
+    member = OrganizationMemberRecord(
+        organization_id=organization.id,
+        user_id=user.id,
+        role="owner",
+        status="active",
     )
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"owner"})
     start_default_trial(
         db,
         organization_id=organization.id,
