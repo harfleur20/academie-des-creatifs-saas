@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BookOpen,
   CalendarDays,
@@ -62,6 +63,9 @@ export function TeacherDashboardPage() {
                   <span><CalendarDays size={14} /> {new Date(session.start_date).toLocaleDateString('fr-FR')} → {new Date(session.end_date).toLocaleDateString('fr-FR')}</span>
                   <span><Users size={14} /> {session.student_count} étudiant(s)</span>
                   <span><GraduationCap size={14} /> {session.course_count} cours</span>
+                  <Link className="secondary-button compact-action" to={`/app/teacher/sessions/${session.session_id}`}>
+                    Ouvrir le planning
+                  </Link>
                 </div>
               </article>
             ))}

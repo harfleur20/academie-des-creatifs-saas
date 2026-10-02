@@ -3701,3 +3701,150 @@
     min-width: 0;
   }
 }
+
+
+.planning-back-link {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 20px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.planning-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, .7fr) minmax(0, 1.3fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.planning-create-card {
+  position: sticky;
+  top: 24px;
+}
+
+.planning-create-card label {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  color: #46566d;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.planning-create-card input,
+.planning-create-card select {
+  min-height: 42px;
+  border: 1px solid #dfe5ee;
+  border-radius: 10px;
+  padding: 0 11px;
+  background: #fff;
+  outline: none;
+}
+
+.planning-create-card .primary-button {
+  margin-top: 18px;
+}
+
+.planning-list {
+  display: grid;
+  gap: 12px;
+}
+
+.student-planning-list {
+  max-width: 900px;
+}
+
+.planning-day-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 0;
+  padding: 18px;
+}
+
+.planning-day-card.is-cancelled {
+  opacity: .55;
+}
+
+.planning-day-date {
+  width: 52px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  border-radius: 13px;
+  color: var(--blue);
+  background: #eef4ff;
+}
+
+.planning-day-date strong,
+.planning-day-date span {
+  display: block;
+  text-align: center;
+}
+
+.planning-day-date strong {
+  font-size: 21px;
+  line-height: 1;
+}
+
+.planning-day-date span {
+  margin-top: 3px;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.planning-day-main h3 {
+  margin: 4px 0 8px;
+  font-size: 16px;
+}
+
+.planning-day-meta {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.planning-day-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.planning-cancel-button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #a33a3a;
+  background: #fff1f1;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .planning-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .planning-create-card {
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  .planning-day-card {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .planning-cancel-button {
+    grid-column: 2;
+  }
+}

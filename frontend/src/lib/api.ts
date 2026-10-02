@@ -1109,3 +1109,73 @@ export const getTeacherWorkspace = () =>
 
 export const getStudentWorkspace = () =>
   request<StudentWorkspace>('/workspace/student')
+
+
+export type CourseDay = {
+  id: number
+  session_id: number
+  teacher_id: number | null
+  teacher_name: string | null
+  title: string
+  scheduled_at: string
+  duration_minutes: number
+  status: 'planned' | 'cancelled'
+  can_edit: boolean
+  created_at: string
+}
+
+export type SessionPlanning = {
+  session_id: number
+  formation_id: number
+  formation_title: string
+  session_label: string
+  session_start_date: string
+  session_end_date: string
+  course_days: CourseDay[]
+}
+
+export const getSessionPlanning = (sessionId: number) =>
+  request<SessionPlanning>(`/planning/sessions/${sessionId}/course-days`)
+
+export const createSessionCourseDay = (
+  sessionId: number,
+  payload: {
+    title: string
+    scheduled_at: string
+    duration_minutes: number
+  },
+) =>
+  request<SessionPlanning>(`/planning/sessions/${sessionId}/course-days`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const publishSessionCourseDayDraft = (
+  sessionId: number,
+  days: Array<{
+    title: string
+    scheduled_at: string
+    duration_minutes: number
+  }>,
+) =>
+  request<SessionPlanning>(
+    `/planning/sessions/${sessionId}/course-days/publish-draft`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ days }),
+    },
+  )
+
+export const updateSessionCourseDay = (
+  courseDayId: number,
+  payload: {
+    title?: string
+    scheduled_at?: string
+    duration_minutes?: number
+    status?: 'planned' | 'cancelled'
+  },
+) =>
+  request<SessionPlanning>(`/planning/course-days/${courseDayId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })

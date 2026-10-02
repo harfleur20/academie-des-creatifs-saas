@@ -623,6 +623,43 @@ class FormationSessionRecord(OrganizationOwnedMixin, TimestampMixin, Base):
         back_populates="session",
         cascade="all, delete-orphan",
     )
+    course_days: Mapped[list["SessionCourseDayRecord"]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="SessionCourseDayRecord.scheduled_at",
+    )
+
+
+class SessionCourseDayRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "session_course_days"
+    __table_args__ = (
+        Index("ix_session_course_days_org_session", "organization_id", "session_id"),
+        Index("ix_session_course_days_org_teacher", "organization_id", "teacher_id"),
+        Index("ix_session_course_days_org_scheduled", "organization_id", "scheduled_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("formation_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    teacher_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    scheduled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=90)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
+
+    session: Mapped["FormationSessionRecord"] = relationship(back_populates="course_days")
+    teacher: Mapped["UserRecord | None"] = relationship()
 
 
 class SessionTeacherRecord(OrganizationOwnedMixin, Base):

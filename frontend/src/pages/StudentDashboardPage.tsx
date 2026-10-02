@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BookOpen,
   CalendarDays,
@@ -59,6 +60,9 @@ export function StudentDashboardPage() {
                 <div className="role-session-meta">
                   <span><CalendarDays size={14} /> {new Date(session.start_date).toLocaleDateString('fr-FR')} → {new Date(session.end_date).toLocaleDateString('fr-FR')}</span>
                   <span><BookOpen size={14} /> {session.course_count} cours</span>
+                  <Link className="secondary-button compact-action" to={`/app/student/sessions/${session.session_id}`}>
+                    Voir le planning
+                  </Link>
                 </div>
               </article>
             ))}
