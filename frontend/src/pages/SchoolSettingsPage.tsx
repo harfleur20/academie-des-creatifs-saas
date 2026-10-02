@@ -1,8 +1,6 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
-import { CheckCircle2, Copy, Globe2, Palette, RotateCcw, Save, Trash2 } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { CheckCircle2, Copy, Globe2, Save, Trash2 } from 'lucide-react'
 import { useTenant } from '../app/TenantContext'
-import { BrandLogo } from '../brand/BrandLogo'
-import { DEFAULT_BRAND_COLORS, resolveBrandLogo } from '../brand/branding'
 import {
   ApiError,
   createOrganizationDomain,
@@ -25,10 +23,6 @@ export function SchoolSettingsPage() {
   const [contactEmail, setContactEmail] = useState('')
   const [timezone, setTimezone] = useState('UTC')
   const [locale, setLocale] = useState('fr-FR')
-  const [logoUrl, setLogoUrl] = useState('')
-  const [primaryColor, setPrimaryColor] = useState(DEFAULT_BRAND_COLORS.primary)
-  const [secondaryColor, setSecondaryColor] = useState(DEFAULT_BRAND_COLORS.secondary)
-  const [accentColor, setAccentColor] = useState(DEFAULT_BRAND_COLORS.accent)
   const [subdomain, setSubdomain] = useState('')
   const [domains, setDomains] = useState<OrganizationDomain[]>([])
   const [domainConfig, setDomainConfig] = useState<OrganizationDomainConfig | null>(null)
@@ -61,10 +55,6 @@ export function SchoolSettingsPage() {
     setContactEmail(activeOrganization.contact_email ?? '')
     setTimezone(activeOrganization.timezone)
     setLocale(activeOrganization.locale)
-    setLogoUrl(activeOrganization.logo_url ?? '')
-    setPrimaryColor(activeOrganization.primary_color || DEFAULT_BRAND_COLORS.primary)
-    setSecondaryColor(activeOrganization.secondary_color || DEFAULT_BRAND_COLORS.secondary)
-    setAccentColor(activeOrganization.accent_color || DEFAULT_BRAND_COLORS.accent)
     setSubdomain(activeOrganization.subdomain ?? '')
     void loadDomains()
   }, [activeOrganization?.id])
@@ -96,27 +86,16 @@ export function SchoolSettingsPage() {
           contact_email: contactEmail || null,
           timezone,
           locale,
-          logo_url: logoUrl || null,
-          primary_color: primaryColor,
-          secondary_color: secondaryColor,
-          accent_color: accentColor,
         }),
         updateCurrentSubdomain(subdomain || null),
       ])
       await refreshOrganizations()
-      setMessage('Paramètres, identité et sous-domaine enregistrés.')
+      setMessage('Paramètres et sous-domaine enregistrés.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.')
     } finally {
       setSubmitting(false)
     }
-  }
-
-  function resetBranding() {
-    setLogoUrl('')
-    setPrimaryColor(DEFAULT_BRAND_COLORS.primary)
-    setSecondaryColor(DEFAULT_BRAND_COLORS.secondary)
-    setAccentColor(DEFAULT_BRAND_COLORS.accent)
   }
 
   async function addDomain() {
@@ -156,7 +135,7 @@ export function SchoolSettingsPage() {
         <div>
           <span className="page-kicker">Paramètres</span>
           <h1>Informations & identité de l’école</h1>
-          <p>Personnalisez l’apparence et les adresses utilisées par votre école.</p>
+          <p>Gérez les informations administratives et les adresses de votre école. L’identité visuelle se configure dans « Identité & site public ».</p>
         </div>
       </header>
 
@@ -205,80 +184,6 @@ export function SchoolSettingsPage() {
                 <option value="en-US">English — US</option>
               </select>
             </label>
-          </div>
-        </section>
-
-        <section className="app-card branding-settings-card">
-          <div className="settings-section-heading">
-            <div>
-              <span className="section-label">White-label</span>
-              <h2>Identité visuelle</h2>
-              <p>Votre logo et vos couleurs sont appliqués automatiquement dans l’espace école.</p>
-            </div>
-            <button className="secondary-button compact-action" type="button" onClick={resetBranding}>
-              <RotateCcw size={15} />
-              Réinitialiser
-            </button>
-          </div>
-
-          <div className="branding-settings-grid">
-            <div className="branding-controls">
-              <label>
-                URL du logo
-                <input
-                  type="url"
-                  value={logoUrl}
-                  onChange={(event) => setLogoUrl(event.target.value)}
-                  maxLength={500}
-                  placeholder="https://.../logo.png"
-                />
-                <small>Laissez vide pour utiliser le logo icône de l’Académie des Créatifs.</small>
-              </label>
-
-              <div className="brand-color-grid">
-                <label>
-                  Couleur principale
-                  <span className="color-field">
-                    <input type="color" value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value.toUpperCase())} />
-                    <input value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value.toUpperCase())} pattern="^#[0-9A-Fa-f]{6}$" />
-                  </span>
-                </label>
-                <label>
-                  Couleur secondaire
-                  <span className="color-field">
-                    <input type="color" value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value.toUpperCase())} />
-                    <input value={secondaryColor} onChange={(event) => setSecondaryColor(event.target.value.toUpperCase())} pattern="^#[0-9A-Fa-f]{6}$" />
-                  </span>
-                </label>
-                <label>
-                  Couleur d’accent
-                  <span className="color-field">
-                    <input type="color" value={accentColor} onChange={(event) => setAccentColor(event.target.value.toUpperCase())} />
-                    <input value={accentColor} onChange={(event) => setAccentColor(event.target.value.toUpperCase())} pattern="^#[0-9A-Fa-f]{6}$" />
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <div
-              className="brand-preview"
-              style={{
-                '--preview-primary': primaryColor,
-                '--preview-secondary': secondaryColor,
-                '--preview-accent': accentColor,
-              } as CSSProperties}
-            >
-              <div className="brand-preview-sidebar">
-                <BrandLogo logoUrl={resolveBrandLogo(logoUrl)} alt={name} />
-              </div>
-              <div className="brand-preview-body">
-                <span className="brand-preview-chip"><Palette size={13} /> Aperçu</span>
-                <BrandLogo logoUrl={resolveBrandLogo(logoUrl)} alt={name} className="brand-preview-logo" />
-                <strong>{name || 'Votre école'}</strong>
-                <small>Votre espace, votre identité.</small>
-                <button type="button">Bouton principal</button>
-              </div>
-            </div>
           </div>
         </section>
 

@@ -53,6 +53,13 @@ import { SchoolContactPage } from './pages/SchoolContactPage'
 import { SchoolLegalPage } from './pages/SchoolLegalPage'
 import { SchoolCheckoutPage } from './pages/SchoolCheckoutPage'
 import './public-site.css'
+import './commerce-admin.css'
+import { SitePublicAdminPage } from './pages/SitePublicAdminPage'
+import { CommercialCatalogPage } from './pages/CommercialCatalogPage'
+import { CommerceDashboardPage } from './pages/CommerceDashboardPage'
+import { PromotionsAdminPage } from './pages/PromotionsAdminPage'
+import { StudentsManagementPage } from './pages/StudentsManagementPage'
+import { TeachersManagementPage } from './pages/TeachersManagementPage'
 import type { WorkspaceSpace } from './lib/api'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
@@ -190,6 +197,12 @@ export default function App() {
               <Route path="onboarding" element={<OnboardingPage />} />
               <Route path="formations" element={<FormationsManagementPage />} />
               <Route path="formations/:formationId" element={<FormationWorkspacePage />} />
+              <Route path="catalogue" element={<CommercialCatalogPage />} />
+              <Route path="site-public" element={<SitePublicAdminPage />} />
+              <Route path="ventes" element={<CommerceDashboardPage />} />
+              <Route path="promotions" element={<PromotionsAdminPage />} />
+              <Route path="students" element={<StudentsManagementPage />} />
+              <Route path="teachers" element={<TeachersManagementPage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="billing" element={<BillingPage />} />
               <Route path="settings" element={<SchoolSettingsPage />} />
