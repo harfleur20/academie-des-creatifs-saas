@@ -11,6 +11,7 @@ import { TeacherLayout } from './app/TeacherLayout'
 import { StudentLayout } from './app/StudentLayout'
 import LandingPage from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
+import { InvitationAcceptPage } from './pages/InvitationAcceptPage'
 import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
 import { TeamPage } from './pages/TeamPage'
 import { SchoolSettingsPage } from './pages/SchoolSettingsPage'
@@ -44,7 +45,22 @@ import { StudentClassPage } from './pages/StudentClassPage'
 import { StudentCertificatesPage } from './pages/StudentCertificatesPage'
 import { StudentPlanningPage } from './pages/StudentPlanningPage'
 import { CertificateVerifyPage } from './pages/CertificateVerifyPage'
+import { SchoolPublicSitePage } from './pages/SchoolPublicSitePage'
+import { StudentsManagementPage } from './pages/StudentsManagementPage'
+import { TeachersManagementPage } from './pages/TeachersManagementPage'
+import { CommerceDashboardPage } from './pages/CommerceDashboardPage'
+import { PromotionsPage } from './pages/PromotionsPage'
+import { PedagogicalMonitoringPage } from './pages/PedagogicalMonitoringPage'
+import { SchoolPerformancePage } from './pages/SchoolPerformancePage'
 import { StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
+import { SchoolPublicLayout } from './public/SchoolPublicLayout'
+import { SchoolHomePage } from './pages/SchoolHomePage'
+import { SchoolFormationsPage } from './pages/SchoolFormationsPage'
+import { SchoolFormationDetailPage } from './pages/SchoolFormationDetailPage'
+import { SchoolContactPage } from './pages/SchoolContactPage'
+import { SchoolLegalPage } from './pages/SchoolLegalPage'
+import { SchoolCartPage } from './pages/SchoolCartPage'
+import { SchoolCheckoutPage } from './pages/SchoolCheckoutPage'
 import type { WorkspaceSpace } from './lib/api'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
@@ -149,7 +165,20 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/invite/:token" element={<InvitationAcceptPage />} />
             <Route path="/certificates/verify/:token" element={<CertificateVerifyPage />} />
+            <Route path="/school/:schoolSlug" element={<SchoolPublicLayout />}>
+              <Route index element={<SchoolHomePage />} />
+              <Route path="formations" element={<SchoolFormationsPage />} />
+              <Route path="formations/:formationSlug" element={<SchoolFormationDetailPage />} />
+              <Route path="contact" element={<SchoolContactPage />} />
+              <Route path="panier" element={<SchoolCartPage />} />
+              <Route path="checkout" element={<SchoolCheckoutPage />} />
+              <Route path="mentions-legales" element={<SchoolLegalPage />} />
+              <Route path="cgv" element={<SchoolLegalPage />} />
+              <Route path="confidentialite" element={<SchoolLegalPage />} />
+              <Route path="remboursement" element={<SchoolLegalPage />} />
+            </Route>
 
             <Route
               path="/app"
@@ -174,6 +203,13 @@ export default function App() {
               <Route path="onboarding" element={<OnboardingPage />} />
               <Route path="formations" element={<FormationsManagementPage />} />
               <Route path="formations/:formationId" element={<FormationWorkspacePage />} />
+              <Route path="students" element={<StudentsManagementPage />} />
+              <Route path="teachers" element={<TeachersManagementPage />} />
+              <Route path="commerce" element={<CommerceDashboardPage />} />
+              <Route path="promotions" element={<PromotionsPage />} />
+              <Route path="pedagogy" element={<PedagogicalMonitoringPage />} />
+              <Route path="performance" element={<SchoolPerformancePage />} />
+              <Route path="site-public" element={<SchoolPublicSitePage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="billing" element={<BillingPage />} />
               <Route path="settings" element={<SchoolSettingsPage />} />

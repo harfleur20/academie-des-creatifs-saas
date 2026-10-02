@@ -5,6 +5,7 @@ from app.models.entities import (
     EnrollmentRecord,
     FormationSessionRecord,
     SessionTeacherRecord,
+    OrganizationStudentProfileRecord,
 )
 from app.schemas.workspace import (
     StudentSessionWorkspaceRead,
@@ -12,6 +13,7 @@ from app.schemas.workspace import (
     TeacherSessionWorkspaceRead,
     TeacherWorkspaceRead,
 )
+from app.services.school_profiles import ensure_teacher_profile
 from app.services.tenancy import TenantContext, require_organization_roles
 
 
@@ -68,7 +70,10 @@ def get_teacher_workspace(
         if item.session.status != "cancelled"
     ]
 
+    teacher_profile = ensure_teacher_profile(db, tenant.organization, tenant.user.id)
+    db.commit()
     return TeacherWorkspaceRead(
+        teacher_code=teacher_profile.teacher_code,
         sessions=rows,
         total_sessions=len(rows),
         total_students=sum(item.student_count for item in rows),
@@ -123,7 +128,14 @@ def get_student_workspace(
         if item.session.status != "cancelled"
     ]
 
+    student_profile = db.scalar(
+        select(OrganizationStudentProfileRecord).where(
+            OrganizationStudentProfileRecord.organization_id == tenant.organization_id,
+            OrganizationStudentProfileRecord.user_id == tenant.user.id,
+        )
+    )
     return StudentWorkspaceRead(
+        student_code=student_profile.student_code if student_profile else None,
         sessions=rows,
         total_sessions=len(rows),
         total_courses=sum(item.course_count for item in rows),

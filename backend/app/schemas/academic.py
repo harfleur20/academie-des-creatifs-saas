@@ -301,6 +301,12 @@ class CertificateRead(BaseModel):
     issued_at: datetime
     status: str
     verification_token: str
+    school_name: str | None = None
+    logo_url: str | None = None
+    primary_color: str | None = None
+    secondary_color: str | None = None
+    student_code: str | None = None
+    session_label: str | None = None
 
 
 class CertificateEligibilityRead(BaseModel):
@@ -327,3 +333,62 @@ class TeacherPerformanceRead(BaseModel):
     attendance_rate_pct: float | None
     pending_reviews_count: int
     sessions: list[TeacherPerformanceSessionRead]
+
+
+
+class SchoolPedagogyStudentRead(BaseModel):
+    enrollment_id: int
+    session_id: int
+    student_id: int
+    student_name: str
+    student_code: str | None
+    formation_title: str
+    session_label: str
+    enrollment_status: str
+    progress_pct: float
+    attendance_pct: float | None
+    grade_average_pct: float | None
+    submitted_assignments: int
+    total_assignments: int
+    attempted_quizzes: int
+    total_quizzes: int
+    alert_level: Literal["good", "warning", "danger"]
+    alert_reasons: list[str]
+
+
+class SchoolPedagogySessionRead(BaseModel):
+    session_id: int
+    formation_title: str
+    session_label: str
+    status: str
+    enrolled_count: int
+    seat_capacity: int
+    fill_rate_pct: float
+    progress_pct: float
+    attendance_rate_pct: float | None
+    pending_reviews_count: int
+    at_risk_count: int
+
+
+class SchoolTeacherPerformanceRead(BaseModel):
+    teacher_id: int
+    teacher_name: str
+    teacher_code: str | None
+    sessions_count: int
+    students_count: int
+    progress_pct: float
+    attendance_rate_pct: float | None
+    pending_reviews_count: int
+
+
+class SchoolPedagogyOverviewRead(BaseModel):
+    generated_at: datetime
+    active_students: int
+    active_sessions: int
+    average_progress_pct: float
+    average_attendance_pct: float | None
+    at_risk_students: int
+    pending_reviews_count: int
+    students: list[SchoolPedagogyStudentRead]
+    sessions: list[SchoolPedagogySessionRead]
+    teachers: list[SchoolTeacherPerformanceRead]

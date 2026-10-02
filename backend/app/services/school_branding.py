@@ -1,0 +1,330 @@
+from __future__ import annotations
+
+import re
+from datetime import UTC, datetime
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.entities import (
+    OrganizationCertificationProfileRecord,
+    OrganizationCommunicationProfileRecord,
+    OrganizationLegalProfileRecord,
+    OrganizationPublicSiteRecord,
+    OrganizationRecord,
+)
+from app.schemas.commerce import (
+    CertificationProfilePayload,
+    CommunicationProfilePayload,
+    LegalProfilePayload,
+    PublicSiteConfigPayload,
+    SchoolIdentityPayload,
+    SchoolIdentityRead,
+)
+from app.services.tenancy import TenantContext
+
+
+DEFAULT_PRIMARY = "#1768FF"
+DEFAULT_SECONDARY = "#21C889"
+DEFAULT_ACCENT = "#10233F"
+
+
+def _prefix_from_name(name: str) -> str:
+    words = [part for part in re.split(r"[^A-Za-z0-9]+", name.upper()) if part]
+    if not words:
+        return "AC"
+    if len(words) == 1:
+        return words[0][:2]
+    return "".join(part[0] for part in words[:3])[:3]
+
+
+def _public_site_defaults(org: OrganizationRecord) -> dict:
+    return {
+        "site_name": org.name,
+        "tagline": "Formez-vous. Créez. Évoluez.",
+        "seo_description": "",
+        "favicon_url": None,
+        "hero_title": f"Bienvenue chez {org.name}",
+        "hero_subtitle": "Découvrez nos formations et rejoignez la prochaine session.",
+        "hero_cta_label": "Découvrir nos formations",
+        "hero_image_url": None,
+        "about_title": f"À propos de {org.name}",
+        "about_text": "",
+        "contact_phone": None,
+        "contact_email": org.contact_email,
+        "contact_address": None,
+        "social_links": {},
+        "footer_text": "",
+        "legal_notice": "",
+        "sales_terms": "",
+        "privacy_policy": "",
+        "refund_policy": "",
+        "font_heading": "Inter",
+        "font_body": "Inter",
+        "student_code_prefix": _prefix_from_name(org.name),
+        "is_published": True,
+    }
+
+
+def _legal_defaults(org: OrganizationRecord) -> dict:
+    return {
+        "legal_name": org.name,
+        "legal_address": "",
+        "registration_number": "",
+        "tax_number": "",
+        "invoice_email": org.contact_email,
+        "invoice_phone": None,
+        "default_currency": "XAF",
+        "invoice_footer": "",
+    }
+
+
+def _communication_defaults(org: OrganizationRecord) -> dict:
+    return {
+        "sender_name": org.name,
+        "reply_to_email": org.contact_email,
+        "email_signature": f"L'équipe {org.name}",
+        "whatsapp_signature": org.name,
+        "whatsapp_phone": None,
+    }
+
+
+def _certification_defaults(org: OrganizationRecord) -> dict:
+    return {
+        "signer_name": "",
+        "signer_title": "",
+        "signature_url": None,
+        "stamp_url": None,
+        "certificate_footer": "",
+    }
+
+
+def get_or_create_identity_records(
+    db: Session,
+    org: OrganizationRecord,
+) -> tuple[
+    OrganizationPublicSiteRecord,
+    OrganizationLegalProfileRecord,
+    OrganizationCommunicationProfileRecord,
+    OrganizationCertificationProfileRecord,
+]:
+    site = db.scalar(
+        select(OrganizationPublicSiteRecord).where(
+            OrganizationPublicSiteRecord.organization_id == org.id
+        )
+    )
+    legal = db.scalar(
+        select(OrganizationLegalProfileRecord).where(
+            OrganizationLegalProfileRecord.organization_id == org.id
+        )
+    )
+    comm = db.scalar(
+        select(OrganizationCommunicationProfileRecord).where(
+            OrganizationCommunicationProfileRecord.organization_id == org.id
+        )
+    )
+    cert = db.scalar(
+        select(OrganizationCertificationProfileRecord).where(
+            OrganizationCertificationProfileRecord.organization_id == org.id
+        )
+    )
+    created = False
+    if site is None:
+        site = OrganizationPublicSiteRecord(
+            organization_id=org.id,
+            **_public_site_defaults(org),
+        )
+        db.add(site)
+        created = True
+    if legal is None:
+        legal = OrganizationLegalProfileRecord(
+            organization_id=org.id,
+            **_legal_defaults(org),
+        )
+        db.add(legal)
+        created = True
+    if comm is None:
+        comm = OrganizationCommunicationProfileRecord(
+            organization_id=org.id,
+            **_communication_defaults(org),
+        )
+        db.add(comm)
+        created = True
+    if cert is None:
+        cert = OrganizationCertificationProfileRecord(
+            organization_id=org.id,
+            **_certification_defaults(org),
+        )
+        db.add(cert)
+        created = True
+    if created:
+        db.commit()
+        db.refresh(site)
+        db.refresh(legal)
+        db.refresh(comm)
+        db.refresh(cert)
+    return site, legal, comm, cert
+
+
+def _identity_read(
+    org: OrganizationRecord,
+    site: OrganizationPublicSiteRecord,
+    legal: OrganizationLegalProfileRecord,
+    comm: OrganizationCommunicationProfileRecord,
+    cert: OrganizationCertificationProfileRecord,
+) -> SchoolIdentityRead:
+    return SchoolIdentityRead(
+        organization_id=org.id,
+        organization_name=org.name,
+        slug=org.slug,
+        subdomain=org.subdomain,
+        public_site=PublicSiteConfigPayload(
+            site_name=site.site_name,
+            tagline=site.tagline,
+            seo_description=site.seo_description,
+            logo_url=org.logo_url,
+            favicon_url=site.favicon_url,
+            primary_color=org.primary_color,
+            secondary_color=org.secondary_color,
+            accent_color=org.accent_color,
+            font_heading=site.font_heading,
+            font_body=site.font_body,
+            hero_title=site.hero_title,
+            hero_subtitle=site.hero_subtitle,
+            hero_cta_label=site.hero_cta_label,
+            hero_image_url=site.hero_image_url,
+            about_title=site.about_title,
+            about_text=site.about_text,
+            contact_phone=site.contact_phone,
+            contact_email=site.contact_email,
+            contact_address=site.contact_address,
+            social_links=site.social_links or {},
+            footer_text=site.footer_text,
+            legal_notice=site.legal_notice,
+            sales_terms=site.sales_terms,
+            privacy_policy=site.privacy_policy,
+            refund_policy=site.refund_policy,
+            student_code_prefix=site.student_code_prefix,
+            is_published=site.is_published,
+        ),
+        legal=LegalProfilePayload(
+            legal_name=legal.legal_name,
+            legal_address=legal.legal_address,
+            registration_number=legal.registration_number,
+            tax_number=legal.tax_number,
+            invoice_email=legal.invoice_email,
+            invoice_phone=legal.invoice_phone,
+            default_currency=legal.default_currency,
+            invoice_footer=legal.invoice_footer,
+        ),
+        communications=CommunicationProfilePayload(
+            sender_name=comm.sender_name,
+            reply_to_email=comm.reply_to_email,
+            email_signature=comm.email_signature,
+            whatsapp_signature=comm.whatsapp_signature,
+            whatsapp_phone=comm.whatsapp_phone,
+        ),
+        certification=CertificationProfilePayload(
+            signer_name=cert.signer_name,
+            signer_title=cert.signer_title,
+            signature_url=cert.signature_url,
+            stamp_url=cert.stamp_url,
+            certificate_footer=cert.certificate_footer,
+        ),
+    )
+
+
+def get_school_identity(
+    db: Session,
+    tenant: TenantContext,
+) -> SchoolIdentityRead:
+    if not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Accès gestion requis.")
+    site, legal, comm, cert = get_or_create_identity_records(
+        db,
+        tenant.organization,
+    )
+    return _identity_read(tenant.organization, site, legal, comm, cert)
+
+
+def update_school_identity(
+    db: Session,
+    tenant: TenantContext,
+    payload: SchoolIdentityPayload,
+) -> SchoolIdentityRead:
+    if tenant.support_mode:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Le mode support est en lecture seule.")
+    if not tenant.organization_roles.intersection({"owner", "admin"}):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Seuls le propriétaire ou un administrateur peuvent modifier l'identité.")
+
+    org = tenant.organization
+    site, legal, comm, cert = get_or_create_identity_records(db, org)
+    p = payload.public_site
+
+    org.logo_url = p.logo_url.strip() if p.logo_url else None
+    org.primary_color = p.primary_color.upper()
+    org.secondary_color = p.secondary_color.upper()
+    org.accent_color = p.accent_color.upper()
+
+    site_values = p.model_dump(
+        exclude={"logo_url", "primary_color", "secondary_color", "accent_color"}
+    )
+    for key, value in site_values.items():
+        if isinstance(value, str):
+            value = value.strip()
+        if key == "student_code_prefix":
+            value = (value or _prefix_from_name(org.name)).upper()
+        setattr(site, key, value)
+
+    for record, values in (
+        (legal, payload.legal.model_dump()),
+        (comm, payload.communications.model_dump()),
+        (cert, payload.certification.model_dump()),
+    ):
+        for key, value in values.items():
+            if isinstance(value, str):
+                value = value.strip()
+            if key == "default_currency" and value:
+                value = value.upper()
+            setattr(record, key, value)
+
+    db.commit()
+    return _identity_read(org, site, legal, comm, cert)
+
+
+def branding_snapshot(
+    db: Session,
+    org: OrganizationRecord,
+) -> dict:
+    site, legal, comm, cert = get_or_create_identity_records(db, org)
+    return {
+        "organization_id": org.id,
+        "school_name": site.site_name or org.name,
+        "organization_name": org.name,
+        "logo_url": org.logo_url,
+        "primary_color": org.primary_color or DEFAULT_PRIMARY,
+        "secondary_color": org.secondary_color or DEFAULT_SECONDARY,
+        "accent_color": org.accent_color or DEFAULT_ACCENT,
+        "contact_email": site.contact_email or org.contact_email,
+        "contact_phone": site.contact_phone,
+        "contact_address": site.contact_address,
+        "legal_name": legal.legal_name or org.name,
+        "legal_address": legal.legal_address,
+        "registration_number": legal.registration_number,
+        "tax_number": legal.tax_number,
+        "invoice_email": legal.invoice_email,
+        "invoice_phone": legal.invoice_phone,
+        "invoice_footer": legal.invoice_footer,
+        "sender_name": comm.sender_name or org.name,
+        "reply_to_email": comm.reply_to_email,
+        "email_signature": comm.email_signature,
+        "whatsapp_signature": comm.whatsapp_signature,
+        "signer_name": cert.signer_name,
+        "signer_title": cert.signer_title,
+        "signature_url": cert.signature_url,
+        "stamp_url": cert.stamp_url,
+        "certificate_footer": cert.certificate_footer,
+        "student_code_prefix": site.student_code_prefix or _prefix_from_name(org.name),
+        "captured_at": datetime.now(UTC).isoformat(),
+    }

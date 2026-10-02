@@ -115,7 +115,7 @@ class OrganizationAccessProfileRead(BaseModel):
 
 class OrganizationInvitationCreate(BaseModel):
     email: EmailStr
-    role: str = Field(pattern=r"^(admin|manager|teacher|student)$")
+    role: str = Field(pattern=r"^(admin|manager|teacher)$")
 
 
 class OrganizationInvitationRead(BaseModel):
@@ -133,6 +133,17 @@ class OrganizationInvitationRead(BaseModel):
 
 class OrganizationInvitationCreated(OrganizationInvitationRead):
     acceptance_token: str
+
+
+class OrganizationInvitationPreview(BaseModel):
+    organization_id: int
+    organization_name: str
+    email: str
+    role: str
+    expires_at: datetime
+    logo_url: str | None = None
+    primary_color: str
+    secondary_color: str
 
 
 class OrganizationInvitationAcceptResult(BaseModel):

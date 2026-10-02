@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.models.entities import (
+    CommunicationOutboxRecord,
     OrganizationInvitationRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
@@ -28,6 +29,8 @@ from app.schemas.organizations import (
     OrganizationMemberUpdate,
     OrganizationUpdate,
 )
+from app.services.school_branding import branding_snapshot
+from app.services.school_profiles import ensure_teacher_profile
 from app.services.tenancy import TenantContext
 
 
@@ -367,8 +370,87 @@ def create_invitation(
     db.add(invitation)
     db.commit()
     db.refresh(invitation)
+
+    snapshot = branding_snapshot(db, tenant.organization)
+    role_label = {
+        "teacher": "professeur",
+        "manager": "manager",
+        "admin": "administrateur",
+    }.get(payload.role, payload.role)
+    acceptance_url = (
+        f"{settings.frontend_url.rstrip('/')}/invite/{token}"
+    )
+    db.add(
+        CommunicationOutboxRecord(
+            organization_id=tenant.organization_id,
+            user_id=existing_user.id if existing_user else None,
+            channel="email",
+            recipient=email,
+            event_key="school.team.invitation",
+            subject=(
+                f"[{snapshot['school_name']}] "
+                f"Invitation à rejoindre l'école"
+            ),
+            body=(
+                f"Bonjour,\n"
+                f"{tenant.user.full_name} vous invite à rejoindre "
+                f"{snapshot['school_name']} en tant que {role_label}.\n"
+                f"Accepter l'invitation : {acceptance_url}\n"
+                f"Cette invitation expire dans {INVITATION_TTL_DAYS} jours.\n\n"
+                f"{snapshot.get('email_signature') or snapshot['school_name']}"
+            ),
+            branding_snapshot=snapshot,
+            status="pending",
+        )
+    )
+    db.commit()
     return invitation, token
 
+
+
+def get_invitation_preview(
+    db: Session,
+    *,
+    token: str,
+) -> dict:
+    invitation = db.scalar(
+        select(OrganizationInvitationRecord).where(
+            OrganizationInvitationRecord.token_hash == _token_hash(token),
+        )
+    )
+    if invitation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation introuvable.",
+        )
+    now = _utc_now()
+    if invitation.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cette invitation n'est plus valide.",
+        )
+    if _aware_utc(invitation.expires_at) <= now:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Cette invitation a expiré.",
+        )
+    organization = db.get(OrganizationRecord, invitation.organization_id)
+    if organization is None or not organization.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="École introuvable.",
+        )
+    snapshot = branding_snapshot(db, organization)
+    return {
+        "organization_id": organization.id,
+        "organization_name": str(snapshot.get("school_name") or organization.name),
+        "email": invitation.email,
+        "role": invitation.role,
+        "expires_at": invitation.expires_at,
+        "logo_url": snapshot.get("logo_url"),
+        "primary_color": snapshot.get("primary_color") or "#1768FF",
+        "secondary_color": snapshot.get("secondary_color") or "#21C889",
+    }
 
 def list_invitations(
     db: Session,
@@ -492,6 +574,12 @@ def accept_invitation(
         membership.status = "active"
 
     replace_effective_roles(db, membership, {invitation.role})
+    if invitation.role == "teacher":
+        ensure_teacher_profile(
+            db,
+            organization,
+            current_user.id,
+        )
 
     invitation.status = "accepted"
     invitation.accepted_by_user_id = current_user.id

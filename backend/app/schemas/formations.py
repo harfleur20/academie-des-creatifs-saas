@@ -24,6 +24,17 @@ class FormationCreate(BaseModel):
     level: str = Field(default="", max_length=120)
     format_type: str = Field(default="ligne", pattern=FORMATION_FORMATS)
     training_hours: int | None = Field(default=None, ge=1, le=10000)
+    short_description: str = Field(default="", max_length=500)
+    cover_image_url: str | None = Field(default=None, max_length=1024)
+    objectives: str = Field(default="", max_length=10000)
+    prerequisites: str = Field(default="", max_length=10000)
+    public_program: str = Field(default="", max_length=30000)
+    price_cents: int = Field(default=0, ge=0, le=2_000_000_000)
+    currency: str = Field(default="XAF", min_length=3, max_length=3)
+    allow_installments: bool = False
+    installment_count: int = Field(default=3, ge=2, le=12)
+    is_featured: bool = False
+    featured_order: int = Field(default=0, ge=0, le=1000)
     status: str = Field(default="draft", pattern=FORMATION_STATUSES)
 
 
@@ -34,6 +45,17 @@ class FormationUpdate(BaseModel):
     level: str | None = Field(default=None, max_length=120)
     format_type: str | None = Field(default=None, pattern=FORMATION_FORMATS)
     training_hours: int | None = Field(default=None, ge=1, le=10000)
+    short_description: str | None = Field(default=None, max_length=500)
+    cover_image_url: str | None = Field(default=None, max_length=1024)
+    objectives: str | None = Field(default=None, max_length=10000)
+    prerequisites: str | None = Field(default=None, max_length=10000)
+    public_program: str | None = Field(default=None, max_length=30000)
+    price_cents: int | None = Field(default=None, ge=0, le=2_000_000_000)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    allow_installments: bool | None = None
+    installment_count: int | None = Field(default=None, ge=2, le=12)
+    is_featured: bool | None = None
+    featured_order: int | None = Field(default=None, ge=0, le=1000)
     status: str | None = Field(default=None, pattern=FORMATION_STATUSES)
 
 
@@ -47,6 +69,17 @@ class FormationSummaryRead(BaseModel):
     level: str
     format_type: str
     training_hours: int | None
+    short_description: str
+    cover_image_url: str | None
+    objectives: str
+    prerequisites: str
+    public_program: str
+    price_cents: int
+    currency: str
+    allow_installments: bool
+    installment_count: int
+    is_featured: bool
+    featured_order: int
     status: str
     session_count: int
     teacher_count: int
@@ -61,12 +94,21 @@ class SessionCreate(BaseModel):
     end_date: date
     campus_label: str | None = Field(default=None, max_length=180)
     seat_capacity: int = Field(default=0, ge=0, le=100000)
+    enrollment_open_at: datetime | None = None
+    enrollment_close_at: datetime | None = None
+    price_override_cents: int | None = Field(default=None, ge=0, le=2_000_000_000)
     status: str = Field(default="planned", pattern=SESSION_STATUSES)
 
     @model_validator(mode="after")
     def validate_dates(self):
         if self.end_date < self.start_date:
             raise ValueError("La date de fin doit être postérieure ou égale à la date de début.")
+        if (
+            self.enrollment_open_at is not None
+            and self.enrollment_close_at is not None
+            and self.enrollment_close_at < self.enrollment_open_at
+        ):
+            raise ValueError("La clôture des inscriptions doit suivre leur ouverture.")
         return self
 
 
@@ -76,6 +118,9 @@ class SessionUpdate(BaseModel):
     end_date: date | None = None
     campus_label: str | None = Field(default=None, max_length=180)
     seat_capacity: int | None = Field(default=None, ge=0, le=100000)
+    enrollment_open_at: datetime | None = None
+    enrollment_close_at: datetime | None = None
+    price_override_cents: int | None = Field(default=None, ge=0, le=2_000_000_000)
     status: str | None = Field(default=None, pattern=SESSION_STATUSES)
 
 
@@ -175,6 +220,9 @@ class SessionRead(BaseModel):
     end_date: date
     campus_label: str | None
     seat_capacity: int
+    enrollment_open_at: datetime | None
+    enrollment_close_at: datetime | None
+    price_override_cents: int | None
     status: str
     teachers: list[TeacherAssignmentRead]
     enrollments: list[EnrollmentRead]

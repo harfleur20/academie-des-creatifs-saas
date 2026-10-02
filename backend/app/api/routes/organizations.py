@@ -10,6 +10,7 @@ from app.schemas.organizations import (
     OrganizationInvitationAcceptResult,
     OrganizationInvitationCreate,
     OrganizationInvitationCreated,
+    OrganizationInvitationPreview,
     OrganizationInvitationRead,
     OrganizationAccessProfileRead,
     OrganizationMemberCreate,
@@ -26,6 +27,7 @@ from app.schemas.organizations import (
     OrganizationHostBrandingRead,
 )
 from app.core.config import settings
+from app.services.communication_delivery import process_communication_outbox
 from app.services.organization_domains import (
     create_domain,
     delete_domain,
@@ -40,6 +42,7 @@ from app.services.organization_management import (
     add_member,
     cancel_invitation,
     create_invitation,
+    get_invitation_preview,
     list_invitations,
     update_member,
     update_member_functional_roles,
@@ -134,6 +137,14 @@ def add_current_member(
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
+    if payload.role in {"teacher", "student"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Les professeurs rejoignent l'école par invitation et "
+                "les étudiants après l'achat d'une session."
+            ),
+        )
     user = db.get(UserRecord, payload.user_id)
     if user is None or user.status != "active":
         raise HTTPException(
@@ -230,6 +241,11 @@ def create_current_invitation(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     invitation, token = create_invitation(db, tenant, payload)
+    process_communication_outbox(
+        db,
+        organization_id=tenant.organization_id,
+        limit=20,
+    )
     return OrganizationInvitationCreated(
         id=invitation.id,
         organization_id=invitation.organization_id,
@@ -254,6 +270,20 @@ def cancel_current_invitation(
 ):
     return cancel_invitation(db, tenant, invitation_id)
 
+
+
+
+@router.get(
+    "/invitations/{token}",
+    response_model=OrganizationInvitationPreview,
+)
+def preview_organization_invitation(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return OrganizationInvitationPreview(
+        **get_invitation_preview(db, token=token)
+    )
 
 @router.post(
     "/invitations/{token}/accept",

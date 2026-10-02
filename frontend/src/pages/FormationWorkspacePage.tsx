@@ -16,7 +16,6 @@ import {
   createCourseChapter,
   createFormationSession,
   createSessionCourse,
-  enrollSessionStudent,
   getFormation,
   listMembers,
   type FormationDetail,
@@ -55,10 +54,6 @@ export function FormationWorkspacePage() {
 
   const teachers = useMemo(
     () => members.filter((item) => item.status === 'active' && item.role === 'teacher'),
-    [members],
-  )
-  const students = useMemo(
-    () => members.filter((item) => item.status === 'active' && item.role === 'student'),
     [members],
   )
 
@@ -152,7 +147,6 @@ export function FormationWorkspacePage() {
             formation={formation}
             session={session}
             teachers={teachers}
-            students={students}
             onChange={setFormation}
           />
         ))}
@@ -172,17 +166,14 @@ function SessionWorkspace({
   formation,
   session,
   teachers,
-  students,
   onChange,
 }: {
   formation: FormationDetail
   session: FormationDetail['sessions'][number]
   teachers: Member[]
-  students: Member[]
   onChange: (value: FormationDetail) => void
 }) {
   const [teacherId, setTeacherId] = useState('')
-  const [studentId, setStudentId] = useState('')
   const [courseTitle, setCourseTitle] = useState('')
   const [courseTeacherId, setCourseTeacherId] = useState('')
   const [chapterTitles, setChapterTitles] = useState<Record<number, string>>({})
@@ -191,11 +182,6 @@ function SessionWorkspace({
   const [error, setError] = useState('')
 
   const assignedTeacherIds = new Set(session.teachers.map((item) => item.teacher_id))
-  const enrolledStudentIds = new Set(
-    session.enrollments
-      .filter((item) => item.status !== 'cancelled')
-      .map((item) => item.student_id),
-  )
 
   async function run(action: () => Promise<FormationDetail>) {
     setWorking(true)
@@ -268,26 +254,9 @@ function SessionWorkspace({
 
         <section>
           <h3>Étudiants</h3>
-          <div className="inline-management-form">
-            <select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
-              <option value="">Choisir un étudiant</option>
-              {students.filter((item) => !enrolledStudentIds.has(item.user_id)).map((item) => (
-                <option key={item.id} value={item.user_id}>{item.user.full_name}</option>
-              ))}
-            </select>
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={!studentId || working}
-              onClick={() => void run(() => enrollSessionStudent(
-                formation.id,
-                session.id,
-                Number(studentId),
-              )).then(() => setStudentId(''))}
-            >
-              <UserPlus size={14} /> Inscrire
-            </button>
-          </div>
+          <p className="muted-note">
+            Les étudiants sont inscrits automatiquement dans cette session après leur achat sur le site public.
+          </p>
           <div className="compact-person-list">
             {session.enrollments.filter((item) => item.status !== 'cancelled').map((item) => (
               <span key={item.id}>
@@ -295,8 +264,11 @@ function SessionWorkspace({
                 <small>{item.status}</small>
               </span>
             ))}
-            {session.enrollments.length === 0 && <small>Aucun étudiant inscrit.</small>}
+            {session.enrollments.length === 0 && <small>Aucun achat confirmé pour cette session.</small>}
           </div>
+          <Link className="secondary-button compact-action" to="/app/manage/students">
+            Voir la gestion des étudiants
+          </Link>
         </section>
       </div>
 

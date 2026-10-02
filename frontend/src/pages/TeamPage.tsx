@@ -61,9 +61,14 @@ export function TeamPage() {
     void load()
   }, [activeOrganization?.id])
 
-  const activeCount = useMemo(
-    () => members.filter((member) => member.status === 'active').length,
+  const teamMembers = useMemo(
+    () => members.filter((member) => member.role !== 'student'),
     [members],
+  )
+
+  const activeCount = useMemo(
+    () => teamMembers.filter((member) => member.status === 'active').length,
+    [teamMembers],
   )
 
   async function invite(event: FormEvent) {
@@ -74,7 +79,7 @@ export function TeamPage() {
     try {
       await createInvitation({ email, role })
       setEmail('')
-      setMessage('Invitation créée. L’envoi par email sera branché au service Brevo.')
+      setMessage('Invitation créée et transmise au service d’envoi email.')
       await load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Invitation impossible.')
@@ -130,7 +135,7 @@ export function TeamPage() {
         <div>
           <span className="page-kicker">Équipe & accès</span>
           <h1>Qui peut faire quoi dans {activeOrganization.name} ?</h1>
-          <p>Invitez votre équipe et contrôlez les droits par rôle.</p>
+          <p>Invitez les administrateurs, managers et professeurs. Les étudiants rejoignent l’école après l’achat d’une formation.</p>
         </div>
         <button className="secondary-button compact-action" onClick={() => void load()}>
           <RefreshCw size={16} /> Actualiser
@@ -147,7 +152,7 @@ export function TeamPage() {
         <div>
           <span className="section-label">Ajouter quelqu’un</span>
           <h2>Inviter un membre</h2>
-          <p>L’invitation sera liée uniquement à cette école.</p>
+          <p>L’invitation est réservée à l’équipe de l’école. Les étudiants sont créés automatiquement après paiement.</p>
         </div>
         <form className="invite-form" onSubmit={invite}>
           <input
@@ -161,7 +166,6 @@ export function TeamPage() {
             <option value="admin">Administrateur</option>
             <option value="manager">Manager</option>
             <option value="teacher">Professeur</option>
-            <option value="student">Étudiant</option>
           </select>
           <button className="primary-button" disabled={submitting}>
             <MailPlus size={17} />
@@ -185,7 +189,7 @@ export function TeamPage() {
           <div className="member-row member-header">
             <span>Membre</span><span>Rôle principal</span><span>Accès pédagogiques</span><span>Statut</span><span />
           </div>
-          {members.map((member) => (
+          {teamMembers.map((member) => (
             <div className="member-row" key={member.id}>
               <div className="member-person">
                 <span className="mini-avatar">
@@ -209,28 +213,23 @@ export function TeamPage() {
                   })
                 }
               >
-                {Object.entries(roleLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
+                {Object.entries(roleLabels)
+                  .filter(([value]) => value !== 'student')
+                  .map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
               </select>
 
               <div className="member-functional-roles">
-                {(['teacher', 'student'] as const).map((functionalRole) => {
-                  const active = hasRole(member, functionalRole)
-                  const locked = member.role === functionalRole
-                  return (
-                    <button
-                      key={functionalRole}
-                      type="button"
-                      className={`functional-role-toggle ${active ? 'active' : ''}`}
-                      disabled={locked}
-                      title={locked ? 'Ce rôle est déjà le rôle principal.' : undefined}
-                      onClick={() => void toggleFunctionalRole(member, functionalRole)}
-                    >
-                      {functionalRole === 'teacher' ? 'Professeur' : 'Étudiant'}
-                    </button>
-                  )
-                })}
+                <button
+                  type="button"
+                  className={`functional-role-toggle ${hasRole(member, 'teacher') ? 'active' : ''}`}
+                  disabled={member.role === 'teacher'}
+                  title={member.role === 'teacher' ? 'Ce rôle est déjà le rôle principal.' : undefined}
+                  onClick={() => void toggleFunctionalRole(member, 'teacher')}
+                >
+                  Professeur
+                </button>
               </div>
 
               <button
@@ -248,7 +247,7 @@ export function TeamPage() {
               <button className="icon-button" title="Options"><MoreHorizontal size={18} /></button>
             </div>
           ))}
-          {!loading && members.length === 0 && (
+          {!loading && teamMembers.length === 0 && (
             <div className="empty-row">Aucun membre dans cette école.</div>
           )}
         </div>
