@@ -1757,3 +1757,391 @@ export const verifyCertificate = (token: string) =>
   request<CertificateInfo>('/academic/certificates/verify/' + encodeURIComponent(token), {
     organizationId: null,
   })
+
+
+export type PublicSiteConfig = {
+  site_name: string
+  tagline: string
+  seo_description: string
+  logo_url: string | null
+  favicon_url: string | null
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  font_heading: string
+  font_body: string
+  hero_title: string
+  hero_subtitle: string
+  hero_cta_label: string
+  hero_image_url: string | null
+  about_title: string
+  about_text: string
+  contact_phone: string | null
+  contact_email: string | null
+  contact_address: string | null
+  social_links: Record<string, string>
+  footer_text: string
+  legal_notice: string
+  sales_terms: string
+  privacy_policy: string
+  refund_policy: string
+  student_code_prefix: string
+  is_published: boolean
+}
+
+export type SchoolIdentity = {
+  organization_id: number
+  organization_name: string
+  slug: string
+  subdomain: string | null
+  public_site: PublicSiteConfig
+  legal: {
+    legal_name: string
+    legal_address: string
+    registration_number: string
+    tax_number: string
+    invoice_email: string | null
+    invoice_phone: string | null
+    default_currency: string
+    invoice_footer: string
+  }
+  communications: {
+    sender_name: string
+    reply_to_email: string | null
+    email_signature: string
+    whatsapp_signature: string
+    whatsapp_phone: string | null
+  }
+  certification: {
+    signer_name: string
+    signer_title: string
+    signature_url: string | null
+    stamp_url: string | null
+    certificate_footer: string
+  }
+}
+
+export type PublicSchool = {
+  organization_id: number
+  slug: string
+  subdomain: string | null
+  name: string
+  site_name: string
+  tagline: string
+  seo_description: string
+  logo_url: string | null
+  favicon_url: string | null
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  font_heading: string
+  font_body: string
+  hero_title: string
+  hero_subtitle: string
+  hero_cta_label: string
+  hero_image_url: string | null
+  about_title: string
+  about_text: string
+  contact_phone: string | null
+  contact_email: string | null
+  contact_address: string | null
+  social_links: Record<string, string>
+  footer_text: string
+  legal_notice: string
+  sales_terms: string
+  privacy_policy: string
+  refund_policy: string
+}
+
+export type PublicSession = {
+  id: number
+  label: string
+  start_date: string
+  end_date: string
+  campus_label: string | null
+  seat_capacity: number
+  seats_remaining: number | null
+  enrollment_open_at: string | null
+  enrollment_close_at: string | null
+  price_cents: number
+  currency: string
+  current_price_cents: number
+  promotion_label: string | null
+  promotion_discount_cents: number
+  can_purchase: boolean
+  unavailable_reason: string | null
+}
+
+export type PublicFormationCard = {
+  id: number
+  slug: string
+  title: string
+  short_description: string
+  cover_image_url: string | null
+  category: string
+  level: string
+  format_type: string
+  training_hours: number | null
+  price_cents: number
+  currency: string
+  current_price_cents: number
+  promotion_label: string | null
+  promotion_discount_cents: number
+  is_featured: boolean
+  featured_order: number
+  available_session_count: number
+  next_session: PublicSession | null
+  can_purchase: boolean
+}
+
+export type PublicFormationDetail = PublicFormationCard & {
+  description: string
+  objectives: string
+  prerequisites: string
+  public_program: string
+  allow_installments: boolean
+  installment_count: number
+  sessions: PublicSession[]
+  teacher_names: string[]
+}
+
+export type PublicHome = {
+  school: PublicSchool
+  featured_formations: PublicFormationCard[]
+}
+
+export const getPublicSchoolHome = (schoolKey: string) =>
+  request<PublicHome>('/public/schools/' + encodeURIComponent(schoolKey), {
+    organizationId: null,
+  })
+
+export const getPublicSchoolIdentity = (schoolKey: string) =>
+  request<PublicSchool>('/public/schools/' + encodeURIComponent(schoolKey) + '/identity', {
+    organizationId: null,
+  })
+
+export const listPublicSchoolFormations = (schoolKey: string) =>
+  request<PublicFormationCard[]>('/public/schools/' + encodeURIComponent(schoolKey) + '/formations', {
+    organizationId: null,
+  })
+
+export const getPublicSchoolFormation = (schoolKey: string, formationSlug: string) =>
+  request<PublicFormationDetail>(
+    '/public/schools/' + encodeURIComponent(schoolKey) + '/formations/' + encodeURIComponent(formationSlug),
+    { organizationId: null },
+  )
+
+export const getSchoolIdentity = () =>
+  request<SchoolIdentity>('/commerce/identity')
+
+export const updateSchoolIdentity = (payload: SchoolIdentity) =>
+  request<SchoolIdentity>('/commerce/identity', {
+    method: 'PUT',
+    body: JSON.stringify({
+      public_site: payload.public_site,
+      legal: payload.legal,
+      communications: payload.communications,
+      certification: payload.certification,
+    }),
+  })
+
+export type Promotion = {
+  id: number
+  name: string
+  formation_id: number | null
+  session_id: number | null
+  discount_type: 'percentage' | 'fixed'
+  discount_value: number
+  starts_at: string | null
+  ends_at: string | null
+  max_uses: number | null
+  uses_count: number
+  is_active: boolean
+  created_at: string
+}
+
+export type Coupon = {
+  id: number
+  code: string
+  name: string
+  discount_type: 'percentage' | 'fixed'
+  discount_value: number
+  valid_from: string | null
+  valid_until: string | null
+  max_uses: number | null
+  max_uses_per_customer: number
+  uses_count: number
+  minimum_order_cents: number
+  eligible_formation_ids: number[]
+  eligible_session_ids: number[]
+  allow_on_promotions: boolean
+  is_active: boolean
+  created_at: string
+}
+
+export const listPromotions = () => request<Promotion[]>('/commerce/promotions')
+export const createPromotion = (payload: Omit<Promotion, 'id'|'uses_count'|'created_at'>) =>
+  request<Promotion>('/commerce/promotions', { method: 'POST', body: JSON.stringify(payload) })
+export const setPromotionActive = (id: number, active: boolean) =>
+  request<Promotion>('/commerce/promotions/' + id + '?active=' + active, { method: 'PATCH' })
+
+export const listCoupons = () => request<Coupon[]>('/commerce/coupons')
+export const createCoupon = (payload: Omit<Coupon, 'id'|'uses_count'|'created_at'>) =>
+  request<Coupon>('/commerce/coupons', { method: 'POST', body: JSON.stringify(payload) })
+export const setCouponActive = (id: number, active: boolean) =>
+  request<Coupon>('/commerce/coupons/' + id + '?active=' + active, { method: 'PATCH' })
+
+export type PricePreview = {
+  base_price_cents: number
+  promotion_discount_cents: number
+  coupon_discount_cents: number
+  total_discount_cents: number
+  final_price_cents: number
+  currency: string
+  promotion_label: string | null
+  coupon_code: string | null
+  installments_allowed: boolean
+  installment_count: number
+}
+
+export type Checkout = {
+  order_id: number
+  order_number: string
+  status: string
+  access_status: string
+  formation_id: number
+  formation_title: string
+  session_id: number
+  session_label: string
+  base_price_cents: number
+  discount_amount_cents: number
+  final_price_cents: number
+  paid_cents: number
+  currency: string
+  payment_mode: string
+  installment_count: number
+  checkout_url: string | null
+  provider_reference: string | null
+}
+
+export type OrderInstallment = {
+  id: number
+  order_id: number
+  sequence: number
+  amount_cents: number
+  due_at: string
+  grace_until: string
+  status: string
+  checkout_url: string | null
+  paid_at: string | null
+}
+
+export type SchoolOrder = Checkout & {
+  student_name: string
+  student_email: string
+  student_code: string | null
+  coupon_code: string | null
+  created_at: string
+  paid_at: string | null
+  installments: OrderInstallment[]
+}
+
+export const previewPublicPrice = (
+  schoolKey: string,
+  sessionId: number,
+  couponCode?: string | null,
+) => request<PricePreview>(
+  '/commerce/public/' + encodeURIComponent(schoolKey) + '/price-preview',
+  {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId, coupon_code: couponCode || null }),
+    organizationId: null,
+  },
+)
+
+export const createPublicCheckout = (
+  schoolKey: string,
+  sessionId: number,
+  paymentMode: 'full'|'installments',
+  couponCode?: string | null,
+) => request<Checkout>(
+  '/commerce/public/' + encodeURIComponent(schoolKey) + '/checkout',
+  {
+    method: 'POST',
+    body: JSON.stringify({
+      session_id: sessionId,
+      payment_mode: paymentMode,
+      coupon_code: couponCode || null,
+    }),
+    organizationId: null,
+  },
+)
+
+export const getPublicOrder = (schoolKey: string, orderId: number) =>
+  request<SchoolOrder>(
+    '/commerce/public/' + encodeURIComponent(schoolKey) + '/orders/' + orderId,
+    { organizationId: null },
+  )
+
+export const confirmPublicDemoCheckout = (schoolKey: string, orderId: number) =>
+  request<Checkout>(
+    '/commerce/public/' + encodeURIComponent(schoolKey) + '/orders/' + orderId + '/demo-confirm',
+    { method: 'POST', organizationId: null },
+  )
+
+export const reconcilePublicTaraCheckout = (schoolKey: string, providerReference: string) =>
+  request<Checkout>(
+    '/commerce/public/' + encodeURIComponent(schoolKey) + '/tara/reconcile/' + encodeURIComponent(providerReference),
+    { method: 'POST', organizationId: null },
+  )
+
+export const payPublicInstallment = (schoolKey: string, installmentId: number) =>
+  request<{ checkout_url: string | null }>(
+    '/commerce/public/' + encodeURIComponent(schoolKey) + '/installments/' + installmentId + '/pay',
+    { method: 'POST', organizationId: null },
+  )
+
+export type SchoolInvoice = {
+  id: number
+  order_id: number
+  installment_id: number | null
+  invoice_number: string
+  status: string
+  amount_cents: number
+  currency: string
+  branding_snapshot: Record<string, unknown>
+  issued_at: string
+  paid_at: string | null
+}
+
+export type ManagedStudent = {
+  user_id: number
+  full_name: string
+  email: string
+  phone: string | null
+  avatar_url: string | null
+  student_code: string
+  status: string
+  active_enrollments: number
+  completed_enrollments: number
+  total_paid_cents: number
+  outstanding_cents: number
+  last_purchase_at: string | null
+}
+
+export type CommercialDashboard = {
+  order_count: number
+  paid_order_count: number
+  gross_sales_cents: number
+  collected_cents: number
+  outstanding_cents: number
+  late_installments: number
+  active_students: number
+  currency: string
+}
+
+export const getCommercialDashboard = () =>
+  request<CommercialDashboard>('/commerce/dashboard')
+export const listSchoolOrders = () => request<SchoolOrder[]>('/commerce/orders')
+export const listSchoolInvoices = () => request<SchoolInvoice[]>('/commerce/invoices')
+export const listManagedStudents = () => request<ManagedStudent[]>('/commerce/students')
