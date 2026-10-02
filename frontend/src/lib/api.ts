@@ -1757,3 +1757,307 @@ export const verifyCertificate = (token: string) =>
   request<CertificateInfo>('/academic/certificates/verify/' + encodeURIComponent(token), {
     organizationId: null,
   })
+
+
+export type SchoolSiteProfile = {
+  organization_id: number
+  school_name: string
+  logo_url: string | null
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  hero_title: string
+  hero_subtitle: string
+  hero_image_url: string | null
+  hero_button_label: string
+  about_title: string
+  about_text: string
+  about_image_url: string | null
+  contact_phone: string | null
+  contact_email: string | null
+  contact_address: string | null
+  social_links: Record<string, string>
+  footer_text: string
+  legal_notice: string
+  terms_of_sale: string
+  privacy_policy: string
+  refund_policy: string
+  legal_name: string | null
+  legal_registration_number: string | null
+  tax_number: string | null
+  billing_address: string | null
+  sender_name: string | null
+  reply_to_email: string | null
+  certificate_signatory_name: string | null
+  certificate_signatory_title: string | null
+  certificate_signature_url: string | null
+  certificate_stamp_url: string | null
+  student_code_prefix: string | null
+}
+
+export type PublicSession = {
+  id: number
+  label: string
+  start_date: string
+  end_date: string
+  campus_label: string | null
+  seats_remaining: number | null
+  price_cents: number
+  currency: string
+  is_available: boolean
+  unavailable_reason: string | null
+}
+
+export type PublicFormation = {
+  id: number
+  slug: string
+  title: string
+  short_description: string
+  description: string
+  cover_url: string | null
+  category: string
+  level: string
+  format_type: string
+  training_hours: number | null
+  objectives: string
+  prerequisites: string
+  public_program: string
+  base_price_cents: number
+  currency: string
+  display_price_cents: number
+  direct_discount_cents: number
+  featured_on_home: boolean
+  sessions: PublicSession[]
+  can_buy: boolean
+}
+
+export type PublicSchool = {
+  organization_id: number
+  slug: string
+  name: string
+  logo_url: string | null
+  primary_color: string
+  secondary_color: string
+  accent_color: string
+  site: SchoolSiteProfile
+  featured_formations: PublicFormation[]
+}
+
+export type PublicCatalog = {
+  school: PublicSchool
+  formations: PublicFormation[]
+}
+
+export const getPublicSchool = (slug: string) =>
+  request<PublicSchool>('/commerce/public/' + slug, { organizationId: null })
+
+export const getPublicCatalog = (slug: string) =>
+  request<PublicCatalog>('/commerce/public/' + slug + '/formations', { organizationId: null })
+
+export const getPublicFormation = (slug: string, formationSlug: string) =>
+  request<PublicFormation>(
+    '/commerce/public/' + slug + '/formations/' + formationSlug,
+    { organizationId: null },
+  )
+
+export type PriceQuote = {
+  formation_id: number
+  session_id: number
+  currency: string
+  base_price_cents: number
+  direct_discount_cents: number
+  promo_code: string | null
+  promo_code_discount_cents: number
+  final_price_cents: number
+  installment_count: number
+  allow_installments: boolean
+}
+
+export const quoteSchoolOrder = (
+  slug: string,
+  sessionId: number,
+  promoCode?: string,
+) =>
+  request<PriceQuote>('/commerce/public/' + slug + '/quote', {
+    method: 'POST',
+    body: JSON.stringify({
+      session_id: sessionId,
+      promo_code: promoCode?.trim() || null,
+    }),
+    organizationId: null,
+  })
+
+export type Installment = {
+  id: number
+  installment_number: number
+  amount_cents: number
+  due_at: string
+  grace_until: string | null
+  status: string
+  paid_at: string | null
+}
+
+export type SchoolOrder = {
+  id: number
+  order_reference: string
+  school_name: string
+  student_name: string
+  formation_title: string
+  session_label: string
+  status: string
+  currency: string
+  base_price_cents: number
+  direct_discount_cents: number
+  promo_code: string | null
+  promo_code_discount_cents: number
+  final_price_cents: number
+  payment_plan: string
+  installment_count: number
+  paid_cents: number
+  student_code: string | null
+  access_status: string | null
+  installments: Installment[]
+  created_at: string
+}
+
+export const createSchoolOrder = (
+  slug: string,
+  sessionId: number,
+  paymentPlan: 'full' | 'installments',
+  promoCode?: string,
+) =>
+  request<SchoolOrder>('/commerce/public/' + slug + '/orders', {
+    method: 'POST',
+    body: JSON.stringify({
+      session_id: sessionId,
+      promo_code: promoCode?.trim() || null,
+      payment_plan: paymentPlan,
+    }),
+    organizationId: null,
+  })
+
+export type SchoolPaymentCheckout = {
+  payment_id: number
+  provider: string
+  amount_cents: number
+  currency: string
+  status: string
+  checkout_url: string | null
+}
+
+export const createSchoolPaymentCheckout = (slug: string, orderId: number) =>
+  request<SchoolPaymentCheckout>(
+    '/commerce/public/' + slug + '/orders/' + orderId + '/checkout',
+    { method: 'POST', organizationId: null },
+  )
+
+export const confirmSchoolDemoPayment = (slug: string, paymentId: number) =>
+  request<{ order: SchoolOrder; payment: SchoolPaymentCheckout }>(
+    '/commerce/public/' + slug + '/payments/' + paymentId + '/demo-confirm',
+    { method: 'POST', organizationId: null },
+  )
+
+export const getSchoolSiteAdmin = () =>
+  request<SchoolSiteProfile>('/commerce/admin/site')
+
+export const updateSchoolSiteAdmin = (payload: Omit<
+  SchoolSiteProfile,
+  'organization_id' | 'school_name' | 'logo_url' | 'primary_color' | 'secondary_color' | 'accent_color'
+>) =>
+  request<SchoolSiteProfile>('/commerce/admin/site', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+
+export const updateCommercialFormation = (
+  formationId: number,
+  payload: Record<string, unknown>,
+) =>
+  request<{ id: number; ok: boolean }>(
+    '/commerce/admin/formations/' + formationId + '/commercial',
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  )
+
+export const updateCommercialSession = (
+  formationId: number,
+  sessionId: number,
+  payload: Record<string, unknown>,
+) =>
+  request<{ id: number; ok: boolean }>(
+    '/commerce/admin/formations/' + formationId + '/sessions/' + sessionId + '/commercial',
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  )
+
+export type Promotion = {
+  id: number
+  name: string
+  formation_id: number | null
+  session_id: number | null
+  discount_type: 'percentage' | 'fixed'
+  discount_value: number
+  starts_at: string | null
+  ends_at: string | null
+  max_uses: number | null
+  used_count: number
+  is_active: boolean
+  created_at: string
+}
+
+export type PromoCode = {
+  id: number
+  code: string
+  discount_type: 'percentage' | 'fixed'
+  discount_value: number
+  starts_at: string | null
+  ends_at: string | null
+  max_uses: number | null
+  max_uses_per_customer: number
+  minimum_order_cents: number
+  formation_id: number | null
+  session_id: number | null
+  allow_on_promotions: boolean
+  used_count: number
+  is_active: boolean
+  created_at: string
+}
+
+export const listPromotions = () => request<Promotion[]>('/commerce/admin/promotions')
+export const createPromotion = (payload: Omit<Promotion, 'id' | 'used_count' | 'created_at'>) =>
+  request<Promotion>('/commerce/admin/promotions', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const listPromoCodes = () => request<PromoCode[]>('/commerce/admin/promo-codes')
+export const createPromoCode = (payload: Omit<PromoCode, 'id' | 'used_count' | 'created_at'>) =>
+  request<PromoCode>('/commerce/admin/promo-codes', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export type SchoolStudentManagement = {
+  user_id: number
+  full_name: string
+  email: string
+  student_code: string
+  access_status: string
+  access_suspended_reason: string | null
+  session_count: number
+  paid_cents: number
+  outstanding_cents: number
+}
+
+export type CommercialDashboard = {
+  paid_revenue_cents: number
+  pending_revenue_cents: number
+  overdue_cents: number
+  order_count: number
+  student_count: number
+  currency: string
+}
+
+export const listSchoolOrders = () => request<SchoolOrder[]>('/commerce/admin/orders')
+export const listSchoolStudents = () =>
+  request<SchoolStudentManagement[]>('/commerce/admin/students')
+export const getCommercialDashboard = () =>
+  request<CommercialDashboard>('/commerce/admin/dashboard')
