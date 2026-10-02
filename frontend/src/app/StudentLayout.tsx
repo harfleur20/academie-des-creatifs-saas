@@ -1,4 +1,5 @@
 import {
+  ClipboardCheck,
   GraduationCap,
   LayoutDashboard,
 } from 'lucide-react'
@@ -19,6 +20,11 @@ export function StudentLayout() {
           to: '/app/student/formations',
           label: 'Mes formations',
           icon: <GraduationCap size={18} />,
+        },
+        {
+          to: '/app/student/assignments',
+          label: 'Devoirs',
+          icon: <ClipboardCheck size={18} />,
         },
       ]}
     />

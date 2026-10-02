@@ -27,6 +27,8 @@ import { TeacherDashboardPage } from './pages/TeacherDashboardPage'
 import { StudentDashboardPage } from './pages/StudentDashboardPage'
 import { TeacherSessionPlanningPage } from './pages/TeacherSessionPlanningPage'
 import { StudentSessionPlanningPage } from './pages/StudentSessionPlanningPage'
+import { TeacherAssignmentsPage } from './pages/TeacherAssignmentsPage'
+import { StudentAssignmentsPage } from './pages/StudentAssignmentsPage'
 import type { WorkspaceSpace } from './lib/api'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
@@ -173,6 +175,7 @@ export default function App() {
               <Route index element={<TeacherDashboardPage />} />
               <Route path="sessions" element={<TeacherDashboardPage />} />
               <Route path="sessions/:sessionId" element={<TeacherSessionPlanningPage />} />
+              <Route path="assignments" element={<TeacherAssignmentsPage />} />
             </Route>
 
             <Route
@@ -188,6 +191,7 @@ export default function App() {
               <Route index element={<StudentDashboardPage />} />
               <Route path="formations" element={<StudentDashboardPage />} />
               <Route path="sessions/:sessionId" element={<StudentSessionPlanningPage />} />
+              <Route path="assignments" element={<StudentAssignmentsPage />} />
             </Route>
 
             <Route path="/app/onboarding" element={<Navigate to="/app/manage/onboarding" replace />} />

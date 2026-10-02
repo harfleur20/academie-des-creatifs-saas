@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  ClipboardCheck,
   LayoutDashboard,
 } from 'lucide-react'
 import { SchoolWorkspaceLayout } from './SchoolWorkspaceLayout'
@@ -19,6 +20,11 @@ export function TeacherLayout() {
           to: '/app/teacher/sessions',
           label: 'Mes sessions',
           icon: <CalendarDays size={18} />,
+        },
+        {
+          to: '/app/teacher/assignments',
+          label: 'Devoirs',
+          icon: <ClipboardCheck size={18} />,
         },
       ]}
     />
