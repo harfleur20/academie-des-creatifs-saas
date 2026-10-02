@@ -50,6 +50,8 @@ import { StudentsManagementPage } from './pages/StudentsManagementPage'
 import { TeachersManagementPage } from './pages/TeachersManagementPage'
 import { CommerceDashboardPage } from './pages/CommerceDashboardPage'
 import { PromotionsPage } from './pages/PromotionsPage'
+import { PedagogicalMonitoringPage } from './pages/PedagogicalMonitoringPage'
+import { SchoolPerformancePage } from './pages/SchoolPerformancePage'
 import { StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
 import { SchoolPublicLayout } from './public/SchoolPublicLayout'
 import { SchoolHomePage } from './pages/SchoolHomePage'
@@ -205,6 +207,8 @@ export default function App() {
               <Route path="teachers" element={<TeachersManagementPage />} />
               <Route path="commerce" element={<CommerceDashboardPage />} />
               <Route path="promotions" element={<PromotionsPage />} />
+              <Route path="pedagogy" element={<PedagogicalMonitoringPage />} />
+              <Route path="performance" element={<SchoolPerformancePage />} />
               <Route path="site-public" element={<SchoolPublicSitePage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="billing" element={<BillingPage />} />

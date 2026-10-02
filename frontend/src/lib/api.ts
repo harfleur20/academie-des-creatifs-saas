@@ -2291,3 +2291,65 @@ export const uploadSchoolAsset = (file: File) => {
     body,
   })
 }
+
+
+export type SchoolPedagogyStudent = {
+  enrollment_id: number
+  session_id: number
+  student_id: number
+  student_name: string
+  student_code: string | null
+  formation_title: string
+  session_label: string
+  enrollment_status: string
+  progress_pct: number
+  attendance_pct: number | null
+  grade_average_pct: number | null
+  submitted_assignments: number
+  total_assignments: number
+  attempted_quizzes: number
+  total_quizzes: number
+  alert_level: 'good' | 'warning' | 'danger'
+  alert_reasons: string[]
+}
+
+export type SchoolPedagogySession = {
+  session_id: number
+  formation_title: string
+  session_label: string
+  status: string
+  enrolled_count: number
+  seat_capacity: number
+  fill_rate_pct: number
+  progress_pct: number
+  attendance_rate_pct: number | null
+  pending_reviews_count: number
+  at_risk_count: number
+}
+
+export type SchoolTeacherPerformance = {
+  teacher_id: number
+  teacher_name: string
+  teacher_code: string | null
+  sessions_count: number
+  students_count: number
+  progress_pct: number
+  attendance_rate_pct: number | null
+  pending_reviews_count: number
+}
+
+export type SchoolPedagogyOverview = {
+  generated_at: string
+  active_students: number
+  active_sessions: number
+  average_progress_pct: number
+  average_attendance_pct: number | null
+  at_risk_students: number
+  pending_reviews_count: number
+  students: SchoolPedagogyStudent[]
+  sessions: SchoolPedagogySession[]
+  teachers: SchoolTeacherPerformance[]
+}
+
+export const getSchoolPedagogyOverview = () =>
+  request<SchoolPedagogyOverview>('/academic/manage/overview')

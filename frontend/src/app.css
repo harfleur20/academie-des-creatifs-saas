@@ -6827,3 +6827,126 @@
   font-size: 8px;
   text-align: center;
 }
+
+
+.management-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 11px;
+  margin-bottom: 18px;
+}
+
+.management-kpi-grid article,
+.performance-commercial-summary article {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.management-kpi-grid svg,
+.performance-commercial-summary svg { color: var(--blue); }
+.management-kpi-grid strong { font-size: 19px; }
+.management-kpi-grid span,
+.performance-commercial-summary span { color: var(--muted); font-size: 9px; }
+
+.monitoring-table-card,
+.performance-school-card { padding: 18px; overflow-x: auto; }
+
+.monitoring-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.management-search {
+  min-width: 280px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #dfe5ed;
+  border-radius: 10px;
+  padding: 0 10px;
+}
+
+.management-search input { flex: 1; min-height: 38px; border: 0; outline: 0; }
+.monitoring-toolbar label { font-size: 9px; color: var(--muted); }
+
+.monitoring-table,
+.performance-school-table { min-width: 880px; }
+
+.monitoring-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1.25fr .75fr .65fr .75fr 1.35fr;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 8px;
+  border-top: 1px solid #eef1f4;
+  font-size: 9px;
+}
+
+.monitoring-row.is-head,
+.performance-school-row.is-head {
+  border-top: 0;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.monitoring-row strong,
+.monitoring-row small,
+.performance-school-row strong,
+.performance-school-row small { display: block; }
+.monitoring-row small,
+.performance-school-row small { margin-top: 3px; color: var(--muted); font-size: 8px; }
+
+.monitoring-signal {
+  display: inline-block;
+  margin-bottom: 3px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: 8px;
+}
+.monitoring-signal.good { color: #08774f; background: #eaf9f2; }
+.monitoring-signal.warning { color: #8a6400; background: #fff7dc; }
+.monitoring-signal.danger { color: #a43e3e; background: #fff0f0; }
+
+.performance-school-card { margin-bottom: 14px; }
+.performance-school-row {
+  display: grid;
+  grid-template-columns: 1.6fr .6fr .75fr .75fr .75fr .65fr .6fr;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 8px;
+  border-top: 1px solid #eef1f4;
+  font-size: 9px;
+}
+.performance-school-table.teacher .performance-school-row {
+  grid-template-columns: 1.6fr .65fr .65fr .8fr .8fr .7fr;
+}
+.performance-commercial-summary {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 11px;
+}
+.performance-commercial-summary article {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+.performance-commercial-summary strong { display:block; font-size:16px; }
+
+@media (max-width: 850px) {
+  .management-kpi-grid,
+  .performance-commercial-summary { grid-template-columns: 1fr 1fr; }
+  .monitoring-toolbar { align-items: stretch; flex-direction: column; }
+  .management-search { min-width: 0; }
+}
+@media (max-width: 520px) {
+  .management-kpi-grid,
+  .performance-commercial-summary { grid-template-columns: 1fr; }
+}
