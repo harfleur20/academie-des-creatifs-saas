@@ -77,7 +77,7 @@ def _lesson_ids_for_session(
             .where(
                 CourseRecord.organization_id == tenant.organization_id,
                 CourseRecord.session_id == session_id,
-                CourseRecord.status != "archived",
+                CourseRecord.status == "published",
                 LessonRecord.organization_id == tenant.organization_id,
             )
         ).all()
@@ -143,7 +143,7 @@ def list_student_learning(
                 .where(
                     CourseRecord.organization_id == tenant.organization_id,
                     CourseRecord.session_id == session.id,
-                    CourseRecord.status != "archived",
+                    CourseRecord.status == "published",
                 )
                 .order_by(CourseRecord.created_at)
             ).all()
@@ -206,6 +206,7 @@ def mark_lesson_complete(
             LessonRecord.id == lesson_id,
             LessonRecord.organization_id == tenant.organization_id,
             CourseRecord.organization_id == tenant.organization_id,
+            CourseRecord.status == "published",
         )
     ).first()
     if row is None:

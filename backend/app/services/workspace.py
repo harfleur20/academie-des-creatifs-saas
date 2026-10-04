@@ -121,7 +121,7 @@ def get_student_workspace(
             course_count=sum(
                 1
                 for course in item.session.courses
-                if course.status != "archived"
+                if course.status == "published"
             ),
         )
         for item in enrollments

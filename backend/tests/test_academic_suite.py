@@ -1,5 +1,7 @@
 from datetime import UTC, date, datetime
 
+import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,7 @@ from app.models.entities import (
     FormationSessionRecord,
     GradeRecord,
     LessonRecord,
+    LessonProgressRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
     SessionCourseDayRecord,
@@ -36,6 +39,7 @@ from app.services.class_certificates import (
 )
 from app.services.school_documents import build_certificate_pdf
 from app.services.learning_progress import (
+    list_student_learning,
     mark_attendance,
     mark_lesson_complete,
     student_attendance,
@@ -54,6 +58,7 @@ from app.services.resources_quizzes import (
     teacher_quiz_results,
 )
 from app.services.tenancy import resolve_tenant_context
+from app.services.workspace import get_student_workspace, get_teacher_workspace
 
 
 def build_db() -> Session:
@@ -304,6 +309,25 @@ def test_lesson_progress_badge_and_certificate_are_real() -> None:
     filename, pdf = build_certificate_pdf(certificate_row)
     assert filename.endswith(".pdf")
     assert pdf.startswith(b"%PDF")
+
+
+def test_draft_course_is_invisible_and_cannot_be_completed_by_student() -> None:
+    db = build_db()
+    org, teacher, student, _, _, enrollment, _, lesson, _ = seed(db)
+    student_tenant = ctx(db, org, student)
+    teacher_tenant = ctx(db, org, teacher)
+    course = db.get(ChapterRecord, lesson.chapter_id).course
+    course.status = "draft"
+    db.commit()
+
+    assert list_student_learning(db, student_tenant)[0].courses == []
+    assert get_student_workspace(db, student_tenant).total_courses == 0
+    assert get_teacher_workspace(db, teacher_tenant).total_courses == 1
+    assert student_progress(db, student_tenant)[0].lesson_progress_pct == 0
+    with pytest.raises(HTTPException) as error:
+        mark_lesson_complete(db, student_tenant, lesson.id)
+    assert error.value.status_code == 404
+    assert db.scalar(select(LessonProgressRecord).where(LessonProgressRecord.enrollment_id == enrollment.id)) is None
 
 
 def test_attendance_is_owned_by_course_day_teacher() -> None:

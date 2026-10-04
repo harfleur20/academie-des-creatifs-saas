@@ -1,19 +1,31 @@
 # Parité avec le site mère
 
-Référence examinée le 4 octobre 2026 : copie locale de `harfleur20/academie-des-creatifs-front` dans `../AcademieCreatif-Vrai_siteweb` (arbre de travail non figé). Comparaison des routes et modèles ; les parcours n'ont pas encore été vérifiés écran par écran dans un navigateur.
+Référence examinée le 4 octobre 2026 : `harfleur20/academie-des-creatifs-front`, copie locale dans `../AcademieCreatif-Vrai_siteweb`, commit `fbf0b3f`. Son arbre de travail contient aussi des modifications non commitées. Pour chaque reprise, comparer le comportement avec le code du site mère et préserver l'isolation par école. Les parcours n'ont pas encore été vérifiés écran par écran dans un navigateur.
+
+## Règle de reprise
+
+Le site mère définit les parcours et les règles métier de l'école. Le SaaS reprend ces comportements pour chaque école, sans concevoir une autre pédagogie. Les adaptations nécessaires concernent l'identité de l'école, ses utilisateurs, ses données et son domaine. Une route ou une table présente dans le SaaS ne suffit pas à déclarer un parcours équivalent : il faut comparer les états, les droits, les calculs et l'interface.
 
 | Parcours | Site mère | SaaS multi-écoles | Suite à donner |
 | --- | --- | --- | --- |
 | Catalogue, commande et paiement étudiant | Présents | Présents, avec séparation par école et paiement en plusieurs échéances | Vérifier les parcours complets sur mobile et sur domaine d'école. |
-| Cours, ressources, quiz, devoirs et résultats | Présents | Routes et modèles présents pour professeur et étudiant | Comparer les règles de progression, les cas de suspension et les données visibles par rôle. |
+| Cours, ressources, quiz, devoirs et résultats | Présents | Routes et modèles présents pour professeur et étudiant ; les règles de progression diffèrent | Reprendre les règles de publication, disponibilité, tentative, correction et progression du site mère. |
 | Classe, présence et certificats | Présents | Routes et modèles présents | Vérifier les écarts de calcul, d'émission et de téléchargement. |
-| Parcours classique et guidé | Deux espaces distincts dans le site mère | Pages communes par rôle dans le SaaS | Décider quelles différences de pédagogie doivent être conservées selon le format de formation. |
-| Messagerie entre utilisateurs | Routes et modèles dédiés | Pas de messagerie interne équivalente repérée | Étudier une messagerie isolée par école, session et participants. |
-| Notifications dans l'application | Routes et modèles dédiés | Envois email et WhatsApp, sans boîte de notifications dans l'interface | Ajouter une boîte par utilisateur si elle fait partie du fonctionnement attendu. |
-| Favoris des formations | Présents | Aucun parcours équivalent repéré | Prioriser après les fonctions pédagogiques et le suivi. |
-| Classes en direct et enregistrements | Présents dans le site mère | Aucun parcours équivalent repéré dans le SaaS | Définir le besoin par école avant de reprendre l'intégration vidéo. |
+| Parcours classique et guidé | `ligne` ouvre le parcours `classic` ; `live` et `presentiel` ouvrent le parcours `guided` | Pages communes par rôle dans le SaaS | Reprendre les deux espaces et leurs règles, avec le contexte d'école. |
+| Messagerie entre utilisateurs | Conversations et destinataires autorisés selon les rôles et les inscriptions | Pas de messagerie interne équivalente repérée | Porter ce parcours avec isolation par école, session et participants. |
+| Notifications dans l'application | Boîte et indicateur de notifications | Envois email et WhatsApp, sans boîte dans l'interface | Porter la boîte et ses événements pour chaque école. |
+| Favoris des formations | Présents | Aucun parcours équivalent repéré | Reprendre le comportement du catalogue du site mère. |
+| Classes en direct et enregistrements | Présents | Aucun parcours équivalent repéré dans le SaaS | Porter les accès et enregistrements utilisés par les formations `live` de chaque école. |
 
-Les fonctions d'événements et de billetterie du site mère existent dans un espace organisateur distinct. Leur reprise dans le SaaS école n'est pas présumée : elle demande une décision de périmètre.
+Les fonctions d'événements et de billetterie du site mère sont dans un espace organisateur distinct de l'école. La comparaison de l'école se concentre d'abord sur les parcours public, administration, professeur et étudiant.
+
+## Écart pédagogique vérifié dans le code
+
+- Le site mère n'expose que les cours et leçons publiés aux étudiants (`backend/app/api/routes/me.py`). Le SaaS exposait aussi les cours `draft`. Le premier correctif de reprise filtre désormais les cours publiés dans le lecteur, le compteur étudiant et le calcul de progression ; une leçon d'un cours brouillon ne peut plus être validée.
+- Le site mère valide une vidéo à partir d'un suivi de lecture (seuil de 80 %) et traite les quiz avec score, nombre de tentatives et délais (`backend/app/api/routes/me.py`). Le SaaS propose encore un bouton de validation manuelle pour toutes les leçons. Ce point requiert la reprise du modèle de suivi, des endpoints et de l'interface du site mère avant de remplacer ce bouton.
+- Le site mère verrouille les activités guidées selon le début de session et, selon le contenu, le créneau ou la publication (`backend/app/services/pedagogy_access.py`). Le SaaS ne reprend pas encore tous ces verrous.
+
+Ordre de reprise : parcours étudiant classique et guidé, règles de progression et d'évaluation, suivi professeur/administration, puis messagerie, notifications et fonctions de catalogue. Chaque étape doit être testée sur deux écoles pour vérifier qu'aucune donnée ne traverse la frontière entre elles.
 
 ## Sécurité et exploitation
 
