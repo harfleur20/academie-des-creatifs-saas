@@ -8,6 +8,7 @@ import {
   FileText,
   GraduationCap,
   LayoutDashboard,
+  CreditCard,
   UserRound,
   Users,
 } from 'lucide-react'
@@ -73,6 +74,11 @@ export function StudentLayout() {
           to: '/app/student/certificates',
           label: 'Certificats',
           icon: <Award size={18} />,
+        },
+        {
+          to: '/app/student/payments',
+          label: 'Mes paiements',
+          icon: <CreditCard size={18} />,
         },
         {
           to: '/app/student/profile',

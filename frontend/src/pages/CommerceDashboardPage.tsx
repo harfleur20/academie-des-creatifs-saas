@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Banknote,
+  AlertTriangle,
   CircleDollarSign,
   Clock3,
   Download,
@@ -14,6 +15,9 @@ import {
   getCommercialDashboard,
   listSchoolInvoices,
   listSchoolOrders,
+  listCommunicationsNeedingReview,
+  retryCommunicationAfterReview,
+  type CommunicationNeedsReview,
   type CommercialDashboard,
   type SchoolInvoice,
   type SchoolOrder,
@@ -25,26 +29,37 @@ export function CommerceDashboardPage() {
   const [dashboard, setDashboard] = useState<CommercialDashboard | null>(null)
   const [orders, setOrders] = useState<SchoolOrder[]>([])
   const [invoices, setInvoices] = useState<SchoolInvoice[]>([])
+  const [reviewMessages, setReviewMessages] = useState<CommunicationNeedsReview[]>([])
+  const [retryingMessageId, setRetryingMessageId] = useState<number | null>(null)
+  const [ordersLoaded, setOrdersLoaded] = useState(false)
+  const [invoicesLoaded, setInvoicesLoaded] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
+    let active = true
+    void Promise.allSettled([
       getCommercialDashboard(),
       listSchoolOrders(),
       listSchoolInvoices(),
+      listCommunicationsNeedingReview(),
     ])
-      .then(([summary, orderRows, invoiceRows]) => {
-        setDashboard(summary)
-        setOrders(orderRows)
-        setInvoices(invoiceRows)
+      .then(([summary, orderRows, invoiceRows, messages]) => {
+        if (!active) return
+        const errors: string[] = []
+        if (summary.status === 'fulfilled') setDashboard(summary.value)
+        else errors.push(`Indicateurs : ${summary.reason instanceof ApiError ? summary.reason.message : 'Chargement impossible.'}`)
+        if (orderRows.status === 'fulfilled') { setOrders(orderRows.value); setOrdersLoaded(true) }
+        else errors.push(`Commandes : ${orderRows.reason instanceof ApiError ? orderRows.reason.message : 'Chargement impossible.'}`)
+        if (invoiceRows.status === 'fulfilled') { setInvoices(invoiceRows.value); setInvoicesLoaded(true) }
+        else errors.push(`Factures : ${invoiceRows.reason instanceof ApiError ? invoiceRows.reason.message : 'Chargement impossible.'}`)
+        if (messages.status === 'fulfilled') setReviewMessages(messages.value)
+        else errors.push(`Messages : ${messages.reason instanceof ApiError ? messages.reason.message : 'Chargement impossible.'}`)
+        setError(errors.join(' '))
+        setLoading(false)
       })
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : 'Chargement impossible.'),
-      )
+    return () => { active = false }
   }, [])
-
-  const money = (value: number) =>
-    formatSchoolMoney(value, dashboard?.currency || 'XAF')
 
   async function downloadInvoice(invoice: SchoolInvoice) {
     setError('')
@@ -53,6 +68,19 @@ export function CommerceDashboardPage() {
       saveBlobFile(blob, invoice.invoice_number + '.pdf')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Téléchargement impossible.')
+    }
+  }
+
+  async function retryMessage(message: CommunicationNeedsReview) {
+    setRetryingMessageId(message.id)
+    setError('')
+    try {
+      await retryCommunicationAfterReview(message.id)
+      setReviewMessages((current) => current.filter((row) => row.id !== message.id))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Reprise impossible.')
+    } finally {
+      setRetryingMessageId(null)
     }
   }
 
@@ -67,6 +95,7 @@ export function CommerceDashboardPage() {
       </header>
 
       {error && <div className="form-error">{error}</div>}
+      {loading && <div className="page-state">Chargement des ventes…</div>}
 
       {dashboard && (
         <section className="commerce-kpis">
@@ -77,12 +106,12 @@ export function CommerceDashboardPage() {
           </article>
           <article>
             <CircleDollarSign />
-            <strong>{money(dashboard.collected_cents)}</strong>
+            <strong>{dashboard.totals_by_currency.length ? dashboard.totals_by_currency.map((row) => formatSchoolMoney(row.collected_cents, row.currency)).join(' · ') : '—'}</strong>
             <span>Encaissé</span>
           </article>
           <article>
             <Clock3 />
-            <strong>{money(dashboard.outstanding_cents)}</strong>
+            <strong>{dashboard.totals_by_currency.length ? dashboard.totals_by_currency.map((row) => formatSchoolMoney(row.outstanding_cents, row.currency)).join(' · ') : '—'}</strong>
             <span>À encaisser</span>
           </article>
           <article>
@@ -97,6 +126,16 @@ export function CommerceDashboardPage() {
           </article>
         </section>
       )}
+
+      {reviewMessages.length > 0 && <section className="app-card commerce-table-card">
+        <div className="table-heading"><div><span className="section-label">Notifications</span><h2>Envois à vérifier</h2></div><AlertTriangle size={18} /></div>
+        <p>Un envoi a pu être accepté par le fournisseur malgré une interruption. Vérifiez son statut chez le fournisseur avant de le remettre en attente.</p>
+        {reviewMessages.map((message) => <div className="student-payment-installment" key={message.id}>
+          <span>{message.channel} · {message.recipient} · {message.event_key}</span>
+          <small>{message.last_error || 'Résultat de l’envoi inconnu.'}</small>
+          <button type="button" disabled={retryingMessageId !== null} onClick={() => void retryMessage(message)}>{retryingMessageId === message.id ? 'Reprise…' : 'Renvoyer après vérification'}</button>
+        </div>)}
+      </section>}
 
       <section className="app-card commerce-table-card">
         <div className="table-heading">
@@ -130,9 +169,10 @@ export function CommerceDashboardPage() {
               </span>
               <span>{formatSchoolMoney(order.final_price_cents, order.currency)}</span>
               <span>{formatSchoolMoney(order.paid_cents, order.currency)}</span>
-              <span className={'order-status ' + order.status}>{order.status}</span>
+              <span className={'order-status ' + order.status} title={order.status === 'payment_review' ? 'Paiement arrivé après la fin de la réservation : vérifier le dossier et le remboursement éventuel.' : undefined}>{order.status === 'payment_review' ? 'Paiement à vérifier' : order.status}</span>
             </div>
           ))}
+          {ordersLoaded && orders.length === 0 && <div className="empty-row">Aucune commande pour cette école.</div>}
         </div>
       </section>
 
@@ -172,6 +212,7 @@ export function CommerceDashboardPage() {
               </span>
             </div>
           ))}
+          {invoicesLoaded && invoices.length === 0 && <div className="empty-row">Aucune facture émise.</div>}
         </div>
       </section>
     </main>

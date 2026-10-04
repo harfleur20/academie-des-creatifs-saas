@@ -4,12 +4,13 @@ import hmac
 import json
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, Response, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, get_tenant_context
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.entities import OrderInvoiceRecord, StudentOrderRecord, UserRecord
+from app.models.entities import CommunicationOutboxRecord, OrderInvoiceRecord, StudentOrderRecord, UserRecord
 from app.schemas.commerce import (
     CheckoutCreate,
     CheckoutRead,
@@ -33,6 +34,7 @@ from app.services.public_catalog import get_public_organization
 from app.services.school_branding import get_school_identity, update_school_identity
 from app.services.school_commerce import (
     commercial_dashboard,
+    cancel_pending_order,
     confirm_demo_checkout,
     create_checkout,
     create_coupon,
@@ -42,6 +44,7 @@ from app.services.school_commerce import (
     list_coupons,
     list_invoices,
     list_orders,
+    list_orders_for_user,
     list_promotions,
     list_students,
     price_preview,
@@ -50,6 +53,7 @@ from app.services.school_commerce import (
     reconcile_tara_reference,
     set_coupon_active,
     set_promotion_active,
+    verified_return_origin,
 )
 from app.services.tara_webhook import verify_webhook_authentication
 from app.services.tenancy import TenantContext
@@ -94,6 +98,53 @@ def dashboard(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return commercial_dashboard(db, tenant)
+
+
+@router.get("/communications/needs-review")
+def communications_needing_review(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    if not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Accès gestion requis.")
+    rows = db.scalars(select(CommunicationOutboxRecord).where(
+        CommunicationOutboxRecord.organization_id == tenant.organization_id,
+        CommunicationOutboxRecord.status == "needs_review",
+    ).order_by(CommunicationOutboxRecord.created_at)).all()
+    return [{
+        "id": row.id,
+        "channel": row.channel,
+        "recipient": row.recipient,
+        "event_key": row.event_key,
+        "attempts_count": row.attempts_count,
+        "last_error": row.last_error,
+        "claimed_at": row.claimed_at,
+    } for row in rows]
+
+
+@router.post("/communications/{message_id}/retry", status_code=204)
+def retry_communication_after_review(
+    message_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    if tenant.support_mode or not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Accès gestion requis.")
+    row = db.scalar(select(CommunicationOutboxRecord).where(
+        CommunicationOutboxRecord.id == message_id,
+        CommunicationOutboxRecord.organization_id == tenant.organization_id,
+    ).with_for_update())
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Message introuvable.")
+    if row.status != "needs_review":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ce message ne nécessite pas de reprise.")
+    row.status = "pending"
+    row.attempts_count = 0
+    row.claimed_at = None
+    row.claim_token = None
+    row.last_error = None
+    db.commit()
+    return None
 
 
 @router.get("/orders", response_model=list[OrderRead])
@@ -288,11 +339,25 @@ def preview_public_price(
 def checkout_public(
     school_key: str,
     payload: CheckoutCreate,
+    request: Request,
     db: Session = Depends(get_db),
     user: UserRecord = Depends(get_current_user),
 ):
     org = get_public_organization(db, school_key)
-    return create_checkout(db, org, user, payload)
+    return create_checkout(
+        db, org, user, payload,
+        return_origin=verified_return_origin(db, org, request.headers.get("origin")),
+    )
+
+
+@router.get("/public/{school_key}/orders", response_model=list[OrderRead])
+def list_my_orders(
+    school_key: str,
+    db: Session = Depends(get_db),
+    user: UserRecord = Depends(get_current_user),
+):
+    org = get_public_organization(db, school_key)
+    return list_orders_for_user(db, org, user)
 
 
 @router.get(
@@ -309,6 +374,17 @@ def read_my_order(
     return get_order_for_user(db, org, user, order_id)
 
 
+@router.post("/public/{school_key}/orders/{order_id}/cancel", response_model=CheckoutRead)
+def cancel_my_order(
+    school_key: str,
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: UserRecord = Depends(get_current_user),
+):
+    org = get_public_organization(db, school_key)
+    return cancel_pending_order(db, org, user, order_id)
+
+
 @router.post(
     "/public/{school_key}/orders/{order_id}/demo-confirm",
     response_model=CheckoutRead,
@@ -316,11 +392,12 @@ def read_my_order(
 def demo_confirm(
     school_key: str,
     order_id: int,
+    payment_ref: str | None = None,
     db: Session = Depends(get_db),
     user: UserRecord = Depends(get_current_user),
 ):
     org = get_public_organization(db, school_key)
-    return confirm_demo_checkout(db, org, user, order_id)
+    return confirm_demo_checkout(db, org, user, order_id, payment_ref)
 
 
 @router.post(
@@ -390,10 +467,9 @@ async def commerce_tara_webhook(
 
     authenticated = verify_webhook_authentication(raw_body, request.headers)
     product_id = payload.get("productId") or payload.get("product_id")
-    business_id = payload.get("businessId")
     if not isinstance(product_id, str) or not product_id.startswith("SCH-"):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Référence paiement invalide.")
-    if not authenticated and business_id != settings.tara_business_id:
+    if not authenticated:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Notification non vérifiable.")
 
     order = reconcile_tara_reference(db, product_id)

@@ -5,21 +5,26 @@ import {
   LockKeyhole,
   Tag,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { useTenant } from '../app/TenantContext'
 import {
+  cancelPublicOrder,
   confirmPublicDemoCheckout,
   createPublicCheckout,
   downloadPublicInvoicePdf,
   getPublicOrder,
   listPublicOrderInvoices,
+  listPublicOrders,
+  payPublicInstallment,
   previewPublicPrice,
   reconcilePublicTaraCheckout,
   setStoredOrganizationId,
   type Checkout,
   type PricePreview,
   type SchoolInvoice,
+  type OrderInstallment,
 } from '../lib/api'
 import { saveBlobFile } from '../lib/download'
 import { clearSchoolCart, getSchoolCart } from '../public/schoolCart'
@@ -30,6 +35,7 @@ export function SchoolCheckoutPage() {
   const { schoolSlug = '' } = useParams()
   const { school } = usePublicSchool()
   const { user } = useAuth()
+  const { refreshOrganizations } = useTenant()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const storedItem = getSchoolCart(schoolSlug)
@@ -39,49 +45,69 @@ export function SchoolCheckoutPage() {
 
   const [preview, setPreview] = useState<PricePreview | null>(null)
   const [coupon, setCoupon] = useState('')
+  const couponRef = useRef('')
   const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>('full')
   const [order, setOrder] = useState<Checkout | null>(null)
+  const [orderInstallments, setOrderInstallments] = useState<OrderInstallment[]>([])
   const [invoices, setInvoices] = useState<SchoolInvoice[]>([])
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
   const [success, setSuccess] = useState(false)
+  const orderId = Number(params.get('order') || 0)
+  const [loadingOrder, setLoadingOrder] = useState(Boolean(orderId))
+  const [retry, setRetry] = useState(0)
 
   useEffect(() => {
-    const orderId = Number(params.get('order') || 0)
     if (!user || !orderId) return
 
     getPublicOrder(schoolSlug, orderId)
       .then(async (value) => {
         setOrder(value)
+        setOrderInstallments(value.installments)
+        const paymentRef = params.get('payment_ref')
         if (params.get('demo') === '1' && value.status !== 'paid') {
-          const next = await confirmPublicDemoCheckout(schoolSlug, orderId)
+          const next = await confirmPublicDemoCheckout(schoolSlug, orderId, paymentRef)
           setOrder(next)
-          if (next.status === 'paid' || next.status === 'partially_paid') {
-            setSuccess(true)
-          }
+          const refreshed = await getPublicOrder(schoolSlug, orderId)
+          setOrderInstallments(refreshed.installments)
+          setSuccess(Boolean(paymentRef && refreshed.installments.some((row) => row.provider_reference === paymentRef && row.status === 'paid')))
         } else if (
           params.get('payment') === 'return' &&
-          value.provider_reference
+          (paymentRef || value.provider_reference)
         ) {
           const next = await reconcilePublicTaraCheckout(
             schoolSlug,
-            value.provider_reference,
+            paymentRef || value.provider_reference!,
           )
           setOrder(next)
-          if (next.status === 'paid' || next.status === 'partially_paid') {
-            setSuccess(true)
-          }
+          const refreshed = await getPublicOrder(schoolSlug, orderId)
+          setOrderInstallments(refreshed.installments)
+          setSuccess(refreshed.installments.some((row) => row.provider_reference === (paymentRef || value.provider_reference) && row.status === 'paid'))
         }
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Commande introuvable.'))
+      .finally(() => setLoadingOrder(false))
   }, [user, schoolSlug, params])
 
   useEffect(() => {
-    if (!user || !item) return
-    previewPublicPrice(schoolSlug, item.session_id, null)
-      .then(setPreview)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Prix indisponible.'))
-  }, [user, schoolSlug, item?.session_id])
+    if (!user || !item || orderId) return
+    let active = true
+    listPublicOrders(schoolSlug)
+      .then((orders) => {
+        if (!active) return
+        const pending = orders.find((row) => row.session_id === item.session_id && row.status === 'pending')
+        if (pending) {
+          setOrder(pending)
+          setOrderInstallments(pending.installments)
+          return
+        }
+        return previewPublicPrice(schoolSlug, item.session_id, null).then((value) => {
+          if (active && !couponRef.current) setPreview(value)
+        })
+      })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : 'Prix indisponible.') })
+    return () => { active = false }
+  }, [user, schoolSlug, item?.session_id, orderId, retry])
 
   useEffect(() => {
     if (
@@ -96,24 +122,24 @@ export function SchoolCheckoutPage() {
       .catch(() => setInvoices([]))
   }, [user, schoolSlug, order?.order_id, order?.status, success])
 
+  useEffect(() => {
+    if (order && order.paid_cents > 0) clearSchoolCart(schoolSlug)
+  }, [order?.order_id, order?.paid_cents, schoolSlug])
+
   async function applyCoupon() {
     if (!item || !user) return
     setError('')
+    const requestedCode = coupon.trim().toUpperCase()
     try {
-      setPreview(
-        await previewPublicPrice(
-          schoolSlug,
-          item.session_id,
-          coupon.trim() || null,
-        ),
-      )
+      const value = await previewPublicPrice(schoolSlug, item.session_id, requestedCode || null)
+      if (couponRef.current.trim().toUpperCase() === requestedCode) setPreview(value)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Code promo invalide.')
     }
   }
 
   async function pay() {
-    if (!item || !user) return
+    if (!item || !user || !preview || (preview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase()) return
     setWorking(true)
     setError('')
     try {
@@ -121,7 +147,7 @@ export function SchoolCheckoutPage() {
         schoolSlug,
         item.session_id,
         paymentMode,
-        preview?.coupon_code || coupon.trim() || null,
+        coupon.trim() || null,
       )
       setOrder(created)
       if (created.final_price_cents === 0) {
@@ -131,6 +157,8 @@ export function SchoolCheckoutPage() {
       }
       if (created.checkout_url) {
         window.location.assign(created.checkout_url)
+      } else {
+        setError('Le lien de paiement est indisponible. Réessayez depuis vos paiements.')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Paiement impossible.')
@@ -149,13 +177,53 @@ export function SchoolCheckoutPage() {
     }
   }
 
-  function enterSpace() {
-    setStoredOrganizationId(school.organization_id)
-    clearSchoolCart(schoolSlug)
-    navigate('/app/student')
+  async function resumePayment() {
+    if (!order) return
+    const installment = orderInstallments.find((row) => row.status !== 'paid')
+    setWorking(true)
+    setError('')
+    try {
+      const url = installment
+        ? (await payPublicInstallment(schoolSlug, installment.id)).checkout_url
+        : order.checkout_url
+      if (!url) throw new Error('Le lien de paiement est indisponible.')
+      window.location.assign(url)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Paiement impossible.')
+      setWorking(false)
+    }
   }
 
-  if (success || order?.status === 'paid' || order?.status === 'partially_paid') {
+  async function cancelOrder() {
+    if (!order) return
+    setWorking(true)
+    setError('')
+    try {
+      await cancelPublicOrder(schoolSlug, order.order_id)
+      navigate('/school/' + schoolSlug + '/checkout', { replace: true })
+      setOrder(null)
+      setOrderInstallments([])
+      setRetry((value) => value + 1)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Annulation impossible.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function enterSpace() {
+    setStoredOrganizationId(school.organization_id)
+    clearSchoolCart(schoolSlug)
+    setError('')
+    try {
+      await refreshOrganizations()
+      navigate('/app/student')
+    } catch {
+      setError('Impossible d’ouvrir votre espace pour le moment. Réessayez.')
+    }
+  }
+
+  if (success || (order?.status === 'paid' && !params.get('payment') && !params.get('demo'))) {
     return (
       <main className="school-section school-checkout-page">
         <section className="school-payment-success">
@@ -179,7 +247,7 @@ export function SchoolCheckoutPage() {
               ))}
             </div>
           )}
-          <button type="button" onClick={enterSpace}>
+          <button type="button" onClick={() => void enterSpace()}>
             Accéder à mon espace étudiant
           </button>
         </section>
@@ -187,18 +255,8 @@ export function SchoolCheckoutPage() {
     )
   }
 
-  if (!item) {
-    return (
-      <main className="school-section">
-        <div className="school-empty">
-          Votre panier est vide.{' '}
-          <Link to={'/school/' + schoolSlug + '/formations'}>Voir les formations</Link>
-        </div>
-      </main>
-    )
-  }
-
   if (!user) {
+    const returnPath = '/school/' + schoolSlug + '/checkout' + (params.toString() ? '?' + params.toString() : '')
     return (
       <main className="school-section school-checkout-page">
         <section className="school-login-required">
@@ -211,7 +269,7 @@ export function SchoolCheckoutPage() {
                 '/login?school=' +
                 encodeURIComponent(schoolSlug) +
                 '&return=' +
-                encodeURIComponent('/school/' + schoolSlug + '/checkout')
+                encodeURIComponent(returnPath)
               }
             >
               Se connecter
@@ -221,7 +279,7 @@ export function SchoolCheckoutPage() {
                 '/login?mode=register&school=' +
                 encodeURIComponent(schoolSlug) +
                 '&return=' +
-                encodeURIComponent('/school/' + schoolSlug + '/checkout')
+                encodeURIComponent(returnPath)
               }
             >
               Créer mon compte
@@ -230,6 +288,27 @@ export function SchoolCheckoutPage() {
         </section>
       </main>
     )
+  }
+
+  if (loadingOrder) return <main className="school-section"><div className="school-empty">Chargement de votre commande…</div></main>
+
+  if (order && (orderId || order.status === 'pending')) {
+    return <main className="school-section school-checkout-page"><section className="school-login-required">
+      <CreditCard size={28} />
+      <h1>{order.status === 'paid' ? 'Commande payée' : order.status === 'payment_review' ? 'Paiement en vérification' : order.status === 'cancelled' ? 'Réservation expirée' : 'Paiement de votre commande'}</h1>
+      <p>{order.formation_title} · {order.session_label}</p>
+      <strong>{formatSchoolMoney(order.final_price_cents, order.currency)}</strong>
+      {error && <div className="school-checkout-error">{error}</div>}
+      {order.status === 'payment_review' && <p>Votre paiement est arrivé après l'expiration de la réservation. L'école doit vérifier votre dossier avant de vous donner accès ou de procéder à un remboursement.</p>}
+      {order.status === 'cancelled' && <p>Cette réservation ne retient plus de place. Vous pouvez créer une nouvelle commande si la session est encore disponible.</p>}
+      {!['cancelled', 'payment_review', 'refunded'].includes(order.status) && orderInstallments.some((row) => row.status !== 'paid') && <button type="button" disabled={working} onClick={() => void resumePayment()}>{working ? 'Ouverture…' : 'Reprendre le paiement'}</button>}
+      {order.status === 'pending' && <button type="button" disabled={working} onClick={() => void cancelOrder()}>Annuler cette commande</button>}
+      {order.status === 'paid' && <button type="button" onClick={() => void enterSpace()}>Accéder à mon espace étudiant</button>}
+    </section></main>
+  }
+
+  if (!item) {
+    return <main className="school-section"><div className="school-empty">Votre panier est vide. <Link to={'/school/' + schoolSlug + '/formations'}>Voir les formations</Link></div></main>
   }
 
   const total = preview?.final_price_cents ?? item.price_cents
@@ -251,7 +330,7 @@ export function SchoolCheckoutPage() {
               <Tag size={16} />
               <input
                 value={coupon}
-                onChange={(event) => setCoupon(event.target.value)}
+                onChange={(event) => { couponRef.current = event.target.value; setCoupon(event.target.value); setPreview(null); setPaymentMode('full') }}
                 placeholder="Code promo"
               />
               <button type="button" onClick={() => void applyCoupon()}>
@@ -306,7 +385,7 @@ export function SchoolCheckoutPage() {
               échéances seront visibles dans votre espace.
             </small>
           )}
-          <button type="button" disabled={working} onClick={() => void pay()}>
+          <button type="button" disabled={working || !preview || (preview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase()} onClick={() => void pay()}>
             <CreditCard size={16} />
             {working ? 'Préparation…' : 'Payer maintenant'}
           </button>

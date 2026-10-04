@@ -20,6 +20,7 @@ from app.services.auth import (
     authenticate_user,
     create_user,
     change_password,
+    revoke_user_sessions,
     update_avatar,
     update_profile,
 )
@@ -32,7 +33,7 @@ def _response(user: UserRecord, message: str) -> AuthResponse:
     return AuthResponse(
         message=message,
         user=AuthUser.model_validate(user),
-        access_token=create_access_token(user.id, minutes=24 * 60),
+        access_token=create_access_token(user.id, minutes=60, session_version=user.session_version),
     )
 
 
@@ -78,6 +79,15 @@ def me(
     current_user: UserRecord = Depends(get_current_user),
 ) -> AuthUser:
     return AuthUser.model_validate(current_user)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(
+    db: Session = Depends(get_db),
+    current_user: UserRecord = Depends(get_current_user),
+):
+    revoke_user_sessions(db, current_user)
+    return None
 
 
 

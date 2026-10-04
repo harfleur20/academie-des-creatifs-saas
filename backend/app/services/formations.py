@@ -13,7 +13,9 @@ from app.models.entities import (
     FormationSessionRecord,
     LessonRecord,
     OrganizationMemberRecord,
+    OrganizationRecord,
     SessionTeacherRecord,
+    StudentOrderRecord,
     UserRecord,
 )
 from app.schemas.formations import (
@@ -595,6 +597,7 @@ def enroll_student(
     session_id: int,
     payload: EnrollmentCreate,
 ) -> FormationDetailRead:
+    db.scalar(select(OrganizationRecord).where(OrganizationRecord.id == tenant.organization_id).with_for_update())
     session = _get_scoped(db, tenant, FormationSessionRecord, session_id)
     if session is None or session.formation_id != formation_id:
         raise HTTPException(status_code=404, detail="Session introuvable.")
@@ -605,12 +608,17 @@ def enroll_student(
             select(func.count(EnrollmentRecord.id)).where(
                 EnrollmentRecord.organization_id == tenant.organization_id,
                 EnrollmentRecord.session_id == session.id,
-                EnrollmentRecord.status.in_(["active", "completed"]),
+                EnrollmentRecord.status.in_(["active", "completed", "suspended_payment"]),
             )
         )
         or 0
     )
-    if session.seat_capacity > 0 and active_count >= session.seat_capacity:
+    pending_count = int(db.scalar(select(func.count(StudentOrderRecord.id)).where(
+        StudentOrderRecord.organization_id == tenant.organization_id,
+        StudentOrderRecord.session_id == session.id,
+        StudentOrderRecord.status == "pending",
+    )) or 0)
+    if session.seat_capacity > 0 and active_count + pending_count >= session.seat_capacity:
         raise HTTPException(status_code=409, detail="La capacité de cette session est atteinte.")
 
     enrollment = db.scalar(
@@ -642,6 +650,7 @@ def update_enrollment(
     enrollment_id: int,
     payload: EnrollmentUpdate,
 ) -> FormationDetailRead:
+    db.scalar(select(OrganizationRecord).where(OrganizationRecord.id == tenant.organization_id).with_for_update())
     session = _get_scoped(db, tenant, FormationSessionRecord, session_id)
     enrollment = _get_scoped(db, tenant, EnrollmentRecord, enrollment_id)
     if (
@@ -651,6 +660,19 @@ def update_enrollment(
         or enrollment.session_id != session_id
     ):
         raise HTTPException(status_code=404, detail="Inscription introuvable.")
+    if enrollment.status not in {"active", "completed", "suspended_payment"} and payload.status in {"active", "completed", "suspended_payment"} and session.seat_capacity > 0:
+        active_count = int(db.scalar(select(func.count(EnrollmentRecord.id)).where(
+            EnrollmentRecord.organization_id == tenant.organization_id,
+            EnrollmentRecord.session_id == session.id,
+            EnrollmentRecord.status.in_(["active", "completed", "suspended_payment"]),
+        )) or 0)
+        pending_count = int(db.scalar(select(func.count(StudentOrderRecord.id)).where(
+            StudentOrderRecord.organization_id == tenant.organization_id,
+            StudentOrderRecord.session_id == session.id,
+            StudentOrderRecord.status == "pending",
+        )) or 0)
+        if active_count + pending_count >= session.seat_capacity:
+            raise HTTPException(status_code=409, detail="La capacité de cette session est atteinte.")
     enrollment.status = payload.status
     db.commit()
     return get_formation_detail(db, tenant, formation_id)

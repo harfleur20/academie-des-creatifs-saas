@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, time, timedelta
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from fastapi import HTTPException, status
@@ -17,6 +18,7 @@ from app.models.entities import (
     OrderInvoiceRecord,
     OrganizationMemberRecord,
     OrganizationPublicSiteRecord,
+    OrganizationDomainRecord,
     OrganizationRecord,
     OrganizationStudentProfileRecord,
     PromotionRecord,
@@ -27,6 +29,7 @@ from app.schemas.commerce import (
     CheckoutCreate,
     CheckoutRead,
     CommercialDashboardRead,
+    CurrencyTotalsRead,
     CouponCreate,
     CouponRead,
     InstallmentRead,
@@ -61,6 +64,10 @@ def _aware(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+def _reservation_cutoff() -> datetime:
+    return utc_now() - timedelta(minutes=settings.commerce_reservation_minutes)
 
 
 def _require_manager(tenant) -> None:
@@ -100,6 +107,41 @@ def _load_session_formation(
     return session, formation
 
 
+def _require_published_site(db: Session, org: OrganizationRecord) -> None:
+    site, *_ = get_or_create_identity_records(db, org)
+    if not site.is_published:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Le site public de cette école n'est pas publié.")
+
+
+def verified_return_origin(db: Session, org: OrganizationRecord, origin: str | None) -> str:
+    fallback = settings.frontend_url
+    if not origin:
+        return fallback
+    try:
+        parsed = urlsplit(origin)
+        port = parsed.port
+    except ValueError:
+        return fallback
+    if not parsed.hostname or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment:
+        return fallback
+    if parsed.scheme != "https" and not (settings.environment != "production" and parsed.hostname in {"localhost", "127.0.0.1"}):
+        return fallback
+    candidate = f"{parsed.scheme}://{parsed.netloc}"
+    if candidate.rstrip("/").lower() == fallback.rstrip("/").lower():
+        return candidate
+    host = parsed.hostname.lower()
+    if settings.saas_base_domain and org.subdomain and host == f"{org.subdomain}.{settings.saas_base_domain}" and port is None:
+        return candidate
+    domain = db.scalar(select(OrganizationDomainRecord).where(
+        OrganizationDomainRecord.organization_id == org.id,
+        OrganizationDomainRecord.hostname == host,
+        OrganizationDomainRecord.status == "verified",
+    ))
+    if domain and port is None:
+        return candidate
+    return fallback
+
+
 def _valid_coupon(
     db: Session,
     org: OrganizationRecord,
@@ -131,6 +173,14 @@ def _valid_coupon(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Ce code promo a expiré.")
     if coupon.max_uses is not None and coupon.uses_count >= coupon.max_uses:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Ce code promo a atteint sa limite d'utilisation.")
+    pending_uses = int(db.scalar(select(func.count(StudentOrderRecord.id)).where(
+        StudentOrderRecord.organization_id == org.id,
+        StudentOrderRecord.coupon_id == coupon.id,
+        StudentOrderRecord.status == "pending",
+        StudentOrderRecord.created_at > _reservation_cutoff(),
+    )) or 0)
+    if coupon.max_uses is not None and coupon.uses_count + pending_uses >= coupon.max_uses:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Ce code promo a atteint sa limite d'utilisation.")
     if coupon.minimum_order_cents and price_after_promotion < coupon.minimum_order_cents:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Le montant minimum requis pour ce code promo n'est pas atteint.")
     if coupon.eligible_formation_ids and formation_id not in set(coupon.eligible_formation_ids):
@@ -146,7 +196,7 @@ def _valid_coupon(
                 StudentOrderRecord.organization_id == org.id,
                 StudentOrderRecord.user_id == user_id,
                 StudentOrderRecord.coupon_id == coupon.id,
-                StudentOrderRecord.status.in_(["partially_paid", "paid", "late"]),
+                StudentOrderRecord.status.in_(["pending", "partially_paid", "paid", "late"]),
             )
         )
         or 0
@@ -165,6 +215,7 @@ def price_preview(
     session_id: int,
     coupon_code: str | None = None,
 ) -> PricePreviewRead:
+    _require_published_site(db, org)
     session, formation = _load_session_formation(db, org, session_id)
     available, reason, _remaining = _session_availability(db, formation, session)
     if not available:
@@ -302,7 +353,8 @@ def _ensure_student_access(
         db.flush()
         replace_effective_roles(db, member, {"student"})
     else:
-        member.status = "active"
+        # A member suspension is an administrative decision, independent of
+        # the payment state of this order.
         roles = set(load_effective_member_roles(db, member))
         roles.add("student")
         replace_effective_roles(db, member, roles)
@@ -323,8 +375,6 @@ def _ensure_student_access(
         )
         db.add(profile)
         db.flush()
-    else:
-        profile.status = "active"
 
     enrollment = db.scalar(
         select(EnrollmentRecord).where(
@@ -341,8 +391,6 @@ def _ensure_student_access(
             status="active",
         )
         db.add(enrollment)
-    elif enrollment.status != "completed":
-        enrollment.status = "active"
 
     return profile
 
@@ -425,6 +473,7 @@ def _apply_installment_payment(
     *,
     paid_at: datetime | None = None,
 ) -> StudentOrderRecord:
+    db.scalar(select(OrganizationRecord).where(OrganizationRecord.id == org.id).with_for_update())
     if installment.status == "paid":
         return order
     was_unpaid = order.paid_cents == 0
@@ -513,6 +562,15 @@ def _provider_link(
     order: StudentOrderRecord,
     installment: OrderInstallmentRecord,
 ) -> str | None:
+    # A checkout may have been committed before the provider answered. Lock
+    # the school and refresh the installment before creating or retrying a link.
+    db.scalar(select(OrganizationRecord).where(OrganizationRecord.id == org.id).with_for_update())
+    db.refresh(installment)
+    db.refresh(order)
+    if order.status in {"cancelled", "refunded", "paid", "payment_review"}:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette commande n'accepte plus de paiement.")
+    if installment.checkout_url and installment.status != "failed":
+        return installment.checkout_url
     if installment.amount_cents <= 0:
         _apply_installment_payment(db, org, order, installment)
         return None
@@ -520,10 +578,10 @@ def _provider_link(
     if settings.demo_payments_enabled:
         reference = f"SCH-DEMO-{org.id}-{order.id}-{installment.sequence}-{uuid4().hex[:10]}"
         installment.provider_reference = reference
-        order.provider_reference = order.provider_reference or reference
+        order.provider_reference = reference
         url = (
-            f"{settings.frontend_url}/school/{org.slug}/checkout"
-            f"?order={order.id}&demo=1"
+            f"{order.return_origin or settings.frontend_url}/school/{org.slug}/checkout"
+            f"?order={order.id}&demo=1&payment_ref={reference}"
         )
         installment.checkout_url = url
         order.checkout_url = url
@@ -542,23 +600,26 @@ def _provider_link(
             "TaraMoney exige une tarification en XAF.",
         )
     reference = f"SCH-{org.id}-O{order.id}-E{installment.sequence}-{uuid4().hex[:12]}"
-    payment = create_payment_link(
-        product_id=reference,
-        product_name=f"{order.formation.title} - {order.session.label}",
-        amount_xaf=installment.amount_cents,
-        description=f"Échéance {installment.sequence}/{order.installment_count} - {org.name}",
-        return_url=(
-            f"{settings.frontend_url}/school/{org.slug}/checkout"
-            f"?order={order.id}&payment=return"
-        ),
-        webhook_url=(
-            f"{settings.backend_public_url}{settings.api_prefix}"
-            "/commerce/tara/webhook"
-        ),
-    )
+    try:
+        payment = create_payment_link(
+            product_id=reference,
+            product_name=f"{order.formation.title} - {order.session.label}",
+            amount_xaf=installment.amount_cents,
+            description=f"Échéance {installment.sequence}/{order.installment_count} - {org.name}",
+            return_url=(
+                f"{order.return_origin or settings.frontend_url}/school/{org.slug}/checkout"
+                f"?order={order.id}&payment=return&payment_ref={reference}"
+            ),
+            webhook_url=(
+                f"{settings.backend_public_url}{settings.api_prefix}"
+                "/commerce/tara/webhook"
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
     installment.provider_reference = reference
     installment.checkout_url = payment.checkout_url
-    order.provider_reference = order.provider_reference or reference
+    order.provider_reference = reference
     order.checkout_url = payment.checkout_url
     order.payment_provider = "taramoney"
     db.commit()
@@ -592,8 +653,43 @@ def create_checkout(
     org: OrganizationRecord,
     user: UserRecord,
     payload: CheckoutCreate,
+    *,
+    return_origin: str | None = None,
 ) -> CheckoutRead:
+    _require_published_site(db, org)
+    db.scalar(select(OrganizationRecord).where(OrganizationRecord.id == org.id).with_for_update())
+    # Serialize reservations for a session on PostgreSQL before counting seats.
+    session = db.scalar(select(FormationSessionRecord).where(
+        FormationSessionRecord.id == payload.session_id,
+        FormationSessionRecord.organization_id == org.id,
+    ).with_for_update())
+    if session is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Session introuvable.")
     session, formation = _load_session_formation(db, org, payload.session_id)
+    _expire_pending_reservations(db, org.id, session.id)
+
+    pending = db.scalar(select(StudentOrderRecord).options(
+        selectinload(StudentOrderRecord.formation),
+        selectinload(StudentOrderRecord.session),
+    ).where(
+        StudentOrderRecord.organization_id == org.id,
+        StudentOrderRecord.user_id == user.id,
+        StudentOrderRecord.session_id == session.id,
+        StudentOrderRecord.status == "pending",
+    ).order_by(StudentOrderRecord.created_at.desc()))
+    if pending:
+        requested_coupon = (payload.coupon_code or "").strip().upper()
+        if pending.payment_mode != payload.payment_mode or (pending.coupon_code or "").upper() != requested_coupon:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Une commande est déjà en attente pour cette session. Terminez-la avant de modifier le paiement.")
+        if not pending.checkout_url:
+            first = db.scalar(select(OrderInstallmentRecord).where(
+                OrderInstallmentRecord.order_id == pending.id,
+                OrderInstallmentRecord.sequence == 1,
+            ))
+            if first:
+                _provider_link(db, org, pending, first)
+        return _checkout_read(pending)
+
     preview = price_preview(
         db,
         org,
@@ -603,13 +699,18 @@ def create_checkout(
     )
     if payload.payment_mode == "installments" and not preview.installments_allowed:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Le paiement en plusieurs tranches n'est pas disponible pour cette formation.")
+    if preview.final_price_cents > 0 and not settings.demo_payments_enabled:
+        if not settings.tara_configured:
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Le paiement en ligne n'est pas configuré.")
+        if preview.currency.upper() != "XAF":
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "TaraMoney exige une tarification en XAF.")
 
     existing_enrollment = db.scalar(
         select(EnrollmentRecord).where(
             EnrollmentRecord.organization_id == org.id,
             EnrollmentRecord.session_id == session.id,
             EnrollmentRecord.student_id == user.id,
-            EnrollmentRecord.status.in_(["active", "completed"]),
+            EnrollmentRecord.status.in_(["active", "completed", "suspended_payment"]),
         )
     )
     if existing_enrollment:
@@ -661,6 +762,7 @@ def create_checkout(
         installment_count=count,
         payment_provider="demo" if settings.demo_payments_enabled else "taramoney",
         branding_snapshot=branding_snapshot(db, org),
+        return_origin=return_origin,
     )
     db.add(order)
     db.flush()
@@ -709,9 +811,11 @@ def confirm_demo_checkout(
     org: OrganizationRecord,
     user: UserRecord,
     order_id: int,
+    provider_reference: str | None = None,
 ) -> CheckoutRead:
     if not settings.demo_payments_enabled:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Le paiement démo est désactivé.")
+    db.scalar(select(OrganizationRecord).where(OrganizationRecord.id == org.id).with_for_update())
     order = db.scalar(
         select(StudentOrderRecord)
         .options(
@@ -726,15 +830,17 @@ def confirm_demo_checkout(
     )
     if order is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Commande introuvable.")
-    installment = db.scalar(
-        select(OrderInstallmentRecord)
-        .where(
-            OrderInstallmentRecord.order_id == order.id,
-            OrderInstallmentRecord.status != "paid",
-        )
-        .order_by(OrderInstallmentRecord.sequence)
-    )
+    if order.status in {"cancelled", "refunded", "payment_review"}:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette commande n'accepte plus de paiement.")
+    query = select(OrderInstallmentRecord).where(OrderInstallmentRecord.order_id == order.id)
+    if provider_reference:
+        query = query.where(OrderInstallmentRecord.provider_reference == provider_reference)
+    else:
+        query = query.where(OrderInstallmentRecord.status != "paid").order_by(OrderInstallmentRecord.sequence)
+    installment = db.scalar(query)
     if installment is None:
+        if provider_reference:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Paiement introuvable.")
         return _checkout_read(order)
     _apply_installment_payment(db, org, order, installment)
     db.refresh(order)
@@ -752,6 +858,7 @@ def reconcile_tara_reference(
     )
     if installment is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Échéance de paiement introuvable.")
+    db.scalar(select(OrganizationRecord).where(OrganizationRecord.id == installment.organization_id).with_for_update())
     order = db.scalar(
         select(StudentOrderRecord)
         .options(
@@ -762,18 +869,35 @@ def reconcile_tara_reference(
         .with_for_update()
     )
     org = db.get(OrganizationRecord, order.organization_id)
+    if installment.status == "paid":
+        db.rollback()
+        return order
     verification = verify_payment(provider_reference)
     if verification.status == "pending":
         db.rollback()
         return order
     if verification.status == "failed":
-        installment.status = "failed"
+        if order.status not in {"cancelled", "refunded"}:
+            installment.status = "failed"
         db.commit()
         return order
     if verification.product_id != provider_reference:
         raise HTTPException(status.HTTP_409_CONFLICT, "Référence TaraMoney incohérente.")
     if verification.amount is None or verification.amount != installment.amount_cents:
         raise HTTPException(status.HTTP_409_CONFLICT, "Montant TaraMoney incohérent.")
+    if order.status == "cancelled":
+        # The reservation has expired. Record the money received for manual
+        # handling without granting access or consuming a newly sold seat.
+        installment.status = "paid"
+        installment.paid_at = _aware(verification.paid_at) or utc_now()
+        order.paid_cents = installment.amount_cents
+        order.paid_at = installment.paid_at
+        order.status = "payment_review"
+        order.access_status = "pending_review"
+        db.commit()
+        return order
+    if order.status in {"refunded", "payment_review"}:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette commande n'accepte plus de paiement.")
     _apply_installment_payment(
         db,
         org,
@@ -811,9 +935,67 @@ def create_installment_payment_link(
     )
     if order is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Commande introuvable.")
+    if order.status in {"cancelled", "refunded", "payment_review"}:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette commande n'accepte plus de paiement.")
     if installment.status == "paid":
         return installment.checkout_url
+    earlier_unpaid = db.scalar(select(OrderInstallmentRecord.id).where(
+        OrderInstallmentRecord.order_id == order.id,
+        OrderInstallmentRecord.sequence < installment.sequence,
+        OrderInstallmentRecord.status != "paid",
+    ))
+    if earlier_unpaid is not None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Réglez d'abord les échéances précédentes.")
     return _provider_link(db, org, order, installment)
+
+
+def _cancel_unpaid_order(db: Session, order: StudentOrderRecord, *, commit: bool = True) -> None:
+    if order.paid_cents or order.status != "pending":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette commande ne peut plus être annulée.")
+    order.status = "cancelled"
+    order.access_status = "cancelled"
+    for row in db.scalars(select(OrderInstallmentRecord).where(OrderInstallmentRecord.order_id == order.id)).all():
+        if row.status != "paid":
+            row.status = "cancelled"
+    if commit:
+        db.commit()
+    else:
+        db.flush()
+
+
+def _expire_pending_reservations(db: Session, organization_id: int, session_id: int) -> None:
+    expired = db.scalars(select(StudentOrderRecord).where(
+        StudentOrderRecord.organization_id == organization_id,
+        StudentOrderRecord.session_id == session_id,
+        StudentOrderRecord.status == "pending",
+        StudentOrderRecord.created_at <= _reservation_cutoff(),
+    )).all()
+    for order in expired:
+        _cancel_unpaid_order(db, order, commit=False)
+
+
+def cancel_pending_order(db: Session, org: OrganizationRecord, user: UserRecord, order_id: int) -> CheckoutRead:
+    db.scalar(select(OrganizationRecord).where(OrganizationRecord.id == org.id).with_for_update())
+    order = db.scalar(select(StudentOrderRecord)
+        .options(selectinload(StudentOrderRecord.formation), selectinload(StudentOrderRecord.session))
+        .where(StudentOrderRecord.id == order_id, StudentOrderRecord.organization_id == org.id, StudentOrderRecord.user_id == user.id))
+    if order is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Commande introuvable.")
+    if order.paid_cents or order.status != "pending":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette commande ne peut plus être annulée.")
+    first = db.scalar(select(OrderInstallmentRecord).where(OrderInstallmentRecord.order_id == order.id, OrderInstallmentRecord.sequence == 1))
+    if first and first.provider_reference and order.payment_provider != "demo":
+        try:
+            verification = verify_payment(first.provider_reference)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+        if verification.status == "paid":
+            reconcile_tara_reference(db, first.provider_reference)
+            raise HTTPException(status.HTTP_409_CONFLICT, "Le paiement a été confirmé ; actualisez votre commande.")
+        if verification.status != "failed":
+            raise HTTPException(status.HTTP_409_CONFLICT, "Le paiement est encore en attente chez TaraMoney.")
+    _cancel_unpaid_order(db, order)
+    return _checkout_read(order)
 
 
 def process_installment_lifecycle(
@@ -834,6 +1016,25 @@ def process_installment_lifecycle(
         order = db.get(StudentOrderRecord, row.order_id)
         org = db.get(OrganizationRecord, row.organization_id)
         if not order or not org:
+            continue
+        if order.status == "pending" and order.paid_cents == 0:
+            if row.sequence != 1:
+                continue
+            if now > _aware(order.created_at) + timedelta(minutes=settings.commerce_reservation_minutes):
+                if order.payment_provider == "demo" or not row.provider_reference:
+                    _cancel_unpaid_order(db, order)
+                    changed += 1
+                else:
+                    try:
+                        verification = verify_payment(row.provider_reference)
+                    except ValueError:
+                        continue
+                    if verification.status in {"failed", "pending"}:
+                        _cancel_unpaid_order(db, order)
+                        changed += 1
+                    elif verification.status == "paid":
+                        reconcile_tara_reference(db, row.provider_reference)
+                        changed += 1
             continue
         if now <= _aware(row.grace_until):
             if row.status == "pending":
@@ -967,7 +1168,7 @@ def _order_read(db: Session, order: StudentOrderRecord) -> OrderRead:
         paid_at=order.paid_at,
         installments=[InstallmentRead(
             id=row.id,order_id=row.order_id,sequence=row.sequence,amount_cents=row.amount_cents,due_at=row.due_at,
-            grace_until=row.grace_until,status=row.status,checkout_url=row.checkout_url,paid_at=row.paid_at,
+            grace_until=row.grace_until,status=row.status,provider_reference=row.provider_reference,checkout_url=row.checkout_url,paid_at=row.paid_at,
         ) for row in installments],
     )
 
@@ -981,6 +1182,16 @@ def list_orders(db: Session, tenant) -> list[OrderRead]:
         .order_by(StudentOrderRecord.created_at.desc())
     ).all()
     return [_order_read(db,row) for row in rows]
+
+
+def list_orders_for_user(db: Session, org: OrganizationRecord, user: UserRecord) -> list[OrderRead]:
+    rows = db.scalars(
+        select(StudentOrderRecord)
+        .options(selectinload(StudentOrderRecord.formation), selectinload(StudentOrderRecord.session))
+        .where(StudentOrderRecord.organization_id == org.id, StudentOrderRecord.user_id == user.id)
+        .order_by(StudentOrderRecord.created_at.desc())
+    ).all()
+    return [_order_read(db, row) for row in rows]
 
 
 def list_invoices(db: Session, tenant) -> list[InvoiceRead]:
@@ -1005,13 +1216,18 @@ def list_students(db: Session, tenant) -> list[StudentManagementRead]:
         active=int(db.scalar(select(func.count(EnrollmentRecord.id)).where(EnrollmentRecord.organization_id==tenant.organization_id,EnrollmentRecord.student_id==profile.user_id,EnrollmentRecord.status=="active")) or 0)
         completed=int(db.scalar(select(func.count(EnrollmentRecord.id)).where(EnrollmentRecord.organization_id==tenant.organization_id,EnrollmentRecord.student_id==profile.user_id,EnrollmentRecord.status=="completed")) or 0)
         orders=db.scalars(select(StudentOrderRecord).where(StudentOrderRecord.organization_id==tenant.organization_id,StudentOrderRecord.user_id==profile.user_id)).all()
-        paid=sum(row.paid_cents for row in orders)
-        outstanding=sum(max(0,row.final_price_cents-row.paid_cents) for row in orders if row.status not in {"cancelled","refunded"})
+        totals: dict[str, dict[str, int]] = {}
+        for row in orders:
+            bucket = totals.setdefault(row.currency, {"gross": 0, "collected": 0, "outstanding": 0})
+            bucket["collected"] += row.paid_cents
+            if row.status not in {"cancelled", "refunded"}:
+                bucket["gross"] += row.final_price_cents
+                bucket["outstanding"] += max(0, row.final_price_cents - row.paid_cents)
         last=max((row.created_at for row in orders),default=profile.first_purchase_at)
         result.append(StudentManagementRead(
             user_id=profile.user_id,full_name=profile.user.full_name,email=profile.user.email,phone=profile.user.phone,avatar_url=profile.user.avatar_url,
             student_code=profile.student_code,status=profile.status,active_enrollments=active,completed_enrollments=completed,
-            total_paid_cents=paid,outstanding_cents=outstanding,last_purchase_at=last,
+            totals_by_currency=[CurrencyTotalsRead(currency=currency,gross_sales_cents=values["gross"],collected_cents=values["collected"],outstanding_cents=values["outstanding"]) for currency, values in sorted(totals.items())],last_purchase_at=last,
         ))
     return result
 
@@ -1021,13 +1237,17 @@ def commercial_dashboard(db: Session, tenant) -> CommercialDashboardRead:
     orders=list(db.scalars(select(StudentOrderRecord).where(StudentOrderRecord.organization_id==tenant.organization_id)).all())
     late=int(db.scalar(select(func.count(OrderInstallmentRecord.id)).where(OrderInstallmentRecord.organization_id==tenant.organization_id,OrderInstallmentRecord.status=="late")) or 0)
     students=int(db.scalar(select(func.count(OrganizationStudentProfileRecord.id)).where(OrganizationStudentProfileRecord.organization_id==tenant.organization_id,OrganizationStudentProfileRecord.status=="active")) or 0)
-    currency=orders[0].currency if orders else "XAF"
+    totals: dict[str, dict[str, int]] = {}
+    for row in orders:
+        bucket = totals.setdefault(row.currency, {"gross": 0, "collected": 0, "outstanding": 0})
+        if row.status not in {"cancelled", "refunded"}:
+            bucket["gross"] += row.final_price_cents
+            bucket["outstanding"] += max(0, row.final_price_cents - row.paid_cents)
+        bucket["collected"] += row.paid_cents
     return CommercialDashboardRead(
         order_count=len(orders),paid_order_count=sum(1 for row in orders if row.status=="paid"),
-        gross_sales_cents=sum(row.final_price_cents for row in orders if row.status not in {"cancelled","refunded"}),
-        collected_cents=sum(row.paid_cents for row in orders),
-        outstanding_cents=sum(max(0,row.final_price_cents-row.paid_cents) for row in orders if row.status not in {"cancelled","refunded"}),
-        late_installments=late,active_students=students,currency=currency,
+        totals_by_currency=[CurrencyTotalsRead(currency=currency,gross_sales_cents=values["gross"],collected_cents=values["collected"],outstanding_cents=values["outstanding"]) for currency,values in sorted(totals.items())],
+        late_installments=late,active_students=students,
     )
 
 

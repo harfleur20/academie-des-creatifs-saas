@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import settings
 from app.models.entities import (
     CourseRecord,
     EnrollmentRecord,
@@ -14,6 +15,7 @@ from app.models.entities import (
     OrganizationPublicSiteRecord,
     OrganizationRecord,
     PromotionRecord,
+    StudentOrderRecord,
     SessionTeacherRecord,
 )
 from app.schemas.commerce import (
@@ -125,6 +127,15 @@ def _active_promotion(
     best = None
     best_discount = 0
     for row in rows:
+        if row.max_uses is not None:
+            reserved = int(db.scalar(select(func.count(StudentOrderRecord.id)).where(
+                StudentOrderRecord.organization_id == org_id,
+                StudentOrderRecord.promotion_id == row.id,
+                StudentOrderRecord.status == "pending",
+                StudentOrderRecord.created_at > datetime.now(UTC) - timedelta(minutes=settings.commerce_reservation_minutes),
+            )) or 0)
+            if row.uses_count + reserved >= row.max_uses:
+                continue
         discount = (
             round(price_cents * row.discount_value / 100)
             if row.discount_type == "percentage"
@@ -162,14 +173,20 @@ def _session_availability(
             select(func.count(EnrollmentRecord.id)).where(
                 EnrollmentRecord.organization_id == formation.organization_id,
                 EnrollmentRecord.session_id == session.id,
-                EnrollmentRecord.status.in_(["active", "completed"]),
+                EnrollmentRecord.status.in_(["active", "completed", "suspended_payment"]),
             )
         )
         or 0
     )
+    pending_count = int(db.scalar(select(func.count(StudentOrderRecord.id)).where(
+        StudentOrderRecord.organization_id == formation.organization_id,
+        StudentOrderRecord.session_id == session.id,
+        StudentOrderRecord.status == "pending",
+        StudentOrderRecord.created_at > now - timedelta(minutes=settings.commerce_reservation_minutes),
+    )) or 0)
     remaining = None
     if session.seat_capacity > 0:
-        remaining = max(0, session.seat_capacity - active_count)
+        remaining = max(0, session.seat_capacity - active_count - pending_count)
         if remaining <= 0:
             return False, "Cette session est complète.", 0
     return True, None, remaining

@@ -1,15 +1,19 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { BrandLogo } from '../brand/BrandLogo'
+import { SchoolLogo } from '../brand/SchoolLogo'
 import { ArrowRight, Building2, Check, Eye, EyeOff } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError, resolveHostBranding, type HostBranding } from '../lib/api'
+import { ApiError, getPublicSchoolIdentity, resolveHostBranding, type HostBranding } from '../lib/api'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, signIn, signUp } = useAuth()
-  const returnPath = new URLSearchParams(location.search).get('return')
+  const requestedReturn = new URLSearchParams(location.search).get('return')
+  const returnPath = requestedReturn?.startsWith('/') && !requestedReturn.startsWith('//') && !requestedReturn.includes('\\')
+    ? requestedReturn
+    : null
   const schoolKey = new URLSearchParams(location.search).get('school')
   const [mode, setMode] = useState<'login' | 'register'>(() =>
     new URLSearchParams(location.search).get('mode') === 'register'
@@ -23,6 +27,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [hostBrand, setHostBrand] = useState<HostBranding | null>(null)
+  const isPublicSchool = Boolean(schoolKey || hostBrand)
 
   useEffect(() => {
     if (user) navigate(returnPath || '/app', { replace: true })
@@ -30,21 +35,19 @@ export function LoginPage() {
 
   useEffect(() => {
     if (schoolKey) {
-      import('../lib/api').then(({ getPublicSchoolIdentity }) =>
-        getPublicSchoolIdentity(schoolKey)
-          .then((school) => setHostBrand({
-            organization_id: school.organization_id,
-            name: school.site_name,
-            slug: school.slug,
-            subdomain: school.subdomain,
-            hostname: school.slug,
-            logo_url: school.logo_url,
-            primary_color: school.primary_color,
-            secondary_color: school.secondary_color,
-            accent_color: school.accent_color,
-          }))
-          .catch(() => setHostBrand(null)),
-      )
+      getPublicSchoolIdentity(schoolKey)
+        .then((school) => setHostBrand({
+          organization_id: school.organization_id,
+          name: school.site_name,
+          slug: school.slug,
+          subdomain: school.subdomain,
+          hostname: school.slug,
+          logo_url: school.logo_url,
+          primary_color: school.primary_color,
+          secondary_color: school.secondary_color,
+          accent_color: school.accent_color,
+        }))
+        .catch(() => setHostBrand(null))
       return
     }
     const hostname = window.location.hostname
@@ -80,25 +83,33 @@ export function LoginPage() {
       } as CSSProperties : undefined}
     >
       <section className="auth-panel auth-copy-panel">
-        <a className="auth-logo" href="/">
-          <BrandLogo logoUrl={hostBrand?.logo_url} className="platform-brand-logo" />
+        <a className="auth-logo" href={schoolKey ? '/school/' + encodeURIComponent(schoolKey) : '/'}>
+          {isPublicSchool
+            ? <SchoolLogo logoUrl={hostBrand?.logo_url} alt={hostBrand?.name || 'École'} className="platform-brand-logo" />
+            : <BrandLogo className="platform-brand-logo" />}
           <span>
-            {hostBrand?.name || 'Académie'}
-            {!hostBrand && <> <strong>SaaS</strong></>}
+            {hostBrand?.name || (isPublicSchool ? 'Votre école' : 'Académie')}
+            {!isPublicSchool && <> <strong>SaaS</strong></>}
           </span>
         </a>
         <div>
-          <span className="auth-kicker">Votre école digitale</span>
-          <h1>Un seul espace pour piloter toute votre école.</h1>
-          <p>
-            Formations, professeurs, étudiants, cours, lives et suivi pédagogique
-            réunis dans une plateforme que vous administrez.
-          </p>
-          <div className="auth-benefits">
-            <span><Check size={16} /> Espace isolé pour chaque école</span>
-            <span><Check size={16} /> Rôles et accès maîtrisés</span>
-            <span><Check size={16} /> Prêt pour vos abonnements et votre branding</span>
-          </div>
+          {isPublicSchool ? <>
+            <span className="auth-kicker">Votre espace personnel</span>
+            <h1>Retrouvez vos formations.</h1>
+            <p>Connectez-vous pour finaliser votre inscription et accéder à vos cours.</p>
+          </> : <>
+            <span className="auth-kicker">Votre école digitale</span>
+            <h1>Un seul espace pour piloter toute votre école.</h1>
+            <p>
+              Formations, professeurs, étudiants, cours, lives et suivi pédagogique
+              réunis dans une plateforme que vous administrez.
+            </p>
+            <div className="auth-benefits">
+              <span><Check size={16} /> Espace isolé pour chaque école</span>
+              <span><Check size={16} /> Rôles et accès maîtrisés</span>
+              <span><Check size={16} /> Prêt pour vos abonnements et votre branding</span>
+            </div>
+          </>}
         </div>
       </section>
 
@@ -108,8 +119,8 @@ export function LoginPage() {
           <h2>{mode === 'login' ? 'Bienvenue' : 'Créez votre compte'}</h2>
           <p>
             {mode === 'login'
-              ? 'Connectez-vous à votre espace école.'
-              : 'Vous pourrez créer votre première école juste après.'}
+              ? isPublicSchool ? 'Connectez-vous à votre compte.' : 'Connectez-vous à votre espace école.'
+              : isPublicSchool ? 'Créez un compte pour vous inscrire aux formations.' : 'Vous pourrez créer votre première école juste après.'}
           </p>
 
           {mode === 'register' && (
@@ -179,7 +190,7 @@ export function LoginPage() {
             }}
           >
             {mode === 'login'
-              ? "Pas encore de compte ? Créer mon école"
+              ? isPublicSchool ? "Pas encore de compte ? S’inscrire" : "Pas encore de compte ? Créer mon école"
               : 'Déjà un compte ? Se connecter'}
           </button>
         </form>

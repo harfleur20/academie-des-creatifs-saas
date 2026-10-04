@@ -17,6 +17,7 @@ import {
   listAssignmentComments,
   listAssignmentSubmissions,
   listTeacherAssignments,
+  openAssignmentSubmission,
   reviewAssignmentSubmission,
   type Assignment,
   type AssignmentComment,
@@ -328,9 +329,9 @@ export function TeacherAssignmentsPage() {
                     <strong>{submission.student_name}</strong>
                     <small>{dateTime(submission.submitted_at)}</small>
                   </div>
-                  <a href={submission.file_url} target="_blank" rel="noreferrer">
+                  <button type="button" onClick={() => void openAssignmentSubmission(submission.file_url).catch((cause) => setError(cause instanceof Error ? cause.message : 'Téléchargement impossible.'))}>
                     <ExternalLink size={14} /> Travail
-                  </a>
+                  </button>
                   <div className="submission-score">
                     <input
                       type="number"

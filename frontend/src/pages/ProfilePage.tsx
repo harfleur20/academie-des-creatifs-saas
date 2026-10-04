@@ -9,7 +9,7 @@ import {
 } from '../lib/api'
 
 export function ProfilePage({ roleLabel }: { roleLabel: 'Professeur' | 'Étudiant' }) {
-  const { user, refreshUser } = useAuth()
+  const { user, refreshUser, signOut } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const [fullName, setFullName] = useState(user?.full_name ?? '')
   const [phone, setPhone] = useState(user?.phone ?? '')
@@ -79,10 +79,8 @@ export function ProfilePage({ roleLabel }: { roleLabel: 'Professeur' | 'Étudian
     setWorking(true)
     try {
       await changeMyPassword(currentPassword, newPassword)
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-      setPasswordMessage('Mot de passe modifié.')
+      signOut()
+      window.location.assign('/login')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Modification impossible.')
     } finally {

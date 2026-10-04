@@ -1,12 +1,15 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import httpx
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.models.entities import CommunicationOutboxRecord, OrganizationRecord, UserRecord
 from app.services.communication_delivery import process_communication_outbox
+from app.api.routes.commerce import retry_communication_after_review
 from app.services.school_communications import queue_school_event
 
 
@@ -70,6 +73,7 @@ def test_branded_brevo_outbox_uses_school_sender_and_reply_to() -> None:
         "email": "notifications@platform.test",
     }
     assert payload["replyTo"]["email"] == "contact@school.test"
+    assert payload["headers"]["Idempotency-Key"]
     assert "School Business" in payload["htmlContent"]
     assert "Powered by Académie des Créatifs" in payload["htmlContent"]
 
@@ -104,6 +108,71 @@ def test_failed_outbox_is_retryable_and_records_error() -> None:
     assert row.status == "failed"
     assert row.attempts_count == 1
     assert "non configuré" in (row.last_error or "")
+
+
+def test_second_worker_cannot_send_claimed_message(tmp_path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'outbox.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    first = Session(engine, expire_on_commit=False)
+    second = Session(engine, expire_on_commit=False)
+    org = OrganizationRecord(name="School", slug="school")
+    first.add(org)
+    first.flush()
+    row = CommunicationOutboxRecord(organization_id=org.id, channel="email", recipient="student@example.com", event_key="test", subject="Test", body="Test", branding_snapshot={}, status="pending")
+    first.add(row)
+    first.commit()
+    sends = []
+
+    def send(_row):
+        sends.append(_row.id)
+        assert process_communication_outbox(second) == {"processed": 0, "sent": 0, "failed": 0}
+
+    with patch("app.services.communication_delivery._send_email", side_effect=send):
+        assert process_communication_outbox(first) == {"processed": 1, "sent": 1, "failed": 0}
+    assert sends == [row.id]
+    first.refresh(row)
+    assert row.status == "sent"
+
+
+def test_interrupted_or_uncertain_send_requires_review(tmp_path) -> None:
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'outbox.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    db = Session(engine, expire_on_commit=False)
+    org = OrganizationRecord(name="School", slug="school")
+    db.add(org)
+    db.flush()
+    interrupted = CommunicationOutboxRecord(organization_id=org.id, channel="email", recipient="one@example.com", event_key="test", subject="Test", body="Test", branding_snapshot={}, status="sending", claimed_at=datetime.now(UTC) - timedelta(minutes=11), claim_token="old")
+    uncertain = CommunicationOutboxRecord(organization_id=org.id, channel="email", recipient="two@example.com", event_key="test", subject="Test", body="Test", branding_snapshot={}, status="pending")
+    db.add_all([interrupted, uncertain])
+    db.commit()
+
+    with patch("app.services.communication_delivery._send_email", side_effect=httpx.ReadTimeout("timeout")) as send:
+        assert process_communication_outbox(db) == {"processed": 1, "sent": 0, "failed": 1}
+        assert process_communication_outbox(db) == {"processed": 0, "sent": 0, "failed": 0}
+    assert send.call_count == 1
+    db.refresh(interrupted)
+    db.refresh(uncertain)
+    assert interrupted.status == uncertain.status == "needs_review"
+    retry_communication_after_review(interrupted.id, db, SimpleNamespace(
+        support_mode=False, organization_roles={"manager"}, organization_id=org.id,
+    ))
+    db.refresh(interrupted)
+    assert interrupted.status == "pending"
+
+
+def test_exhausted_local_retries_are_visible_for_review() -> None:
+    db = build_db()
+    org = OrganizationRecord(name="School", slug="retry-school")
+    db.add(org)
+    db.flush()
+    row = CommunicationOutboxRecord(organization_id=org.id, channel="email", recipient="student@example.com", event_key="test", subject="Test", body="Test", branding_snapshot={}, status="failed", attempts_count=2)
+    db.add(row)
+    db.commit()
+    with patch("app.services.communication_delivery._send_email", side_effect=RuntimeError("Fournisseur e-mail non configuré.")):
+        assert process_communication_outbox(db) == {"processed": 1, "sent": 0, "failed": 1}
+    db.refresh(row)
+    assert row.attempts_count == 3
+    assert row.status == "needs_review"
 
 
 

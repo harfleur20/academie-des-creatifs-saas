@@ -8,7 +8,6 @@ import {
 } from 'react'
 import {
   Bell,
-  Building2,
   ChevronDown,
   Eye,
   LogOut,
@@ -27,6 +26,7 @@ import {
 } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { BrandLogo } from '../brand/BrandLogo'
+import { SchoolLogo } from '../brand/SchoolLogo'
 import {
   DEFAULT_BRAND_COLORS,
   DEFAULT_PLATFORM_LOGO_URL,
@@ -177,17 +177,11 @@ export function SchoolWorkspaceLayout({
           </div>
 
           <div className="school-switcher">
-            <span className="school-switcher-icon">
-              {activeOrganization?.logo_url ? (
-                <BrandLogo
-                  logoUrl={activeOrganization.logo_url}
-                  alt={activeOrganization.name}
-                  className="school-switcher-logo"
-                />
-              ) : (
-                <Building2 size={18} />
-              )}
-            </span>
+            <SchoolLogo
+              logoUrl={activeOrganization?.logo_url}
+              alt={activeOrganization?.name || 'École'}
+              className="school-switcher-logo"
+            />
             <label>
               <small>{supportMode ? 'École consultée' : 'École active'}</small>
               <span className="select-shell">
@@ -284,7 +278,7 @@ export function SchoolWorkspaceLayout({
               </button>
             </div>
           )}
-          <Outlet />
+          <Outlet key={activeOrganization?.id ?? 'no-school'} />
         </div>
       </div>
     )
@@ -295,7 +289,7 @@ export function SchoolWorkspaceLayout({
     space === 'teacher' ? '/app/teacher/profile' : '/app/student/profile'
   const roleLabel = workspaceLabels[space]
   const schoolName = activeOrganization?.name || 'Académie des Créatifs'
-  const schoolLogo = activeOrganization?.logo_url || '/logo_academie_hd.png'
+  const schoolLogo = activeOrganization?.logo_url
 
   return (
     <div
@@ -313,7 +307,7 @@ export function SchoolWorkspaceLayout({
 
       <aside className={`tenant-role-sidebar${sidebarOpen ? ' is-open' : ''}`}>
         <NavLink className="tenant-role-brand" to={roleHome}>
-          <BrandLogo
+          <SchoolLogo
             logoUrl={schoolLogo}
             alt={schoolName}
             className="tenant-role-brand__logo"
@@ -523,7 +517,7 @@ export function SchoolWorkspaceLayout({
         )}
 
         <main className="tenant-role-content">
-          <Outlet />
+          <Outlet key={activeOrganization?.id ?? 'no-school'} />
         </main>
       </div>
     </div>

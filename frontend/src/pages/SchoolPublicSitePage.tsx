@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { ExternalLink, ImagePlus, Palette, Save, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
+import { SchoolLogo } from '../brand/SchoolLogo'
 import {
   ApiError,
   getSchoolIdentity,
@@ -84,7 +85,8 @@ export function SchoolPublicSitePage() {
     }
   }
 
-  if (!data) return <div className="page-state">Chargement de l’identité de l’école…</div>
+  if (!activeOrganization) return <div className="page-state">Créez d’abord une école.</div>
+  if (!data) return <div className="page-state">{error || 'Chargement de l’identité de l’école…'}</div>
 
   return <main className="app-page school-site-admin">
     <header className="app-page-header">
@@ -105,7 +107,7 @@ export function SchoolPublicSitePage() {
       <section className="app-card school-site-section">
         <div className="settings-section-heading"><div><span className="section-label">Marque</span><h2>Logo & couleurs</h2></div><Palette size={19}/></div>
         <div className="brand-assets-grid">
-          <AssetPicker label="Logo de l’école" value={data.public_site.logo_url} onUpload={(e)=>void upload(e,'logo')} />
+          <AssetPicker label="Logo de l’école" value={data.public_site.logo_url} onUpload={(e)=>void upload(e,'logo')} schoolLogo />
           <AssetPicker label="Favicon" value={data.public_site.favicon_url} onUpload={(e)=>void upload(e,'favicon')} />
           <AssetPicker label="Image de couverture" value={data.public_site.hero_image_url} onUpload={(e)=>void upload(e,'hero')} wide />
         </div>
@@ -195,6 +197,6 @@ export function SchoolPublicSitePage() {
   </main>
 }
 
-function AssetPicker({label,value,onUpload,wide=false}:{label:string;value:string|null;onUpload:(e:ChangeEvent<HTMLInputElement>)=>void;wide?:boolean}){
- return <label className={'brand-asset-picker '+(wide?'is-wide':'')}>{value?<img src={value} alt={label}/>:<span><ImagePlus size={22}/></span>}<strong>{label}</strong><input type="file" accept="image/*,.svg" onChange={onUpload}/><small>Cliquer pour remplacer</small></label>
+function AssetPicker({label,value,onUpload,wide=false,schoolLogo=false}:{label:string;value:string|null;onUpload:(e:ChangeEvent<HTMLInputElement>)=>void;wide?:boolean;schoolLogo?:boolean}){
+ return <label className={'brand-asset-picker '+(wide?'is-wide':'')}>{schoolLogo?<SchoolLogo logoUrl={value} alt={label}/>:value?<img src={value} alt={label}/>:<span><ImagePlus size={22}/></span>}<strong>{label}</strong><input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={onUpload}/><small>Cliquer pour remplacer</small></label>
 }

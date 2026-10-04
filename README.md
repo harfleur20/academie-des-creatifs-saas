@@ -70,6 +70,8 @@ alembic upgrade head
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+Après chaque mise à jour du code, relancez `alembic upgrade head` depuis `backend` avant de consulter les pages. Une base en retard peut laisser `/health` répondre `200` alors que les onglets métier renvoient `500`. Vérifiez la version avec `alembic current` et comparez-la à `alembic heads`.
+
 Vérifications :
 
 - API : `http://localhost:8000/health`
@@ -126,6 +128,25 @@ npm run build
 - `backend/.env.example` contient toutes les variables backend actuellement utilisées, y compris TaraMoney, mode démo et cycle d'abonnement.
 - `frontend/.env.example` contient l'URL API locale / proxy Vite.
 - Les vrais fichiers `.env` sont ignorés par Git.
+
+### Mise à jour du commerce et des fichiers pédagogiques
+
+Après la mise à jour, appliquez les migrations depuis `backend` avec `alembic upgrade head`. En production, définissez un `JWT_SECRET_KEY` unique d'au moins 32 caractères. Les notifications TaraMoney doivent être signées avec `TARAMONEY_WEBHOOK_SECRET` ou porter le secret dans l'en-tête configuré par `TARAMONEY_WEBHOOK_SECRET_HEADER` ; un `businessId` dans le corps ne suffit plus.
+
+Pour les remises de devoirs sur R2, configurez `R2_PRIVATE_BUCKET_NAME` avec un bucket **distinct et non public**. Les nouveaux fichiers sont servis uniquement par l'API après vérification du compte et de l'école. Pour déplacer les anciennes remises publiques, exécutez depuis `backend` :
+
+```bash
+python -m scripts.migrate_legacy_submissions
+python -m scripts.migrate_legacy_submissions --apply
+```
+
+La première commande affiche un aperçu. La seconde copie les fichiers, met à jour les URLs des remises et supprime les anciennes copies publiques. Si un CDN a mis ces objets en cache, purgez aussi ce cache. Configurez le routage `/api/v1` sur chaque domaine public d'école afin que la connexion et le retour de paiement utilisent la même origine que le site.
+
+Les nouveaux supports téléversés par les professeurs utilisent aussi ce bucket privé et sont téléchargés via l'API selon l'affectation à la session ou l'inscription de l'étudiant. Les anciens supports restent lisibles par cette API, mais les objets déjà présents dans le bucket public R2 doivent encore être déplacés ou supprimés du bucket public pour rendre leur accès réellement privé.
+
+Une commande sans premier paiement confirmé réserve sa place pendant `COMMERCE_RESERVATION_MINUTES` (30 minutes par défaut). Après expiration, la place est libérée. Un paiement TaraMoney confirmé ultérieurement passe au statut `payment_review` sans créer d'inscription ; l'école doit vérifier la transaction et décider de la suite, notamment d'un remboursement si la place a été revendue.
+
+La comparaison des parcours avec le site mère est suivie dans [`docs/PARITE_SITE_MERE.md`](docs/PARITE_SITE_MERE.md). Les changements de mot de passe et la déconnexion révoquent toutes les sessions du compte. Les envois email et WhatsApp dont le résultat est incertain apparaissent dans Commerce pour une vérification avant renvoi.
 
 ## Méthode
 

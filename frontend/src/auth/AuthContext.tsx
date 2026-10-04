@@ -13,6 +13,7 @@ import {
   getMe,
   getSupportMode,
   login as apiLogin,
+  logoutSession,
   register as apiRegister,
   type AuthUser,
   type SupportModeState,
@@ -76,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signOut = useCallback(() => {
+    if (getAccessToken()) void logoutSession().catch(() => {})
     clearSession()
     setSupportMode(null)
     setUser(null)

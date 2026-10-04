@@ -3,12 +3,13 @@ from __future__ import annotations
 import html
 import re
 import smtplib
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -20,6 +21,10 @@ WAPINO_FALLBACKS = (
     "/message/sendText",
     "/messages/send-text",
 )
+
+
+def _delivery_key(row: CommunicationOutboxRecord) -> str:
+    return str(uuid5(NAMESPACE_URL, f"{settings.jwt_issuer}:communication:{row.id}"))
 
 
 def _email_html(row: CommunicationOutboxRecord) -> str:
@@ -67,6 +72,7 @@ def _send_email(row: CommunicationOutboxRecord) -> None:
             "subject": subject,
             "htmlContent": html_body,
             "textContent": row.body,
+            "headers": {"Idempotency-Key": _delivery_key(row)},
         }
         if reply_to:
             payload["replyTo"] = {
@@ -94,6 +100,7 @@ def _send_email(row: CommunicationOutboxRecord) -> None:
         message["Subject"] = subject
         message["From"] = f"{sender_name} <{settings.smtp_from}>"
         message["To"] = row.recipient
+        message["Message-ID"] = f"<{_delivery_key(row)}@notifications.local>"
         if reply_to:
             message["Reply-To"] = str(reply_to)
         message.attach(MIMEText(row.body, "plain", "utf-8"))
@@ -175,8 +182,21 @@ def process_communication_outbox(
     organization_id: int | None = None,
     limit: int = 100,
 ) -> dict[str, int]:
+    stale_before = datetime.now(UTC) - timedelta(minutes=10)
+    stale = update(CommunicationOutboxRecord).where(
+        CommunicationOutboxRecord.status == "sending",
+        CommunicationOutboxRecord.claimed_at < stale_before,
+    )
+    if organization_id is not None:
+        stale = stale.where(CommunicationOutboxRecord.organization_id == organization_id)
+    db.execute(stale.values(
+        status="needs_review",
+        claim_token=None,
+        last_error="Envoi interrompu : vérifier le fournisseur avant de réessayer.",
+    ))
+    db.commit()
     query = (
-        select(CommunicationOutboxRecord)
+        select(CommunicationOutboxRecord.id)
         .where(
             CommunicationOutboxRecord.status.in_(["pending", "failed"]),
             CommunicationOutboxRecord.attempts_count < 3,
@@ -188,11 +208,33 @@ def process_communication_outbox(
         query = query.where(
             CommunicationOutboxRecord.organization_id == organization_id
         )
-    rows = list(db.scalars(query).all())
+    ids = list(db.scalars(query).all())
     sent = failed = 0
 
-    for row in rows:
-        row.attempts_count += 1
+    processed = 0
+    for row_id in ids:
+        claim_token = str(uuid4())
+        claimed = db.execute(
+            update(CommunicationOutboxRecord)
+            .where(
+                CommunicationOutboxRecord.id == row_id,
+                CommunicationOutboxRecord.status.in_(["pending", "failed"]),
+                CommunicationOutboxRecord.attempts_count < 3,
+            )
+            .values(
+                status="sending",
+                claim_token=claim_token,
+                claimed_at=datetime.now(UTC),
+                attempts_count=CommunicationOutboxRecord.attempts_count + 1,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        db.commit()
+        if claimed.rowcount != 1:
+            continue
+        db.expire_all()
+        row = db.get(CommunicationOutboxRecord, row_id)
+        processed += 1
         try:
             if row.channel == "email":
                 _send_email(row)
@@ -205,10 +247,20 @@ def process_communication_outbox(
             row.sent_at = datetime.now(UTC)
             sent += 1
         except Exception as exc:
-            row.status = "failed"
+            # An HTTP timeout or worker crash may follow a successful send.
+            # Only known local failures are safe to retry automatically.
+            local_failure = isinstance(exc, RuntimeError) and (
+                "non configuré" in str(exc)
+                or "désactivé" in str(exc)
+                or "incomplète" in str(exc)
+                or "invalide" in str(exc)
+            )
+            row.status = "failed" if local_failure and row.attempts_count < 3 else "needs_review"
             row.last_error = str(exc)[:2000]
             failed += 1
+        row.claim_token = None
+        row.claimed_at = None
         db.add(row)
         db.commit()
 
-    return {"processed": len(rows), "sent": sent, "failed": failed}
+    return {"processed": processed, "sent": sent, "failed": failed}

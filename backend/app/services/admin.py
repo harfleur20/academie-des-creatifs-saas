@@ -1002,6 +1002,7 @@ def start_support_session(
     token = create_access_token(
         actor.id,
         minutes=minutes,
+        session_version=actor.session_version,
         additional_claims={
             "support_session_id": support_session.id,
             "support_org_id": organization.id,

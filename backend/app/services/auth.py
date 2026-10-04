@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -76,10 +76,26 @@ def change_password(
 ) -> UserRecord:
     if not verify_password(current_password, user.password_hash):
         raise ValueError("Mot de passe actuel incorrect.")
-    user.password_hash = hash_password(new_password)
+    db.execute(
+        update(UserRecord)
+        .where(UserRecord.id == user.id)
+        .values(
+            password_hash=hash_password(new_password),
+            session_version=UserRecord.session_version + 1,
+        )
+    )
     db.commit()
     db.refresh(user)
     return user
+
+
+def revoke_user_sessions(db: Session, user: UserRecord) -> None:
+    db.execute(
+        update(UserRecord)
+        .where(UserRecord.id == user.id)
+        .values(session_version=UserRecord.session_version + 1)
+    )
+    db.commit()
 
 
 def update_avatar(

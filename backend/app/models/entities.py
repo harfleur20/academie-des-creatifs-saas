@@ -64,6 +64,7 @@ class UserRecord(TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    session_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     platform_role: Mapped[str] = mapped_column(
         String(32),
@@ -1215,6 +1216,7 @@ class StudentOrderRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     provider_reference: Mapped[str | None] = mapped_column(String(180), nullable=True, unique=True, index=True)
     checkout_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     branding_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    return_origin: Mapped[str | None] = mapped_column(String(512), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["UserRecord"] = relationship()
@@ -1277,6 +1279,8 @@ class CommunicationOutboxRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     branding_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
     attempts_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claim_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

@@ -14,7 +14,8 @@ import {
   listAssignmentComments,
   listStudentAssignments,
   submitStudentAssignment,
-  uploadAssignmentAsset,
+  uploadSubmissionAsset,
+  openAssignmentSubmission,
   type AssignmentComment,
   type StudentAssignment,
 } from '../lib/api'
@@ -58,7 +59,7 @@ export function StudentAssignmentsPage() {
     setUploading(assignment.id)
     setError('')
     try {
-      const asset = await uploadAssignmentAsset(file)
+      const asset = await uploadSubmissionAsset(file)
       const updated = await submitStudentAssignment(
         assignment.id,
         asset.public_url,
@@ -153,15 +154,14 @@ export function StudentAssignmentsPage() {
                 )}
 
                 {assignment.file_url && (
-                  <a
+                  <button
                     className="secondary-button compact-action"
-                    href={assignment.file_url}
-                    target="_blank"
-                    rel="noreferrer"
+                    type="button"
+                    onClick={() => void openAssignmentSubmission(assignment.file_url!).catch((cause) => setError(cause instanceof Error ? cause.message : 'Téléchargement impossible.'))}
                   >
                     <ExternalLink size={14} />
                     Voir ma remise
-                  </a>
+                  </button>
                 )}
 
                 {canSubmit && (

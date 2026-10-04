@@ -3,6 +3,7 @@ import { ExternalLink, FileText } from 'lucide-react'
 import {
   ApiError,
   listStudentResources,
+  openTeacherResource,
   type AcademicResource,
 } from '../lib/api'
 
@@ -35,9 +36,9 @@ export function StudentResourcesPage() {
               <h3>{item.title}</h3>
               <small>{item.formation_title} · {item.session_label} · Prof. {item.teacher_name || '—'}</small>
             </div>
-            <a className="primary-button compact-action" href={item.url} target="_blank" rel="noreferrer">
+            <button className="primary-button compact-action" type="button" onClick={() => void openTeacherResource(item.url).catch((cause) => setError(cause instanceof Error ? cause.message : 'Téléchargement impossible.'))}>
               <ExternalLink size={13} /> Ouvrir
-            </a>
+            </button>
           </article>
         ))}
         {items.length === 0 && <div className="app-card formation-empty"><FileText size={26}/><strong>Aucune ressource publiée</strong><p>Les supports de vos professeurs apparaîtront ici.</p></div>}

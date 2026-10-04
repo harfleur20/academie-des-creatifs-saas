@@ -4,6 +4,7 @@ import {
   Route,
   Routes,
 } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { TenantProvider, useTenant } from './app/TenantContext'
 import { AppLayout } from './app/AppLayout'
@@ -14,28 +15,28 @@ import { LoginPage } from './pages/LoginPage'
 import { InvitationAcceptPage } from './pages/InvitationAcceptPage'
 import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
 import { TeamPage } from './pages/TeamPage'
-import { SchoolSettingsPage } from './pages/SchoolSettingsPage'
-import { BillingPage } from './pages/BillingPage'
+const SchoolSettingsPage = lazy(() => import('./pages/SchoolSettingsPage').then((module) => ({ default: module.SchoolSettingsPage })))
+const BillingPage = lazy(() => import('./pages/BillingPage').then((module) => ({ default: module.BillingPage })))
 import { AdminLayout } from './admin/AdminLayout'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminSchoolsPage } from './pages/AdminSchoolsPage'
-import { AdminSchoolDetailPage } from './pages/AdminSchoolDetailPage'
-import { AdminPlansPage } from './pages/AdminPlansPage'
+const AdminSchoolDetailPage = lazy(() => import('./pages/AdminSchoolDetailPage').then((module) => ({ default: module.AdminSchoolDetailPage })))
+const AdminPlansPage = lazy(() => import('./pages/AdminPlansPage').then((module) => ({ default: module.AdminPlansPage })))
 import { OnboardingPage } from './pages/OnboardingPage'
 import { FormationsManagementPage } from './pages/FormationsManagementPage'
-import { FormationWorkspacePage } from './pages/FormationWorkspacePage'
+const FormationWorkspacePage = lazy(() => import('./pages/FormationWorkspacePage').then((module) => ({ default: module.FormationWorkspacePage })))
 import { TeacherDashboardPage } from './pages/TeacherDashboardPage'
 import { StudentDashboardPage } from './pages/StudentDashboardPage'
 import { TeacherSessionPlanningPage } from './pages/TeacherSessionPlanningPage'
 import { StudentSessionPlanningPage } from './pages/StudentSessionPlanningPage'
-import { TeacherAssignmentsPage } from './pages/TeacherAssignmentsPage'
-import { StudentAssignmentsPage } from './pages/StudentAssignmentsPage'
+const TeacherAssignmentsPage = lazy(() => import('./pages/TeacherAssignmentsPage').then((module) => ({ default: module.TeacherAssignmentsPage })))
+const StudentAssignmentsPage = lazy(() => import('./pages/StudentAssignmentsPage').then((module) => ({ default: module.StudentAssignmentsPage })))
 import { TeacherResourcesPage } from './pages/TeacherResourcesPage'
 import { StudentResourcesPage } from './pages/StudentResourcesPage'
-import { TeacherQuizzesPage } from './pages/TeacherQuizzesPage'
-import { StudentQuizzesPage } from './pages/StudentQuizzesPage'
-import { TeacherCoursesPage } from './pages/TeacherCoursesPage'
-import { StudentCoursesPage } from './pages/StudentCoursesPage'
+const TeacherQuizzesPage = lazy(() => import('./pages/TeacherQuizzesPage').then((module) => ({ default: module.TeacherQuizzesPage })))
+const StudentQuizzesPage = lazy(() => import('./pages/StudentQuizzesPage').then((module) => ({ default: module.StudentQuizzesPage })))
+const TeacherCoursesPage = lazy(() => import('./pages/TeacherCoursesPage').then((module) => ({ default: module.TeacherCoursesPage })))
+const StudentCoursesPage = lazy(() => import('./pages/StudentCoursesPage').then((module) => ({ default: module.StudentCoursesPage })))
 import { TeacherAttendancePage } from './pages/TeacherAttendancePage'
 import { TeacherPerformancePage } from './pages/TeacherPerformancePage'
 import { TeacherStudentsPage } from './pages/TeacherStudentsPage'
@@ -45,23 +46,24 @@ import { StudentClassPage } from './pages/StudentClassPage'
 import { StudentCertificatesPage } from './pages/StudentCertificatesPage'
 import { StudentPlanningPage } from './pages/StudentPlanningPage'
 import { CertificateVerifyPage } from './pages/CertificateVerifyPage'
-import { SchoolPublicSitePage } from './pages/SchoolPublicSitePage'
+const SchoolPublicSitePage = lazy(() => import('./pages/SchoolPublicSitePage').then((module) => ({ default: module.SchoolPublicSitePage })))
 import { StudentsManagementPage } from './pages/StudentsManagementPage'
 import { TeachersManagementPage } from './pages/TeachersManagementPage'
-import { CommerceDashboardPage } from './pages/CommerceDashboardPage'
+const CommerceDashboardPage = lazy(() => import('./pages/CommerceDashboardPage').then((module) => ({ default: module.CommerceDashboardPage })))
 import { PromotionsPage } from './pages/PromotionsPage'
-import { PedagogicalMonitoringPage } from './pages/PedagogicalMonitoringPage'
-import { SchoolPerformancePage } from './pages/SchoolPerformancePage'
+const PedagogicalMonitoringPage = lazy(() => import('./pages/PedagogicalMonitoringPage').then((module) => ({ default: module.PedagogicalMonitoringPage })))
+const SchoolPerformancePage = lazy(() => import('./pages/SchoolPerformancePage').then((module) => ({ default: module.SchoolPerformancePage })))
 import { StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
 import { SchoolPublicLayout } from './public/SchoolPublicLayout'
 import { HostSchoolRedirect } from './public/HostSchoolRedirect'
+import { SchoolWorkspaceEntry } from './public/SchoolWorkspaceEntry'
 import { SchoolHomePage } from './pages/SchoolHomePage'
 import { SchoolFormationsPage } from './pages/SchoolFormationsPage'
 import { SchoolFormationDetailPage } from './pages/SchoolFormationDetailPage'
 import { SchoolContactPage } from './pages/SchoolContactPage'
 import { SchoolLegalPage } from './pages/SchoolLegalPage'
-import { SchoolCartPage } from './pages/SchoolCartPage'
-import { SchoolCheckoutPage } from './pages/SchoolCheckoutPage'
+const SchoolCheckoutPage = lazy(() => import('./pages/SchoolCheckoutPage').then((module) => ({ default: module.SchoolCheckoutPage })))
+const StudentPaymentsPage = lazy(() => import('./pages/StudentPaymentsPage').then((module) => ({ default: module.StudentPaymentsPage })))
 import type { WorkspaceSpace } from './lib/api'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
@@ -163,6 +165,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <TenantProvider>
+          <Suspense fallback={<div className="app-loading">Chargement…</div>}>
           <Routes>
             <Route path="/" element={<HostSchoolRedirect fallback={<LandingPage />} />} />
             <Route path="/formations" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
@@ -170,6 +173,7 @@ export default function App() {
             <Route path="/contact" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/panier" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/checkout" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/espace" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/mentions-legales" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/cgv" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/confidentialite" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
@@ -182,8 +186,9 @@ export default function App() {
               <Route path="formations" element={<SchoolFormationsPage />} />
               <Route path="formations/:formationSlug" element={<SchoolFormationDetailPage />} />
               <Route path="contact" element={<SchoolContactPage />} />
-              <Route path="panier" element={<SchoolCartPage />} />
+              <Route path="panier" element={<SchoolHomePage />} />
               <Route path="checkout" element={<SchoolCheckoutPage />} />
+              <Route path="espace" element={<SchoolWorkspaceEntry />} />
               <Route path="mentions-legales" element={<SchoolLegalPage />} />
               <Route path="cgv" element={<SchoolLegalPage />} />
               <Route path="confidentialite" element={<SchoolLegalPage />} />
@@ -270,6 +275,7 @@ export default function App() {
               <Route path="progress" element={<StudentProgressPage />} />
               <Route path="class" element={<StudentClassPage />} />
               <Route path="certificates" element={<StudentCertificatesPage />} />
+              <Route path="payments" element={<StudentPaymentsPage />} />
               <Route path="profile" element={<StudentProfilePage />} />
             </Route>
 
@@ -296,6 +302,7 @@ export default function App() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </TenantProvider>
       </AuthProvider>
     </BrowserRouter>

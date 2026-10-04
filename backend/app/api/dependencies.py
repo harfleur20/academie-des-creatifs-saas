@@ -68,6 +68,11 @@ def get_authenticated_session(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Compte introuvable ou inactif.",
         )
+    if type(payload.get("session_version")) is not int or payload["session_version"] != user.session_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expirée ou révoquée.",
+        )
 
     raw_support_session_id = payload.get("support_session_id")
     raw_support_org_id = payload.get("support_org_id")

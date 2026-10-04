@@ -1,12 +1,17 @@
-import { useEffect, useState, type CSSProperties } from 'react'
-import { Menu, ShoppingBag, X } from 'lucide-react'
-import { Link, NavLink, Outlet, useOutletContext, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { Menu, ShoppingBag, UserRound, X } from 'lucide-react'
+import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
+import { useTenant } from '../app/TenantContext'
 import { BrandLogo } from '../brand/BrandLogo'
+import { SchoolLogo } from '../brand/SchoolLogo'
 import { getPublicSchoolIdentity, type PublicSchool } from '../lib/api'
-import { getSchoolCart } from './schoolCart'
+import { clearSchoolCart, getSchoolCart, type SchoolCartItem } from './schoolCart'
+import { SchoolCartDrawer } from './SchoolCartDrawer'
 
 export type SchoolPublicOutlet = {
   school: PublicSchool
+  openCart: () => void
 }
 
 export function usePublicSchool() {
@@ -15,14 +20,35 @@ export function usePublicSchool() {
 
 export function SchoolPublicLayout() {
   const { schoolSlug = '' } = useParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { user, signOut } = useAuth()
+  const { organizations, selectOrganization } = useTenant()
   const [school, setSchool] = useState<PublicSchool | null>(null)
   const [error, setError] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
-  const [hasCart, setHasCart] = useState(Boolean(getSchoolCart(schoolSlug)))
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [cartOpen, setCartOpen] = useState(false)
+  const [cartItem, setCartItem] = useState<SchoolCartItem | null>(() => getSchoolCart(schoolSlug))
 
   useEffect(() => {
+    let active = true
+    const previousTitle = document.title
+    const previousIcon = document.querySelector<HTMLLinkElement>("link[rel~='icon']")
+    const previousIconHref = previousIcon?.href
+    const previousMeta = [
+      'meta[name="description"]',
+      'meta[property="og:title"]',
+      'meta[property="og:description"]',
+    ].map((selector) => {
+      const element = document.head.querySelector<HTMLMetaElement>(selector)
+      return { selector, element, content: element?.content }
+    })
+    setSchool(null)
+    setError('')
     getPublicSchoolIdentity(schoolSlug)
       .then((value) => {
+        if (!active) return
         setSchool(value)
         if (value.favicon_url) {
           let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']")
@@ -34,15 +60,67 @@ export function SchoolPublicLayout() {
           link.href = value.favicon_url
         }
         document.title = value.site_name || value.name
+        const description = value.seo_description || value.tagline || value.site_name
+        const setMeta = (selector: string, attribute: 'name' | 'property', key: string, content: string) => {
+          let meta = document.head.querySelector<HTMLMetaElement>(selector)
+          if (!meta) {
+            meta = document.createElement('meta')
+            meta.setAttribute(attribute, key)
+            document.head.appendChild(meta)
+          }
+          meta.content = content
+        }
+        setMeta('meta[name="description"]', 'name', 'description', description)
+        setMeta('meta[property="og:title"]', 'property', 'og:title', value.site_name || value.name)
+        setMeta('meta[property="og:description"]', 'property', 'og:description', description)
       })
-      .catch(() => setError("Ce site d'école n'est pas disponible."))
+      .catch(() => { if (active) setError("Ce site d'école n'est pas disponible.") })
+    return () => {
+      active = false
+      document.title = previousTitle
+      if (previousIcon) previousIcon.href = previousIconHref || ''
+      else document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
+      previousMeta.forEach(({ selector, element, content }) => {
+        if (element) element.content = content || ''
+        else document.head.querySelector<HTMLMetaElement>(selector)?.remove()
+      })
+    }
   }, [schoolSlug])
 
   useEffect(() => {
-    const handler = () => setHasCart(Boolean(getSchoolCart(schoolSlug)))
+    if (!school) return
+    let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+    const previous = canonical?.href
+    const existing = Boolean(canonical)
+    if (!canonical) {
+      canonical = document.createElement('link')
+      canonical.rel = 'canonical'
+      document.head.appendChild(canonical)
+    }
+    canonical.href = window.location.origin + location.pathname
+    return () => {
+      if (existing) canonical.href = previous || ''
+      else canonical.remove()
+    }
+  }, [school, location.pathname])
+
+  useEffect(() => {
+    const handler = () => setCartItem(getSchoolCart(schoolSlug))
+    handler()
     window.addEventListener('school-cart-changed', handler)
     return () => window.removeEventListener('school-cart-changed', handler)
   }, [schoolSlug])
+
+  useEffect(() => {
+    setCartOpen(location.pathname.endsWith('/panier'))
+    setMenuOpen(false)
+    setAccountOpen(false)
+  }, [location.pathname])
+
+  const closeCart = useCallback(() => {
+    setCartOpen(false)
+    if (location.pathname.endsWith('/panier')) navigate('/school/' + schoolSlug, { replace: true })
+  }, [location.pathname, navigate, schoolSlug])
 
   if (error) return <main className="public-school-state"><h1>Site indisponible</h1><p>{error}</p></main>
   if (!school) return <main className="public-school-state">Chargement…</main>
@@ -54,12 +132,14 @@ export function SchoolPublicLayout() {
     '--school-heading-font': school.font_heading,
     '--school-body-font': school.font_body,
   } as CSSProperties
+  const validCartItem = cartItem?.organization_id === school.organization_id ? cartItem : null
+  const schoolMembership = organizations.find((organization) => organization.id === school.organization_id)
 
   return (
     <div className="public-school-shell" style={style}>
       <header className="public-school-header">
         <Link className="public-school-brand" to={'/school/' + schoolSlug}>
-          <BrandLogo logoUrl={school.logo_url || '/logo_academie_hd.png'} alt={school.site_name} />
+          <SchoolLogo logoUrl={school.logo_url} alt={school.site_name} />
           <strong>{school.site_name || school.name}</strong>
         </Link>
         <button className="public-school-mobile-menu" type="button" onClick={() => setMenuOpen((v) => !v)}>
@@ -71,20 +151,29 @@ export function SchoolPublicLayout() {
           <NavLink to={'/school/' + schoolSlug + '/contact'}>Nous contacter</NavLink>
         </nav>
         <div className="public-school-actions">
-          <Link className="public-school-login" to={'/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug)}>Connexion</Link>
-          <Link className="public-school-cart" to={'/school/' + schoolSlug + '/panier'}>
-            <ShoppingBag size={18}/>{hasCart && <i/>}
-          </Link>
+          {user ? (
+            <div className="public-school-account">
+              <button type="button" className="public-school-login" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}><UserRound size={16} /><span>{user.full_name}</span></button>
+              {accountOpen && <div className="public-school-account-menu">
+                {schoolMembership && <button type="button" onClick={() => { selectOrganization(schoolMembership.id); navigate('/school/' + schoolSlug + '/espace') }}>Mon espace</button>}
+                <button type="button" onClick={() => { signOut(); setAccountOpen(false) }}>Déconnexion</button>
+              </div>}
+            </div>
+          ) : <Link className="public-school-login" to={'/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')}>Connexion</Link>}
+          <button className="public-school-cart" type="button" aria-label="Ouvrir le panier" aria-expanded={cartOpen} onClick={() => setCartOpen(true)}>
+            <ShoppingBag size={18}/>{validCartItem && <i/>}
+          </button>
         </div>
       </header>
 
-      <Outlet context={{ school }} />
+      <Outlet context={{ school, openCart: () => setCartOpen(true) }} />
+      <SchoolCartDrawer open={cartOpen} item={validCartItem} schoolSlug={schoolSlug} onClose={closeCart} onClear={() => clearSchoolCart(schoolSlug)} />
 
       <footer className="public-school-footer">
         <div className="public-school-footer-grid">
           <div>
             <div className="public-school-footer-brand">
-              <BrandLogo logoUrl={school.logo_url || '/logo_academie_hd.png'} alt={school.site_name} />
+              <SchoolLogo logoUrl={school.logo_url} alt={school.site_name} />
               <strong>{school.site_name || school.name}</strong>
             </div>
             <p>{school.footer_text || school.tagline}</p>

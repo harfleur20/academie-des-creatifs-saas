@@ -84,6 +84,10 @@ class Settings:
         0,
         int(os.getenv("COMMERCE_GRACE_PERIOD_DAYS", "7")),
     )
+    commerce_reservation_minutes: int = max(
+        1,
+        int(os.getenv("COMMERCE_RESERVATION_MINUTES", "30")),
+    )
     billing_cron_secret: str = os.getenv(
         "BILLING_CRON_SECRET",
         "",
@@ -136,6 +140,7 @@ class Settings:
     storage_provider: str = os.getenv("STORAGE_PROVIDER", "local").strip().lower()
     r2_endpoint_url: str = os.getenv("R2_ENDPOINT_URL", "").rstrip("/")
     r2_bucket_name: str = os.getenv("R2_BUCKET_NAME", "").strip()
+    r2_private_bucket_name: str = os.getenv("R2_PRIVATE_BUCKET_NAME", "").strip()
     r2_access_key_id: str = os.getenv("R2_ACCESS_KEY_ID", "").strip()
     r2_secret_access_key: str = os.getenv("R2_SECRET_ACCESS_KEY", "").strip()
     r2_public_base_url: str = os.getenv("R2_PUBLIC_BASE_URL", "").rstrip("/")
@@ -164,6 +169,13 @@ class Settings:
             and self.tara_business_id
             and self.tara_webhook_secret
         )
+
+    def validate_production_security(self) -> None:
+        if self.environment == "production" and (
+            len(self.jwt_secret_key.strip()) < 32
+            or self.jwt_secret_key == "academie-saas-development-secret-change-me"
+        ):
+            raise RuntimeError("JWT_SECRET_KEY doit être un secret unique d'au moins 32 caractères en production.")
 
 
 settings = Settings()

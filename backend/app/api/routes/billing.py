@@ -260,7 +260,6 @@ async def tara_webhook(
 
     authenticated = verify_webhook_authentication(raw_body, request.headers)
     product_id = payload.get("productId") or payload.get("product_id")
-    business_id = payload.get("businessId")
 
     if not isinstance(product_id, str) or not product_id.startswith("SAAS-"):
         raise HTTPException(
@@ -268,7 +267,7 @@ async def tara_webhook(
             detail="Référence TaraMoney invalide.",
         )
 
-    if not authenticated and business_id != settings.tara_business_id:
+    if not authenticated:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Notification TaraMoney non vérifiable.",

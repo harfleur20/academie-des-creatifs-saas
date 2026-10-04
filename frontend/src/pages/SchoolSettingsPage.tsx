@@ -1,8 +1,8 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { CheckCircle2, Copy, Globe2, Palette, RotateCcw, Save, Trash2 } from 'lucide-react'
 import { useTenant } from '../app/TenantContext'
-import { BrandLogo } from '../brand/BrandLogo'
-import { DEFAULT_BRAND_COLORS, resolveBrandLogo } from '../brand/branding'
+import { SchoolLogo } from '../brand/SchoolLogo'
+import { DEFAULT_BRAND_COLORS } from '../brand/branding'
 import {
   ApiError,
   createOrganizationDomain,
@@ -269,11 +269,11 @@ export function SchoolSettingsPage() {
               } as CSSProperties}
             >
               <div className="brand-preview-sidebar">
-                <BrandLogo logoUrl={resolveBrandLogo(logoUrl)} alt={name} />
+                <SchoolLogo logoUrl={logoUrl} alt={name} />
               </div>
               <div className="brand-preview-body">
                 <span className="brand-preview-chip"><Palette size={13} /> Aperçu</span>
-                <BrandLogo logoUrl={resolveBrandLogo(logoUrl)} alt={name} className="brand-preview-logo" />
+                <SchoolLogo logoUrl={logoUrl} alt={name} className="brand-preview-logo" />
                 <strong>{name || 'Votre école'}</strong>
                 <small>Votre espace, votre identité.</small>
                 <button type="button">Bouton principal</button>

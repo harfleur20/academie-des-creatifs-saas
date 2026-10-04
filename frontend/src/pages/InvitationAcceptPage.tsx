@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { ArrowRight, CheckCircle2, Mail, ShieldCheck } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { BrandLogo } from '../brand/BrandLogo'
+import { SchoolLogo } from '../brand/SchoolLogo'
 import {
   ApiError,
   acceptOrganizationInvitation,
@@ -69,7 +69,7 @@ export function InvitationAcceptPage() {
   return (
     <main className="invitation-page" style={style}>
       <section className="invitation-card">
-        <BrandLogo
+        <SchoolLogo
           logoUrl={preview?.logo_url}
           alt={preview?.organization_name || 'École'}
           className="invitation-school-logo"

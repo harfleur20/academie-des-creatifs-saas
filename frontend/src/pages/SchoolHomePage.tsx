@@ -9,10 +9,17 @@ export function SchoolHomePage() {
   const { schoolSlug = '' } = useParams()
   const { school } = usePublicSchool()
   const [formations, setFormations] = useState<PublicFormationCard[]>([])
+  const [loadError, setLoadError] = useState('')
+  const [retry, setRetry] = useState(0)
 
   useEffect(() => {
-    getPublicSchoolHome(schoolSlug).then((data) => setFormations(data.featured_formations))
-  }, [schoolSlug])
+    let active = true
+    setLoadError('')
+    getPublicSchoolHome(schoolSlug)
+      .then((data) => { if (active) setFormations(data.featured_formations) })
+      .catch(() => { if (active) setLoadError('Impossible de charger les formations à la une.') })
+    return () => { active = false }
+  }, [schoolSlug, retry])
 
   return <main>
     <section className="school-hero" style={school.hero_image_url ? { backgroundImage: 'linear-gradient(90deg, rgba(8,22,43,.82), rgba(8,22,43,.32)), url(' + school.hero_image_url + ')' } : undefined}>
@@ -34,6 +41,7 @@ export function SchoolHomePage() {
       <div className="school-formation-grid">
         {formations.map((formation) => <FormationCard key={formation.id} schoolSlug={schoolSlug} formation={formation}/>)}
       </div>
+      {loadError && <div className="school-empty">{loadError} <button type="button" onClick={() => setRetry((value) => value + 1)}>Réessayer</button></div>}
     </section>
   </main>
 }

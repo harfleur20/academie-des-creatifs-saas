@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Building2, ChevronRight, Search } from 'lucide-react'
+import { ChevronRight, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { BrandLogo } from '../brand/BrandLogo'
+import { SchoolLogo } from '../brand/SchoolLogo'
 import {
   ApiError,
   listAdminOrganizations,
@@ -94,13 +94,7 @@ export function AdminSchoolsPage() {
         {filtered.map((school) => (
           <div className="admin-school-row" key={school.id}>
             <div className="admin-school-name">
-              <span className="admin-school-logo">
-                {school.logo_url ? (
-                  <BrandLogo logoUrl={school.logo_url} alt={school.name} />
-                ) : (
-                  <Building2 size={17} />
-                )}
-              </span>
+              <SchoolLogo logoUrl={school.logo_url} alt={school.name} className="admin-school-logo" />
               <span>
                 <strong>{school.name}</strong>
                 <small>

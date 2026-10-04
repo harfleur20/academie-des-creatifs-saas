@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.entities import AssignmentCommentRecord, AssignmentRecord, AssignmentSubmissionRecord, EnrollmentRecord, FormationRecord, FormationSessionRecord, GradeRecord, SessionCourseDayRecord, SessionTeacherRecord, UserRecord
 from app.schemas.assignments import *
 from app.services.grades import upsert_grade
+from app.services.assets import validate_submission_asset
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.tenancy import TenantContext
 
@@ -81,6 +82,7 @@ def submit_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentSubmit
     if not e: raise HTTPException(403,"Vous n'êtes pas inscrit à cette session.")
     now=datetime.now(UTC)
     if _utc(now)>_utc(a.due_date): raise HTTPException(400,"La date limite de remise est dépassée.")
+    validate_submission_asset(p.file_url, tenant.organization_id, tenant.user.id)
     sub=db.scalar(select(AssignmentSubmissionRecord).where(AssignmentSubmissionRecord.organization_id==tenant.organization_id,AssignmentSubmissionRecord.assignment_id==aid,AssignmentSubmissionRecord.enrollment_id==e.id))
     if sub:
         sub.file_url=p.file_url; sub.submitted_at=now; sub.is_reviewed=False; sub.review_score=None; sub.review_max_score=20

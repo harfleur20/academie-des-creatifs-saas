@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   ArrowLeft,
-  Building2,
   CalendarPlus,
   CheckCircle2,
   Gift,
@@ -10,7 +9,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { BrandLogo } from '../brand/BrandLogo'
+import { SchoolLogo } from '../brand/SchoolLogo'
 import {
   ApiError,
   cancelAdminCommercialAccess,
@@ -243,13 +242,7 @@ export function AdminSchoolDetailPage() {
 
       <header className="admin-school-detail-header">
         <div className="admin-school-detail-title">
-          <span className="admin-school-detail-logo">
-            {school.logo_url ? (
-              <BrandLogo logoUrl={school.logo_url} alt={school.name} />
-            ) : (
-              <Building2 size={24} />
-            )}
-          </span>
+          <SchoolLogo logoUrl={school.logo_url} alt={school.name} className="admin-school-detail-logo" />
           <div>
             <span className="page-kicker">École cliente</span>
             <h1>{school.name}</h1>

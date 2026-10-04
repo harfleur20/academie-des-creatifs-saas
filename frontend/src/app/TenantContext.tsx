@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -24,6 +25,7 @@ type TenantContextValue = {
   accessProfile: OrganizationAccessProfile | null
   loading: boolean
   profileLoading: boolean
+  profileError: string
   refreshOrganizations: () => Promise<void>
   refreshAccessProfile: () => Promise<void>
   selectOrganization: (id: number) => void
@@ -38,12 +40,17 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [accessProfile, setAccessProfile] = useState<OrganizationAccessProfile | null>(null)
   const [loading, setLoading] = useState(false)
   const [profileLoading, setProfileLoading] = useState(false)
+  const [profileError, setProfileError] = useState('')
+  const profileRequest = useRef(0)
+  const organizationsRequest = useRef(0)
 
   const refreshOrganizations = useCallback(async () => {
+    const requestId = ++organizationsRequest.current
     if (!user) {
       setOrganizations([])
       setActiveOrganization(null)
       setAccessProfile(null)
+      setLoading(false)
       return
     }
 
@@ -52,12 +59,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       if (supportMode) {
         setStoredOrganizationId(supportMode.organization_id)
         const organization = await getCurrentOrganization()
-        setOrganizations([organization])
-        setActiveOrganization(organization)
+        if (organizationsRequest.current === requestId) {
+          setOrganizations([organization])
+          setActiveOrganization(organization)
+        }
         return
       }
 
       const items = await listOrganizations()
+      if (organizationsRequest.current !== requestId) return
       setOrganizations(items)
 
       const storedId = getStoredOrganizationId()
@@ -69,22 +79,32 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setActiveOrganization(selected)
       setStoredOrganizationId(selected?.id ?? null)
     } finally {
-      setLoading(false)
+      if (organizationsRequest.current === requestId) setLoading(false)
     }
   }, [user, supportMode?.organization_id])
 
   const refreshAccessProfile = useCallback(async () => {
+    const requestId = ++profileRequest.current
     if (!user || !activeOrganization) {
       setAccessProfile(null)
+      setProfileLoading(false)
+      setProfileError('')
       return
     }
     setProfileLoading(true)
+    setProfileError('')
     try {
-      setAccessProfile(await getOrganizationAccessProfile())
-    } catch {
-      setAccessProfile(null)
+      const profile = await getOrganizationAccessProfile()
+      if (profileRequest.current === requestId && profile.organization_id === activeOrganization.id) {
+        setAccessProfile(profile)
+      }
+    } catch (error) {
+      if (profileRequest.current === requestId) {
+        setAccessProfile(null)
+        setProfileError(error instanceof Error ? error.message : 'Impossible de charger vos accès.')
+      }
     } finally {
-      setProfileLoading(false)
+      if (profileRequest.current === requestId) setProfileLoading(false)
     }
   }, [user, activeOrganization?.id])
 
@@ -101,11 +121,24 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       if (supportMode) return
       const selected = organizations.find((item) => item.id === id)
       if (!selected) return
+      if (activeOrganization?.id === id) {
+        if (!accessProfile && !profileLoading) void refreshAccessProfile()
+        return
+      }
+      profileRequest.current += 1
       setAccessProfile(null)
+      setProfileError('')
       setActiveOrganization(selected)
       setStoredOrganizationId(selected.id)
     },
-    [organizations, supportMode],
+    [
+      organizations,
+      supportMode,
+      activeOrganization?.id,
+      accessProfile,
+      profileLoading,
+      refreshAccessProfile,
+    ],
   )
 
   const value = useMemo(
@@ -115,6 +148,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       accessProfile,
       loading,
       profileLoading,
+      profileError,
       refreshOrganizations,
       refreshAccessProfile,
       selectOrganization,
@@ -125,6 +159,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       accessProfile,
       loading,
       profileLoading,
+      profileError,
       refreshOrganizations,
       refreshAccessProfile,
       selectOrganization,

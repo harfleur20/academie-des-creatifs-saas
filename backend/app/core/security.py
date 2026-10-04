@@ -33,6 +33,7 @@ def create_access_token(
     user_id: int,
     *,
     minutes: int = 60,
+    session_version: int | None = None,
     additional_claims: dict[str, object] | None = None,
 ) -> str:
     now = utc_now()
@@ -43,8 +44,10 @@ def create_access_token(
         "exp": int((now + timedelta(minutes=minutes)).timestamp()),
         "type": "access",
     }
+    if session_version is not None:
+        payload["session_version"] = session_version
     if additional_claims:
-        protected = {"sub", "iss", "iat", "exp", "type"}
+        protected = {"sub", "iss", "iat", "exp", "type", "session_version"}
         if protected.intersection(additional_claims):
             raise ValueError("additional_claims cannot override protected JWT claims")
         payload.update(additional_claims)

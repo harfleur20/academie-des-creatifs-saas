@@ -118,27 +118,29 @@ export class ApiError extends Error {
 }
 
 export function getAccessToken() {
-  return localStorage.getItem(TOKEN_KEY)
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(ORIGINAL_ADMIN_TOKEN_KEY)
+  return sessionStorage.getItem(TOKEN_KEY)
 }
 
 export function setAccessToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token)
+  sessionStorage.setItem(TOKEN_KEY, token)
 }
 
 function restoreOriginalAdminSession() {
-  const originalToken = localStorage.getItem(ORIGINAL_ADMIN_TOKEN_KEY)
+  const originalToken = sessionStorage.getItem(ORIGINAL_ADMIN_TOKEN_KEY)
   if (originalToken) {
-    localStorage.setItem(TOKEN_KEY, originalToken)
+    sessionStorage.setItem(TOKEN_KEY, originalToken)
   } else {
-    localStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(TOKEN_KEY)
   }
-  localStorage.removeItem(ORIGINAL_ADMIN_TOKEN_KEY)
-  localStorage.removeItem(SUPPORT_MODE_KEY)
+  sessionStorage.removeItem(ORIGINAL_ADMIN_TOKEN_KEY)
+  sessionStorage.removeItem(SUPPORT_MODE_KEY)
   localStorage.removeItem(ORGANIZATION_KEY)
 }
 
 export function getSupportMode(): SupportModeState | null {
-  const raw = localStorage.getItem(SUPPORT_MODE_KEY)
+  const raw = sessionStorage.getItem(SUPPORT_MODE_KEY)
   if (!raw) return null
 
   try {
@@ -165,11 +167,16 @@ export function getSupportMode(): SupportModeState | null {
 }
 
 export function clearSession() {
+  sessionStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(ORGANIZATION_KEY)
+  sessionStorage.removeItem(SUPPORT_MODE_KEY)
+  sessionStorage.removeItem(ORIGINAL_ADMIN_TOKEN_KEY)
   localStorage.removeItem(SUPPORT_MODE_KEY)
   localStorage.removeItem(ORIGINAL_ADMIN_TOKEN_KEY)
 }
+
+export const logoutSession = () => request<void>('/auth/logout', { method: 'POST', organizationId: null, keepalive: true })
 
 export function getStoredOrganizationId(): number | null {
   const raw = localStorage.getItem(ORGANIZATION_KEY)
@@ -215,7 +222,7 @@ async function request<T>(
   })
 
   if (!response.ok) {
-    let message = 'Une erreur est survenue.'
+    let message = `La requête a échoué (HTTP ${response.status}).`
     try {
       const body = await response.json()
       if (typeof body?.detail === 'string') message = body.detail
@@ -255,7 +262,7 @@ async function requestBlob(
   })
 
   if (!response.ok) {
-    let message = 'Téléchargement impossible.'
+    let message = `Le téléchargement a échoué (HTTP ${response.status}).`
     try {
       const body = await response.json()
       if (typeof body?.detail === 'string') message = body.detail
@@ -895,10 +902,10 @@ export async function startAdminSupportMode(
     },
   )
 
-  localStorage.setItem(ORIGINAL_ADMIN_TOKEN_KEY, adminToken)
+  sessionStorage.setItem(ORIGINAL_ADMIN_TOKEN_KEY, adminToken)
   setAccessToken(response.access_token)
   setStoredOrganizationId(response.organization_id)
-  localStorage.setItem(
+  sessionStorage.setItem(
     SUPPORT_MODE_KEY,
     JSON.stringify({
       session_id: response.session_id,
@@ -1463,6 +1470,53 @@ export async function uploadAssignmentAsset(file: File) {
     method: 'POST',
     body: form,
   })
+}
+
+export async function uploadSubmissionAsset(file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return request<{ filename: string; public_url: string; size: number; content_type: string }>(
+    '/assignments/submission-assets',
+    { method: 'POST', body },
+  )
+}
+
+export async function openAssignmentSubmission(url: string) {
+  const parsed = new URL(url, window.location.origin)
+  const marker = '/assignments/submission-assets/'
+  const index = parsed.pathname.indexOf(marker)
+  const legacyMatch = parsed.pathname.match(/\/schools\/\d+\/assignments\/([a-f0-9]{32}\.[a-z0-9]+)$/)
+  const legacyPrivateMatch = parsed.pathname.match(/\/assignments\/legacy-submissions\/([a-f0-9]{32}\.[a-z0-9]+)$/)
+  if (index < 0 && !legacyMatch && !legacyPrivateMatch) {
+    window.open(url, '_blank', 'noopener,noreferrer')
+    return
+  }
+  const path = index >= 0 ? parsed.pathname.slice(index) : '/assignments/legacy-submissions/' + (legacyMatch || legacyPrivateMatch)![1]
+  const blob = await requestBlob(path)
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = parsed.pathname.split('/').pop() || 'devoir'
+  link.click()
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+}
+
+export async function openTeacherResource(url: string) {
+  const parsed = new URL(url, window.location.origin)
+  const privateMatch = parsed.pathname.match(/\/assignments\/resource-assets\/([a-f0-9]{32}\.[a-z0-9]+)$/)
+  const legacyMatch = parsed.pathname.match(/\/schools\/\d+\/assignments\/([a-f0-9]{32}\.[a-z0-9]+)$/)
+  const filename = privateMatch?.[1] || legacyMatch?.[1]
+  if (!filename) {
+    window.open(url, '_blank', 'noopener,noreferrer')
+    return
+  }
+  const blob = await requestBlob('/assignments/resource-assets/' + filename)
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = filename
+  link.click()
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
 }
 
 
@@ -2159,6 +2213,7 @@ export type OrderInstallment = {
   due_at: string
   grace_until: string
   status: string
+  provider_reference: string | null
   checkout_url: string | null
   paid_at: string | null
 }
@@ -2210,9 +2265,21 @@ export const getPublicOrder = (schoolKey: string, orderId: number) =>
     { organizationId: null },
   )
 
-export const confirmPublicDemoCheckout = (schoolKey: string, orderId: number) =>
+export const cancelPublicOrder = (schoolKey: string, orderId: number) =>
   request<Checkout>(
-    '/commerce/public/' + encodeURIComponent(schoolKey) + '/orders/' + orderId + '/demo-confirm',
+    '/commerce/public/' + encodeURIComponent(schoolKey) + '/orders/' + orderId + '/cancel',
+    { method: 'POST', organizationId: null },
+  )
+
+export const listPublicOrders = (schoolKey: string) =>
+  request<SchoolOrder[]>(
+    '/commerce/public/' + encodeURIComponent(schoolKey) + '/orders',
+    { organizationId: null },
+  )
+
+export const confirmPublicDemoCheckout = (schoolKey: string, orderId: number, paymentRef?: string | null) =>
+  request<Checkout>(
+    '/commerce/public/' + encodeURIComponent(schoolKey) + '/orders/' + orderId + '/demo-confirm' + (paymentRef ? '?payment_ref=' + encodeURIComponent(paymentRef) : ''),
     { method: 'POST', organizationId: null },
   )
 
@@ -2251,24 +2318,43 @@ export type ManagedStudent = {
   status: string
   active_enrollments: number
   completed_enrollments: number
-  total_paid_cents: number
-  outstanding_cents: number
+  totals_by_currency: {
+    currency: string
+    gross_sales_cents: number
+    collected_cents: number
+    outstanding_cents: number
+  }[]
   last_purchase_at: string | null
 }
 
 export type CommercialDashboard = {
   order_count: number
   paid_order_count: number
-  gross_sales_cents: number
-  collected_cents: number
-  outstanding_cents: number
+  totals_by_currency: {
+    currency: string
+    gross_sales_cents: number
+    collected_cents: number
+    outstanding_cents: number
+  }[]
   late_installments: number
   active_students: number
-  currency: string
 }
 
 export const getCommercialDashboard = () =>
   request<CommercialDashboard>('/commerce/dashboard')
+export type CommunicationNeedsReview = {
+  id: number
+  channel: string
+  recipient: string
+  event_key: string
+  attempts_count: number
+  last_error: string | null
+  claimed_at: string | null
+}
+export const listCommunicationsNeedingReview = () =>
+  request<CommunicationNeedsReview[]>('/commerce/communications/needs-review')
+export const retryCommunicationAfterReview = (messageId: number) =>
+  request<void>(`/commerce/communications/${messageId}/retry`, { method: 'POST' })
 export const listSchoolOrders = () => request<SchoolOrder[]>('/commerce/orders')
 export const listSchoolInvoices = () => request<SchoolInvoice[]>('/commerce/invoices')
 export const downloadSchoolInvoicePdf = (invoiceId: number) =>

@@ -1,6 +1,6 @@
 import { CalendarDays, CheckCircle2, Clock3, MapPin, ShoppingBag, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { getPublicSchoolFormation, type PublicFormationDetail, type PublicSession } from '../lib/api'
 import { setSchoolCart } from '../public/schoolCart'
 import { formatSchoolDate, formatSchoolMoney } from '../public/publicHelpers'
@@ -8,21 +8,27 @@ import { usePublicSchool } from '../public/SchoolPublicLayout'
 
 export function SchoolFormationDetailPage() {
   const { schoolSlug = '', formationSlug = '' } = useParams()
-  const { school } = usePublicSchool()
-  const navigate=useNavigate()
+  const { school, openCart } = usePublicSchool()
   const [formation,setFormation]=useState<PublicFormationDetail|null>(null)
   const [sessionId,setSessionId]=useState<number|null>(null)
   const [toast,setToast]=useState('')
-  useEffect(()=>{getPublicSchoolFormation(schoolSlug,formationSlug).then((data)=>{setFormation(data);const available=data.sessions.filter((s)=>s.can_purchase);setSessionId(available.length===1?available[0].id:null)})},[schoolSlug,formationSlug])
+  const [error,setError]=useState('')
+  const [retry,setRetry]=useState(0)
+  useEffect(()=>{
+    let active=true
+    setFormation(null);setError('')
+    getPublicSchoolFormation(schoolSlug,formationSlug).then((data)=>{if(!active)return;setFormation(data);const available=data.sessions.filter((s)=>s.can_purchase);setSessionId(available.length===1?available[0].id:null)}).catch(()=>{if(active)setError('Impossible de charger cette formation.')})
+    return ()=>{active=false}
+  },[schoolSlug,formationSlug,retry])
   const selected=useMemo(()=>formation?.sessions.find((s)=>s.id===sessionId)??null,[formation,sessionId])
   function add(){
     if(!formation) return
     const target=selected || (formation.sessions.filter((s)=>s.can_purchase).length===1?formation.sessions.find((s)=>s.can_purchase)??null:null)
     if(!target){setToast('Aucune nouvelle session disponible pour cette formation.');setTimeout(()=>setToast(''),3200);return}
     setSchoolCart(schoolSlug,{organization_id:school.organization_id,formation_id:formation.id,formation_slug:formation.slug,formation_title:formation.title,session_id:target.id,session_label:target.label,price_cents:target.current_price_cents,currency:target.currency,cover_image_url:formation.cover_image_url})
-    navigate('/school/'+schoolSlug+'/panier')
+    openCart()
   }
-  if(!formation)return <main className="school-section"><div className="school-empty">Chargement…</div></main>
+  if(!formation)return <main className="school-section"><div className="school-empty">{error?<>{error} <button type="button" onClick={()=>setRetry((value)=>value+1)}>Réessayer</button></>:'Chargement…'}</div></main>
   const available=formation.sessions.filter((s)=>s.can_purchase)
   return <main className="school-detail-page">
     {toast&&<div className="school-toast">{toast}</div>}

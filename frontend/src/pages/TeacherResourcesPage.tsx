@@ -5,6 +5,7 @@ import {
   createTeacherResource,
   getTeacherWorkspace,
   listTeacherResources,
+  openTeacherResource,
   uploadAssignmentAsset,
   type AcademicResource,
   type TeacherWorkspace,
@@ -143,9 +144,9 @@ export function TeacherResourcesPage() {
                 <h3>{item.title}</h3>
                 <small>Prof. {item.teacher_name || '—'}</small>
               </div>
-              <a className="secondary-button compact-action" href={item.url} target="_blank" rel="noreferrer">
+              <button className="secondary-button compact-action" type="button" onClick={() => void openTeacherResource(item.url).catch((cause) => setError(cause instanceof Error ? cause.message : 'Téléchargement impossible.'))}>
                 <ExternalLink size={13} /> Ouvrir
-              </a>
+              </button>
             </article>
           ))}
           {items.length === 0 && <div className="app-card formation-empty"><Link2 size={26}/><strong>Aucune ressource</strong><p>Publiez le premier support de cette session.</p></div>}

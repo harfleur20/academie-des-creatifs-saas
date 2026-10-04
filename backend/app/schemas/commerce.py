@@ -284,6 +284,7 @@ class InstallmentRead(BaseModel):
     due_at: datetime
     grace_until: datetime
     status: str
+    provider_reference: str | None
     checkout_url: str | None
     paid_at: datetime | None
 
@@ -311,6 +312,13 @@ class InvoiceRead(BaseModel):
     paid_at: datetime | None
 
 
+class CurrencyTotalsRead(BaseModel):
+    currency: str
+    gross_sales_cents: int
+    collected_cents: int
+    outstanding_cents: int
+
+
 class StudentManagementRead(BaseModel):
     user_id: int
     full_name: str
@@ -321,20 +329,16 @@ class StudentManagementRead(BaseModel):
     status: str
     active_enrollments: int
     completed_enrollments: int
-    total_paid_cents: int
-    outstanding_cents: int
+    totals_by_currency: list[CurrencyTotalsRead]
     last_purchase_at: datetime | None
 
 
 class CommercialDashboardRead(BaseModel):
     order_count: int
     paid_order_count: int
-    gross_sales_cents: int
-    collected_cents: int
-    outstanding_cents: int
+    totals_by_currency: list[CurrencyTotalsRead]
     late_installments: int
     active_students: int
-    currency: str
 
 
 class CommunicationOutboxRead(BaseModel):

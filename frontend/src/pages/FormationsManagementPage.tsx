@@ -31,10 +31,34 @@ const formatLabels = {
   presentiel: 'Présentiel',
 }
 
+const suggestedCategories = [
+  'Design & graphisme',
+  'Photo & vidéo',
+  'Animation & motion design',
+  'Communication & marketing',
+  'Développement & numérique',
+  'Musique & audio',
+  'Mode & artisanat',
+  'Entrepreneuriat',
+  'Langues',
+]
+
+const suggestedLevels = [
+  'Tous niveaux',
+  'Initiation',
+  'Débutant',
+  'Intermédiaire',
+  'Avancé',
+  'Expert',
+]
+
+const otherCategoryValue = '__other__'
+
 export function FormationsManagementPage() {
   const [formations, setFormations] = useState<FormationSummary[]>([])
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
+  const [customCategory, setCustomCategory] = useState('')
   const [level, setLevel] = useState('')
   const [formatType, setFormatType] = useState<'live' | 'ligne' | 'presentiel'>('ligne')
   const [trainingHours, setTrainingHours] = useState('')
@@ -64,14 +88,15 @@ export function FormationsManagementPage() {
       await createFormation({
         slug,
         title: title.trim(),
-        category: category.trim(),
-        level: level.trim(),
+        category: category === otherCategoryValue ? customCategory.trim() : category,
+        level,
         format_type: formatType,
         training_hours: trainingHours ? Number(trainingHours) : null,
         description: description.trim(),
       })
       setTitle('')
       setCategory('')
+      setCustomCategory('')
       setLevel('')
       setTrainingHours('')
       setDescription('')
@@ -89,6 +114,28 @@ export function FormationsManagementPage() {
       students: formations.reduce((sum, item) => sum + item.student_count, 0),
       courses: formations.reduce((sum, item) => sum + item.course_count, 0),
     }),
+    [formations],
+  )
+
+  const categoryOptions = useMemo(
+    () => [
+      ...suggestedCategories,
+      ...formations
+        .map((item) => item.category.trim())
+        .filter((item) => item && !suggestedCategories.includes(item))
+        .filter((item, index, items) => items.indexOf(item) === index),
+    ],
+    [formations],
+  )
+
+  const levelOptions = useMemo(
+    () => [
+      ...suggestedLevels,
+      ...formations
+        .map((item) => item.level.trim())
+        .filter((item) => item && !suggestedLevels.includes(item))
+        .filter((item, index, items) => items.indexOf(item) === index),
+    ],
     [formations],
   )
 
@@ -127,12 +174,31 @@ export function FormationsManagementPage() {
           <div className="formation-form-grid">
             <label>
               Catégorie
-              <input value={category} onChange={(e) => setCategory(e.target.value)} maxLength={120} placeholder="Design" />
+              <select value={category} onChange={(e) => setCategory(e.target.value)} required>
+                <option value="" disabled>Choisir une catégorie</option>
+                {categoryOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                <option value={otherCategoryValue}>Autre catégorie…</option>
+              </select>
             </label>
             <label>
               Niveau
-              <input value={level} onChange={(e) => setLevel(e.target.value)} maxLength={120} placeholder="Intermédiaire" />
+              <select value={level} onChange={(e) => setLevel(e.target.value)} required>
+                <option value="" disabled>Choisir un niveau</option>
+                {levelOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
             </label>
+            {category === otherCategoryValue && (
+              <label className="formation-custom-category">
+                Nouvelle catégorie
+                <input
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  maxLength={120}
+                  required
+                  placeholder="Nom de la catégorie"
+                />
+              </label>
+            )}
             <label>
               Format
               <select value={formatType} onChange={(e) => setFormatType(e.target.value as typeof formatType)}>
