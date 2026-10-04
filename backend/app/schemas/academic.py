@@ -118,6 +118,8 @@ class StudentQuizRead(BaseModel):
     can_attempt: bool
     attempts_remaining: int
     next_attempt_available_at: datetime | None = None
+    pdf_reading_pct: float | None = None
+    pdf_reading_locked: bool = False
 
 
 class QuizAttemptPayload(BaseModel):

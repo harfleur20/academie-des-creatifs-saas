@@ -110,7 +110,7 @@ export function StudentQuizzesPage() {
         <div>
           <span className="page-kicker">Espace étudiant</span>
           <h1>Quiz & examens</h1>
-          <p>Trois tentatives maximum par évaluation, avec un délai de 8 h après deux échecs.</p>
+          <p>Les quiz classiques ont trois tentatives, avec un délai de 8 h avant la troisième. Les quiz PDF proposent trois essais par cycle, puis un nouveau cycle après 8 h.</p>
         </div>
       </header>
       {error && <div className="form-error">{error}</div>}
@@ -126,8 +126,10 @@ export function StudentQuizzesPage() {
               <span><Timer size={13}/>{quiz.duration_minutes || '—'} min</span>
               <span>Seuil {quiz.pass_pct}%</span>
               <span>{quiz.attempts_remaining} essai(s) restant(s)</span>
-              {quiz.is_locked && quiz.available_at && <span>Disponible le {new Date(quiz.available_at).toLocaleString('fr-FR')}</span>}
+              {quiz.is_locked && !quiz.pdf_reading_locked && quiz.available_at && <span>Disponible le {new Date(quiz.available_at).toLocaleString('fr-FR')}</span>}
               {quiz.next_attempt_available_at && <span>Réessai le {new Date(quiz.next_attempt_available_at).toLocaleString('fr-FR')}</span>}
+              {quiz.pdf_reading_pct !== null && <span>Lecture du PDF : {quiz.pdf_reading_pct} %</span>}
+              {quiz.pdf_reading_locked && <span>Consultez 80 % du PDF dans votre parcours avant le quiz.</span>}
             </div>
             <div className="student-quiz-actions">
               {quiz.passed ? <span className="assignment-status reviewed"><CheckCircle2 size={13}/>Réussi · {quiz.best_score_pct}%</span> : quiz.best_score_pct !== null ? <span className="assignment-status late"><XCircle size={13}/>Meilleur score {quiz.best_score_pct}%</span> : <span className="assignment-status pending"><Clock3 size={13}/>À faire</span>}

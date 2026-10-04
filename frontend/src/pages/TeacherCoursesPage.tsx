@@ -10,6 +10,7 @@ import {
   listTeacherAssignments,
   listTeacherQuizzes,
   listTeacherResources,
+  uploadLessonPdf,
   type AcademicResource,
   type Assignment,
   type FormationDetail,
@@ -38,6 +39,7 @@ export function TeacherCoursesPage() {
   const [resources, setResources] = useState<AcademicResource[]>([])
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
+  const [uploadingPdf, setUploadingPdf] = useState<number | null>(null)
 
   useEffect(() => {
     getTeacherWorkspace().then((data) => {
@@ -135,6 +137,23 @@ export function TeacherCoursesPage() {
     }))
   }
 
+  async function importPdf(chapterId: number, file: File | undefined) {
+    if (!file) return
+    setUploadingPdf(chapterId)
+    setError('')
+    try {
+      const asset = await uploadLessonPdf(file)
+      setLessonDrafts((current) => ({ ...current, [chapterId]: {
+        ...(current[chapterId] || { title: '', lesson_type: 'pdf', content: '' }),
+        content: asset.source_url,
+      } }))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Import du PDF impossible.')
+    } finally {
+      setUploadingPdf(null)
+    }
+  }
+
   return (
     <main className="app-page academic-page">
       <header className="app-page-header">
@@ -194,13 +213,14 @@ export function TeacherCoursesPage() {
                           <option value="quiz">Quiz</option>
                           <option value="assignment">Devoir</option>
                         </select>
-                        {!['quiz', 'assignment'].includes(draft.lesson_type) && <input value={draft.content} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, content: event.target.value } }))} placeholder={draft.lesson_type === 'text' ? 'Contenu de la leçon' : 'URL du contenu'} />}
+                        {!['quiz', 'assignment', 'pdf'].includes(draft.lesson_type) && <input value={draft.content} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, content: event.target.value } }))} placeholder={draft.lesson_type === 'text' ? 'Contenu de la leçon' : 'URL du contenu'} />}
+                        {draft.lesson_type === 'pdf' && <label>PDF de la leçon <input type="file" accept="application/pdf,.pdf" disabled={uploadingPdf === chapter.id} onChange={(event) => void importPdf(chapter.id, event.target.files?.[0])} />{draft.content && <small>PDF importé dans cette école.</small>}</label>}
                         {['quiz', 'pdf', 'text', 'assignment', 'resource'].includes(draft.lesson_type) && <select aria-label="Activité liée" value={draft.linked_id || ''} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, linked_id: event.target.value } }))}>
                           <option value="">{['quiz', 'assignment'].includes(draft.lesson_type) ? 'Choisir une activité' : 'Aucune activité liée'}</option>
-                          {(['quiz', 'pdf', 'text'].includes(draft.lesson_type) ? quizzes : draft.lesson_type === 'assignment' ? assignments : resources).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+                          {(['quiz', 'pdf', 'text'].includes(draft.lesson_type) ? quizzes.filter((quiz) => draft.lesson_type !== 'pdf' || quiz.questions.length === 20) : draft.lesson_type === 'assignment' ? assignments : resources).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
                         </select>}
                         <label>Disponible à partir du <input type="datetime-local" value={draft.available_at || ''} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, available_at: event.target.value } }))} /></label>
-                        <button className="secondary-button" type="button" disabled={working || draft.title.trim().length < 2 || (['quiz', 'assignment'].includes(draft.lesson_type) && !draft.linked_id)} onClick={() => void addLesson(course.id, chapter.id, chapter.lessons.length)}><Plus size={13}/> Leçon</button>
+                        <button className="secondary-button" type="button" disabled={working || uploadingPdf === chapter.id || draft.title.trim().length < 2 || (['quiz', 'assignment', 'pdf'].includes(draft.lesson_type) && !draft.linked_id) || (draft.lesson_type === 'pdf' && !draft.content.startsWith('school-pdf:'))} onClick={() => void addLesson(course.id, chapter.id, chapter.lessons.length)}><Plus size={13}/> Leçon</button>
                       </div>
                     </section>
                   )

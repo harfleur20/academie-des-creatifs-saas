@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CheckCircle2, ChevronDown, ChevronRight, ExternalLink, PlayCircle } from 'lucide-react'
 import { useTenant } from '../app/TenantContext'
+import { PdfLessonReader } from '../components/PdfLessonReader'
 import { loadVimeoApi, loadYouTubeApi, parseVideoEmbed } from '../lib/videoEmbed'
 import {
   ApiError, completeStudentLesson, listStudentLearning, reportStudentLessonVideoProgress,
@@ -193,6 +194,12 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
 
   function renderLesson(lesson: LearningLesson) {
     if (lesson.lesson_type === 'video' && lesson.video_url) return <TrackedLessonVideo key={lesson.id} lesson={lesson} onUpdated={onUpdated} onError={setError} />
+    if (lesson.lesson_type === 'pdf' && lesson.quiz_id) return <PdfLessonReader key={lesson.id} lesson={lesson} onCompleted={() => {
+      void listStudentLearning().then((rows) => {
+        const updated = rows.find((item) => item.enrollment_id === selectedEnrollmentId)
+        if (updated) onUpdated(updated)
+      }).catch((caught) => setError(caught instanceof ApiError ? caught.message : 'Actualisation impossible.'))
+    }} />
     return <>
       {lesson.content && <div className="student-reader-text">{lesson.content}</div>}
       {lesson.file_url && <a className="primary-button" href={lesson.file_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Ouvrir le document</a>}

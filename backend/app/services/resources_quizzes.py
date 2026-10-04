@@ -39,6 +39,8 @@ from app.services.academic_access import (
 )
 from app.services.grades import upsert_grade
 from app.services.lesson_completion import complete_activity_lessons
+from app.services.pdf_lessons import PDF_READING_PCT, pdf_asset, pdf_lesson_for_quiz, viewed_pct
+from app.models.entities import LessonPdfProgressRecord
 from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, linked_lesson_gate, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.tenancy import TenantContext
@@ -375,18 +377,41 @@ def _student_quiz_view(
         if linked_opening is not None:
             available_at = max(available_at, linked_opening) if available_at else linked_opening
         activity_open = activity_open and linked_available
+    pdf_lesson = pdf_lesson_for_quiz(db, tenant.organization_id, session.id, quiz.id)
+    pdf_reading_pct = None
+    pdf_reading_locked = False
+    if pdf_lesson is not None:
+        asset = pdf_asset(db, tenant.organization_id, pdf_lesson.file_url)
+        progress = db.scalar(select(LessonPdfProgressRecord).where(
+            LessonPdfProgressRecord.organization_id == tenant.organization_id,
+            LessonPdfProgressRecord.enrollment_id == enrollment.id,
+            LessonPdfProgressRecord.lesson_id == pdf_lesson.id,
+        ))
+        pdf_reading_pct = viewed_pct(progress if progress is not None and asset is not None and progress.source_sha == asset.source_sha else None, asset.page_count if asset else 0)
+        pdf_reading_locked = pdf_reading_pct < PDF_READING_PCT
+        activity_open = activity_open and not pdf_reading_locked
     locked = not activity_open or quiz.status != "active"
     next_attempt_available_at = None
-    if not passed and len(attempts) == 2:
+    if not passed and pdf_lesson is not None and attempts and len(attempts) % MAX_QUIZ_ATTEMPTS == 0:
         next_attempt_available_at = current_utc(attempts[-1].submitted_at) + timedelta(hours=QUIZ_RETRY_HOURS)
         if now >= next_attempt_available_at:
             next_attempt_available_at = None
+    elif not passed and pdf_lesson is None and len(attempts) == 2:
+        next_attempt_available_at = current_utc(attempts[-1].submitted_at) + timedelta(hours=QUIZ_RETRY_HOURS)
+        if now >= next_attempt_available_at:
+            next_attempt_available_at = None
+    if passed or next_attempt_available_at is not None:
+        attempts_remaining = 0
+    elif pdf_lesson is not None:
+        attempts_remaining = MAX_QUIZ_ATTEMPTS - len(attempts) % MAX_QUIZ_ATTEMPTS
+    else:
+        attempts_remaining = max(0, MAX_QUIZ_ATTEMPTS - len(attempts))
     can_attempt = (
         quiz.status == "active"
         and scheduled_open
         and activity_open
         and not passed
-        and len(attempts) < MAX_QUIZ_ATTEMPTS
+        and (pdf_lesson is not None or len(attempts) < MAX_QUIZ_ATTEMPTS)
         and next_attempt_available_at is None
     )
     return StudentQuizRead(
@@ -424,8 +449,10 @@ def _student_quiz_view(
         best_score_pct=best,
         passed=passed,
         can_attempt=can_attempt,
-        attempts_remaining=max(0, MAX_QUIZ_ATTEMPTS - len(attempts)),
+        attempts_remaining=attempts_remaining,
         next_attempt_available_at=next_attempt_available_at,
+        pdf_reading_pct=pdf_reading_pct,
+        pdf_reading_locked=pdf_reading_locked,
     )
 
 
@@ -484,6 +511,7 @@ def submit_quiz_attempt(
         raise HTTPException(404, "Évaluation introuvable.")
 
     enrollment = require_student_enrollment(db, tenant, quiz.session_id)
+    db.get(EnrollmentRecord, enrollment.id, populate_existing=True, with_for_update=True)
     view = _student_quiz_view(db, tenant, quiz, enrollment)
     if not view.can_attempt:
         raise HTTPException(409, "Cette évaluation n'accepte pas de nouvelle tentative.")
@@ -512,6 +540,7 @@ def submit_quiz_attempt(
         submitted_at=datetime.now(UTC),
     )
     db.add(row)
+    db.flush()
     if score_pct >= quiz.pass_pct:
         complete_activity_lessons(
             db,

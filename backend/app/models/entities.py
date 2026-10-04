@@ -823,6 +823,32 @@ class LessonRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     chapter: Mapped["ChapterRecord"] = relationship(back_populates="lessons")
 
 
+class LessonPdfAssetRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "lesson_pdf_assets"
+    __table_args__ = (UniqueConstraint("organization_id", "source_url", name="uq_lesson_pdf_asset_url"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    source_sha: Mapped[str] = mapped_column(String(64), nullable=False)
+    page_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    uploaded_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+
+class LessonPdfProgressRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "lesson_pdf_progress"
+    __table_args__ = (UniqueConstraint("enrollment_id", "lesson_id", name="uq_school_lesson_pdf_progress"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_sha: Mapped[str] = mapped_column(String(64), nullable=False)
+    viewed_pages: Mapped[list[int]] = mapped_column(JSON, nullable=False, default=list)
+    last_page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    active_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    active_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class AssignmentRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "assignments"
     __table_args__ = (

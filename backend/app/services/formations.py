@@ -45,6 +45,7 @@ from app.schemas.formations import (
     LessonRead,
 )
 from app.services.membership_roles import member_has_role
+from app.services.pdf_lessons import pdf_asset
 from app.services.school_communications import queue_session_students_event
 from app.services.tenancy import TenantContext, scoped_select
 
@@ -858,6 +859,15 @@ def create_lesson(
         raise HTTPException(422, "Choisissez un quiz pour cette leçon.")
     if payload.lesson_type == "assignment" and payload.assignment_id is None:
         raise HTTPException(422, "Choisissez un devoir pour cette leçon.")
+    if payload.lesson_type == "pdf" and payload.quiz_id is not None:
+        asset = pdf_asset(db, tenant.organization_id, payload.file_url)
+        if asset is None:
+            raise HTTPException(422, "Importez le PDF dans le stockage privé de cette école avant de lier son quiz.")
+        quiz = _get_scoped(db, tenant, QuizRecord, payload.quiz_id)
+        if quiz is None or len(quiz.questions) != 20:
+            raise HTTPException(422, "Le quiz de validation PDF doit contenir exactement 20 questions.")
+        quiz.pass_pct = 70
+        quiz.status = "active"
 
     lesson = LessonRecord(
         organization_id=tenant.organization_id,

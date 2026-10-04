@@ -7156,3 +7156,14 @@
 .student-reader-lock { padding: 18px; border-radius: 12px; background: #f3f6fb; color: #344054; }
 .student-reader-video-progress { margin: 10px 0; font-size: 13px; color: #475467; }
 .student-reader-content iframe.student-reader-video { display: block; aspect-ratio: 16 / 9; height: auto; border: 0; }
+.student-pdf-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
+.student-pdf-toolbar button { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; cursor: pointer; }
+.student-pdf-toolbar button:disabled { cursor: default; opacity: .45; }
+.student-pdf-toolbar input { width: 58px; padding: 6px; border: 1px solid #d0d5dd; border-radius: 6px; }
+.student-pdf-canvas { min-height: 300px; max-height: 75vh; overflow: auto; background: #f2f4f7; text-align: center; }
+.student-pdf-canvas canvas { max-width: none; margin: 12px auto; box-shadow: 0 2px 12px #0002; }
+.student-pdf-progress { display: grid; gap: 8px; margin-top: 14px; }
+.student-pdf-progress progress { width: 100%; }
+.student-pdf-quiz { display: grid; gap: 12px; margin-top: 18px; }
+.student-pdf-quiz fieldset { border: 1px solid #d0d5dd; border-radius: 8px; padding: 12px; }
+.student-pdf-quiz fieldset label { display: block; margin: 8px 0; }

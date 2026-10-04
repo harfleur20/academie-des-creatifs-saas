@@ -1,7 +1,11 @@
 from datetime import UTC, date, datetime, timedelta
+from io import BytesIO
+from pathlib import Path
+import asyncio
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
+from reportlab.pdfgen import canvas
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -16,6 +20,7 @@ from app.models.entities import (
     GradeRecord,
     LessonRecord,
     LessonProgressRecord,
+    LessonPdfProgressRecord,
     LessonVideoProgressRecord,
     QuizAttemptRecord,
     QuizRecord,
@@ -57,6 +62,7 @@ from app.services.learning_progress import (
     teacher_performance,
 )
 from app.services.formations import create_lesson
+from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
 from app.services.resources_quizzes import (
     create_quiz,
@@ -351,6 +357,113 @@ def test_lesson_rejects_activity_from_another_school() -> None:
             title="Lien étranger", lesson_type="quiz", quiz_id=foreign_quiz.id,
         ))
     assert error.value.status_code == 422
+
+
+def test_pdf_lesson_requires_real_page_reading_before_quiz_completion() -> None:
+    db = build_db()
+    org, teacher, student, classmate, session, enrollment, classmate_enrollment, first_lesson, _ = seed(db)
+    teacher_tenant = ctx(db, org, teacher)
+    student_tenant = ctx(db, org, student)
+    raw = BytesIO()
+    pdf = canvas.Canvas(raw)
+    for page in range(5):
+        pdf.drawString(72, 720, f"Page de formation {page + 1}")
+        pdf.showPage()
+    pdf.save()
+    asset = asyncio.run(store_pdf_asset(db, teacher_tenant, UploadFile(file=BytesIO(raw.getvalue()), filename="course.pdf")))
+    file_path = Path(__file__).resolve().parents[1] / "private_uploads" / asset.storage_key
+    try:
+        quiz = create_quiz(db, teacher_tenant, session.id, QuizCreate(
+            title="Validation PDF", questions=[QuizQuestionCreate(
+                text=f"Question {index + 1} ?", options=["Oui", "Non"], correct_index=0,
+            ) for index in range(20)],
+        ))
+        chapter = db.get(ChapterRecord, first_lesson.chapter_id)
+        course = db.get(CourseRecord, chapter.course_id)
+        detail = create_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, LessonCreate(
+            title="Support PDF validé", lesson_type="pdf", file_url=asset.source_url, quiz_id=quiz.id,
+        ))
+        lesson_id = detail.sessions[0].courses[0].chapters[0].lessons[-1].id
+        assert db.get(QuizRecord, quiz.id).pass_pct == 70
+        assert pdf_bytes(db, student_tenant, lesson_id) == raw.getvalue()
+        assert read_pdf_progress(db, student_tenant, lesson_id)["viewed_pct"] == 0
+        locked_quiz = list_student_quizzes(db, student_tenant)[0]
+        assert locked_quiz.pdf_reading_locked and locked_quiz.questions == []
+        with pytest.raises(HTTPException) as early:
+            submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[0] * 20))
+        assert early.value.status_code == 409
+        with pytest.raises(HTTPException) as manual:
+            mark_lesson_complete(db, student_tenant, lesson_id)
+        assert manual.value.status_code == 400
+        with pytest.raises(HTTPException) as unknown_page:
+            report_pdf_page(db, student_tenant, lesson_id, 6, "open")
+        assert unknown_page.value.status_code == 422
+        for page in range(1, 5):
+            report_pdf_page(db, student_tenant, lesson_id, page, "open")
+            progress_record = db.scalar(select(LessonPdfProgressRecord).where(
+                LessonPdfProgressRecord.enrollment_id == enrollment.id,
+                LessonPdfProgressRecord.lesson_id == lesson_id,
+            ))
+            assert report_pdf_page(db, student_tenant, lesson_id, page, "confirm")["viewed_pct"] == (page - 1) * 20
+            progress_record.active_since = datetime.now(UTC) - timedelta(seconds=3)
+            db.commit()
+            state = report_pdf_page(db, student_tenant, lesson_id, page, "confirm")
+            assert state["viewed_pct"] == page * 20
+        assert state["quiz_unlocked"] and state["viewed_pages"] == [1, 2, 3, 4]
+        assert not state["is_completed"]
+        open_quiz = list_student_quizzes(db, student_tenant)[0]
+        assert open_quiz.can_attempt and len(open_quiz.questions) == 20
+        result = submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[0] * 20))
+        assert result.passed
+        assert read_pdf_progress(db, student_tenant, lesson_id)["is_completed"]
+        assert list_student_learning(db, student_tenant)[0].courses[0].chapters[0].lessons[-1].completed
+
+        classmate_tenant = ctx(db, org, classmate)
+        assert read_pdf_progress(db, classmate_tenant, lesson_id)["viewed_pct"] == 0
+        assert list_student_quizzes(db, classmate_tenant)[0].pdf_reading_locked
+        for page in range(1, 5):
+            report_pdf_page(db, classmate_tenant, lesson_id, page, "open")
+            row = db.scalar(select(LessonPdfProgressRecord).where(
+                LessonPdfProgressRecord.enrollment_id == classmate_enrollment.id,
+                LessonPdfProgressRecord.lesson_id == lesson_id,
+            ))
+            row.active_since = datetime.now(UTC) - timedelta(seconds=3)
+            db.commit()
+            report_pdf_page(db, classmate_tenant, lesson_id, page, "confirm")
+        for index in range(3):
+            failed = submit_quiz_attempt(db, classmate_tenant, quiz.id, QuizAttemptPayload(answers=[1] * 20))
+            assert not failed.passed
+            assert failed.attempts_remaining == 2 - index
+        assert failed.next_attempt_available_at is not None
+        with pytest.raises(HTTPException) as retry:
+            submit_quiz_attempt(db, classmate_tenant, quiz.id, QuizAttemptPayload(answers=[0] * 20))
+        assert retry.value.status_code == 409
+        third_attempt = db.scalar(select(QuizAttemptRecord).where(
+            QuizAttemptRecord.quiz_id == quiz.id, QuizAttemptRecord.enrollment_id == classmate_enrollment.id,
+            QuizAttemptRecord.attempt_number == 3,
+        ))
+        third_attempt.submitted_at = datetime.now(UTC) - timedelta(hours=9)
+        db.commit()
+        assert list_student_quizzes(db, classmate_tenant)[0].attempts_remaining == 3
+        fourth = submit_quiz_attempt(db, classmate_tenant, quiz.id, QuizAttemptPayload(answers=[0] * 20))
+        assert fourth.passed and fourth.attempts[-1].attempt_number == 4
+
+        other_org = OrganizationRecord(name="Other PDF school", slug="other-pdf-school")
+        db.add(other_org)
+        db.flush()
+        other_member = OrganizationMemberRecord(
+            organization_id=other_org.id, user_id=student.id, role="student", status="active",
+        )
+        db.add(other_member)
+        db.flush()
+        replace_effective_roles(db, other_member, {"student"})
+        db.commit()
+        other_tenant = ctx(db, other_org, student)
+        with pytest.raises(HTTPException) as other_school:
+            pdf_bytes(db, other_tenant, lesson_id)
+        assert other_school.value.status_code == 404
+    finally:
+        file_path.unlink(missing_ok=True)
 
 
 def test_lesson_progress_badge_and_certificate_are_real() -> None:

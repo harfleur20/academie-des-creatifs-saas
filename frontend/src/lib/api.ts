@@ -1628,6 +1628,8 @@ export type StudentQuiz = {
   can_attempt: boolean
   attempts_remaining: number
   next_attempt_available_at: string | null
+  pdf_reading_pct: number | null
+  pdf_reading_locked: boolean
 }
 
 export type TeacherQuizResults = {
@@ -1735,6 +1737,32 @@ export type LearningSession = {
 
 export const listStudentLearning = () =>
   request<LearningSession[]>('/academic/student/learning')
+
+export type PdfLessonProgress = {
+  page_count: number
+  viewed_pages: number[]
+  viewed_pct: number
+  last_page: number
+  quiz_unlocked: boolean
+  is_completed: boolean
+}
+
+export const uploadLessonPdf = (file: File) => {
+  const body = new FormData()
+  body.append('file', file)
+  return request<{ source_url: string; page_count: number }>('/academic/teacher/pdf-assets', { method: 'POST', body })
+}
+
+export const fetchLessonPdf = (lessonId: number) =>
+  requestBlob('/academic/student/lessons/' + lessonId + '/pdf-file')
+
+export const getLessonPdfProgress = (lessonId: number) =>
+  request<PdfLessonProgress>('/academic/student/lessons/' + lessonId + '/pdf-progress')
+
+export const reportLessonPdfPage = (lessonId: number, page: number, event: 'open' | 'confirm') =>
+  request<PdfLessonProgress>('/academic/student/lessons/' + lessonId + '/pdf-progress', {
+    method: 'POST', body: JSON.stringify({ page, event }),
+  })
 
 export const completeStudentLesson = (lessonId: number) =>
   request<LearningSession>('/academic/student/lessons/' + lessonId + '/complete', {
