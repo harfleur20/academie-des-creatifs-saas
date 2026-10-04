@@ -24,6 +24,12 @@ export function StudentQuizzesPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (items.length && window.location.hash.startsWith('#quiz-')) {
+      document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'center' })
+    }
+  }, [items])
+
   function openQuiz(quiz: StudentQuiz) {
     setActive(quiz)
     setAnswers({})
@@ -104,13 +110,13 @@ export function StudentQuizzesPage() {
         <div>
           <span className="page-kicker">Espace étudiant</span>
           <h1>Quiz & examens</h1>
-          <p>Trois tentatives maximum par évaluation, avec un seuil défini par le professeur.</p>
+          <p>Trois tentatives maximum par évaluation, avec un délai de 8 h après deux échecs.</p>
         </div>
       </header>
       {error && <div className="form-error">{error}</div>}
       <section className="academic-card-list">
         {items.map((quiz) => (
-          <article className="app-card student-quiz-card" key={quiz.id}>
+          <article className="app-card student-quiz-card" id={`quiz-${quiz.id}`} key={quiz.id}>
             <div>
               <span className="section-label">{quiz.assessment_type === 'exam' ? 'Examen' : 'Quiz'}</span>
               <h2>{quiz.title}</h2>
@@ -121,6 +127,7 @@ export function StudentQuizzesPage() {
               <span>Seuil {quiz.pass_pct}%</span>
               <span>{quiz.attempts_remaining} essai(s) restant(s)</span>
               {quiz.is_locked && quiz.available_at && <span>Disponible le {new Date(quiz.available_at).toLocaleString('fr-FR')}</span>}
+              {quiz.next_attempt_available_at && <span>Réessai le {new Date(quiz.next_attempt_available_at).toLocaleString('fr-FR')}</span>}
             </div>
             <div className="student-quiz-actions">
               {quiz.passed ? <span className="assignment-status reviewed"><CheckCircle2 size={13}/>Réussi · {quiz.best_score_pct}%</span> : quiz.best_score_pct !== null ? <span className="assignment-status late"><XCircle size={13}/>Meilleur score {quiz.best_score_pct}%</span> : <span className="assignment-status pending"><Clock3 size={13}/>À faire</span>}

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -38,12 +38,14 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.grades import upsert_grade
-from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, session_starts_at
+from app.services.lesson_completion import complete_activity_lessons
+from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, linked_lesson_gate, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.tenancy import TenantContext
 
 
 MAX_QUIZ_ATTEMPTS = 3
+QUIZ_RETRY_HOURS = 8
 
 
 def _teacher_name(db: Session, teacher_id: int | None) -> str | None:
@@ -367,13 +369,25 @@ def _student_quiz_view(
     if day is not None:
         opening_times.append(current_utc(day.scheduled_at))
     available_at = max(opening_times) if opening_times else None
+    linked_gate = linked_lesson_gate(db, formation, session, "quiz", quiz.id, now=now)
+    if linked_gate is not None:
+        linked_opening, linked_available = linked_gate
+        if linked_opening is not None:
+            available_at = max(available_at, linked_opening) if available_at else linked_opening
+        activity_open = activity_open and linked_available
     locked = not activity_open or quiz.status != "active"
+    next_attempt_available_at = None
+    if not passed and len(attempts) == 2:
+        next_attempt_available_at = current_utc(attempts[-1].submitted_at) + timedelta(hours=QUIZ_RETRY_HOURS)
+        if now >= next_attempt_available_at:
+            next_attempt_available_at = None
     can_attempt = (
         quiz.status == "active"
         and scheduled_open
         and activity_open
         and not passed
         and len(attempts) < MAX_QUIZ_ATTEMPTS
+        and next_attempt_available_at is None
     )
     return StudentQuizRead(
         id=quiz.id,
@@ -411,6 +425,7 @@ def _student_quiz_view(
         passed=passed,
         can_attempt=can_attempt,
         attempts_remaining=max(0, MAX_QUIZ_ATTEMPTS - len(attempts)),
+        next_attempt_available_at=next_attempt_available_at,
     )
 
 
@@ -497,6 +512,15 @@ def submit_quiz_attempt(
         submitted_at=datetime.now(UTC),
     )
     db.add(row)
+    if score_pct >= quiz.pass_pct:
+        complete_activity_lessons(
+            db,
+            organization_id=tenant.organization_id,
+            session_id=quiz.session_id,
+            enrollment_id=enrollment.id,
+            activity_type="quiz",
+            activity_id=quiz.id,
+        )
 
     previous_best = max((item.score_pct for item in attempts), default=0.0)
     best_score = max(previous_best, score_pct)

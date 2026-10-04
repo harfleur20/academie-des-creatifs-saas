@@ -163,6 +163,10 @@ class LessonCreate(BaseModel):
     content: str | None = Field(default=None, max_length=100000)
     video_url: str | None = Field(default=None, max_length=512)
     file_url: str | None = Field(default=None, max_length=512)
+    quiz_id: int | None = Field(default=None, gt=0)
+    assignment_id: int | None = Field(default=None, gt=0)
+    resource_id: int | None = Field(default=None, gt=0)
+    available_at: datetime | None = None
 
 
 class TeacherAssignmentRead(BaseModel):
@@ -193,6 +197,10 @@ class LessonRead(BaseModel):
     content: str | None
     video_url: str | None
     file_url: str | None
+    quiz_id: int | None
+    assignment_id: int | None
+    resource_id: int | None
+    available_at: datetime | None
 
 
 class ChapterRead(BaseModel):

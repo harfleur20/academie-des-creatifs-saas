@@ -815,6 +815,10 @@ class LessonRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     video_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     file_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    quiz_id: Mapped[int | None] = mapped_column(ForeignKey("quizzes.id", ondelete="SET NULL"), nullable=True, index=True)
+    assignment_id: Mapped[int | None] = mapped_column(ForeignKey("assignments.id", ondelete="SET NULL"), nullable=True, index=True)
+    resource_id: Mapped[int | None] = mapped_column(ForeignKey("resources.id", ondelete="SET NULL"), nullable=True, index=True)
+    available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     chapter: Mapped["ChapterRecord"] = relationship(back_populates="lessons")
 

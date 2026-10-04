@@ -48,6 +48,12 @@ export function StudentAssignmentsPage() {
     )
   }, [])
 
+  useEffect(() => {
+    if (items.length && window.location.hash.startsWith('#assignment-')) {
+      document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'center' })
+    }
+  }, [items])
+
   async function chooseFile(
     assignment: StudentAssignment,
     event: ChangeEvent<HTMLInputElement>,
@@ -129,7 +135,7 @@ export function StudentAssignmentsPage() {
           }
 
           return (
-            <article className="app-card student-assignment-card" key={assignment.id}>
+            <article className="app-card student-assignment-card" id={`assignment-${assignment.id}`} key={assignment.id}>
               <div className="student-assignment-main">
                 <span className={'assignment-status ' + assignment.student_status}>
                   {badge}

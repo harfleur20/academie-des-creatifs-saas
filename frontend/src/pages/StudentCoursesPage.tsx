@@ -22,7 +22,7 @@ function findLesson(session: LearningSession, lessonId: number): LearningLesson 
 }
 
 function firstLesson(session: LearningSession): LearningLesson | null {
-  return session.courses[0]?.chapters[0]?.lessons[0] ?? null
+  return session.courses.flatMap((course) => course.chapters.flatMap((chapter) => chapter.lessons)).find((lesson) => !lesson.is_locked) ?? null
 }
 
 function TrackedLessonVideo({ lesson, onUpdated, onError }: {
@@ -193,14 +193,17 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
 
   function renderLesson(lesson: LearningLesson) {
     if (lesson.lesson_type === 'video' && lesson.video_url) return <TrackedLessonVideo key={lesson.id} lesson={lesson} onUpdated={onUpdated} onError={setError} />
-    if (lesson.lesson_type === 'quiz') return <p>Ce quiz se valide par un résultat. <Link to="/app/student/quizzes">Ouvrir mes quiz</Link></p>
-    if (lesson.lesson_type === 'assignment') return <p>Déposez votre travail pour valider ce devoir. <Link to="/app/student/assignments">Ouvrir mes devoirs</Link></p>
-    if (lesson.file_url) return <a className="primary-button" href={lesson.file_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Ouvrir le document</a>
-    return <div className="student-reader-text">{lesson.content || 'Aucun contenu textuel.'}</div>
+    return <>
+      {lesson.content && <div className="student-reader-text">{lesson.content}</div>}
+      {lesson.file_url && <a className="primary-button" href={lesson.file_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Ouvrir le document</a>}
+      {lesson.quiz_id && <p>Réussissez le quiz pour valider cette leçon. <Link to={`/app/student/quizzes#quiz-${lesson.quiz_id}`}>Ouvrir le quiz lié</Link></p>}
+      {lesson.assignment_id && <p>Déposez votre travail pour valider cette leçon. <Link to={`/app/student/assignments#assignment-${lesson.assignment_id}`}>Ouvrir le devoir lié</Link></p>}
+      {!lesson.content && !lesson.file_url && !lesson.quiz_id && !lesson.assignment_id && <div className="student-reader-text">Aucun contenu textuel.</div>}
+    </>
   }
 
   const title = mode === 'classic' ? 'Parcours classique' : mode === 'guided' ? 'Parcours guidé' : 'Mes cours'
-  const canMarkComplete = activeLesson && !activeLesson.completed && !['video', 'quiz', 'assignment'].includes(activeLesson.lesson_type)
+  const canMarkComplete = activeLesson && !activeLesson.completed && !activeLesson.quiz_id && !activeLesson.assignment_id && !['video', 'quiz', 'assignment'].includes(activeLesson.lesson_type)
 
   return <main className="app-page student-reader-page">
     <header className="app-page-header">
@@ -231,7 +234,7 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
                   else next.add(chapter.id)
                   return next
                 })}>{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Module {chapter.order_index + 1} · {chapter.title}</button>
-                {open && <div>{chapter.lessons.map((lesson) => <button type="button" disabled={session.is_locked} className={activeLesson?.id === lesson.id ? 'is-active' : ''} key={lesson.id} onClick={() => setActiveLesson(lesson)}>{lesson.completed ? <CheckCircle2 size={13} /> : <PlayCircle size={13} />}<span>{lesson.title}</span></button>)}</div>}
+                {open && <div>{chapter.lessons.map((lesson) => <button type="button" disabled={lesson.is_locked} className={activeLesson?.id === lesson.id ? 'is-active' : ''} key={lesson.id} onClick={() => setActiveLesson(lesson)} title={lesson.is_locked ? `Disponible ${lesson.available_at ? `le ${new Date(lesson.available_at).toLocaleString('fr-FR')}` : 'après publication de l’activité'}` : undefined}>{lesson.completed ? <CheckCircle2 size={13} /> : <PlayCircle size={13} />}<span>{lesson.title}{lesson.is_locked && ' · À venir'}</span></button>)}</div>}
               </div>
             })}
           </div>)}

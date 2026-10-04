@@ -117,6 +117,7 @@ class StudentQuizRead(BaseModel):
     passed: bool
     can_attempt: bool
     attempts_remaining: int
+    next_attempt_available_at: datetime | None = None
 
 
 class QuizAttemptPayload(BaseModel):
@@ -146,6 +147,11 @@ class LessonReaderRead(BaseModel):
     content: str | None
     video_url: str | None
     file_url: str | None
+    quiz_id: int | None = None
+    assignment_id: int | None = None
+    resource_id: int | None = None
+    available_at: datetime | None = None
+    is_locked: bool = False
     completed: bool
     video_watched_pct: float = 0
 

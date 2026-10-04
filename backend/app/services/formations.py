@@ -6,6 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import (
+    AssignmentRecord,
+    AssignmentSubmissionRecord,
     ChapterRecord,
     CourseRecord,
     EnrollmentRecord,
@@ -14,6 +16,9 @@ from app.models.entities import (
     LessonRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
+    QuizRecord,
+    QuizAttemptRecord,
+    ResourceRecord,
     SessionTeacherRecord,
     StudentOrderRecord,
     UserRecord,
@@ -830,6 +835,30 @@ def create_lesson(
     if tenant.has_role("teacher") and not tenant.organization_roles.intersection({"owner", "admin", "manager"}) and course.teacher_id not in {None, tenant.user.id}:
         raise HTTPException(status_code=403, detail="Ce cours appartient à un autre professeur.")
 
+    linked = (("quiz", QuizRecord, payload.quiz_id), ("assignment", AssignmentRecord, payload.assignment_id), ("resource", ResourceRecord, payload.resource_id))
+    for label, model, linked_id in linked:
+        if linked_id is None:
+            continue
+        activity = _get_scoped(db, tenant, model, linked_id)
+        if activity is None or activity.session_id != session.id:
+            raise HTTPException(422, f"{label.capitalize()} lié introuvable dans cette session.")
+        if label == "quiz" and payload.lesson_type not in {"quiz", "pdf", "text"}:
+            raise HTTPException(422, "Ce type de leçon ne peut pas valider un quiz.")
+        if label == "assignment" and payload.lesson_type != "assignment":
+            raise HTTPException(422, "Le devoir doit être lié à une leçon de type devoir.")
+        if label == "resource" and payload.lesson_type != "resource":
+            raise HTTPException(422, "La ressource doit être liée à une leçon de type ressource.")
+        if db.scalar(select(LessonRecord.id).where(LessonRecord.organization_id == tenant.organization_id, getattr(LessonRecord, f"{label}_id") == linked_id)) is not None:
+            raise HTTPException(409, "Cette activité est déjà liée à une leçon.")
+        if label == "quiz" and db.scalar(select(QuizAttemptRecord.id).where(QuizAttemptRecord.organization_id == tenant.organization_id, QuizAttemptRecord.quiz_id == linked_id)) is not None:
+            raise HTTPException(409, "Ce quiz a déjà été passé. Créez un nouveau quiz pour cette leçon.")
+        if label == "assignment" and db.scalar(select(AssignmentSubmissionRecord.id).where(AssignmentSubmissionRecord.organization_id == tenant.organization_id, AssignmentSubmissionRecord.assignment_id == linked_id)) is not None:
+            raise HTTPException(409, "Ce devoir a déjà été remis. Créez un nouveau devoir pour cette leçon.")
+    if payload.lesson_type == "quiz" and payload.quiz_id is None:
+        raise HTTPException(422, "Choisissez un quiz pour cette leçon.")
+    if payload.lesson_type == "assignment" and payload.assignment_id is None:
+        raise HTTPException(422, "Choisissez un devoir pour cette leçon.")
+
     lesson = LessonRecord(
         organization_id=tenant.organization_id,
         chapter_id=chapter.id,
@@ -839,6 +868,10 @@ def create_lesson(
         content=payload.content.strip() if payload.content else None,
         video_url=payload.video_url.strip() if payload.video_url else None,
         file_url=payload.file_url.strip() if payload.file_url else None,
+        quiz_id=payload.quiz_id,
+        assignment_id=payload.assignment_id,
+        resource_id=payload.resource_id,
+        available_at=payload.available_at,
     )
     db.add(lesson)
     db.commit()

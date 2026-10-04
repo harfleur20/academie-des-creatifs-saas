@@ -17,6 +17,8 @@ from app.models.entities import (
     LessonRecord,
     LessonProgressRecord,
     LessonVideoProgressRecord,
+    QuizAttemptRecord,
+    QuizRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
     ResourceRecord,
@@ -34,6 +36,7 @@ from app.schemas.academic import (
     ResourceCreate,
 )
 from app.schemas.assignments import AssignmentCreate, AssignmentSubmit
+from app.schemas.formations import LessonCreate
 from app.services.assignments import create_assignment, list_student_assignments, submit_assignment
 from app.services.class_certificates import (
     create_discussion_post,
@@ -53,6 +56,7 @@ from app.services.learning_progress import (
     sync_lesson_video_progress,
     teacher_performance,
 )
+from app.services.formations import create_lesson
 from app.services.membership_roles import replace_effective_roles
 from app.services.resources_quizzes import (
     create_quiz,
@@ -270,6 +274,83 @@ def test_quiz_attempt_creates_grade_and_teacher_result() -> None:
     results = teacher_quiz_results(db, teacher_tenant, quiz.id)
     assert results.total_students == 2
     assert results.attempts[0].student_name == "Student"
+
+
+def test_linked_quiz_lesson_opens_on_schedule_and_completes_after_success() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, existing_lesson, _ = seed(db)
+    teacher_tenant = ctx(db, org, teacher)
+    student_tenant = ctx(db, org, student)
+    quiz = create_quiz(db, teacher_tenant, session.id, QuizCreate(
+        title="Validation", questions=[QuizQuestionCreate(text="Bonne réponse ?", options=["Non", "Oui"], correct_index=1)],
+    ))
+    set_quiz_status(db, teacher_tenant, quiz.id, "active")
+    chapter = db.get(ChapterRecord, existing_lesson.chapter_id)
+    course = db.get(CourseRecord, chapter.course_id)
+    detail = create_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, LessonCreate(
+        title="Évaluation du module", lesson_type="quiz", quiz_id=quiz.id,
+        available_at=datetime(2099, 1, 1, tzinfo=UTC),
+    ))
+    linked_id = detail.sessions[0].courses[0].chapters[0].lessons[-1].id
+    lesson_view = list_student_learning(db, student_tenant)[0].courses[0].chapters[0].lessons[-1]
+    assert lesson_view.is_locked and lesson_view.quiz_id == quiz.id
+    assert list_student_quizzes(db, student_tenant)[0].questions == []
+    with pytest.raises(HTTPException) as early:
+        submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[1]))
+    assert early.value.status_code == 409
+
+    db.get(LessonRecord, linked_id).available_at = datetime(2025, 1, 1, tzinfo=UTC)
+    db.commit()
+    assert not list_student_learning(db, student_tenant)[0].courses[0].chapters[0].lessons[-1].is_locked
+    with pytest.raises(HTTPException) as manual:
+        mark_lesson_complete(db, student_tenant, linked_id)
+    assert manual.value.status_code == 400
+    submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[0]))
+    second = submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[0]))
+    assert second.can_attempt is False
+    assert second.next_attempt_available_at is not None
+    with pytest.raises(HTTPException) as retry:
+        submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[1]))
+    assert retry.value.status_code == 409
+    attempt = db.scalar(select(QuizAttemptRecord).where(
+        QuizAttemptRecord.quiz_id == quiz.id, QuizAttemptRecord.enrollment_id == enrollment.id,
+        QuizAttemptRecord.attempt_number == 2,
+    ))
+    attempt.submitted_at = datetime.now(UTC) - timedelta(hours=9)
+    db.commit()
+    passed = submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[1]))
+    assert passed.passed and passed.attempts_remaining == 0
+    assert list_student_learning(db, student_tenant)[0].courses[0].chapters[0].lessons[-1].completed
+    assert db.scalar(select(LessonProgressRecord).where(
+        LessonProgressRecord.enrollment_id == enrollment.id, LessonProgressRecord.lesson_id == linked_id,
+    )) is not None
+
+
+def test_lesson_rejects_activity_from_another_school() -> None:
+    db = build_db()
+    org, teacher, _, _, session, _, _, lesson, _ = seed(db)
+    other_org = OrganizationRecord(name="Another", slug="another")
+    db.add(other_org)
+    db.flush()
+    other_formation = FormationRecord(organization_id=other_org.id, slug="other", title="Other")
+    db.add(other_formation)
+    db.flush()
+    other_session = FormationSessionRecord(
+        organization_id=other_org.id, formation_id=other_formation.id,
+        label="Other", start_date=date(2025, 1, 1), end_date=date(2025, 2, 1), status="open",
+    )
+    db.add(other_session)
+    db.flush()
+    foreign_quiz = QuizRecord(organization_id=other_org.id, session_id=other_session.id, title="Foreign")
+    db.add(foreign_quiz)
+    db.commit()
+    chapter = db.get(ChapterRecord, lesson.chapter_id)
+    course = db.get(CourseRecord, chapter.course_id)
+    with pytest.raises(HTTPException) as error:
+        create_lesson(db, ctx(db, org, teacher), session.formation_id, session.id, course.id, chapter.id, LessonCreate(
+            title="Lien étranger", lesson_type="quiz", quiz_id=foreign_quiz.id,
+        ))
+    assert error.value.status_code == 422
 
 
 def test_lesson_progress_badge_and_certificate_are_real() -> None:

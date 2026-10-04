@@ -13,6 +13,7 @@ from app.services.assignments import *
 from app.services.membership_roles import replace_effective_roles
 from app.services.tenancy import resolve_tenant_context
 from app.services.assets import store_assignment_asset, store_submission_asset
+from app.services.learning_progress import list_student_learning
 from app.api.routes.assignments import download_legacy_submission, download_resource_asset, download_submission_asset
 from app.core.config import settings
 from app.main import PublicUploads
@@ -39,6 +40,32 @@ def test_assignment_submission_review_flow():
   rows=list_submissions(db,ctx(db,o,t),a.id); assert len(rows)==1
   reviewed=review_submission(db,ctx(db,o,t),a.id,rows[0].id,ReviewSubmission(review_score=16)); assert reviewed.review_score==16 and reviewed.is_reviewed
   assert list_student_assignments(db,ctx(db,o,s))[0].student_status=="reviewed"
+ finally:
+  path.unlink(missing_ok=True)
+
+
+def test_linked_assignment_lesson_requires_opening_and_completes_on_submission():
+ db=dbx();o,t,s,se=seed(db)
+ se.end_date=date(2099,2,1);db.commit()
+ assignment=create_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="TP lié",due_date=datetime(2099,1,20,tzinfo=UTC)))
+ course=CourseRecord(organization_id=o.id,session_id=se.id,teacher_id=t.id,title="Cours",status="published")
+ db.add(course);db.flush()
+ chapter=ChapterRecord(organization_id=o.id,course_id=course.id,title="Module")
+ db.add(chapter);db.flush()
+ lesson=LessonRecord(organization_id=o.id,chapter_id=chapter.id,title="Remettre le TP",lesson_type="assignment",assignment_id=assignment.id,available_at=datetime(2099,1,1,tzinfo=UTC))
+ db.add(lesson);db.commit()
+ student_tenant=ctx(db,o,s)
+ assert list_student_learning(db,student_tenant)[0].courses[0].chapters[0].lessons[0].is_locked
+ assert list_student_assignments(db,student_tenant)[0].is_locked
+ with pytest.raises(HTTPException) as early:
+  submit_assignment(db,student_tenant,assignment.id,AssignmentSubmit(file_url="invalid"))
+ assert early.value.status_code==409
+ lesson.available_at=datetime(2026,10,1,tzinfo=UTC);db.commit()
+ asset=asyncio.run(store_submission_asset(UploadFile(file=BytesIO(b"work"),filename="linked.pdf"),o.id,s.id))
+ path=Path(__file__).resolve().parents[1]/"private_uploads"/"schools"/str(o.id)/"assignments"/str(s.id)/asset["public_url"].rsplit("/",1)[-1]
+ try:
+  submit_assignment(db,student_tenant,assignment.id,AssignmentSubmit(file_url=asset["public_url"]))
+  assert list_student_learning(db,student_tenant)[0].courses[0].chapters[0].lessons[0].completed
  finally:
   path.unlink(missing_ok=True)
 

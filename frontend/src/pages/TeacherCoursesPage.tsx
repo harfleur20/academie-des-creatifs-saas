@@ -7,8 +7,14 @@ import {
   createSessionCourse,
   getFormation,
   getTeacherWorkspace,
+  listTeacherAssignments,
+  listTeacherQuizzes,
+  listTeacherResources,
+  type AcademicResource,
+  type Assignment,
   type FormationDetail,
   type Lesson,
+  type TeacherQuiz,
   type TeacherWorkspace,
 } from '../lib/api'
 
@@ -16,6 +22,8 @@ type LessonDraft = {
   title: string
   lesson_type: Lesson['lesson_type']
   content: string
+  linked_id?: string
+  available_at?: string
 }
 
 export function TeacherCoursesPage() {
@@ -25,6 +33,9 @@ export function TeacherCoursesPage() {
   const [courseTitle, setCourseTitle] = useState('')
   const [chapterDrafts, setChapterDrafts] = useState<Record<number, string>>({})
   const [lessonDrafts, setLessonDrafts] = useState<Record<number, LessonDraft>>({})
+  const [quizzes, setQuizzes] = useState<TeacherQuiz[]>([])
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [resources, setResources] = useState<AcademicResource[]>([])
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
 
@@ -42,7 +53,16 @@ export function TeacherCoursesPage() {
 
   async function refresh() {
     if (!selectedWorkspace) return
-    setFormation(await getFormation(selectedWorkspace.formation_id))
+    const [detail, sessionQuizzes, sessionAssignments, sessionResources] = await Promise.all([
+      getFormation(selectedWorkspace.formation_id),
+      listTeacherQuizzes(selectedWorkspace.session_id),
+      listTeacherAssignments(selectedWorkspace.session_id),
+      listTeacherResources(selectedWorkspace.session_id),
+    ])
+    setFormation(detail)
+    setQuizzes(sessionQuizzes)
+    setAssignments(sessionAssignments)
+    setResources(sessionResources)
   }
 
   useEffect(() => {
@@ -53,13 +73,15 @@ export function TeacherCoursesPage() {
 
   const session = formation?.sessions.find((item) => item.id === sessionId) ?? null
 
-  async function run(action: () => Promise<FormationDetail>) {
+  async function run(action: () => Promise<FormationDetail>): Promise<boolean> {
     setWorking(true)
     setError('')
     try {
       setFormation(await action())
+      return true
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Action impossible.')
+      return false
     } finally {
       setWorking(false)
     }
@@ -67,21 +89,21 @@ export function TeacherCoursesPage() {
 
   async function addCourse() {
     if (!formation || !session || courseTitle.trim().length < 2) return
-    await run(() => createSessionCourse(formation.id, session.id, {
+    const created = await run(() => createSessionCourse(formation.id, session.id, {
       title: courseTitle.trim(),
     }))
-    setCourseTitle('')
+    if (created) setCourseTitle('')
   }
 
   async function addChapter(courseId: number, count: number) {
     if (!formation || !session) return
     const title = (chapterDrafts[courseId] || '').trim()
     if (title.length < 2) return
-    await run(() => createCourseChapter(formation.id, session.id, courseId, {
+    const created = await run(() => createCourseChapter(formation.id, session.id, courseId, {
       title,
       order_index: count,
     }))
-    setChapterDrafts((current) => ({ ...current, [courseId]: '' }))
+    if (created) setChapterDrafts((current) => ({ ...current, [courseId]: '' }))
   }
 
   async function addLesson(courseId: number, chapterId: number, count: number) {
@@ -89,7 +111,7 @@ export function TeacherCoursesPage() {
     const draft = lessonDrafts[chapterId] || { title: '', lesson_type: 'text', content: '' }
     if (draft.title.trim().length < 2) return
     const value = draft.content.trim()
-    await run(() => createChapterLesson(
+    const created = await run(() => createChapterLesson(
       formation.id,
       session.id,
       courseId,
@@ -101,9 +123,13 @@ export function TeacherCoursesPage() {
         content: draft.lesson_type === 'text' ? value : null,
         video_url: draft.lesson_type === 'video' ? value : null,
         file_url: ['pdf', 'resource'].includes(draft.lesson_type) ? value : null,
+        quiz_id: ['quiz', 'pdf', 'text'].includes(draft.lesson_type) && draft.linked_id ? Number(draft.linked_id) : null,
+        assignment_id: draft.lesson_type === 'assignment' && draft.linked_id ? Number(draft.linked_id) : null,
+        resource_id: draft.lesson_type === 'resource' && draft.linked_id ? Number(draft.linked_id) : null,
+        available_at: draft.available_at ? new Date(draft.available_at).toISOString() : null,
       },
     ))
-    setLessonDrafts((current) => ({
+    if (created) setLessonDrafts((current) => ({
       ...current,
       [chapterId]: { title: '', lesson_type: 'text', content: '' },
     }))
@@ -160,14 +186,21 @@ export function TeacherCoursesPage() {
                       </div>
                       <div className="lesson-create-grid">
                         <input value={draft.title} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, title: event.target.value } }))} placeholder="Titre de la leçon" />
-                        <select value={draft.lesson_type} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, lesson_type: event.target.value as Lesson['lesson_type'] } }))}>
+                        <select value={draft.lesson_type} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, lesson_type: event.target.value as Lesson['lesson_type'], linked_id: '' } }))}>
                           <option value="text">Texte</option>
                           <option value="video">Vidéo</option>
                           <option value="pdf">PDF</option>
                           <option value="resource">Ressource</option>
+                          <option value="quiz">Quiz</option>
+                          <option value="assignment">Devoir</option>
                         </select>
-                        <input value={draft.content} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, content: event.target.value } }))} placeholder={draft.lesson_type === 'text' ? 'Contenu de la leçon' : 'URL du contenu'} />
-                        <button className="secondary-button" type="button" disabled={working || draft.title.trim().length < 2} onClick={() => void addLesson(course.id, chapter.id, chapter.lessons.length)}><Plus size={13}/> Leçon</button>
+                        {!['quiz', 'assignment'].includes(draft.lesson_type) && <input value={draft.content} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, content: event.target.value } }))} placeholder={draft.lesson_type === 'text' ? 'Contenu de la leçon' : 'URL du contenu'} />}
+                        {['quiz', 'pdf', 'text', 'assignment', 'resource'].includes(draft.lesson_type) && <select aria-label="Activité liée" value={draft.linked_id || ''} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, linked_id: event.target.value } }))}>
+                          <option value="">{['quiz', 'assignment'].includes(draft.lesson_type) ? 'Choisir une activité' : 'Aucune activité liée'}</option>
+                          {(['quiz', 'pdf', 'text'].includes(draft.lesson_type) ? quizzes : draft.lesson_type === 'assignment' ? assignments : resources).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+                        </select>}
+                        <label>Disponible à partir du <input type="datetime-local" value={draft.available_at || ''} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, available_at: event.target.value } }))} /></label>
+                        <button className="secondary-button" type="button" disabled={working || draft.title.trim().length < 2 || (['quiz', 'assignment'].includes(draft.lesson_type) && !draft.linked_id)} onClick={() => void addLesson(course.id, chapter.id, chapter.lessons.length)}><Plus size={13}/> Leçon</button>
                       </div>
                     </section>
                   )

@@ -21,6 +21,7 @@ from app.models.entities import (
     LessonVideoProgressRecord,
     QuizAttemptRecord,
     QuizRecord,
+    ResourceRecord,
     SessionCourseDayRecord,
     SessionTeacherRecord,
     UserRecord,
@@ -48,7 +49,7 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.grades import grade_average_pct
-from app.services.pedagogy_access import dashboard_type, learning_is_open, require_learning_open, session_starts_at
+from app.services.pedagogy_access import dashboard_type, learning_is_open, lesson_access, require_learning_open, session_starts_at
 from app.services.tenancy import TenantContext
 
 
@@ -171,6 +172,26 @@ def list_student_learning(
                 .order_by(CourseRecord.created_at)
             ).all()
         )
+        def lesson_view(lesson: LessonRecord) -> LessonReaderRead:
+            available_at, available = lesson_access(db, formation, session, lesson)
+            locked = is_locked or not available
+            resource = db.get(ResourceRecord, lesson.resource_id) if lesson.resource_id else None
+            return LessonReaderRead(
+                id=lesson.id,
+                title=lesson.title,
+                order_index=lesson.order_index,
+                lesson_type=lesson.lesson_type,
+                content=None if locked else lesson.content,
+                video_url=None if locked else lesson.video_url,
+                file_url=None if locked else (resource.url if resource else lesson.file_url),
+                quiz_id=lesson.quiz_id,
+                assignment_id=lesson.assignment_id,
+                resource_id=lesson.resource_id,
+                available_at=available_at,
+                is_locked=locked,
+                completed=not locked and lesson.id in completed,
+                video_watched_pct=0 if locked else video_progress.get(lesson.id, 0),
+            )
         result.append(
             LearningSessionRead(
                 enrollment_id=enrollment.id,
@@ -194,17 +215,7 @@ def list_student_learning(
                                 title=chapter.title,
                                 order_index=chapter.order_index,
                                 lessons=[
-                                    LessonReaderRead(
-                                        id=lesson.id,
-                                        title=lesson.title,
-                                        order_index=lesson.order_index,
-                                        lesson_type=lesson.lesson_type,
-                                        content=None if is_locked else lesson.content,
-                                        video_url=None if is_locked else lesson.video_url,
-                                        file_url=None if is_locked else lesson.file_url,
-                                        completed=not is_locked and lesson.id in completed,
-                                        video_watched_pct=0 if is_locked else video_progress.get(lesson.id, 0),
-                                    )
+                                    lesson_view(lesson)
                                     for lesson in chapter.lessons
                                 ],
                             )
@@ -244,6 +255,8 @@ def _student_lesson_context(
     session = get_session(db, tenant, course.session_id)
     formation = formation_for_session(db, tenant, course.session_id)
     require_learning_open(formation, session)
+    if not lesson_access(db, formation, session, lesson)[1]:
+        raise HTTPException(409, "Cette leçon n'est pas encore disponible.")
     return lesson, enrollment
 
 
@@ -255,9 +268,9 @@ def mark_lesson_complete(
     lesson, enrollment = _student_lesson_context(db, tenant, lesson_id)
     if lesson.lesson_type == "video":
         raise HTTPException(400, "Cette leçon vidéo se valide automatiquement après 80 % de lecture.")
-    if lesson.lesson_type == "quiz":
+    if lesson.lesson_type == "quiz" or lesson.quiz_id is not None:
         raise HTTPException(400, "Réussissez le quiz pour valider cette leçon.")
-    if lesson.lesson_type == "assignment":
+    if lesson.lesson_type == "assignment" or lesson.assignment_id is not None:
         raise HTTPException(400, "Déposez votre devoir pour valider cette leçon.")
 
     existing = db.scalar(

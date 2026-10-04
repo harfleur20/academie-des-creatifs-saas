@@ -6,7 +6,8 @@ from app.models.entities import AssignmentCommentRecord, AssignmentRecord, Assig
 from app.schemas.assignments import *
 from app.services.grades import upsert_grade
 from app.services.assets import validate_submission_asset
-from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, session_starts_at
+from app.services.lesson_completion import complete_activity_lessons
+from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, linked_lesson_gate, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.tenancy import TenantContext
 
@@ -42,6 +43,12 @@ def _student_view(db,a,e,s,now):
         available_at = session_starts_at(session)
         if day is not None:
             available_at = max(available_at, current_utc(day.scheduled_at))
+    linked_gate = linked_lesson_gate(db, formation, session, "assignment", a.id, now=now)
+    if linked_gate is not None:
+        linked_opening, linked_available = linked_gate
+        if linked_opening is not None:
+            available_at = max(available_at, linked_opening) if available_at else linked_opening
+        locked = locked or not linked_available
     return StudentAssignmentRead(
         id=a.id,
         enrollment_id=e.id,
@@ -68,7 +75,8 @@ def _student_assignment_open(db,tenant,a,now=None):
     session = _session(db, tenant, a.session_id)
     formation = db.get(FormationRecord, session.formation_id)
     day = db.get(SessionCourseDayRecord, a.course_day_id) if a.course_day_id else None
-    return guided_activity_available(formation, session, day=day, now=now)
+    linked_gate = linked_lesson_gate(db, formation, session, "assignment", a.id, now=now)
+    return guided_activity_available(formation, session, day=day, now=now) and (linked_gate is None or linked_gate[1])
 
 def list_teacher_assignments(db:Session,tenant:TenantContext,sid:int):
     _session(db,tenant,sid)
@@ -126,6 +134,7 @@ def submit_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentSubmit
     else:
         sub=AssignmentSubmissionRecord(organization_id=tenant.organization_id,assignment_id=aid,enrollment_id=e.id,file_url=p.file_url,submitted_at=now)
         db.add(sub)
+    complete_activity_lessons(db, organization_id=tenant.organization_id, session_id=a.session_id, enrollment_id=e.id, activity_type="assignment", activity_id=a.id)
     db.execute(
         delete(GradeRecord).where(
             GradeRecord.organization_id == tenant.organization_id,

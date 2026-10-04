@@ -1007,6 +1007,10 @@ export type Lesson = {
   content: string | null
   video_url: string | null
   file_url: string | null
+  quiz_id: number | null
+  assignment_id: number | null
+  resource_id: number | null
+  available_at: string | null
 }
 
 export type Chapter = {
@@ -1205,6 +1209,10 @@ export const createChapterLesson = (
     content?: string | null
     video_url?: string | null
     file_url?: string | null
+    quiz_id?: number | null
+    assignment_id?: number | null
+    resource_id?: number | null
+    available_at?: string | null
   },
 ) =>
   request<FormationDetail>(
@@ -1619,6 +1627,7 @@ export type StudentQuiz = {
   passed: boolean
   can_attempt: boolean
   attempts_remaining: number
+  next_attempt_available_at: string | null
 }
 
 export type TeacherQuizResults = {
@@ -1687,6 +1696,11 @@ export type LearningLesson = {
   content: string | null
   video_url: string | null
   file_url: string | null
+  quiz_id: number | null
+  assignment_id: number | null
+  resource_id: number | null
+  available_at: string | null
+  is_locked: boolean
   completed: boolean
   video_watched_pct: number
 }
