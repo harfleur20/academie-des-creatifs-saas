@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
@@ -16,20 +16,25 @@ from app.models.entities import (
     GradeRecord,
     LessonRecord,
     LessonProgressRecord,
+    LessonVideoProgressRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
+    ResourceRecord,
     SessionCourseDayRecord,
     SessionTeacherRecord,
     UserRecord,
 )
 from app.schemas.academic import (
     AttendanceMarkPayload,
+    LessonVideoHeartbeatPayload,
     DiscussionCreate,
     QuizAttemptPayload,
     QuizCreate,
     QuizQuestionCreate,
     ResourceCreate,
 )
+from app.schemas.assignments import AssignmentCreate, AssignmentSubmit
+from app.services.assignments import create_assignment, list_student_assignments, submit_assignment
 from app.services.class_certificates import (
     create_discussion_post,
     discussion_posts,
@@ -45,6 +50,7 @@ from app.services.learning_progress import (
     student_attendance,
     student_grades,
     student_progress,
+    sync_lesson_video_progress,
     teacher_performance,
 )
 from app.services.membership_roles import replace_effective_roles
@@ -328,6 +334,193 @@ def test_draft_course_is_invisible_and_cannot_be_completed_by_student() -> None:
         mark_lesson_complete(db, student_tenant, lesson.id)
     assert error.value.status_code == 404
     assert db.scalar(select(LessonProgressRecord).where(LessonProgressRecord.enrollment_id == enrollment.id)) is None
+
+
+def test_guided_course_waits_for_session_start_but_classic_is_immediate() -> None:
+    db = build_db()
+    org, _, student, _, session, _, _, lesson, _ = seed(db)
+    tenant = ctx(db, org, student)
+    formation = db.get(FormationRecord, session.formation_id)
+    session.start_date = date(2099, 1, 1)
+    session.end_date = date(2099, 2, 1)
+
+    classic = list_student_learning(db, tenant)[0]
+    assert classic.dashboard_type == "classic"
+    assert classic.is_locked is False
+    assert classic.courses[0].chapters[0].lessons[0].content == "Contenu"
+
+    formation.format_type = "live"
+    db.commit()
+    guided = list_student_learning(db, tenant)[0]
+    assert guided.dashboard_type == "guided"
+    assert guided.is_locked is True
+    assert guided.available_at is not None
+    assert guided.courses[0].chapters[0].lessons[0].content is None
+    assert get_student_workspace(db, tenant).sessions[0].dashboard_type == "guided"
+    with pytest.raises(HTTPException) as error:
+        mark_lesson_complete(db, tenant, lesson.id)
+    assert error.value.status_code == 409
+
+    session.start_date = date(2025, 1, 1)
+    session.end_date = date(2025, 2, 1)
+    db.commit()
+    assert list_student_learning(db, tenant)[0].is_locked is False
+
+
+def test_video_requires_eighty_percent_watched_without_counting_seeks() -> None:
+    db = build_db()
+    org, _, student, _, _, enrollment, _, lesson, _ = seed(db)
+    tenant = ctx(db, org, student)
+    lesson.lesson_type = "video"
+    lesson.video_url = "https://video.test/lesson.mp4"
+    db.commit()
+
+    with pytest.raises(HTTPException) as error:
+        mark_lesson_complete(db, tenant, lesson.id)
+    assert error.value.status_code == 400
+
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    def report(position: float, seconds: int, event: str = "heartbeat"):
+        return sync_lesson_video_progress(
+            db,
+            tenant,
+            lesson.id,
+            LessonVideoHeartbeatPayload(
+                current_time_seconds=position,
+                duration_seconds=100,
+                event=event,
+            ),
+            now=start + timedelta(seconds=seconds),
+        )
+
+    report(90, 0, "seek")
+    jumped = report(95, 1)
+    assert jumped.courses[0].chapters[0].lessons[0].video_watched_pct == 0
+    assert db.scalar(select(LessonProgressRecord).where(LessonProgressRecord.enrollment_id == enrollment.id)) is None
+
+    report(0, 2, "seek")
+    for index in range(1, 8):
+        report(index * 10, 2 + index * 10)
+    finished = report(80, 82)
+    video = finished.courses[0].chapters[0].lessons[0]
+    assert video.video_watched_pct == 80
+    assert video.completed is True
+    assert student_progress(db, tenant)[0].lesson_progress_pct == 100
+    record = db.scalar(select(LessonVideoProgressRecord).where(LessonVideoProgressRecord.enrollment_id == enrollment.id))
+    assert record.watched_ranges == [[0.0, 80.0]]
+
+
+def test_guided_quiz_and_assignment_wait_for_session_start() -> None:
+    db = build_db()
+    org, teacher, student, _, session, *_ = seed(db)
+    formation = db.get(FormationRecord, session.formation_id)
+    formation.format_type = "live"
+    session.start_date = date(2099, 1, 1)
+    session.end_date = date(2099, 2, 1)
+    db.commit()
+    teacher_tenant = ctx(db, org, teacher)
+    student_tenant = ctx(db, org, student)
+
+    quiz = create_quiz(db, teacher_tenant, session.id, QuizCreate(
+        title="Contrôle", questions=[QuizQuestionCreate(text="Question ?", options=["Oui", "Non"], correct_index=0)],
+    ))
+    set_quiz_status(db, teacher_tenant, quiz.id, "active")
+    student_quiz = list_student_quizzes(db, student_tenant)[0]
+    assert student_quiz.can_attempt is False
+    assert student_quiz.is_locked is True
+    assert student_quiz.questions == []
+    with pytest.raises(HTTPException) as quiz_error:
+        submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[0]))
+    assert quiz_error.value.status_code == 409
+
+    assignment = create_assignment(db, teacher_tenant, session.id, AssignmentCreate(
+        title="Travail", due_date=datetime(2099, 1, 20, tzinfo=UTC),
+    ))
+    locked_assignment = list_student_assignments(db, student_tenant)[0]
+    assert locked_assignment.is_locked is True
+    assert locked_assignment.instructions == ""
+    with pytest.raises(HTTPException) as assignment_error:
+        submit_assignment(db, student_tenant, assignment.id, AssignmentSubmit(file_url="test"))
+    assert assignment_error.value.status_code == 409
+
+    session.start_date = date(2025, 1, 1)
+    session.end_date = date(2099, 2, 1)
+    db.commit()
+    assert list_student_quizzes(db, student_tenant)[0].can_attempt is True
+    assert len(list_student_quizzes(db, student_tenant)[0].questions) == 1
+    assert [item.id for item in list_student_assignments(db, student_tenant)] == [assignment.id]
+    assert list_student_assignments(db, student_tenant)[0].is_locked is False
+
+
+def test_guided_preparatory_resource_stays_available_before_session() -> None:
+    db = build_db()
+    org, teacher, student, _, session, *_ = seed(db)
+    formation = db.get(FormationRecord, session.formation_id)
+    formation.format_type = "presentiel"
+    session.start_date = date(2099, 1, 1)
+    session.end_date = date(2099, 2, 1)
+    db.commit()
+    teacher_tenant = ctx(db, org, teacher)
+    student_tenant = ctx(db, org, student)
+    resource = create_resource(db, teacher_tenant, session.id, ResourceCreate(
+        title="À lire avant la rentrée", resource_type="pdf", url="https://files.test/intro.pdf",
+    ))
+    assert [item.id for item in list_student_resources(db, student_tenant)] == [resource.id]
+
+    day = SessionCourseDayRecord(
+        organization_id=org.id, session_id=session.id, teacher_id=teacher.id,
+        title="Cours annulé", scheduled_at=datetime(2099, 1, 10, tzinfo=UTC),
+        duration_minutes=90, status="cancelled",
+    )
+    db.add(day)
+    db.flush()
+    db.get(ResourceRecord, resource.id).course_day_id = day.id
+    db.commit()
+    assert list_student_resources(db, student_tenant) == []
+
+
+def test_video_progress_is_isolated_between_schools() -> None:
+    db = build_db()
+    org, _, student, _, session, enrollment, _, lesson, _ = seed(db)
+    lesson.lesson_type = "video"
+    lesson.video_url = "https://video.test/a.mp4"
+    other_org = OrganizationRecord(name="Other school", slug="other-school")
+    db.add(other_org)
+    db.flush()
+    member = OrganizationMemberRecord(
+        organization_id=other_org.id, user_id=student.id, role="student", status="active",
+    )
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"student"})
+    other_formation = FormationRecord(organization_id=other_org.id, slug="other", title="Other")
+    db.add(other_formation)
+    db.flush()
+    other_session = FormationSessionRecord(
+        organization_id=other_org.id, formation_id=other_formation.id,
+        label="Other", start_date=date(2025, 1, 1), end_date=date(2025, 2, 1), status="open",
+    )
+    db.add(other_session)
+    db.flush()
+    db.add(EnrollmentRecord(
+        organization_id=other_org.id, session_id=other_session.id, student_id=student.id, status="active",
+    ))
+    db.commit()
+
+    first_tenant = ctx(db, org, student)
+    other_tenant = ctx(db, other_org, student)
+    sync_lesson_video_progress(db, first_tenant, lesson.id, LessonVideoHeartbeatPayload(
+        current_time_seconds=20, duration_seconds=100, event="seek",
+    ))
+    assert db.scalar(select(LessonVideoProgressRecord).where(
+        LessonVideoProgressRecord.enrollment_id == enrollment.id,
+    )) is not None
+    assert list_student_learning(db, other_tenant)[0].courses == []
+    with pytest.raises(HTTPException) as error:
+        sync_lesson_video_progress(db, other_tenant, lesson.id, LessonVideoHeartbeatPayload(
+            current_time_seconds=30, duration_seconds=100,
+        ))
+    assert error.value.status_code == 404
 
 
 def test_attendance_is_owned_by_course_day_teacher() -> None:

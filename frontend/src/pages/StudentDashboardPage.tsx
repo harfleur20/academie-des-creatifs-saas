@@ -239,7 +239,7 @@ export function StudentDashboardPage() {
               <div className="role-side-list">
                 {workspace.sessions.slice(0, 4).map((session) => (
                   <Link
-                    to={`/app/student/sessions/${session.session_id}`}
+                    to={`/app/student/${session.dashboard_type}/${session.enrollment_id}`}
                     key={session.enrollment_id}
                   >
                     <i />

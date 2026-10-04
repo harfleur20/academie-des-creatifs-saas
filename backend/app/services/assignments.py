@@ -6,6 +6,7 @@ from app.models.entities import AssignmentCommentRecord, AssignmentRecord, Assig
 from app.schemas.assignments import *
 from app.services.grades import upsert_grade
 from app.services.assets import validate_submission_asset
+from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.tenancy import TenantContext
 
@@ -31,8 +32,43 @@ def _session_label(db,sid): return db.get(FormationSessionRecord,sid).label
 def _teacher_view(db,a):
     return AssignmentRead(id=a.id,session_id=a.session_id,course_day_id=a.course_day_id,teacher_id=a.teacher_id,teacher_name=_teacher_name(db,a),title=a.title,instructions=a.instructions,due_date=a.due_date,is_final_project=a.is_final_project,submissions_count=int(db.scalar(select(func.count(AssignmentSubmissionRecord.id)).where(AssignmentSubmissionRecord.assignment_id==a.id)) or 0),created_at=a.created_at)
 def _student_view(db,a,e,s,now):
-    st="reviewed" if s and s.is_reviewed else "submitted" if s else "late" if _utc(now)>_utc(a.due_date) else "pending"
-    return StudentAssignmentRead(id=a.id,enrollment_id=e.id,session_id=a.session_id,session_label=_session_label(db,a.session_id),formation_title=_formation_title(db,a.session_id),teacher_name=_teacher_name(db,a),title=a.title,instructions=a.instructions,due_date=a.due_date,is_final_project=a.is_final_project,student_status=st,submitted_at=s.submitted_at if s else None,file_url=s.file_url if s else None,is_reviewed=s.is_reviewed if s else False,review_score=s.review_score if s else None,review_max_score=s.review_max_score if s else 20,comment_count=_count_comments(db,a.id,e.id))
+    status = "reviewed" if s and s.is_reviewed else "submitted" if s else "late" if _utc(now) > _utc(a.due_date) else "pending"
+    session = db.get(FormationSessionRecord, a.session_id)
+    formation = db.get(FormationRecord, session.formation_id)
+    day = db.get(SessionCourseDayRecord, a.course_day_id) if a.course_day_id else None
+    locked = not guided_activity_available(formation, session, day=day, now=now)
+    available_at = None
+    if dashboard_type(formation) == "guided":
+        available_at = session_starts_at(session)
+        if day is not None:
+            available_at = max(available_at, current_utc(day.scheduled_at))
+    return StudentAssignmentRead(
+        id=a.id,
+        enrollment_id=e.id,
+        session_id=a.session_id,
+        session_label=session.label,
+        formation_title=formation.title,
+        teacher_name=_teacher_name(db, a),
+        title=a.title,
+        instructions="" if locked else a.instructions,
+        due_date=a.due_date,
+        is_final_project=a.is_final_project,
+        is_locked=locked,
+        available_at=available_at,
+        student_status=status,
+        submitted_at=s.submitted_at if s else None,
+        file_url=s.file_url if s else None,
+        is_reviewed=s.is_reviewed if s else False,
+        review_score=s.review_score if s else None,
+        review_max_score=s.review_max_score if s else 20,
+        comment_count=_count_comments(db, a.id, e.id),
+    )
+
+def _student_assignment_open(db,tenant,a,now=None):
+    session = _session(db, tenant, a.session_id)
+    formation = db.get(FormationRecord, session.formation_id)
+    day = db.get(SessionCourseDayRecord, a.course_day_id) if a.course_day_id else None
+    return guided_activity_available(formation, session, day=day, now=now)
 
 def list_teacher_assignments(db:Session,tenant:TenantContext,sid:int):
     _session(db,tenant,sid)
@@ -81,6 +117,7 @@ def submit_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentSubmit
     a=_assignment(db,tenant,aid); e=_enrollment(db,tenant,a.session_id)
     if not e: raise HTTPException(403,"Vous n'êtes pas inscrit à cette session.")
     now=datetime.now(UTC)
+    if not _student_assignment_open(db,tenant,a,now): raise HTTPException(409,"Ce devoir n'est pas encore disponible.")
     if _utc(now)>_utc(a.due_date): raise HTTPException(400,"La date limite de remise est dépassée.")
     validate_submission_asset(p.file_url, tenant.organization_id, tenant.user.id)
     sub=db.scalar(select(AssignmentSubmissionRecord).where(AssignmentSubmissionRecord.organization_id==tenant.organization_id,AssignmentSubmissionRecord.assignment_id==aid,AssignmentSubmissionRecord.enrollment_id==e.id))
@@ -154,12 +191,14 @@ def _thread_access(db,tenant,a,enrollment_id):
     raise HTTPException(403,"Accès refusé.")
 
 def list_comments(db,tenant,aid,enrollment_id):
-    a=_assignment(db,tenant,aid); _thread_access(db,tenant,a,enrollment_id)
+    a=_assignment(db,tenant,aid); role=_thread_access(db,tenant,a,enrollment_id)
+    if role=="student" and not _student_assignment_open(db,tenant,a): raise HTTPException(409,"Ce devoir n'est pas encore disponible.")
     rows=db.scalars(select(AssignmentCommentRecord).where(AssignmentCommentRecord.organization_id==tenant.organization_id,AssignmentCommentRecord.assignment_id==aid,AssignmentCommentRecord.enrollment_id==enrollment_id).order_by(AssignmentCommentRecord.created_at)).all()
     return [CommentRead(id=x.id,assignment_id=aid,enrollment_id=enrollment_id,author_role=x.author_role,author_name=(db.get(UserRecord,x.author_user_id).full_name if db.get(UserRecord,x.author_user_id) else "—"),body=x.body,attachment_url=x.attachment_url,created_at=x.created_at) for x in rows]
 
 def add_comment(db,tenant,aid,enrollment_id,p:CommentCreate):
     a=_assignment(db,tenant,aid); role=_thread_access(db,tenant,a,enrollment_id)
+    if role=="student" and not _student_assignment_open(db,tenant,a): raise HTTPException(409,"Ce devoir n'est pas encore disponible.")
     if not p.body.strip() and not p.attachment_url: raise HTTPException(422,"Ajoutez un message ou une pièce jointe.")
     x=AssignmentCommentRecord(organization_id=tenant.organization_id,assignment_id=aid,enrollment_id=enrollment_id,author_user_id=tenant.user.id,author_role=role,body=p.body.strip(),attachment_url=p.attachment_url)
     db.add(x); db.commit(); db.refresh(x); return list_comments(db,tenant,aid,enrollment_id)[-1]

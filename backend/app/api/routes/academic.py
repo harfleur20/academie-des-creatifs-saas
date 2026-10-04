@@ -14,6 +14,7 @@ from app.schemas.academic import (
     DiscussionReplyRead,
     GradeRead,
     LearningSessionRead,
+    LessonVideoHeartbeatPayload,
     ProgressRead,
     QuizAttemptPayload,
     QuizCreate,
@@ -48,6 +49,7 @@ from app.services.learning_progress import (
     teacher_attendance,
     teacher_performance,
     list_student_learning,
+    sync_lesson_video_progress,
 )
 from app.services.resources_quizzes import (
     create_quiz,
@@ -192,6 +194,19 @@ def complete_lesson(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return mark_lesson_complete(db, tenant, lesson_id)
+
+
+@router.post(
+    "/student/lessons/{lesson_id}/video-progress",
+    response_model=LearningSessionRead,
+)
+def report_lesson_video_progress(
+    lesson_id: int,
+    payload: LessonVideoHeartbeatPayload,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return sync_lesson_video_progress(db, tenant, lesson_id, payload)
 
 
 @router.get(

@@ -19,6 +19,7 @@ class AssignmentRead(BaseModel):
 class StudentAssignmentRead(BaseModel):
     id:int; enrollment_id:int; session_id:int; session_label:str; formation_title:str; teacher_name:str|None
     title:str; instructions:str; due_date:datetime; is_final_project:bool
+    is_locked:bool=False; available_at:datetime|None=None
     student_status:AssignmentStudentStatus; submitted_at:datetime|None; file_url:str|None
     is_reviewed:bool; review_score:float|None; review_max_score:float; comment_count:int
 

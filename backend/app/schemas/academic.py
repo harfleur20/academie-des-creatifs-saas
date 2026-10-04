@@ -108,6 +108,8 @@ class StudentQuizRead(BaseModel):
     assessment_type: str
     duration_minutes: int | None
     scheduled_at: datetime | None
+    available_at: datetime | None = None
+    is_locked: bool = False
     pass_pct: float
     questions: list[StudentQuizQuestionRead]
     attempts: list[QuizAttemptRead]
@@ -145,6 +147,14 @@ class LessonReaderRead(BaseModel):
     video_url: str | None
     file_url: str | None
     completed: bool
+    video_watched_pct: float = 0
+
+
+class LessonVideoHeartbeatPayload(BaseModel):
+    current_time_seconds: float = Field(ge=0, allow_inf_nan=False)
+    duration_seconds: float = Field(gt=0, allow_inf_nan=False)
+    playback_rate: float = Field(default=1.0, ge=0.25, le=3.0, allow_inf_nan=False)
+    event: Literal["heartbeat", "seek", "ended"] = "heartbeat"
 
 
 class ChapterReaderRead(BaseModel):
@@ -167,7 +177,11 @@ class LearningSessionRead(BaseModel):
     session_id: int
     formation_id: int
     formation_title: str
+    format_type: str
+    dashboard_type: str
     session_label: str
+    is_locked: bool
+    available_at: datetime | None
     courses: list[CourseReaderRead]
 
 

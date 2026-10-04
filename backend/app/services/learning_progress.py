@@ -18,6 +18,7 @@ from app.models.entities import (
     GradeRecord,
     LessonProgressRecord,
     LessonRecord,
+    LessonVideoProgressRecord,
     QuizAttemptRecord,
     QuizRecord,
     SessionCourseDayRecord,
@@ -34,6 +35,7 @@ from app.schemas.academic import (
     GradeRead,
     LearningSessionRead,
     LessonReaderRead,
+    LessonVideoHeartbeatPayload,
     ProgressRead,
     StudentAttendanceRead,
     TeacherPerformanceRead,
@@ -46,7 +48,14 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.grades import grade_average_pct
+from app.services.pedagogy_access import dashboard_type, learning_is_open, require_learning_open, session_starts_at
 from app.services.tenancy import TenantContext
+
+
+VIDEO_COMPLETION_PCT = 80.0
+VIDEO_HEARTBEAT_SEEK_TOLERANCE_SECONDS = 2.5
+VIDEO_HEARTBEAT_MAX_GAP_SECONDS = 15.0
+VIDEO_MAX_PLAYBACK_RATE = 2.0
 
 
 BADGE_LABELS = {
@@ -105,6 +114,10 @@ def _lesson_progress(
     enrollment: EnrollmentRecord,
 ) -> tuple[int, int, float]:
     lesson_ids = _lesson_ids_for_session(db, tenant, enrollment.session_id)
+    session = get_session(db, tenant, enrollment.session_id)
+    formation = formation_for_session(db, tenant, enrollment.session_id)
+    if not learning_is_open(formation, session):
+        return len(lesson_ids), 0, 0.0
     completed = _completion_set(db, tenant, enrollment.id)
     completed_count = sum(1 for lesson_id in lesson_ids if lesson_id in completed)
     total = len(lesson_ids)
@@ -132,7 +145,17 @@ def list_student_learning(
     for enrollment in enrollments:
         session = get_session(db, tenant, enrollment.session_id)
         formation = formation_for_session(db, tenant, enrollment.session_id)
+        is_locked = not learning_is_open(formation, session)
         completed = _completion_set(db, tenant, enrollment.id)
+        video_progress = {
+            row.lesson_id: row.watched_pct
+            for row in db.scalars(
+                select(LessonVideoProgressRecord).where(
+                    LessonVideoProgressRecord.organization_id == tenant.organization_id,
+                    LessonVideoProgressRecord.enrollment_id == enrollment.id,
+                )
+            ).all()
+        }
         courses = list(
             db.scalars(
                 select(CourseRecord)
@@ -154,7 +177,11 @@ def list_student_learning(
                 session_id=session.id,
                 formation_id=formation.id,
                 formation_title=formation.title,
+                format_type=formation.format_type,
+                dashboard_type=dashboard_type(formation),
                 session_label=session.label,
+                is_locked=is_locked,
+                available_at=session_starts_at(session) if dashboard_type(formation) == "guided" else None,
                 courses=[
                     CourseReaderRead(
                         id=course.id,
@@ -172,10 +199,11 @@ def list_student_learning(
                                         title=lesson.title,
                                         order_index=lesson.order_index,
                                         lesson_type=lesson.lesson_type,
-                                        content=lesson.content,
-                                        video_url=lesson.video_url,
-                                        file_url=lesson.file_url,
-                                        completed=lesson.id in completed,
+                                        content=None if is_locked else lesson.content,
+                                        video_url=None if is_locked else lesson.video_url,
+                                        file_url=None if is_locked else lesson.file_url,
+                                        completed=not is_locked and lesson.id in completed,
+                                        video_watched_pct=0 if is_locked else video_progress.get(lesson.id, 0),
                                     )
                                     for lesson in chapter.lessons
                                 ],
@@ -190,11 +218,11 @@ def list_student_learning(
     return result
 
 
-def mark_lesson_complete(
+def _student_lesson_context(
     db: Session,
     tenant: TenantContext,
     lesson_id: int,
-) -> LearningSessionRead:
+) -> tuple[LessonRecord, EnrollmentRecord]:
     if not tenant.has_role("student"):
         raise HTTPException(403, "Accès étudiant requis.")
 
@@ -213,6 +241,24 @@ def mark_lesson_complete(
         raise HTTPException(404, "Leçon introuvable.")
     lesson, course = row
     enrollment = require_student_enrollment(db, tenant, course.session_id)
+    session = get_session(db, tenant, course.session_id)
+    formation = formation_for_session(db, tenant, course.session_id)
+    require_learning_open(formation, session)
+    return lesson, enrollment
+
+
+def mark_lesson_complete(
+    db: Session,
+    tenant: TenantContext,
+    lesson_id: int,
+) -> LearningSessionRead:
+    lesson, enrollment = _student_lesson_context(db, tenant, lesson_id)
+    if lesson.lesson_type == "video":
+        raise HTTPException(400, "Cette leçon vidéo se valide automatiquement après 80 % de lecture.")
+    if lesson.lesson_type == "quiz":
+        raise HTTPException(400, "Réussissez le quiz pour valider cette leçon.")
+    if lesson.lesson_type == "assignment":
+        raise HTTPException(400, "Déposez votre devoir pour valider cette leçon.")
 
     existing = db.scalar(
         select(LessonProgressRecord).where(
@@ -237,6 +283,113 @@ def mark_lesson_complete(
         for item in list_student_learning(db, tenant)
         if item.enrollment_id == enrollment.id
     )
+
+
+def _merge_video_ranges(
+    existing_ranges: list[object],
+    start_seconds: float,
+    end_seconds: float,
+) -> list[list[float]]:
+    ranges = [
+        [float(item[0]), float(item[1])]
+        for item in existing_ranges
+        if isinstance(item, list)
+        and len(item) == 2
+        and all(isinstance(value, (int, float)) for value in item)
+        and float(item[1]) > float(item[0])
+    ]
+    start, end = sorted((round(max(0.0, start_seconds), 3), round(max(0.0, end_seconds), 3)))
+    if end > start:
+        ranges.append([start, end])
+    ranges.sort(key=lambda item: item[0])
+    merged: list[list[float]] = []
+    for current_start, current_end in ranges:
+        if not merged or current_start > merged[-1][1] + 0.25:
+            merged.append([current_start, current_end])
+        else:
+            merged[-1][1] = max(merged[-1][1], current_end)
+    return [[round(start, 3), round(end, 3)] for start, end in merged]
+
+
+def sync_lesson_video_progress(
+    db: Session,
+    tenant: TenantContext,
+    lesson_id: int,
+    payload: LessonVideoHeartbeatPayload,
+    *,
+    now: datetime | None = None,
+) -> LearningSessionRead:
+    lesson, enrollment = _student_lesson_context(db, tenant, lesson_id)
+    if lesson.lesson_type != "video":
+        raise HTTPException(400, "Le suivi vidéo ne s'applique qu'aux leçons vidéo.")
+
+    current = now or datetime.now(UTC)
+    db.execute(
+        select(EnrollmentRecord.id)
+        .where(
+            EnrollmentRecord.id == enrollment.id,
+            EnrollmentRecord.organization_id == tenant.organization_id,
+        )
+        .with_for_update()
+    ).scalar_one()
+    record = db.scalar(
+        select(LessonVideoProgressRecord)
+        .where(
+            LessonVideoProgressRecord.organization_id == tenant.organization_id,
+            LessonVideoProgressRecord.enrollment_id == enrollment.id,
+            LessonVideoProgressRecord.lesson_id == lesson.id,
+        )
+        .with_for_update()
+    )
+    if record is None:
+        record = LessonVideoProgressRecord(
+            organization_id=tenant.organization_id,
+            enrollment_id=enrollment.id,
+            lesson_id=lesson.id,
+            watched_ranges=[],
+            watched_seconds=0,
+            duration_seconds=0,
+            watched_pct=0,
+            last_position_seconds=0,
+        )
+
+    duration = max(payload.duration_seconds, record.duration_seconds or 0, 1.0)
+    position = min(max(payload.current_time_seconds, 0.0), duration)
+    record.duration_seconds = round(duration, 3)
+    if payload.event != "seek":
+        previous = max(record.last_position_seconds or 0.0, 0.0)
+        last_heartbeat = record.last_heartbeat_at
+        if last_heartbeat is not None:
+            if last_heartbeat.tzinfo is None:
+                last_heartbeat = last_heartbeat.replace(tzinfo=UTC)
+            elapsed = min(max((current - last_heartbeat).total_seconds(), 0.0), VIDEO_HEARTBEAT_MAX_GAP_SECONDS)
+            delta = position - previous
+            maximum = elapsed * min(payload.playback_rate, VIDEO_MAX_PLAYBACK_RATE) + VIDEO_HEARTBEAT_SEEK_TOLERANCE_SECONDS
+            if 0 < delta <= maximum:
+                record.watched_ranges = _merge_video_ranges(record.watched_ranges or [], previous, position)
+                record.watched_seconds = round(sum(end - start for start, end in record.watched_ranges), 3)
+                record.watched_pct = round(min(100.0, record.watched_seconds / duration * 100), 1)
+
+    record.last_position_seconds = round(position, 3)
+    record.last_heartbeat_at = current
+    db.add(record)
+    if (record.watched_pct or 0) >= VIDEO_COMPLETION_PCT:
+        existing = db.scalar(
+            select(LessonProgressRecord).where(
+                LessonProgressRecord.organization_id == tenant.organization_id,
+                LessonProgressRecord.enrollment_id == enrollment.id,
+                LessonProgressRecord.lesson_id == lesson.id,
+            )
+        )
+        if existing is None:
+            db.add(LessonProgressRecord(
+                organization_id=tenant.organization_id,
+                enrollment_id=enrollment.id,
+                lesson_id=lesson.id,
+                completed_at=current,
+            ))
+    db.commit()
+    return next(item for item in list_student_learning(db, tenant) if item.enrollment_id == enrollment.id)
 
 
 def _course_day_attendance(

@@ -37,6 +37,7 @@ const TeacherQuizzesPage = lazy(() => import('./pages/TeacherQuizzesPage').then(
 const StudentQuizzesPage = lazy(() => import('./pages/StudentQuizzesPage').then((module) => ({ default: module.StudentQuizzesPage })))
 const TeacherCoursesPage = lazy(() => import('./pages/TeacherCoursesPage').then((module) => ({ default: module.TeacherCoursesPage })))
 const StudentCoursesPage = lazy(() => import('./pages/StudentCoursesPage').then((module) => ({ default: module.StudentCoursesPage })))
+const StudentParcoursPage = lazy(() => import('./pages/StudentParcoursPage').then((module) => ({ default: module.StudentParcoursPage })))
 import { TeacherAttendancePage } from './pages/TeacherAttendancePage'
 import { TeacherPerformancePage } from './pages/TeacherPerformancePage'
 import { TeacherStudentsPage } from './pages/TeacherStudentsPage'
@@ -264,10 +265,12 @@ export default function App() {
               }
             >
               <Route index element={<StudentDashboardPage />} />
-              <Route path="formations" element={<StudentDashboardPage />} />
+              <Route path="formations" element={<StudentParcoursPage />} />
               <Route path="sessions/:sessionId" element={<StudentSessionPlanningPage />} />
               <Route path="planning" element={<StudentPlanningPage />} />
               <Route path="courses" element={<StudentCoursesPage />} />
+              <Route path="classic/:enrollmentId" element={<StudentCoursesPage mode="classic" />} />
+              <Route path="guided/:enrollmentId" element={<StudentCoursesPage mode="guided" />} />
               <Route path="resources" element={<StudentResourcesPage />} />
               <Route path="assignments" element={<StudentAssignmentsPage />} />
               <Route path="quizzes" element={<StudentQuizzesPage />} />

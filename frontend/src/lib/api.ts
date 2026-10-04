@@ -1240,6 +1240,8 @@ export type StudentWorkspaceSession = {
   enrollment_id: number
   formation_id: number
   formation_title: string
+  format_type: 'ligne' | 'live' | 'presentiel'
+  dashboard_type: 'classic' | 'guided'
   session_id: number
   session_label: string
   start_date: string
@@ -1357,6 +1359,8 @@ export type StudentAssignment = {
   teacher_name: string | null
   title: string
   instructions: string
+  is_locked: boolean
+  available_at: string | null
   due_date: string
   is_final_project: boolean
   student_status: StudentAssignmentStatus
@@ -1606,6 +1610,8 @@ export type StudentQuiz = {
   assessment_type: 'quiz' | 'exam'
   duration_minutes: number | null
   scheduled_at: string | null
+  available_at: string | null
+  is_locked: boolean
   pass_pct: number
   questions: StudentQuizQuestion[]
   attempts: QuizAttempt[]
@@ -1682,6 +1688,7 @@ export type LearningLesson = {
   video_url: string | null
   file_url: string | null
   completed: boolean
+  video_watched_pct: number
 }
 
 export type LearningChapter = {
@@ -1704,7 +1711,11 @@ export type LearningSession = {
   session_id: number
   formation_id: number
   formation_title: string
+  format_type: 'ligne' | 'live' | 'presentiel'
+  dashboard_type: 'classic' | 'guided'
   session_label: string
+  is_locked: boolean
+  available_at: string | null
   courses: LearningCourse[]
 }
 
@@ -1715,6 +1726,19 @@ export const completeStudentLesson = (lessonId: number) =>
   request<LearningSession>('/academic/student/lessons/' + lessonId + '/complete', {
     method: 'POST',
   })
+
+export const reportStudentLessonVideoProgress = (
+  lessonId: number,
+  payload: {
+    current_time_seconds: number
+    duration_seconds: number
+    playback_rate: number
+    event: 'heartbeat' | 'seek' | 'ended'
+  },
+) => request<LearningSession>('/academic/student/lessons/' + lessonId + '/video-progress', {
+  method: 'POST',
+  body: JSON.stringify(payload),
+})
 
 export type AttendanceCourseDay = {
   course_day_id: number

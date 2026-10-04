@@ -14,6 +14,7 @@ from app.schemas.workspace import (
     TeacherWorkspaceRead,
 )
 from app.services.school_profiles import ensure_teacher_profile
+from app.services.pedagogy_access import dashboard_type
 from app.services.tenancy import TenantContext, require_organization_roles
 
 
@@ -112,6 +113,8 @@ def get_student_workspace(
             enrollment_id=item.id,
             formation_id=item.session.formation_id,
             formation_title=item.session.formation.title,
+            format_type=item.session.formation.format_type,
+            dashboard_type=dashboard_type(item.session.formation),
             session_id=item.session.id,
             session_label=item.session.label,
             start_date=item.session.start_date,

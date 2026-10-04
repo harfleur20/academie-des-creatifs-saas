@@ -112,8 +112,10 @@ export function StudentAssignmentsPage() {
       <section className="student-assignment-list">
         {items.map((assignment) => {
           const canSubmit =
-            assignment.student_status === 'pending' ||
-            assignment.student_status === 'submitted'
+            !assignment.is_locked && (
+              assignment.student_status === 'pending' ||
+              assignment.student_status === 'submitted'
+            )
 
           let badge
           if (assignment.student_status === 'pending') {
@@ -136,7 +138,9 @@ export function StudentAssignmentsPage() {
                 <strong>
                   {assignment.formation_title} · {assignment.session_label}
                 </strong>
-                <p>{assignment.instructions}</p>
+                {assignment.is_locked ? (
+                  <p>Disponible au début de la séance{assignment.available_at ? `, le ${dateTime(assignment.available_at)}` : ''}.</p>
+                ) : <p>{assignment.instructions}</p>}
                 <small>
                   Prof. {assignment.teacher_name || '—'} · Date limite :{' '}
                   {dateTime(assignment.due_date)}
@@ -181,7 +185,7 @@ export function StudentAssignmentsPage() {
                   </label>
                 )}
 
-                <button
+                {!assignment.is_locked && <button
                   type="button"
                   className="secondary-button compact-action"
                   onClick={() => void openThread(assignment)}
@@ -191,7 +195,7 @@ export function StudentAssignmentsPage() {
                   {assignment.comment_count > 0
                     ? '(' + assignment.comment_count + ')'
                     : ''}
-                </button>
+                </button>}
               </div>
             </article>
           )

@@ -28,6 +28,8 @@ class StudentSessionWorkspaceRead(BaseModel):
     enrollment_id: int
     formation_id: int
     formation_title: str
+    format_type: str
+    dashboard_type: str
     session_id: int
     session_label: str
     start_date: date

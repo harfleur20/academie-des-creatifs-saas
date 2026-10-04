@@ -964,6 +964,24 @@ class LessonProgressRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class LessonVideoProgressRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "lesson_video_progress"
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", "lesson_id", name="uq_lesson_video_progress_enrollment_lesson"),
+        Index("ix_lesson_video_progress_org_enrollment", "organization_id", "enrollment_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False, index=True)
+    watched_ranges: Mapped[list[list[float]]] = mapped_column(JSON, nullable=False, default=list)
+    watched_seconds: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    duration_seconds: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    watched_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    last_position_seconds: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class AttendanceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "attendance"
     __table_args__ = (

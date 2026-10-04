@@ -7142,3 +7142,17 @@
   font-weight: 700;
   text-decoration: none;
 }
+/* Student pathways from the mother site's classic and guided enrollment views. */
+.student-parcours-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; }
+.student-parcours-filters button { border: 1px solid #d8e1ec; background: #fff; color: #344054; border-radius: 999px; padding: 9px 15px; font: inherit; font-weight: 650; cursor: pointer; }
+.student-parcours-filters button.is-active { background: #182f60; border-color: #182f60; color: #fff; }
+.student-parcours-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+.student-parcours-card { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.student-parcours-card h2, .student-parcours-card p { margin: 0; }
+.student-parcours-card small { color: #667085; }
+.student-parcours-card .primary-button { margin-top: auto; text-decoration: none; }
+.student-parcours-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.student-parcours-tags span { border-radius: 999px; background: #edf3fc; color: #254e86; padding: 5px 9px; font-size: 12px; font-weight: 700; }
+.student-reader-lock { padding: 18px; border-radius: 12px; background: #f3f6fb; color: #344054; }
+.student-reader-video-progress { margin: 10px 0; font-size: 13px; color: #475467; }
+.student-reader-content iframe.student-reader-video { display: block; aspect-ratio: 16 / 9; height: auto; border: 0; }

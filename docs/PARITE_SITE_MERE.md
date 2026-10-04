@@ -9,9 +9,9 @@ Le site mère définit les parcours et les règles métier de l'école. Le SaaS 
 | Parcours | Site mère | SaaS multi-écoles | Suite à donner |
 | --- | --- | --- | --- |
 | Catalogue, commande et paiement étudiant | Présents | Présents, avec séparation par école et paiement en plusieurs échéances | Vérifier les parcours complets sur mobile et sur domaine d'école. |
-| Cours, ressources, quiz, devoirs et résultats | Présents | Routes et modèles présents pour professeur et étudiant ; les règles de progression diffèrent | Reprendre les règles de publication, disponibilité, tentative, correction et progression du site mère. |
+| Cours, ressources, quiz, devoirs et résultats | Présents | Cours publiés filtrés ; leçons vidéo suivies ; quiz et devoirs guidés verrouillés jusqu'à leur ouverture | Reprendre les liens entre leçon et évaluation, les tentatives différées et les calculs complets du site mère. |
 | Classe, présence et certificats | Présents | Routes et modèles présents | Vérifier les écarts de calcul, d'émission et de téléchargement. |
-| Parcours classique et guidé | `ligne` ouvre le parcours `classic` ; `live` et `presentiel` ouvrent le parcours `guided` | Pages communes par rôle dans le SaaS | Reprendre les deux espaces et leurs règles, avec le contexte d'école. |
+| Parcours classique et guidé | `ligne` ouvre le parcours `classic` ; `live` et `presentiel` ouvrent le parcours `guided` | Routes par inscription et cartes séparées ; le lecteur reste commun | Reprendre l'interface complète du lecteur classique et du suivi guidé du site mère. |
 | Messagerie entre utilisateurs | Conversations et destinataires autorisés selon les rôles et les inscriptions | Pas de messagerie interne équivalente repérée | Porter ce parcours avec isolation par école, session et participants. |
 | Notifications dans l'application | Boîte et indicateur de notifications | Envois email et WhatsApp, sans boîte dans l'interface | Porter la boîte et ses événements pour chaque école. |
 | Favoris des formations | Présents | Aucun parcours équivalent repéré | Reprendre le comportement du catalogue du site mère. |
@@ -22,8 +22,9 @@ Les fonctions d'événements et de billetterie du site mère sont dans un espace
 ## Écart pédagogique vérifié dans le code
 
 - Le site mère n'expose que les cours et leçons publiés aux étudiants (`backend/app/api/routes/me.py`). Le SaaS exposait aussi les cours `draft`. Le premier correctif de reprise filtre désormais les cours publiés dans le lecteur, le compteur étudiant et le calcul de progression ; une leçon d'un cours brouillon ne peut plus être validée.
-- Le site mère valide une vidéo à partir d'un suivi de lecture (seuil de 80 %) et traite les quiz avec score, nombre de tentatives et délais (`backend/app/api/routes/me.py`). Le SaaS propose encore un bouton de validation manuelle pour toutes les leçons. Ce point requiert la reprise du modèle de suivi, des endpoints et de l'interface du site mère avant de remplacer ce bouton.
-- Le site mère verrouille les activités guidées selon le début de session et, selon le contenu, le créneau ou la publication (`backend/app/services/pedagogy_access.py`). Le SaaS ne reprend pas encore tous ces verrous.
+- Le site mère valide une vidéo à partir d'un suivi de lecture (seuil de 80 %) (`backend/app/api/routes/me.py`). Le SaaS suit maintenant les plages lues par inscription et retire la validation manuelle des vidéos. Les lecteurs directs, YouTube et Vimeo transmettent la progression ; le lecteur intégré Bunny reste à raccorder.
+- Le site mère verrouille les activités guidées selon le début de session, le créneau et la publication (`backend/app/services/pedagogy_access.py`). Le SaaS reprend le début de session pour les cours, quiz et devoirs, le créneau pour les activités liées, et l'exception des ressources préparatoires. Les leçons du SaaS n'ont pas encore les liens et dates de disponibilité du modèle du site mère.
+- Le site mère lie les quiz, PDF de validation et devoirs à certaines leçons ; leurs résultats terminent ces leçons automatiquement. Le SaaS possède actuellement des quiz et devoirs séparés des leçons. La tentative à trois essais existe, mais le délai de réessai du site mère n'est pas encore repris. Le lecteur du SaaS ne doit donc pas être présenté comme un parcours pédagogique entièrement équivalent.
 
 Ordre de reprise : parcours étudiant classique et guidé, règles de progression et d'évaluation, suivi professeur/administration, puis messagerie, notifications et fonctions de catalogue. Chaque étape doit être testée sur deux écoles pour vérifier qu'aucune donnée ne traverse la frontière entre elles.
 

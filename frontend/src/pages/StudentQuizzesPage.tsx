@@ -120,6 +120,7 @@ export function StudentQuizzesPage() {
               <span><Timer size={13}/>{quiz.duration_minutes || '—'} min</span>
               <span>Seuil {quiz.pass_pct}%</span>
               <span>{quiz.attempts_remaining} essai(s) restant(s)</span>
+              {quiz.is_locked && quiz.available_at && <span>Disponible le {new Date(quiz.available_at).toLocaleString('fr-FR')}</span>}
             </div>
             <div className="student-quiz-actions">
               {quiz.passed ? <span className="assignment-status reviewed"><CheckCircle2 size={13}/>Réussi · {quiz.best_score_pct}%</span> : quiz.best_score_pct !== null ? <span className="assignment-status late"><XCircle size={13}/>Meilleur score {quiz.best_score_pct}%</span> : <span className="assignment-status pending"><Clock3 size={13}/>À faire</span>}

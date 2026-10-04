@@ -14,6 +14,7 @@ from app.models.entities import (
     QuizQuestionRecord,
     QuizRecord,
     ResourceRecord,
+    SessionCourseDayRecord,
     UserRecord,
 )
 from app.schemas.academic import (
@@ -37,6 +38,7 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.grades import upsert_grade
+from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.tenancy import TenantContext
 
@@ -153,7 +155,16 @@ def list_student_resources(
             .order_by(ResourceRecord.published_at.desc())
         ).all()
     )
-    return [_resource_view(db, tenant, row) for row in rows]
+    available: list[ResourceRead] = []
+    for row in rows:
+        session = get_session(db, tenant, row.session_id)
+        formation = formation_for_session(db, tenant, row.session_id)
+        day = db.get(SessionCourseDayRecord, row.course_day_id) if row.course_day_id else None
+        if guided_activity_available(
+            formation, session, day=day, published_at=row.published_at, now=now,
+        ):
+            available.append(_resource_view(db, tenant, row))
+    return available
 
 
 def _teacher_quiz_view(
@@ -343,10 +354,24 @@ def _student_quiz_view(
     best = max((item.score_pct for item in attempts), default=None)
     passed = best is not None and best >= quiz.pass_pct
     now = datetime.now(UTC)
-    scheduled_open = quiz.scheduled_at is None or now >= quiz.scheduled_at
+    scheduled_open = quiz.scheduled_at is None or now >= current_utc(quiz.scheduled_at)
+    day = db.get(SessionCourseDayRecord, quiz.course_day_id) if quiz.course_day_id else None
+    activity_open = guided_activity_available(
+        formation, session, scheduled_at=quiz.scheduled_at, day=day, now=now,
+    )
+    opening_times = []
+    if dashboard_type(formation) == "guided":
+        opening_times.append(session_starts_at(session))
+    if quiz.scheduled_at is not None:
+        opening_times.append(current_utc(quiz.scheduled_at))
+    if day is not None:
+        opening_times.append(current_utc(day.scheduled_at))
+    available_at = max(opening_times) if opening_times else None
+    locked = not activity_open or quiz.status != "active"
     can_attempt = (
         quiz.status == "active"
         and scheduled_open
+        and activity_open
         and not passed
         and len(attempts) < MAX_QUIZ_ATTEMPTS
     )
@@ -361,6 +386,8 @@ def _student_quiz_view(
         assessment_type=quiz.assessment_type,
         duration_minutes=quiz.duration_minutes,
         scheduled_at=quiz.scheduled_at,
+        available_at=available_at,
+        is_locked=locked,
         pass_pct=quiz.pass_pct,
         questions=[
             StudentQuizQuestionRead(
@@ -370,7 +397,7 @@ def _student_quiz_view(
                 options=list(question.options or []),
             )
             for question in quiz.questions
-        ],
+        ] if not locked else [],
         attempts=[
             QuizAttemptRead(
                 id=item.id,
