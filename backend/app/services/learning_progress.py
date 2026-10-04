@@ -89,6 +89,7 @@ def _lesson_ids_for_session(
                 CourseRecord.session_id == session_id,
                 CourseRecord.status == "published",
                 LessonRecord.organization_id == tenant.organization_id,
+                LessonRecord.publication_status == "published",
             )
         ).all()
     )
@@ -216,7 +217,7 @@ def list_student_learning(
                                 order_index=chapter.order_index,
                                 lessons=[
                                     lesson_view(lesson)
-                                    for lesson in chapter.lessons
+                                    for lesson in chapter.lessons if lesson.publication_status == "published"
                                 ],
                             )
                             for chapter in course.chapters
@@ -244,6 +245,7 @@ def _student_lesson_context(
         .where(
             LessonRecord.id == lesson_id,
             LessonRecord.organization_id == tenant.organization_id,
+            LessonRecord.publication_status == "published",
             CourseRecord.organization_id == tenant.organization_id,
             CourseRecord.status == "published",
         )
@@ -626,6 +628,7 @@ def _assignment_stats(
             )
         ).all()
     )
+    assignments = [item for item in assignments if _linked_activity_is_published(db, tenant, "assignment", item.id)]
     submitted = 0
     has_final = False
     final_valid = False
@@ -666,6 +669,7 @@ def _quiz_stats(
             )
         ).all()
     )
+    quizzes = [item for item in quizzes if _linked_activity_is_published(db, tenant, "quiz", item.id)]
     attempted = 0
     passed = 0
     best_scores: list[float] = []
@@ -687,6 +691,19 @@ def _quiz_stats(
                 passed += 1
     average = round(sum(best_scores) / len(best_scores), 1) if best_scores else None
     return len(quizzes), attempted, passed, average
+
+
+def _linked_activity_is_published(db: Session, tenant: TenantContext, kind: str, activity_id: int) -> bool:
+    row = db.execute(
+        select(LessonRecord.publication_status, CourseRecord.status)
+        .join(ChapterRecord, ChapterRecord.id == LessonRecord.chapter_id)
+        .join(CourseRecord, CourseRecord.id == ChapterRecord.course_id)
+        .where(
+            LessonRecord.organization_id == tenant.organization_id,
+            getattr(LessonRecord, f"{kind}_id") == activity_id,
+        )
+    ).first()
+    return row is None or (row[0] == "published" and row[1] == "published")
 
 
 def _attendance_stats(

@@ -147,4 +147,4 @@ def linked_lesson_gate(
         return None
     course = db.get(CourseRecord, db.get(ChapterRecord, lesson.chapter_id).course_id)
     opening, available = lesson_access(db, formation, session, lesson, now=now)
-    return opening, available and course.status == "published"
+    return opening, available and course.status == "published" and lesson.publication_status == "published"

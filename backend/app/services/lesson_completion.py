@@ -25,6 +25,7 @@ def complete_activity_lessons(
         .join(CourseRecord, CourseRecord.id == ChapterRecord.course_id)
         .where(
             LessonRecord.organization_id == organization_id,
+            LessonRecord.publication_status == "published",
             ChapterRecord.organization_id == organization_id,
             CourseRecord.organization_id == organization_id,
             CourseRecord.session_id == session_id,

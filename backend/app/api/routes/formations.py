@@ -28,7 +28,9 @@ from app.services.formations import (
     get_formation_detail,
     list_formations,
     remove_teacher,
+    publish_lesson,
     update_course,
+    update_lesson,
     update_enrollment,
     update_formation,
     update_session,
@@ -242,3 +244,27 @@ def create_lesson_route(
         chapter_id,
         payload,
     )
+
+
+@router.put(
+    "/{formation_id}/sessions/{session_id}/courses/{course_id}/chapters/{chapter_id}/lessons/{lesson_id}",
+    response_model=FormationDetailRead,
+)
+def update_lesson_route(
+    formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int,
+    payload: LessonCreate, db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
+):
+    require_organization_roles(tenant, "owner", "admin", "manager", "teacher")
+    return update_lesson(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id, payload)
+
+
+@router.post(
+    "/{formation_id}/sessions/{session_id}/courses/{course_id}/chapters/{chapter_id}/lessons/{lesson_id}/publish",
+    response_model=FormationDetailRead,
+)
+def publish_lesson_route(
+    formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int,
+    db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
+):
+    require_organization_roles(tenant, "owner", "admin", "manager", "teacher")
+    return publish_lesson(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id)

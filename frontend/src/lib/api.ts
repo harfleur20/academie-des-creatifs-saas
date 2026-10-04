@@ -1004,6 +1004,7 @@ export type Lesson = {
   title: string
   order_index: number
   lesson_type: 'text' | 'video' | 'pdf' | 'quiz' | 'assignment' | 'resource'
+  publication_status: 'draft' | 'published'
   content: string | null
   video_url: string | null
   file_url: string | null
@@ -1222,6 +1223,23 @@ export const createChapterLesson = (
       body: JSON.stringify(payload),
     },
   )
+
+export type LessonPayload = Parameters<typeof createChapterLesson>[4]
+
+export const updateSessionCourse = (formationId: number, sessionId: number, courseId: number, payload: { status: Course['status'] }) =>
+  request<FormationDetail>(`/formations/${formationId}/sessions/${sessionId}/courses/${courseId}`, {
+    method: 'PATCH', body: JSON.stringify(payload),
+  })
+
+export const updateChapterLesson = (formationId: number, sessionId: number, courseId: number, chapterId: number, lessonId: number, payload: LessonPayload) =>
+  request<FormationDetail>(`/formations/${formationId}/sessions/${sessionId}/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}`, {
+    method: 'PUT', body: JSON.stringify(payload),
+  })
+
+export const publishChapterLesson = (formationId: number, sessionId: number, courseId: number, chapterId: number, lessonId: number) =>
+  request<FormationDetail>(`/formations/${formationId}/sessions/${sessionId}/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}/publish`, {
+    method: 'POST',
+  })
 
 
 export type TeacherWorkspaceSession = {

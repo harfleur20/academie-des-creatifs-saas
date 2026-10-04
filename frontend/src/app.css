@@ -4659,7 +4659,7 @@
   margin: 10px 0;
 }
 
-.teacher-lesson-list > span {
+.teacher-lesson-row {
   display: inline-flex;
   gap: 5px;
   align-items: center;
@@ -4667,7 +4667,38 @@
   border-radius: 8px;
   background: #fff;
   font-size: 9px;
+  flex-wrap: wrap;
 }
+
+.teacher-lesson-row > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.teacher-lesson-edit {
+  flex-basis: 100%;
+  width: 100%;
+}
+
+.guided-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.guided-summary-grid .app-card { display: grid; gap: 8px; }
+.guided-summary-grid strong { font-size: 1.2rem; }
+.guided-summary-grid p { margin: 0; color: var(--muted); }
+.guided-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.guided-tabs button { border: 1px solid #e3e8ef; border-radius: 9px; padding: 9px 12px; background: #fff; cursor: pointer; }
+.guided-tabs button.is-active { color: #fff; background: #182f60; border-color: #182f60; }
+.guided-panel { display: grid; gap: 12px; }
+.guided-panel h2, .guided-panel h3, .guided-panel p { margin: 0; }
+.guided-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.guided-course, .guided-list-row { display: grid; gap: 5px; padding: 12px 0; border-bottom: 1px solid #e3e8ef; }
+.guided-list-row small, .guided-course p { color: var(--muted); }
 
 .teacher-lesson-list small {
   color: var(--muted);

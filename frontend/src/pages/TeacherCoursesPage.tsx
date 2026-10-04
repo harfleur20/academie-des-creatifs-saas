@@ -10,11 +10,15 @@ import {
   listTeacherAssignments,
   listTeacherQuizzes,
   listTeacherResources,
+  publishChapterLesson,
+  updateChapterLesson,
+  updateSessionCourse,
   uploadLessonPdf,
   type AcademicResource,
   type Assignment,
   type FormationDetail,
   type Lesson,
+  type LessonPayload,
   type TeacherQuiz,
   type TeacherWorkspace,
 } from '../lib/api'
@@ -27,6 +31,36 @@ type LessonDraft = {
   available_at?: string
 }
 
+function payloadForLesson(draft: LessonDraft, orderIndex: number): LessonPayload {
+  const value = draft.content.trim()
+  return {
+    title: draft.title.trim(), order_index: orderIndex, lesson_type: draft.lesson_type,
+    content: draft.lesson_type === 'text' ? value : null,
+    video_url: draft.lesson_type === 'video' ? value : null,
+    file_url: ['pdf', 'resource'].includes(draft.lesson_type) ? value : null,
+    quiz_id: ['quiz', 'pdf', 'text'].includes(draft.lesson_type) && draft.linked_id ? Number(draft.linked_id) : null,
+    assignment_id: draft.lesson_type === 'assignment' && draft.linked_id ? Number(draft.linked_id) : null,
+    resource_id: draft.lesson_type === 'resource' && draft.linked_id ? Number(draft.linked_id) : null,
+    available_at: draft.available_at ? new Date(draft.available_at).toISOString() : null,
+  }
+}
+
+function localDateTime(value: string | null): string {
+  if (!value) return ''
+  const date = new Date(value)
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
+  return date.toISOString().slice(0, 16)
+}
+
+function draftForLesson(lesson: Lesson): LessonDraft {
+  return {
+    title: lesson.title, lesson_type: lesson.lesson_type,
+    content: lesson.lesson_type === 'text' ? lesson.content || '' : lesson.lesson_type === 'video' ? lesson.video_url || '' : lesson.file_url || '',
+    linked_id: String(lesson.quiz_id || lesson.assignment_id || lesson.resource_id || ''),
+    available_at: localDateTime(lesson.available_at),
+  }
+}
+
 export function TeacherCoursesPage() {
   const [workspace, setWorkspace] = useState<TeacherWorkspace | null>(null)
   const [sessionId, setSessionId] = useState<number | null>(null)
@@ -34,6 +68,8 @@ export function TeacherCoursesPage() {
   const [courseTitle, setCourseTitle] = useState('')
   const [chapterDrafts, setChapterDrafts] = useState<Record<number, string>>({})
   const [lessonDrafts, setLessonDrafts] = useState<Record<number, LessonDraft>>({})
+  const [editingLessonId, setEditingLessonId] = useState<number | null>(null)
+  const [editingDraft, setEditingDraft] = useState<LessonDraft | null>(null)
   const [quizzes, setQuizzes] = useState<TeacherQuiz[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [resources, setResources] = useState<AcademicResource[]>([])
@@ -112,24 +148,12 @@ export function TeacherCoursesPage() {
     if (!formation || !session) return
     const draft = lessonDrafts[chapterId] || { title: '', lesson_type: 'text', content: '' }
     if (draft.title.trim().length < 2) return
-    const value = draft.content.trim()
     const created = await run(() => createChapterLesson(
       formation.id,
       session.id,
       courseId,
       chapterId,
-      {
-        title: draft.title.trim(),
-        order_index: count,
-        lesson_type: draft.lesson_type,
-        content: draft.lesson_type === 'text' ? value : null,
-        video_url: draft.lesson_type === 'video' ? value : null,
-        file_url: ['pdf', 'resource'].includes(draft.lesson_type) ? value : null,
-        quiz_id: ['quiz', 'pdf', 'text'].includes(draft.lesson_type) && draft.linked_id ? Number(draft.linked_id) : null,
-        assignment_id: draft.lesson_type === 'assignment' && draft.linked_id ? Number(draft.linked_id) : null,
-        resource_id: draft.lesson_type === 'resource' && draft.linked_id ? Number(draft.linked_id) : null,
-        available_at: draft.available_at ? new Date(draft.available_at).toISOString() : null,
-      },
+      payloadForLesson(draft, count),
     ))
     if (created) setLessonDrafts((current) => ({
       ...current,
@@ -137,21 +161,43 @@ export function TeacherCoursesPage() {
     }))
   }
 
-  async function importPdf(chapterId: number, file: File | undefined) {
+  async function importPdf(chapterId: number, file: File | undefined, editing = false) {
     if (!file) return
     setUploadingPdf(chapterId)
     setError('')
     try {
       const asset = await uploadLessonPdf(file)
-      setLessonDrafts((current) => ({ ...current, [chapterId]: {
-        ...(current[chapterId] || { title: '', lesson_type: 'pdf', content: '' }),
-        content: asset.source_url,
+      if (editing) setEditingDraft((current) => current && ({ ...current, content: asset.source_url }))
+      else setLessonDrafts((current) => ({ ...current, [chapterId]: {
+        ...(current[chapterId] || { title: '', lesson_type: 'pdf', content: '' }), content: asset.source_url,
       } }))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Import du PDF impossible.')
     } finally {
       setUploadingPdf(null)
     }
+  }
+
+  async function saveLesson(courseId: number, chapterId: number, lesson: Lesson) {
+    if (!formation || !session || !editingDraft) return
+    const saved = await run(() => updateChapterLesson(formation.id, session.id, courseId, chapterId, lesson.id, payloadForLesson(editingDraft, lesson.order_index)))
+    if (saved) { setEditingLessonId(null); setEditingDraft(null) }
+  }
+
+  function renderLessonFields(draft: LessonDraft, change: (value: LessonDraft) => void, chapterId: number, editing = false) {
+    return <>
+      <input value={draft.title} onChange={(event) => change({ ...draft, title: event.target.value })} placeholder="Titre de la leçon" />
+      <select value={draft.lesson_type} onChange={(event) => change({ ...draft, lesson_type: event.target.value as Lesson['lesson_type'], linked_id: '', content: '' })}>
+        <option value="text">Texte</option><option value="video">Vidéo</option><option value="pdf">PDF</option><option value="resource">Ressource</option><option value="quiz">Quiz</option><option value="assignment">Devoir</option>
+      </select>
+      {!['quiz', 'assignment', 'pdf'].includes(draft.lesson_type) && <input value={draft.content} onChange={(event) => change({ ...draft, content: event.target.value })} placeholder={draft.lesson_type === 'text' ? 'Contenu de la leçon' : 'URL du contenu'} />}
+      {draft.lesson_type === 'pdf' && <label>PDF de la leçon <input type="file" accept="application/pdf,.pdf" disabled={uploadingPdf === chapterId} onChange={(event) => void importPdf(chapterId, event.target.files?.[0], editing)} />{draft.content && <small>PDF importé dans cette école.</small>}</label>}
+      {['quiz', 'pdf', 'text', 'assignment', 'resource'].includes(draft.lesson_type) && <select aria-label="Activité liée" value={draft.linked_id || ''} onChange={(event) => change({ ...draft, linked_id: event.target.value })}>
+        <option value="">{['quiz', 'assignment'].includes(draft.lesson_type) ? 'Choisir une activité' : 'Aucune activité liée'}</option>
+        {(['quiz', 'pdf', 'text'].includes(draft.lesson_type) ? quizzes.filter((quiz) => draft.lesson_type !== 'pdf' || quiz.questions.length === 20) : draft.lesson_type === 'assignment' ? assignments : resources).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+      </select>}
+      <label>Disponible à partir du <input type="datetime-local" value={draft.available_at || ''} onChange={(event) => change({ ...draft, available_at: event.target.value })} /></label>
+    </>
   }
 
   return (
@@ -190,7 +236,7 @@ export function TeacherCoursesPage() {
               <article className="app-card teacher-course-card" key={course.id}>
                 <header>
                   <div><span className="section-label">{course.status}</span><h2>{course.title}</h2><p>{course.teacher_name || 'Professeur non défini'}</p></div>
-                  <BookOpen size={20}/>
+                  <button className="secondary-button" type="button" disabled={working || course.status === 'published'} onClick={() => void run(() => updateSessionCourse(formation.id, session.id, course.id, { status: 'published' }))}>{course.status === 'published' ? 'Cours publié' : 'Publier le cours'}</button>
                 </header>
 
                 {course.chapters.map((chapter) => {
@@ -200,26 +246,20 @@ export function TeacherCoursesPage() {
                       <div className="teacher-module-head"><strong>Module {chapter.order_index + 1} : {chapter.title}</strong><span>{chapter.lessons.length} leçon(s)</span></div>
                       <div className="teacher-lesson-list">
                         {chapter.lessons.map((lesson) => (
-                          <span key={lesson.id}><FilePlus2 size={13}/>{lesson.title}<small>{lesson.lesson_type}</small></span>
+                          <div className="teacher-lesson-row" key={lesson.id}>
+                            <span><FilePlus2 size={13}/>{lesson.title} <small>{lesson.lesson_type} · {lesson.publication_status === 'published' ? 'Publiée' : 'Brouillon'}</small></span>
+                            <button className="secondary-button" type="button" disabled={working} onClick={() => { setEditingLessonId(lesson.id); setEditingDraft(draftForLesson(lesson)) }}>Modifier</button>
+                            {course.status === 'published' && lesson.publication_status !== 'published' && <button className="secondary-button" type="button" disabled={working} onClick={() => void run(() => publishChapterLesson(formation.id, session.id, course.id, chapter.id, lesson.id))}>Publier</button>}
+                            {editingLessonId === lesson.id && editingDraft && <div className="lesson-create-grid teacher-lesson-edit">
+                              {renderLessonFields(editingDraft, setEditingDraft, chapter.id, true)}
+                              <button className="primary-button" type="button" disabled={working || uploadingPdf === chapter.id || editingDraft.title.trim().length < 2} onClick={() => void saveLesson(course.id, chapter.id, lesson)}>Enregistrer</button>
+                              <button className="secondary-button" type="button" onClick={() => { setEditingLessonId(null); setEditingDraft(null) }}>Annuler</button>
+                            </div>}
+                          </div>
                         ))}
                       </div>
                       <div className="lesson-create-grid">
-                        <input value={draft.title} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, title: event.target.value } }))} placeholder="Titre de la leçon" />
-                        <select value={draft.lesson_type} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, lesson_type: event.target.value as Lesson['lesson_type'], linked_id: '' } }))}>
-                          <option value="text">Texte</option>
-                          <option value="video">Vidéo</option>
-                          <option value="pdf">PDF</option>
-                          <option value="resource">Ressource</option>
-                          <option value="quiz">Quiz</option>
-                          <option value="assignment">Devoir</option>
-                        </select>
-                        {!['quiz', 'assignment', 'pdf'].includes(draft.lesson_type) && <input value={draft.content} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, content: event.target.value } }))} placeholder={draft.lesson_type === 'text' ? 'Contenu de la leçon' : 'URL du contenu'} />}
-                        {draft.lesson_type === 'pdf' && <label>PDF de la leçon <input type="file" accept="application/pdf,.pdf" disabled={uploadingPdf === chapter.id} onChange={(event) => void importPdf(chapter.id, event.target.files?.[0])} />{draft.content && <small>PDF importé dans cette école.</small>}</label>}
-                        {['quiz', 'pdf', 'text', 'assignment', 'resource'].includes(draft.lesson_type) && <select aria-label="Activité liée" value={draft.linked_id || ''} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, linked_id: event.target.value } }))}>
-                          <option value="">{['quiz', 'assignment'].includes(draft.lesson_type) ? 'Choisir une activité' : 'Aucune activité liée'}</option>
-                          {(['quiz', 'pdf', 'text'].includes(draft.lesson_type) ? quizzes.filter((quiz) => draft.lesson_type !== 'pdf' || quiz.questions.length === 20) : draft.lesson_type === 'assignment' ? assignments : resources).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
-                        </select>}
-                        <label>Disponible à partir du <input type="datetime-local" value={draft.available_at || ''} onChange={(event) => setLessonDrafts((current) => ({ ...current, [chapter.id]: { ...draft, available_at: event.target.value } }))} /></label>
+                        {renderLessonFields(draft, (value) => setLessonDrafts((current) => ({ ...current, [chapter.id]: value })), chapter.id)}
                         <button className="secondary-button" type="button" disabled={working || uploadingPdf === chapter.id || draft.title.trim().length < 2 || (['quiz', 'assignment', 'pdf'].includes(draft.lesson_type) && !draft.linked_id) || (draft.lesson_type === 'pdf' && !draft.content.startsWith('school-pdf:'))} onClick={() => void addLesson(course.id, chapter.id, chapter.lessons.length)}><Plus size={13}/> Leçon</button>
                       </div>
                     </section>

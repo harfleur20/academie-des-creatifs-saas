@@ -41,7 +41,7 @@ from app.schemas.academic import (
     ResourceCreate,
 )
 from app.schemas.assignments import AssignmentCreate, AssignmentSubmit
-from app.schemas.formations import LessonCreate
+from app.schemas.formations import CourseUpdate, LessonCreate
 from app.services.assignments import create_assignment, list_student_assignments, submit_assignment
 from app.services.class_certificates import (
     create_discussion_post,
@@ -61,7 +61,7 @@ from app.services.learning_progress import (
     sync_lesson_video_progress,
     teacher_performance,
 )
-from app.services.formations import create_lesson
+from app.services.formations import create_lesson, publish_lesson, update_course, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
 from app.services.resources_quizzes import (
@@ -298,6 +298,9 @@ def test_linked_quiz_lesson_opens_on_schedule_and_completes_after_success() -> N
         available_at=datetime(2099, 1, 1, tzinfo=UTC),
     ))
     linked_id = detail.sessions[0].courses[0].chapters[0].lessons[-1].id
+    assert student_progress(db, student_tenant)[0].total_quizzes == 0
+    publish_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, linked_id)
+    assert student_progress(db, student_tenant)[0].total_quizzes == 1
     lesson_view = list_student_learning(db, student_tenant)[0].courses[0].chapters[0].lessons[-1]
     assert lesson_view.is_locked and lesson_view.quiz_id == quiz.id
     assert list_student_quizzes(db, student_tenant)[0].questions == []
@@ -359,6 +362,62 @@ def test_lesson_rejects_activity_from_another_school() -> None:
     assert error.value.status_code == 422
 
 
+def test_lesson_draft_edit_publication_and_progress_reset() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, first_lesson, _ = seed(db)
+    teacher_tenant = ctx(db, org, teacher)
+    student_tenant = ctx(db, org, student)
+    chapter = db.get(ChapterRecord, first_lesson.chapter_id)
+    course = db.get(CourseRecord, chapter.course_id)
+    detail = create_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, LessonCreate(title="Seconde leçon"))
+    lesson_id = detail.sessions[0].courses[0].chapters[0].lessons[-1].id
+    assert detail.sessions[0].courses[0].chapters[0].lessons[-1].publication_status == "draft"
+    assert [item.id for item in list_student_learning(db, student_tenant)[0].courses[0].chapters[0].lessons] == [first_lesson.id]
+    with pytest.raises(HTTPException) as hidden:
+        mark_lesson_complete(db, student_tenant, lesson_id)
+    assert hidden.value.status_code == 404
+    with pytest.raises(HTTPException) as incomplete:
+        publish_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, lesson_id)
+    assert incomplete.value.status_code == 422
+
+    update_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, lesson_id, LessonCreate(title="Seconde leçon", content="Premier contenu"))
+    publish_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, lesson_id)
+    assert list_student_learning(db, student_tenant)[0].courses[0].chapters[0].lessons[-1].id == lesson_id
+    mark_lesson_complete(db, student_tenant, lesson_id)
+    assert db.scalar(select(LessonProgressRecord).where(LessonProgressRecord.enrollment_id == enrollment.id, LessonProgressRecord.lesson_id == lesson_id)) is not None
+
+    with pytest.raises(HTTPException) as empty_published:
+        update_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, lesson_id, LessonCreate(title="Seconde leçon", content=""))
+    assert empty_published.value.status_code == 422
+    assert db.get(LessonRecord, lesson_id).content == "Premier contenu"
+
+    update_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, lesson_id, LessonCreate(title="Seconde leçon", lesson_type="video", video_url="https://example.org/video"))
+    assert db.scalar(select(LessonProgressRecord).where(LessonProgressRecord.enrollment_id == enrollment.id, LessonProgressRecord.lesson_id == lesson_id)) is None
+    with pytest.raises(HTTPException) as wrong_scope:
+        update_lesson(db, teacher_tenant, session.formation_id + 1, session.id, course.id, chapter.id, lesson_id, LessonCreate(title="Intruse", content="Autre"))
+    assert wrong_scope.value.status_code == 404
+
+
+def test_course_publication_publishes_valid_lessons_together() -> None:
+    db = build_db()
+    org, teacher, student, _, session, _, _, first_lesson, _ = seed(db)
+    teacher_tenant = ctx(db, org, teacher)
+    student_tenant = ctx(db, org, student)
+    chapter = db.get(ChapterRecord, first_lesson.chapter_id)
+    course = db.get(CourseRecord, chapter.course_id)
+    course.status = "draft"
+    db.commit()
+    detail = create_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, LessonCreate(title="À rédiger"))
+    lesson_id = detail.sessions[0].courses[0].chapters[0].lessons[-1].id
+    with pytest.raises(HTTPException) as invalid:
+        update_course(db, teacher_tenant, session.formation_id, session.id, course.id, CourseUpdate(status="published"))
+    assert invalid.value.status_code == 422
+    update_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, lesson_id, LessonCreate(title="À lire", content="Contenu prêt"))
+    update_course(db, teacher_tenant, session.formation_id, session.id, course.id, CourseUpdate(status="published"))
+    assert db.get(LessonRecord, lesson_id).publication_status == "published"
+    assert len(list_student_learning(db, student_tenant)[0].courses[0].chapters[0].lessons) == 2
+
+
 def test_pdf_lesson_requires_real_page_reading_before_quiz_completion() -> None:
     db = build_db()
     org, teacher, student, classmate, session, enrollment, classmate_enrollment, first_lesson, _ = seed(db)
@@ -384,6 +443,7 @@ def test_pdf_lesson_requires_real_page_reading_before_quiz_completion() -> None:
             title="Support PDF validé", lesson_type="pdf", file_url=asset.source_url, quiz_id=quiz.id,
         ))
         lesson_id = detail.sessions[0].courses[0].chapters[0].lessons[-1].id
+        publish_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, lesson_id)
         assert db.get(QuizRecord, quiz.id).pass_pct == 70
         assert pdf_bytes(db, student_tenant, lesson_id) == raw.getvalue()
         assert read_pdf_progress(db, student_tenant, lesson_id)["viewed_pct"] == 0

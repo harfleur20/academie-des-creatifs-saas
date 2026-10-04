@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -14,6 +14,8 @@ from app.models.entities import (
     FormationRecord,
     FormationSessionRecord,
     LessonRecord,
+    LessonProgressRecord,
+    LessonVideoProgressRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
     QuizRecord,
@@ -758,6 +760,18 @@ def update_course(
         _require_member(db, tenant, user_id=values["teacher_id"], role="teacher")
 
     previous_status = course.status
+    if values.get("status") == "published" and previous_status != "published":
+        lessons = list(db.scalars(
+            select(LessonRecord)
+            .join(ChapterRecord, ChapterRecord.id == LessonRecord.chapter_id)
+            .where(ChapterRecord.course_id == course.id)
+        ).all())
+        if not lessons:
+            raise HTTPException(422, "Ajoutez au moins une leçon avant de publier ce cours.")
+        for lesson in lessons:
+            _validate_lesson_publication(db, tenant, lesson, session.id)
+        for lesson in lessons:
+            lesson.publication_status = "published"
     for key, value in values.items():
         if isinstance(value, str):
             value = value.strip()
@@ -836,12 +850,36 @@ def create_lesson(
     if tenant.has_role("teacher") and not tenant.organization_roles.intersection({"owner", "admin", "manager"}) and course.teacher_id not in {None, tenant.user.id}:
         raise HTTPException(status_code=403, detail="Ce cours appartient à un autre professeur.")
 
+    _validate_lesson_links(db, tenant, session.id, payload)
+    lesson = LessonRecord(
+        organization_id=tenant.organization_id,
+        chapter_id=chapter.id,
+        title=payload.title.strip(),
+        order_index=payload.order_index,
+        lesson_type=payload.lesson_type,
+        publication_status="draft",
+        content=payload.content.strip() if payload.content else None,
+        video_url=payload.video_url.strip() if payload.video_url else None,
+        file_url=payload.file_url.strip() if payload.file_url else None,
+        quiz_id=payload.quiz_id,
+        assignment_id=payload.assignment_id,
+        resource_id=payload.resource_id,
+        available_at=payload.available_at,
+    )
+    db.add(lesson)
+    db.commit()
+    return get_formation_detail(db, tenant, formation_id)
+
+
+def _validate_lesson_links(
+    db: Session, tenant: TenantContext, session_id: int, payload: LessonCreate, *, lesson_id: int | None = None,
+) -> None:
     linked = (("quiz", QuizRecord, payload.quiz_id), ("assignment", AssignmentRecord, payload.assignment_id), ("resource", ResourceRecord, payload.resource_id))
     for label, model, linked_id in linked:
         if linked_id is None:
             continue
         activity = _get_scoped(db, tenant, model, linked_id)
-        if activity is None or activity.session_id != session.id:
+        if activity is None or activity.session_id != session_id:
             raise HTTPException(422, f"{label.capitalize()} lié introuvable dans cette session.")
         if label == "quiz" and payload.lesson_type not in {"quiz", "pdf", "text"}:
             raise HTTPException(422, "Ce type de leçon ne peut pas valider un quiz.")
@@ -849,11 +887,14 @@ def create_lesson(
             raise HTTPException(422, "Le devoir doit être lié à une leçon de type devoir.")
         if label == "resource" and payload.lesson_type != "resource":
             raise HTTPException(422, "La ressource doit être liée à une leçon de type ressource.")
-        if db.scalar(select(LessonRecord.id).where(LessonRecord.organization_id == tenant.organization_id, getattr(LessonRecord, f"{label}_id") == linked_id)) is not None:
+        linked_query = select(LessonRecord.id).where(LessonRecord.organization_id == tenant.organization_id, getattr(LessonRecord, f"{label}_id") == linked_id)
+        if lesson_id is not None:
+            linked_query = linked_query.where(LessonRecord.id != lesson_id)
+        if db.scalar(linked_query) is not None:
             raise HTTPException(409, "Cette activité est déjà liée à une leçon.")
-        if label == "quiz" and db.scalar(select(QuizAttemptRecord.id).where(QuizAttemptRecord.organization_id == tenant.organization_id, QuizAttemptRecord.quiz_id == linked_id)) is not None:
+        if label == "quiz" and (lesson_id is None or db.get(LessonRecord, lesson_id).quiz_id != linked_id) and db.scalar(select(QuizAttemptRecord.id).where(QuizAttemptRecord.organization_id == tenant.organization_id, QuizAttemptRecord.quiz_id == linked_id)) is not None:
             raise HTTPException(409, "Ce quiz a déjà été passé. Créez un nouveau quiz pour cette leçon.")
-        if label == "assignment" and db.scalar(select(AssignmentSubmissionRecord.id).where(AssignmentSubmissionRecord.organization_id == tenant.organization_id, AssignmentSubmissionRecord.assignment_id == linked_id)) is not None:
+        if label == "assignment" and (lesson_id is None or db.get(LessonRecord, lesson_id).assignment_id != linked_id) and db.scalar(select(AssignmentSubmissionRecord.id).where(AssignmentSubmissionRecord.organization_id == tenant.organization_id, AssignmentSubmissionRecord.assignment_id == linked_id)) is not None:
             raise HTTPException(409, "Ce devoir a déjà été remis. Créez un nouveau devoir pour cette leçon.")
     if payload.lesson_type == "quiz" and payload.quiz_id is None:
         raise HTTPException(422, "Choisissez un quiz pour cette leçon.")
@@ -869,20 +910,66 @@ def create_lesson(
         quiz.pass_pct = 70
         quiz.status = "active"
 
-    lesson = LessonRecord(
-        organization_id=tenant.organization_id,
-        chapter_id=chapter.id,
-        title=payload.title.strip(),
-        order_index=payload.order_index,
-        lesson_type=payload.lesson_type,
-        content=payload.content.strip() if payload.content else None,
-        video_url=payload.video_url.strip() if payload.video_url else None,
-        file_url=payload.file_url.strip() if payload.file_url else None,
-        quiz_id=payload.quiz_id,
-        assignment_id=payload.assignment_id,
-        resource_id=payload.resource_id,
-        available_at=payload.available_at,
-    )
-    db.add(lesson)
+
+def _validate_lesson_publication(db: Session, tenant: TenantContext, lesson: LessonRecord, session_id: int) -> None:
+    if lesson.lesson_type == "text" and not (lesson.content or "").strip():
+        raise HTTPException(422, "Rédigez le contenu de cette leçon avant publication.")
+    if lesson.lesson_type == "video" and not (lesson.video_url or "").strip():
+        raise HTTPException(422, "Ajoutez la vidéo avant publication.")
+    if lesson.lesson_type == "pdf":
+        if not (lesson.file_url or "").strip():
+            raise HTTPException(422, "Ajoutez le PDF avant publication.")
+        if lesson.quiz_id is not None and pdf_asset(db, tenant.organization_id, lesson.file_url) is None:
+            raise HTTPException(422, "Réimportez ce PDF dans le stockage privé de l'école.")
+    for kind, model, linked_id in (("quiz", QuizRecord, lesson.quiz_id), ("assignment", AssignmentRecord, lesson.assignment_id), ("resource", ResourceRecord, lesson.resource_id)):
+        if lesson.lesson_type == kind and linked_id is None:
+            raise HTTPException(422, f"Associez un {kind} avant publication.")
+        if linked_id is not None:
+            activity = _get_scoped(db, tenant, model, linked_id)
+            if activity is None or activity.session_id != session_id or (kind == "quiz" and activity.status not in {"active", "closed"}):
+                raise HTTPException(422, f"Le {kind} lié doit appartenir à cette session et être disponible.")
+
+
+def _lesson_for_edit(db: Session, tenant: TenantContext, formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int) -> tuple[CourseRecord, LessonRecord]:
+    session = _get_scoped(db, tenant, FormationSessionRecord, session_id)
+    course = _get_scoped(db, tenant, CourseRecord, course_id)
+    chapter = _get_scoped(db, tenant, ChapterRecord, chapter_id)
+    lesson = _get_scoped(db, tenant, LessonRecord, lesson_id)
+    if session is None or session.formation_id != formation_id or course is None or course.session_id != session_id or chapter is None or chapter.course_id != course_id or lesson is None or lesson.chapter_id != chapter_id:
+        raise HTTPException(404, "Leçon introuvable.")
+    if not _teacher_can_manage_session(db, tenant, session) or (tenant.has_role("teacher") and not tenant.organization_roles.intersection({"owner", "admin", "manager"}) and course.teacher_id not in {None, tenant.user.id}):
+        raise HTTPException(403, "Vous ne pouvez pas modifier cette leçon.")
+    return course, lesson
+
+
+def update_lesson(db: Session, tenant: TenantContext, formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int, payload: LessonCreate) -> FormationDetailRead:
+    _, lesson = _lesson_for_edit(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id)
+    old_identity = (lesson.lesson_type, lesson.video_url, lesson.file_url, lesson.quiz_id, lesson.assignment_id, lesson.resource_id)
+    if lesson.lesson_type == "pdf" and lesson.file_url != payload.file_url and lesson.quiz_id == payload.quiz_id and payload.quiz_id is not None and db.scalar(select(QuizAttemptRecord.id).where(QuizAttemptRecord.organization_id == tenant.organization_id, QuizAttemptRecord.quiz_id == payload.quiz_id)) is not None:
+        raise HTTPException(409, "Créez un nouveau quiz pour remplacer un PDF déjà évalué.")
+    _validate_lesson_links(db, tenant, session_id, payload, lesson_id=lesson.id)
+    for field in ("title", "order_index", "lesson_type", "content", "video_url", "file_url", "quiz_id", "assignment_id", "resource_id", "available_at"):
+        value = getattr(payload, field)
+        setattr(lesson, field, value.strip() if isinstance(value, str) else value)
+    if lesson.publication_status == "published":
+        try:
+            _validate_lesson_publication(db, tenant, lesson, session_id)
+        except HTTPException:
+            db.rollback()
+            raise
+    if old_identity != (lesson.lesson_type, lesson.video_url, lesson.file_url, lesson.quiz_id, lesson.assignment_id, lesson.resource_id):
+        db.execute(delete(LessonProgressRecord).where(LessonProgressRecord.organization_id == tenant.organization_id, LessonProgressRecord.lesson_id == lesson.id))
+    if old_identity[:2] != (lesson.lesson_type, lesson.video_url):
+        db.execute(delete(LessonVideoProgressRecord).where(LessonVideoProgressRecord.organization_id == tenant.organization_id, LessonVideoProgressRecord.lesson_id == lesson.id))
+    db.commit()
+    return get_formation_detail(db, tenant, formation_id)
+
+
+def publish_lesson(db: Session, tenant: TenantContext, formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int) -> FormationDetailRead:
+    course, lesson = _lesson_for_edit(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id)
+    if course.status != "published":
+        raise HTTPException(409, "Publiez d'abord le cours parent.")
+    _validate_lesson_publication(db, tenant, lesson, session_id)
+    lesson.publication_status = "published"
     db.commit()
     return get_formation_detail(db, tenant, formation_id)

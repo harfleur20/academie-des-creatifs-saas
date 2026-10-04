@@ -194,6 +194,7 @@ class LessonRead(BaseModel):
     title: str
     order_index: int
     lesson_type: str
+    publication_status: str
     content: str | None
     video_url: str | None
     file_url: str | None

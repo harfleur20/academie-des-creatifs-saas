@@ -1,0 +1,95 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useTenant } from '../app/TenantContext'
+import { ApiError, getSessionPlanning, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources,
+  type AcademicResource, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz } from '../lib/api'
+
+type Tab = 'overview' | 'program' | 'calendar' | 'assignments' | 'quizzes' | 'resources' | 'results'
+const tabs: Array<{ id: Tab; label: string }> = [
+  { id: 'overview', label: 'Vue d’ensemble' }, { id: 'program', label: 'Programme' },
+  { id: 'calendar', label: 'Calendrier' }, { id: 'assignments', label: 'Devoirs' },
+  { id: 'quizzes', label: 'Quiz' }, { id: 'resources', label: 'Ressources' }, { id: 'results', label: 'Notes' },
+]
+const dateLabel = (value: string) => new Date(value).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+
+export function StudentGuidedWorkspacePage() {
+  const { activeOrganization } = useTenant()
+  const { enrollmentId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const tab: Tab = tabs.some((item) => item.id === requestedTab) ? requestedTab as Tab : 'overview'
+  const [session, setSession] = useState<LearningSession | null>(null)
+  const [planning, setPlanning] = useState<SessionPlanning | null>(null)
+  const [attendance, setAttendance] = useState<StudentAttendance[]>([])
+  const [assignments, setAssignments] = useState<StudentAssignment[]>([])
+  const [quizzes, setQuizzes] = useState<StudentQuiz[]>([])
+  const [resources, setResources] = useState<AcademicResource[]>([])
+  const [grades, setGrades] = useState<StudentGrade[]>([])
+  const [progress, setProgress] = useState<StudentProgress | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!activeOrganization) { setSession(null); return }
+    let cancelled = false
+    setLoading(true)
+    setSession(null)
+    setError('')
+    async function load() {
+      try {
+        const learning = await listStudentLearning()
+        const selected = learning.find((item) => item.enrollment_id === Number(enrollmentId) && item.dashboard_type === 'guided')
+        if (!selected) throw new Error('Parcours guidé introuvable dans votre école.')
+        const [days, attendanceRows, assignmentRows, quizRows, resourceRows, gradeRows, progressRows] = await Promise.all([
+          getSessionPlanning(selected.session_id), listStudentAttendance(), listStudentAssignments(), listStudentQuizzes(), listStudentResources(), listStudentGrades(), listStudentProgress(),
+        ])
+        if (cancelled) return
+        setSession(selected)
+        setPlanning(days)
+        setAttendance(attendanceRows.filter((row) => days.course_days.some((day) => day.id === row.course_day_id)))
+        setAssignments(assignmentRows.filter((row) => row.enrollment_id === selected.enrollment_id))
+        setQuizzes(quizRows.filter((row) => row.enrollment_id === selected.enrollment_id))
+        setResources(resourceRows.filter((row) => row.session_id === selected.session_id))
+        setGrades(gradeRows.filter((row) => row.session_id === selected.session_id))
+        setProgress(progressRows.find((row) => row.enrollment_id === selected.enrollment_id) ?? null)
+      } catch (caught) {
+        if (!cancelled) setError(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Chargement impossible.')
+      } finally { if (!cancelled) setLoading(false) }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [enrollmentId, activeOrganization?.id])
+
+  const days = useMemo(() => (planning?.course_days ?? []).filter((day) => day.status !== 'cancelled'), [planning])
+  const nextDay = days.find((day) => new Date(day.scheduled_at).getTime() >= Date.now())
+  const pendingAssignments = assignments.filter((item) => item.student_status === 'pending' || item.student_status === 'late')
+  const activeQuizzes = quizzes.filter((item) => !item.is_locked && !item.passed && item.can_attempt)
+  const gradePoints = grades.reduce((sum, grade) => sum + grade.score, 0)
+  const gradeMaximum = grades.reduce((sum, grade) => sum + grade.max_score, 0)
+  const gradeAverage = gradeMaximum > 0 ? (gradePoints / gradeMaximum * 20).toFixed(1) : null
+  const readerUrl = `/app/student/guided/${enrollmentId}/program`
+
+  return <main className="app-page guided-workspace-page">
+    <header className="app-page-header"><div><span className="page-kicker">Parcours guidé</span><h1>{session?.formation_title || 'Mon parcours'}</h1><p>{session ? `${session.session_label} · ${session.format_type === 'presentiel' ? 'Présentiel' : 'Live'}` : 'Votre espace pédagogique de session'}</p></div><Link to="/app/student/formations">Mes parcours</Link></header>
+    {error && <div className="form-error">{error}</div>}
+    {loading && <div className="page-state">Chargement du parcours…</div>}
+    {session && <>
+      {session.is_locked && <div className="student-reader-lock">Les cours ouvriront au début de la session{session.available_at ? `, le ${dateLabel(session.available_at)}` : ''}.</div>}
+      <div className="guided-summary-grid">
+        <article className="app-card"><span className="section-label">Progression</span><strong>{progress?.lesson_progress_pct ?? 0} %</strong><p>{progress?.completed_lessons ?? 0} / {progress?.total_lessons ?? 0} leçons terminées</p></article>
+        <article className="app-card"><span className="section-label">Prochaine séance</span><strong>{nextDay ? dateLabel(nextDay.scheduled_at) : 'À venir'}</strong><p>{nextDay?.title || 'Le calendrier sera publié par l’école.'}</p></article>
+        <article className="app-card"><span className="section-label">Suivi</span><strong>{pendingAssignments.length} devoir(s) à rendre</strong><p>{activeQuizzes.length} quiz disponible(s)</p></article>
+      </div>
+      <nav className="guided-tabs" aria-label="Sections du parcours">{tabs.map((item) => <button type="button" key={item.id} className={tab === item.id ? 'is-active' : ''} aria-current={tab === item.id ? 'page' : undefined} onClick={() => setSearchParams({ tab: item.id })}>{item.label}</button>)}</nav>
+      <section className="app-card guided-panel">
+        {tab === 'overview' && <><h2>Vue d’ensemble</h2><p>{session.courses.length} cours publié(s) · {days.length} séance(s) · {resources.length} ressource(s)</p><p>{gradeAverage !== null ? `Moyenne : ${gradeAverage} / 20` : 'Aucune note disponible.'}</p><div className="guided-actions"><Link className="primary-button" to={readerUrl}>Ouvrir le programme</Link><Link className="secondary-button" to="/app/student/class">Ma classe</Link><Link className="secondary-button" to="/app/student/certificates">Mes certificats</Link></div></>}
+        {tab === 'program' && <><h2>Programme</h2>{session.courses.map((course) => <div className="guided-course" key={course.id}><h3>{course.title}</h3><p>{course.teacher_name || 'Équipe pédagogique'} · {course.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0)} leçon(s)</p>{course.chapters.map((chapter) => <p key={chapter.id}>Module {chapter.order_index + 1} · {chapter.title} · {chapter.lessons.filter((lesson) => lesson.completed).length}/{chapter.lessons.length} terminée(s)</p>)}</div>)}{session.courses.length === 0 && <p>Les cours sont en préparation.</p>}<Link className="primary-button" to={readerUrl}>Lire les leçons</Link></>}
+        {tab === 'calendar' && <><h2>Calendrier et présences</h2>{days.map((day) => { const presence = attendance.find((row) => row.course_day_id === day.id); return <div className="guided-list-row" key={day.id}><strong>{day.title}</strong><span>{dateLabel(day.scheduled_at)} · {day.duration_minutes} min</span><small>{presence?.status === 'present' ? 'Présent' : presence?.status === 'absent' ? 'Absent' : presence?.status === 'excused' ? 'Excusé' : 'Présence à confirmer'}</small></div> })}{days.length === 0 && <p>Le calendrier est en préparation.</p>}</>}
+        {tab === 'assignments' && <><h2>Devoirs</h2>{assignments.map((item) => <div className="guided-list-row" key={item.id}><strong>{item.title}</strong><span>À rendre le {dateLabel(item.due_date)}</span><small>{item.is_locked ? 'À venir' : item.student_status === 'submitted' ? 'Rendu' : item.student_status === 'reviewed' ? 'Corrigé' : item.student_status === 'late' ? 'En retard' : 'À rendre'}</small><Link to={`/app/student/assignments#assignment-${item.id}`}>Ouvrir</Link></div>)}{assignments.length === 0 && <p>Aucun devoir pour cette session.</p>}</>}
+        {tab === 'quizzes' && <><h2>Quiz</h2>{quizzes.map((item) => <div className="guided-list-row" key={item.id}><strong>{item.title}</strong><small>{item.passed ? 'Réussi' : item.is_locked ? 'À venir' : item.can_attempt ? 'Disponible' : 'Réessai indisponible'}</small><Link to={`/app/student/quizzes#quiz-${item.id}`}>Ouvrir</Link></div>)}{quizzes.length === 0 && <p>Aucun quiz pour cette session.</p>}</>}
+        {tab === 'resources' && <><h2>Ressources</h2>{resources.map((item) => <div className="guided-list-row" key={item.id}><strong>{item.title}</strong><span>{item.resource_type}</span><Link to="/app/student/resources">Consulter</Link></div>)}{resources.length === 0 && <p>Aucune ressource publiée.</p>}</>}
+        {tab === 'results' && <><h2>Notes et résultats</h2><p>{gradeAverage !== null ? `Moyenne : ${gradeAverage} / 20` : 'Aucune note disponible.'}</p>{grades.map((grade) => <div className="guided-list-row" key={grade.id}><strong>{grade.label}</strong><span>{grade.score} / {grade.max_score}</span></div>)}<Link to="/app/student/progress">Voir mon suivi complet</Link></>}
+      </section>
+    </>}
+  </main>
+}

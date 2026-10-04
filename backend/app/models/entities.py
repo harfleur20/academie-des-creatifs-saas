@@ -812,6 +812,7 @@ class LessonRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     lesson_type: Mapped[str] = mapped_column(String(24), nullable=False, default="text")
+    publication_status: Mapped[str] = mapped_column(String(24), nullable=False, default="published")
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     video_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     file_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
