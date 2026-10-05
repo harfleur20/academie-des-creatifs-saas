@@ -23,6 +23,20 @@ class GoogleAuthPayload(BaseModel):
     credential: str = Field(min_length=20, max_length=4096)
 
 
+class PasswordResetRequestPayload(BaseModel):
+    email: EmailStr
+    school: str | None = Field(default=None, max_length=120)
+
+
+class PasswordResetConfirmPayload(BaseModel):
+    token: str = Field(min_length=20, max_length=4096)
+    new_password: str = Field(min_length=8, max_length=72)
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
 class AuthUser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -41,7 +55,6 @@ class AuthResponse(BaseModel):
     user: AuthUser
     access_token: str
     token_type: str = "Bearer"
-
 
 
 class ProfileUpdatePayload(BaseModel):
