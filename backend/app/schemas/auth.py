@@ -19,6 +19,10 @@ class LoginPayload(BaseModel):
     password: str = Field(min_length=8, max_length=72)
 
 
+class GoogleAuthPayload(BaseModel):
+    credential: str = Field(min_length=20, max_length=4096)
+
+
 class AuthUser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
