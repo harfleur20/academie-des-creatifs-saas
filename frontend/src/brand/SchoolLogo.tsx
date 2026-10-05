@@ -1,4 +1,5 @@
 import { Building2 } from 'lucide-react'
+import { AdaptiveLogoImage } from './AdaptiveLogoImage'
 
 type SchoolLogoProps = {
   logoUrl?: string | null
@@ -8,7 +9,7 @@ type SchoolLogoProps = {
 
 export function SchoolLogo({ logoUrl, alt, className = '' }: SchoolLogoProps) {
   if (logoUrl?.trim()) {
-    return <img className={`brand-logo-image ${className}`.trim()} src={logoUrl} alt={alt} draggable={false} />
+    return <AdaptiveLogoImage className={className} src={logoUrl} alt={alt} draggable={false} />
   }
 
   return (
