@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlsplit
+
 from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy import create_engine
@@ -16,7 +18,7 @@ from app.core.config import Settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models.entities import UserRecord
+from app.models.entities import OrganizationDomainRecord, OrganizationRecord, UserRecord
 from app.schemas.auth import LoginPayload, RegisterPayload
 from app.services.auth import authenticate_user, create_user, reset_password_with_token
 
@@ -248,6 +250,80 @@ def test_password_change_and_logout_revoke_existing_tokens() -> None:
             assert client.get("/api/v1/auth/me", headers=new_headers).status_code == 200
             assert client.post("/api/v1/auth/logout", headers=new_headers).status_code == 204
             assert client.get("/api/v1/auth/me", headers=new_headers).status_code == 401
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
+
+
+def test_custom_domain_sso_handoff_is_single_use() -> None:
+    db = build_db()
+    create_user(
+        db,
+        RegisterPayload(
+            full_name="Marie Test",
+            email="marie@example.com",
+            password="secret-pass-123",
+        ),
+    )
+    organization = OrganizationRecord(
+        name="École Test",
+        slug="ecole-test",
+        status="active",
+        is_active=True,
+    )
+    db.add(organization)
+    db.commit()
+    db.refresh(organization)
+    db.add(
+        OrganizationDomainRecord(
+            organization_id=organization.id,
+            hostname="school.example.com",
+            status="verified",
+            verification_token="verified-token",
+            is_primary=True,
+        )
+    )
+    db.commit()
+
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        with TestClient(app) as client:
+            login = client.post(
+                "/api/v1/auth/login",
+                json={"email": "marie@example.com", "password": "secret-pass-123"},
+            )
+            assert login.status_code == 200
+
+            config = client.get(
+                "/api/v1/auth/sso/config",
+                headers={"host": "school.example.com"},
+            )
+            assert config.status_code == 200
+            assert config.json()["enabled"] is True
+
+            started = client.get(
+                "/api/v1/auth/sso/start",
+                params={"return_url": "http://school.example.com/espace?from=dashboard"},
+                follow_redirects=False,
+            )
+            assert started.status_code == 302
+            fragment = parse_qs(urlsplit(started.headers["location"]).fragment)
+            handoff = fragment["sso_handoff"][0]
+
+            exchanged = client.post(
+                "/api/v1/auth/sso/exchange",
+                json={"token": handoff},
+                headers={"host": "school.example.com"},
+            )
+            assert exchanged.status_code == 200
+            assert exchanged.json()["user"]["email"] == "marie@example.com"
+
+            reused = client.post(
+                "/api/v1/auth/sso/exchange",
+                json={"token": handoff},
+                headers={"host": "school.example.com"},
+            )
+            assert reused.status_code == 400
     finally:
         app.dependency_overrides.clear()
         db.close()
