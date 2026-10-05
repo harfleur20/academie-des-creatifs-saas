@@ -81,10 +81,6 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
 
   if (!rendered) return null
 
-  const drawerTransition = active
-    ? 'transform 400ms cubic-bezier(.16,1,.3,1), opacity 280ms ease'
-    : `transform ${CART_ANIMATION_MS}ms cubic-bezier(.4,0,.2,1), opacity 340ms ease`
-
   return (
     <div className={`school-cart-overlay ${active ? 'is-open' : 'is-closing'}`} aria-hidden={!open}>
       <button
@@ -101,13 +97,10 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
         aria-modal="true"
         aria-labelledby="school-cart-title"
         onTransitionEnd={(event) => {
-          if (!open && event.propertyName === 'transform') setRendered(false)
+          if (!open && event.target === event.currentTarget && event.propertyName === 'transform') setRendered(false)
         }}
         style={{
           transform: active ? 'translate3d(0, 0, 0)' : 'translate3d(100%, 0, 0)',
-          opacity: active ? 1 : .985,
-          transition: drawerTransition,
-          willChange: 'transform, opacity',
         }}
       >
         <header className="school-cart-drawer-header">

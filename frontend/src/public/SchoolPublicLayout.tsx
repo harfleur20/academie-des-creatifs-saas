@@ -177,7 +177,6 @@ export function SchoolPublicLayout() {
         <nav className={menuOpen ? 'is-open' : ''}>
           <NavLink end to={'/school/' + schoolSlug}>Accueil</NavLink>
           <NavLink to={'/school/' + schoolSlug + '/formations'}>Formations</NavLink>
-          {user && <NavLink to={'/school/' + schoolSlug + '/favoris'}>Favoris</NavLink>}
           <NavLink to={'/school/' + schoolSlug + '/contact'}>Nous contacter</NavLink>
         </nav>
         <div className="public-school-actions">

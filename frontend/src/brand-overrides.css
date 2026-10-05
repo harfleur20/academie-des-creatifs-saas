@@ -323,13 +323,12 @@
 
 .school-cart-backdrop {
   opacity: 0;
-  transition: opacity 280ms ease;
+  transition: opacity 420ms ease;
 }
 
 .school-cart-drawer {
   transform: translate3d(100%, 0, 0);
-  opacity: .98;
-  transition: transform 280ms cubic-bezier(.2,.75,.25,1), opacity 280ms ease;
+  transition: transform 420ms cubic-bezier(.4,0,.2,1);
   will-change: transform;
 }
 
@@ -339,7 +338,6 @@
 
 .school-cart-overlay.is-open .school-cart-drawer {
   transform: translate3d(0, 0, 0);
-  opacity: 1;
 }
 
 .school-cart-close:hover {
