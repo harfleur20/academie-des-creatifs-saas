@@ -4,7 +4,12 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import AuthenticatedSession, get_current_user, get_support_session
+from app.api.dependencies import (
+    AuthenticatedSession,
+    get_authenticated_session,
+    get_current_user,
+    get_support_session,
+)
 from app.core.config import settings
 from app.core.security import create_access_token, create_password_reset_token
 from app.db.session import get_db
@@ -77,12 +82,16 @@ def _clear_auth_cookie(response: Response) -> None:
     )
 
 
-def _response(response: Response, user: UserRecord, message: str) -> AuthResponse:
-    token = create_access_token(
+def _issue_access_token(user: UserRecord) -> str:
+    return create_access_token(
         user.id,
         minutes=60,
         session_version=user.session_version,
     )
+
+
+def _response(response: Response, user: UserRecord, message: str) -> AuthResponse:
+    token = _issue_access_token(user)
     _set_auth_cookie(response, token)
     return AuthResponse(
         message=message,
@@ -211,9 +220,15 @@ async def google_login(
 
 @router.get("/me", response_model=AuthUser)
 def me(
-    current_user: UserRecord = Depends(get_current_user),
+    response: Response,
+    session: AuthenticatedSession = Depends(get_authenticated_session),
 ) -> AuthUser:
-    return AuthUser.model_validate(current_user)
+    # Existing sessions created before this deployment only have a bearer token.
+    # Refreshing /me upgrades them transparently to the browser-shared cookie.
+    # Support impersonation remains tab-local and never becomes a shared cookie.
+    if session.support_session is None:
+        _set_auth_cookie(response, _issue_access_token(session.user))
+    return AuthUser.model_validate(session.user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
