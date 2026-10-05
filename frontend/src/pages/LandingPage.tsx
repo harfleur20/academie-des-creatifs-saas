@@ -1,13 +1,19 @@
+import { useEffect } from 'react'
 import { BrandLogo } from '../brand/BrandLogo'
+import '../landing-motion.css'
 import {
   ArrowRight,
+  Award,
   BarChart3,
   BookOpenCheck,
   CalendarDays,
   Check,
   ChevronRight,
+  CreditCard,
   GraduationCap,
   LayoutDashboard,
+  PlayCircle,
+  QrCode,
   Radio,
   ShieldCheck,
   Sparkles,
@@ -69,6 +75,61 @@ const plans = [
   },
 ]
 
+function useLandingMotion() {
+  useEffect(() => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const revealElements = Array.from(document.querySelectorAll<HTMLElement>('[data-landing-reveal]'))
+
+    if (reduceMotion) {
+      revealElements.forEach((element) => element.classList.add('is-visible'))
+      return undefined
+    }
+
+    revealElements.forEach((element, index) => {
+      element.style.setProperty('--reveal-delay', `${Math.min(index % 6, 5) * 70}ms`)
+    })
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.14, rootMargin: '0px 0px -5% 0px' },
+    )
+
+    revealElements.forEach((element) => observer.observe(element))
+
+    const stage = document.querySelector<HTMLElement>('.landing-product-stage')
+    if (!stage) return () => observer.disconnect()
+
+    const updateParallax = (event: PointerEvent) => {
+      const rect = stage.getBoundingClientRect()
+      const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2
+      const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2
+      stage.style.setProperty('--landing-x', x.toFixed(3))
+      stage.style.setProperty('--landing-y', y.toFixed(3))
+    }
+
+    const resetParallax = () => {
+      stage.style.setProperty('--landing-x', '0')
+      stage.style.setProperty('--landing-y', '0')
+    }
+
+    stage.addEventListener('pointermove', updateParallax)
+    stage.addEventListener('pointerleave', resetParallax)
+
+    return () => {
+      observer.disconnect()
+      stage.removeEventListener('pointermove', updateParallax)
+      stage.removeEventListener('pointerleave', resetParallax)
+    }
+  }, [])
+}
+
 function BrandMark() {
   return (
     <div className="brand">
@@ -82,8 +143,11 @@ function BrandMark() {
 
 function DashboardPreview() {
   return (
-    <div className="dashboard-shell">
-      <div className="dashboard-window">
+    <div className="dashboard-shell landing-product-stage">
+      <div className="landing-orbit landing-orbit-one" />
+      <div className="landing-orbit landing-orbit-two" />
+
+      <div className="dashboard-window landing-depth landing-depth-main">
         <aside className="preview-sidebar">
           <div className="preview-logo"><BrandLogo /></div>
           <span className="preview-dot active" />
@@ -157,7 +221,7 @@ function DashboardPreview() {
         </div>
       </div>
 
-      <div className="floating-card floating-students">
+      <div className="floating-card floating-students landing-float-card landing-float-students landing-depth landing-depth-near">
         <Users size={18} />
         <div>
           <small>Nouveaux inscrits</small>
@@ -165,20 +229,157 @@ function DashboardPreview() {
         </div>
       </div>
 
-      <div className="floating-card floating-live">
+      <div className="floating-card floating-live landing-float-card landing-float-live landing-depth landing-depth-far">
+        <span className="landing-live-pulse" />
         <Radio size={18} />
         <div>
           <small>Live en cours</small>
           <strong>28 participants</strong>
         </div>
       </div>
+
+      <div className="landing-float-card landing-float-payment landing-depth landing-depth-mid">
+        <span className="landing-card-icon"><CreditCard size={18} /></span>
+        <div>
+          <small>Paiements ce mois</small>
+          <strong>8 560 €</strong>
+          <span className="landing-positive">+32%</span>
+        </div>
+      </div>
+
+      <div className="landing-float-card landing-float-certificate landing-depth landing-depth-near">
+        <div className="landing-certificate-seal"><Award size={19} /></div>
+        <small>Certificat délivré</small>
+        <strong>Marketing Digital</strong>
+        <span>Lucas Bernard</span>
+      </div>
+
+      <div className="landing-float-card landing-float-course landing-depth landing-depth-far">
+        <div className="landing-course-cover">
+          <PlayCircle size={30} />
+        </div>
+        <div className="landing-course-copy">
+          <small>Formation en ligne</small>
+          <strong>Motion Design</strong>
+          <div className="landing-progress"><span /></div>
+          <em>73% terminé</em>
+        </div>
+      </div>
+
+      <div className="landing-float-card landing-float-qr landing-depth landing-depth-mid">
+        <div className="landing-qr-symbol"><QrCode size={34} /></div>
+        <div>
+          <small>Événement présentiel</small>
+          <strong>Accès validé</strong>
+          <span>Billet sécurisé</span>
+        </div>
+      </div>
     </div>
   )
 }
 
-export default function LandingPage() {
+function ProductScenes() {
   return (
-    <main>
+    <section className="section landing-scenes-section" id="experience">
+      <div className="container">
+        <div className="section-heading centered" data-landing-reveal>
+          <div className="eyebrow">
+            <Sparkles size={16} />
+            Une plateforme qui prend vie
+          </div>
+          <h2>Chaque moment de votre école, dans le même produit.</h2>
+          <p>
+            La landing montre désormais les vraies briques fonctionnelles du SaaS : formation,
+            live, suivi, paiement, certificats et accès événementiel.
+          </p>
+        </div>
+
+        <div className="landing-scenes-grid">
+          <article className="landing-scene landing-scene-course" data-landing-reveal>
+            <div className="landing-scene-head">
+              <span className="landing-scene-icon"><BookOpenCheck size={20} /></span>
+              <div>
+                <small>GESTION DE FORMATION</small>
+                <strong>Construisez vos parcours</strong>
+              </div>
+            </div>
+            <div className="landing-course-board">
+              <div className="landing-course-board-top">
+                <span>Motion Design · Octobre 2026</span>
+                <b>En cours</b>
+              </div>
+              {['Introduction & fondamentaux', 'Animation typographique', 'Projet client'].map((item, index) => (
+                <div className="landing-lesson-row" key={item}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{item}</strong>
+                    <small>{index === 2 ? 'Projet · 2 ressources' : 'Cours · Quiz · Ressources'}</small>
+                  </div>
+                  <em>{index < 2 ? '✓' : '→'}</em>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="landing-scene landing-scene-live" data-landing-reveal>
+            <div className="landing-scene-head">
+              <span className="landing-scene-icon"><Radio size={20} /></span>
+              <div>
+                <small>LIVE & PLANNING</small>
+                <strong>Pilotez vos sessions</strong>
+              </div>
+            </div>
+            <div className="landing-live-board">
+              <div className="landing-live-screen">
+                <span className="landing-live-badge">LIVE</span>
+                <div className="landing-live-avatar">FK</div>
+                <strong>Masterclass design</strong>
+                <small>28 participants connectés</small>
+              </div>
+              <div className="landing-live-side">
+                <span><b>09:00</b> Design graphique</span>
+                <span><b>14:30</b> Motion Design</span>
+                <span><b>18:00</b> Atelier portfolio</span>
+              </div>
+            </div>
+          </article>
+
+          <article className="landing-scene landing-scene-commerce" data-landing-reveal>
+            <div className="landing-scene-head">
+              <span className="landing-scene-icon"><CreditCard size={20} /></span>
+              <div>
+                <small>VENTES & CERTIFICATION</small>
+                <strong>Monétisez et valorisez</strong>
+              </div>
+            </div>
+            <div className="landing-commerce-board">
+              <div className="landing-revenue-card">
+                <small>Revenus du mois</small>
+                <strong>12 430 €</strong>
+                <span>+28% vs mois dernier</span>
+                <div className="landing-mini-bars">
+                  <i /><i /><i /><i /><i /><i />
+                </div>
+              </div>
+              <div className="landing-mini-certificate">
+                <Award size={24} />
+                <small>Certificat généré</small>
+                <strong>Motion Design</strong>
+                <span>Signature + QR sécurisé</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+export default function LandingPage() {
+  useLandingMotion()
+
+  return (
+    <main className="landing-page">
       <header className="site-header">
         <div className="container header-inner">
           <BrandMark />
@@ -198,12 +399,13 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="hero" id="produit">
+      <section className="hero landing-hero" id="produit">
         <div className="hero-blob hero-blob-one" />
         <div className="hero-blob hero-blob-two" />
+        <div className="landing-hero-gridline" />
 
         <div className="container hero-grid">
-          <div className="hero-copy">
+          <div className="hero-copy landing-hero-copy">
             <div className="eyebrow">
               <Sparkles size={16} />
               Votre école digitale, prête à fonctionner
@@ -224,8 +426,8 @@ export default function LandingPage() {
                 Créer mon école
                 <ArrowRight size={18} />
               </button>
-              <button className="secondary-button">
-                Voir une démo
+              <button className="secondary-button" onClick={() => document.querySelector('#experience')?.scrollIntoView({ behavior: 'smooth' })}>
+                Voir la plateforme en action
                 <ChevronRight size={17} />
               </button>
             </div>
@@ -240,7 +442,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="trust-strip">
+      <section className="trust-strip" data-landing-reveal>
         <div className="container">
           <p>Un seul environnement pour piloter toute votre activité de formation</p>
           <div className="trust-items">
@@ -254,9 +456,11 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <ProductScenes />
+
       <section className="section" id="fonctionnalites">
         <div className="container">
-          <div className="section-heading">
+          <div className="section-heading" data-landing-reveal>
             <div className="eyebrow">
               <LayoutDashboard size={16} />
               Tout au même endroit
@@ -270,7 +474,7 @@ export default function LandingPage() {
 
           <div className="feature-grid">
             {features.map(({ icon: Icon, title, text }) => (
-              <article className="feature-card" key={title}>
+              <article className="feature-card" key={title} data-landing-reveal>
                 <div className="feature-icon">
                   <Icon size={22} />
                 </div>
@@ -284,7 +488,7 @@ export default function LandingPage() {
 
       <section className="section workflow-section">
         <div className="container workflow-grid">
-          <div className="workflow-copy">
+          <div className="workflow-copy" data-landing-reveal>
             <div className="eyebrow">
               <GraduationCap size={16} />
               Pensé pour les écoles
@@ -300,7 +504,7 @@ export default function LandingPage() {
             </button>
           </div>
 
-          <div className="steps-card">
+          <div className="steps-card" data-landing-reveal>
             {[
               ['01', 'Créez votre école', 'Nom, identité, logo et paramètres.'],
               ['02', 'Configurez vos formations', 'Sessions, planning, professeurs et contenus.'],
@@ -321,7 +525,7 @@ export default function LandingPage() {
 
       <section className="section pricing-section" id="tarifs">
         <div className="container">
-          <div className="section-heading centered">
+          <div className="section-heading centered" data-landing-reveal>
             <div className="eyebrow">Des offres qui grandissent avec vous</div>
             <h2>Commencez simplement. Évoluez quand vous êtes prêt.</h2>
             <p>Les quotas et tarifs définitifs seront configurables depuis le moteur d’abonnement.</p>
@@ -329,7 +533,7 @@ export default function LandingPage() {
 
           <div className="pricing-grid">
             {plans.map((plan) => (
-              <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>
+              <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name} data-landing-reveal>
                 {plan.featured && <div className="popular-badge">Le plus flexible</div>}
                 <span className="plan-name">{plan.name}</span>
                 <h3>{plan.price}</h3>
@@ -348,14 +552,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="cta-section">
+      <section className="cta-section" data-landing-reveal>
         <div className="container">
           <div className="cta-card">
             <div>
               <span>Prêt à construire votre école ?</span>
               <h2>Votre pédagogie mérite sa propre plateforme.</h2>
             </div>
-            <button className="light-button">
+            <button className="light-button" onClick={() => { window.location.href = '/login?mode=register' }}>
               Créer mon école
               <ArrowRight size={18} />
             </button>
