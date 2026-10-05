@@ -1,7 +1,7 @@
 import logging
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import AuthenticatedSession, get_current_user, get_support_session
@@ -49,11 +49,45 @@ RESET_REQUEST_MESSAGE = (
 )
 
 
-def _response(user: UserRecord, message: str) -> AuthResponse:
+def _cookie_domain() -> str | None:
+    return settings.auth_cookie_domain or None
+
+
+def _set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=settings.auth_cookie_name,
+        value=token,
+        max_age=60 * 60,
+        path="/",
+        domain=_cookie_domain(),
+        secure=settings.auth_cookie_secure,
+        httponly=True,
+        samesite=settings.auth_cookie_samesite,
+    )
+
+
+def _clear_auth_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=settings.auth_cookie_name,
+        path="/",
+        domain=_cookie_domain(),
+        secure=settings.auth_cookie_secure,
+        httponly=True,
+        samesite=settings.auth_cookie_samesite,
+    )
+
+
+def _response(response: Response, user: UserRecord, message: str) -> AuthResponse:
+    token = create_access_token(
+        user.id,
+        minutes=60,
+        session_version=user.session_version,
+    )
+    _set_auth_cookie(response, token)
     return AuthResponse(
         message=message,
         user=AuthUser.model_validate(user),
-        access_token=create_access_token(user.id, minutes=60, session_version=user.session_version),
+        access_token=token,
     )
 
 
@@ -71,6 +105,7 @@ def _deliver_password_reset_email(recipient: str, reset_url: str, user_id: int) 
 )
 def register(
     payload: RegisterPayload,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
     try:
@@ -80,12 +115,13 @@ def register(
             status_code=status.HTTP_409_CONFLICT,
             detail="Cette adresse email est déjà utilisée.",
         ) from exc
-    return _response(user, "Compte créé avec succès.")
+    return _response(response, user, "Compte créé avec succès.")
 
 
 @router.post("/login", response_model=AuthResponse)
 def login(
     payload: LoginPayload,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
     user = authenticate_user(
@@ -98,7 +134,7 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Adresse email ou mot de passe incorrect.",
         )
-    return _response(user, "Connexion réussie.")
+    return _response(response, user, "Connexion réussie.")
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
@@ -155,6 +191,7 @@ def reset_password(
 @router.post("/google", response_model=AuthResponse)
 async def google_login(
     payload: GoogleAuthPayload,
+    response: Response,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
     try:
@@ -169,7 +206,7 @@ async def google_login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
         ) from exc
-    return _response(user, "Connexion Google réussie.")
+    return _response(response, user, "Connexion Google réussie.")
 
 
 @router.get("/me", response_model=AuthUser)
@@ -181,10 +218,12 @@ def me(
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
+    response: Response,
     db: Session = Depends(get_db),
     current_user: UserRecord = Depends(get_current_user),
 ):
     revoke_user_sessions(db, current_user)
+    _clear_auth_cookie(response)
     return None
 
 
