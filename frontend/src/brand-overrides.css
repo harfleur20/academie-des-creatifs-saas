@@ -79,6 +79,38 @@
   flex: 0 0 18px;
 }
 
+/* The public footer follows the same typography scale configured by the school owner. */
+.public-school-shell .public-school-footer {
+  font-size: calc(13px * var(--school-font-scale, 1));
+  line-height: 1.6;
+}
+
+.public-school-shell .public-school-footer-grid > div > strong {
+  font-size: calc(13px * var(--school-font-scale, 1));
+  line-height: 1.35;
+}
+
+.public-school-shell .public-school-footer-brand strong {
+  font-size: calc(14px * var(--school-font-scale, 1));
+  line-height: 1.35;
+}
+
+.public-school-shell .public-school-footer-grid p,
+.public-school-shell .public-school-footer-grid span,
+.public-school-shell .public-school-footer-grid a {
+  font-size: calc(12px * var(--school-font-scale, 1));
+  line-height: 1.6;
+}
+
+.public-school-shell .public-school-footer-bottom {
+  font-size: calc(11px * var(--school-font-scale, 1));
+  line-height: 1.5;
+}
+
+.public-school-shell .public-school-powered strong {
+  font-size: inherit;
+}
+
 @media (min-width: 901px) {
   .login-redesign {
     height: 100vh;
