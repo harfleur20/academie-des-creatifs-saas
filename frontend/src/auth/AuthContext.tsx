@@ -20,6 +20,7 @@ import {
   type AuthUser,
   type SupportModeState,
 } from '../lib/api'
+import { authenticateWithGoogle } from './googleApi'
 
 type AuthContextValue = {
   user: AuthUser | null
@@ -27,6 +28,7 @@ type AuthContextValue = {
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (fullName: string, email: string, password: string) => Promise<void>
+  signInWithGoogle: (credential: string) => Promise<void>
   signOut: () => void
   refreshUser: () => Promise<void>
 }
@@ -101,6 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const signInWithGoogle = useCallback(async (credential: string) => {
+    const response = await authenticateWithGoogle(credential)
+    if (getAccessToken() !== response.access_token) throw new Error('Une autre connexion a remplacé cette session.')
+    setSupportMode(null)
+    setUser(response.user)
+  }, [])
+
   const signOut = useCallback(() => {
     if (getAccessToken()) void logoutSession().catch(() => {})
     clearSession()
@@ -115,10 +124,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signIn,
       signUp,
+      signInWithGoogle,
       signOut,
       refreshUser,
     }),
-    [user, supportMode, loading, signIn, signUp, signOut, refreshUser],
+    [user, supportMode, loading, signIn, signUp, signInWithGoogle, signOut, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
