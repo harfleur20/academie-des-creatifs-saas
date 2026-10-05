@@ -4,10 +4,15 @@ import '@mantine/core/styles.css'
 import './styles.css'
 import './app.css'
 import './brand-overrides.css'
+import './toast.css'
 import App from './App'
+import { ToastViewport } from './ui/toast'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <>
+      <App />
+      <ToastViewport />
+    </>
   </React.StrictMode>,
 )
