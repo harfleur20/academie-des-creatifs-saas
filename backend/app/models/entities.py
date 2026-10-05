@@ -813,6 +813,7 @@ class LessonRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     lesson_type: Mapped[str] = mapped_column(String(24), nullable=False, default="text")
     publication_status: Mapped[str] = mapped_column(String(24), nullable=False, default="published")
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     video_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     file_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
@@ -822,6 +823,22 @@ class LessonRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     chapter: Mapped["ChapterRecord"] = relationship(back_populates="lessons")
+
+
+class LessonVersionRecord(OrganizationOwnedMixin, Base):
+    __tablename__ = "lesson_versions"
+    __table_args__ = (
+        UniqueConstraint("lesson_id", "version_number", name="uq_lesson_versions_lesson_number"),
+        Index("ix_lesson_versions_org_lesson", "organization_id", "lesson_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
+    reason: Mapped[str] = mapped_column(String(40), nullable=False)
+    edited_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class LessonPdfAssetRecord(OrganizationOwnedMixin, TimestampMixin, Base):

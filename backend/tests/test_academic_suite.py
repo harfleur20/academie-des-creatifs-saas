@@ -19,6 +19,7 @@ from app.models.entities import (
     FormationSessionRecord,
     GradeRecord,
     LessonRecord,
+    LessonVersionRecord,
     LessonProgressRecord,
     LessonPdfProgressRecord,
     LessonVideoProgressRecord,
@@ -62,7 +63,7 @@ from app.services.learning_progress import (
     sync_lesson_video_progress,
     teacher_performance,
 )
-from app.services.formations import create_lesson, publish_lesson, update_course, update_lesson
+from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
 from app.services.resources_quizzes import (
@@ -402,6 +403,42 @@ def test_lesson_draft_edit_publication_and_progress_reset() -> None:
     with pytest.raises(HTTPException) as wrong_scope:
         update_lesson(db, teacher_tenant, session.formation_id + 1, session.id, course.id, chapter.id, lesson_id, LessonCreate(title="Intruse", content="Autre"))
     assert wrong_scope.value.status_code == 404
+
+
+def test_lesson_versions_restore_content_and_keep_school_boundary() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, lesson, _ = seed(db)
+    teacher_tenant = ctx(db, org, teacher)
+    chapter = db.get(ChapterRecord, lesson.chapter_id)
+    course = db.get(CourseRecord, chapter.course_id)
+    ids = (session.formation_id, session.id, course.id, chapter.id, lesson.id)
+
+    update_lesson(db, teacher_tenant, *ids, LessonCreate(title="Introduction v2", content="Nouveau contenu"))
+    assert [(row.version_number, row.snapshot["title"]) for row in list_lesson_versions(db, teacher_tenant, *ids)] == [
+        (2, "Introduction v2"), (1, "Introduction"),
+    ]
+    mark_lesson_complete(db, ctx(db, org, student), lesson.id)
+    restore_lesson_version(db, teacher_tenant, *ids, 1)
+    assert db.get(LessonRecord, lesson.id).version_number == 3
+    assert db.get(LessonRecord, lesson.id).content == "Contenu"
+    assert db.scalar(select(LessonProgressRecord).where(
+        LessonProgressRecord.enrollment_id == enrollment.id,
+        LessonProgressRecord.lesson_id == lesson.id,
+    )) is not None
+    assert list_lesson_versions(db, teacher_tenant, *ids)[0].reason == "restored"
+    assert db.scalar(select(LessonVersionRecord).where(LessonVersionRecord.lesson_id == lesson.id).order_by(LessonVersionRecord.version_number.desc())).version_number == 3
+
+    other_school = OrganizationRecord(name="Other", slug="other")
+    db.add(other_school)
+    db.flush()
+    member = OrganizationMemberRecord(organization_id=other_school.id, user_id=teacher.id, role="teacher", status="active")
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"teacher"})
+    db.commit()
+    with pytest.raises(HTTPException) as hidden:
+        list_lesson_versions(db, ctx(db, other_school, teacher), *ids)
+    assert hidden.value.status_code == 404
 
 
 def test_course_publication_publishes_valid_lessons_together() -> None:

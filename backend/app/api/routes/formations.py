@@ -13,6 +13,7 @@ from app.schemas.formations import (
     FormationSummaryRead,
     FormationUpdate,
     LessonCreate,
+    LessonVersionRead,
     SessionCreate,
     SessionUpdate,
     TeacherAssignmentCreate,
@@ -27,8 +28,10 @@ from app.services.formations import (
     create_session,
     get_formation_detail,
     list_formations,
+    list_lesson_versions,
     remove_teacher,
     publish_lesson,
+    restore_lesson_version,
     update_course,
     update_lesson,
     update_enrollment,
@@ -268,3 +271,27 @@ def publish_lesson_route(
 ):
     require_organization_roles(tenant, "owner", "admin", "manager", "teacher")
     return publish_lesson(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id)
+
+
+@router.get(
+    "/{formation_id}/sessions/{session_id}/courses/{course_id}/chapters/{chapter_id}/lessons/{lesson_id}/versions",
+    response_model=list[LessonVersionRead],
+)
+def list_lesson_versions_route(
+    formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int,
+    db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
+):
+    require_organization_roles(tenant, "owner", "admin", "manager", "teacher")
+    return list_lesson_versions(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id)
+
+
+@router.post(
+    "/{formation_id}/sessions/{session_id}/courses/{course_id}/chapters/{chapter_id}/lessons/{lesson_id}/versions/{version_number}/restore",
+    response_model=FormationDetailRead,
+)
+def restore_lesson_version_route(
+    formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int, version_number: int,
+    db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
+):
+    require_organization_roles(tenant, "owner", "admin", "manager", "teacher")
+    return restore_lesson_version(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id, version_number)

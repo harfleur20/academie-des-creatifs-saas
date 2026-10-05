@@ -1046,6 +1046,7 @@ export type Lesson = {
   order_index: number
   lesson_type: 'text' | 'video' | 'pdf' | 'quiz' | 'assignment' | 'resource'
   publication_status: 'draft' | 'published'
+  version_number: number
   content: string | null
   video_url: string | null
   file_url: string | null
@@ -1266,6 +1267,25 @@ export const createChapterLesson = (
   )
 
 export type LessonPayload = Parameters<typeof createChapterLesson>[4]
+
+export type LessonVersion = {
+  id: number
+  lesson_id: number
+  version_number: number
+  snapshot: LessonPayload & { publication_status: Lesson['publication_status'] }
+  reason: 'initial' | 'created' | 'edited' | 'published' | 'restored'
+  edited_by_user_id: number | null
+  created_at: string
+}
+
+const lessonPath = (formationId: number, sessionId: number, courseId: number, chapterId: number, lessonId: number) =>
+  `/formations/${formationId}/sessions/${sessionId}/courses/${courseId}/chapters/${chapterId}/lessons/${lessonId}`
+
+export const listLessonVersions = (formationId: number, sessionId: number, courseId: number, chapterId: number, lessonId: number) =>
+  request<LessonVersion[]>(`${lessonPath(formationId, sessionId, courseId, chapterId, lessonId)}/versions`)
+
+export const restoreLessonVersion = (formationId: number, sessionId: number, courseId: number, chapterId: number, lessonId: number, versionNumber: number) =>
+  request<FormationDetail>(`${lessonPath(formationId, sessionId, courseId, chapterId, lessonId)}/versions/${versionNumber}/restore`, { method: 'POST' })
 
 export const updateSessionCourse = (formationId: number, sessionId: number, courseId: number, payload: { status: Course['status'] }) =>
   request<FormationDetail>(`/formations/${formationId}/sessions/${sessionId}/courses/${courseId}`, {

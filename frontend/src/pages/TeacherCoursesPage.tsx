@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, FilePlus2, Plus } from 'lucide-react'
+import { BookOpen, FilePlus2, History, Plus } from 'lucide-react'
 import {
   ApiError,
   createChapterLesson,
@@ -10,7 +10,9 @@ import {
   listTeacherAssignments,
   listTeacherQuizzes,
   listTeacherResources,
+  listLessonVersions,
   publishChapterLesson,
+  restoreLessonVersion,
   updateChapterLesson,
   updateSessionCourse,
   uploadLessonPdf,
@@ -19,6 +21,7 @@ import {
   type FormationDetail,
   type Lesson,
   type LessonPayload,
+  type LessonVersion,
   type TeacherQuiz,
   type TeacherWorkspace,
 } from '../lib/api'
@@ -70,6 +73,8 @@ export function TeacherCoursesPage() {
   const [lessonDrafts, setLessonDrafts] = useState<Record<number, LessonDraft>>({})
   const [editingLessonId, setEditingLessonId] = useState<number | null>(null)
   const [editingDraft, setEditingDraft] = useState<LessonDraft | null>(null)
+  const [historyLessonId, setHistoryLessonId] = useState<number | null>(null)
+  const [versions, setVersions] = useState<LessonVersion[]>([])
   const [quizzes, setQuizzes] = useState<TeacherQuiz[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [resources, setResources] = useState<AcademicResource[]>([])
@@ -184,6 +189,33 @@ export function TeacherCoursesPage() {
     if (saved) { setEditingLessonId(null); setEditingDraft(null) }
   }
 
+  async function showHistory(courseId: number, chapterId: number, lessonId: number) {
+    if (!formation || !session) return
+    if (historyLessonId === lessonId) { setHistoryLessonId(null); return }
+    setError('')
+    try {
+      const rows = await listLessonVersions(formation.id, session.id, courseId, chapterId, lessonId)
+      setVersions(rows)
+      setHistoryLessonId(lessonId)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Historique indisponible.')
+    }
+  }
+
+  async function restoreVersion(courseId: number, chapterId: number, lessonId: number, versionNumber: number) {
+    if (!formation || !session) return
+    const restored = await run(() => restoreLessonVersion(formation.id, session.id, courseId, chapterId, lessonId, versionNumber))
+    if (restored) {
+      setEditingLessonId(null)
+      setEditingDraft(null)
+      try {
+        setVersions(await listLessonVersions(formation.id, session.id, courseId, chapterId, lessonId))
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Historique indisponible.')
+      }
+    }
+  }
+
   function renderLessonFields(draft: LessonDraft, change: (value: LessonDraft) => void, chapterId: number, editing = false) {
     return <>
       <input value={draft.title} onChange={(event) => change({ ...draft, title: event.target.value })} placeholder="Titre de la leçon" />
@@ -246,10 +278,12 @@ export function TeacherCoursesPage() {
                       <div className="teacher-module-head"><strong>Module {chapter.order_index + 1} : {chapter.title}</strong><span>{chapter.lessons.length} leçon(s)</span></div>
                       <div className="teacher-lesson-list">
                         {chapter.lessons.map((lesson) => (
-                          <div className="teacher-lesson-row" key={lesson.id}>
-                            <span><FilePlus2 size={13}/>{lesson.title} <small>{lesson.lesson_type} · {lesson.publication_status === 'published' ? 'Publiée' : 'Brouillon'}</small></span>
+                          <div className={'teacher-lesson-row' + (historyLessonId === lesson.id ? ' is-history-open' : '')} key={lesson.id}>
+                            <span><FilePlus2 size={13}/>{lesson.title} <small>{lesson.lesson_type} · {lesson.publication_status === 'published' ? 'Publiée' : 'Brouillon'} · v{lesson.version_number}</small></span>
                             <button className="secondary-button" type="button" disabled={working} onClick={() => { setEditingLessonId(lesson.id); setEditingDraft(draftForLesson(lesson)) }}>Modifier</button>
+                            <button className="secondary-button" type="button" disabled={working} onClick={() => void showHistory(course.id, chapter.id, lesson.id)}><History size={13}/> Historique</button>
                             {course.status === 'published' && lesson.publication_status !== 'published' && <button className="secondary-button" type="button" disabled={working} onClick={() => void run(() => publishChapterLesson(formation.id, session.id, course.id, chapter.id, lesson.id))}>Publier</button>}
+                            {historyLessonId === lesson.id && <div className="teacher-lesson-history"><strong>Versions de la leçon</strong>{versions.map((version) => <div key={version.id}><span>v{version.version_number} · {version.snapshot.title} · {new Date(version.created_at).toLocaleString('fr-FR')} · {version.reason}</span>{version.version_number !== lesson.version_number && <button className="secondary-button" type="button" disabled={working} onClick={() => void restoreVersion(course.id, chapter.id, lesson.id, version.version_number)}>Restaurer le contenu</button>}</div>)}</div>}
                             {editingLessonId === lesson.id && editingDraft && <div className="lesson-create-grid teacher-lesson-edit">
                               {renderLessonFields(editingDraft, setEditingDraft, chapter.id, true)}
                               <button className="primary-button" type="button" disabled={working || uploadingPdf === chapter.id || editingDraft.title.trim().length < 2} onClick={() => void saveLesson(course.id, chapter.id, lesson)}>Enregistrer</button>

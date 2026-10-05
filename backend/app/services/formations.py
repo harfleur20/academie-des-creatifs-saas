@@ -16,6 +16,7 @@ from app.models.entities import (
     FormationRecord,
     FormationSessionRecord,
     LessonRecord,
+    LessonVersionRecord,
     LessonProgressRecord,
     LessonVideoProgressRecord,
     OrganizationMemberRecord,
@@ -47,6 +48,7 @@ from app.schemas.formations import (
     CourseRead,
     ChapterRead,
     LessonRead,
+    LessonVersionRead,
 )
 from app.services.membership_roles import member_has_role
 from app.services.online_formations import ensure_online_content_session
@@ -835,7 +837,10 @@ def update_course(
         for lesson in lessons:
             _validate_lesson_publication(db, tenant, lesson, session.id)
         for lesson in lessons:
-            lesson.publication_status = "published"
+            if lesson.publication_status != "published":
+                _ensure_lesson_baseline(db, lesson)
+                lesson.publication_status = "published"
+                _record_lesson_version(db, tenant, lesson, "published")
     for key, value in values.items():
         if isinstance(value, str):
             value = value.strip()
@@ -931,6 +936,8 @@ def create_lesson(
         available_at=payload.available_at,
     )
     db.add(lesson)
+    db.flush()
+    _record_lesson_version(db, tenant, lesson, "created")
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 
@@ -1006,8 +1013,64 @@ def _lesson_for_edit(db: Session, tenant: TenantContext, formation_id: int, sess
     return course, lesson
 
 
-def update_lesson(db: Session, tenant: TenantContext, formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int, payload: LessonCreate) -> FormationDetailRead:
+def _lesson_snapshot(lesson: LessonRecord) -> dict:
+    return {
+        "title": lesson.title,
+        "order_index": lesson.order_index,
+        "lesson_type": lesson.lesson_type,
+        "publication_status": lesson.publication_status,
+        "content": lesson.content,
+        "video_url": lesson.video_url,
+        "file_url": lesson.file_url,
+        "quiz_id": lesson.quiz_id,
+        "assignment_id": lesson.assignment_id,
+        "resource_id": lesson.resource_id,
+        "available_at": lesson.available_at.isoformat() if lesson.available_at else None,
+    }
+
+
+def _ensure_lesson_baseline(db: Session, lesson: LessonRecord) -> None:
+    existing = db.scalar(select(LessonVersionRecord.id).where(
+        LessonVersionRecord.organization_id == lesson.organization_id,
+        LessonVersionRecord.lesson_id == lesson.id,
+        LessonVersionRecord.version_number == lesson.version_number,
+    ))
+    if existing is None:
+        db.add(LessonVersionRecord(
+            organization_id=lesson.organization_id,
+            lesson_id=lesson.id,
+            version_number=lesson.version_number,
+            snapshot=_lesson_snapshot(lesson),
+            reason="initial",
+        ))
+
+
+def _record_lesson_version(db: Session, tenant: TenantContext, lesson: LessonRecord, reason: str) -> None:
+    if reason != "created":
+        lesson.version_number += 1
+    db.add(LessonVersionRecord(
+        organization_id=tenant.organization_id,
+        lesson_id=lesson.id,
+        version_number=lesson.version_number,
+        snapshot=_lesson_snapshot(lesson),
+        reason=reason,
+        edited_by_user_id=tenant.user.id,
+    ))
+
+
+def list_lesson_versions(db: Session, tenant: TenantContext, formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int) -> list[LessonVersionRead]:
     _, lesson = _lesson_for_edit(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id)
+    versions = db.scalars(select(LessonVersionRecord).where(
+        LessonVersionRecord.organization_id == tenant.organization_id,
+        LessonVersionRecord.lesson_id == lesson.id,
+    ).order_by(LessonVersionRecord.version_number.desc())).all()
+    return [LessonVersionRead.model_validate(version, from_attributes=True) for version in versions]
+
+
+def update_lesson(db: Session, tenant: TenantContext, formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int, payload: LessonCreate, *, reason: str = "edited") -> FormationDetailRead:
+    _, lesson = _lesson_for_edit(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id)
+    _ensure_lesson_baseline(db, lesson)
+    old_snapshot = _lesson_snapshot(lesson)
     old_identity = (lesson.lesson_type, lesson.video_url, lesson.file_url, lesson.quiz_id, lesson.assignment_id, lesson.resource_id)
     if lesson.lesson_type == "pdf" and lesson.file_url != payload.file_url and lesson.quiz_id == payload.quiz_id and payload.quiz_id is not None and db.scalar(select(QuizAttemptRecord.id).where(QuizAttemptRecord.organization_id == tenant.organization_id, QuizAttemptRecord.quiz_id == payload.quiz_id)) is not None:
         raise HTTPException(409, "Créez un nouveau quiz pour remplacer un PDF déjà évalué.")
@@ -1025,6 +1088,8 @@ def update_lesson(db: Session, tenant: TenantContext, formation_id: int, session
         db.execute(delete(LessonProgressRecord).where(LessonProgressRecord.organization_id == tenant.organization_id, LessonProgressRecord.lesson_id == lesson.id))
     if old_identity[:2] != (lesson.lesson_type, lesson.video_url):
         db.execute(delete(LessonVideoProgressRecord).where(LessonVideoProgressRecord.organization_id == tenant.organization_id, LessonVideoProgressRecord.lesson_id == lesson.id))
+    if _lesson_snapshot(lesson) != old_snapshot:
+        _record_lesson_version(db, tenant, lesson, reason)
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 
@@ -1034,6 +1099,22 @@ def publish_lesson(db: Session, tenant: TenantContext, formation_id: int, sessio
     if course.status != "published":
         raise HTTPException(409, "Publiez d'abord le cours parent.")
     _validate_lesson_publication(db, tenant, lesson, session_id)
-    lesson.publication_status = "published"
+    if lesson.publication_status != "published":
+        _ensure_lesson_baseline(db, lesson)
+        lesson.publication_status = "published"
+        _record_lesson_version(db, tenant, lesson, "published")
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
+
+
+def restore_lesson_version(db: Session, tenant: TenantContext, formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int, version_number: int) -> FormationDetailRead:
+    _, lesson = _lesson_for_edit(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id)
+    version = db.scalar(select(LessonVersionRecord).where(
+        LessonVersionRecord.organization_id == tenant.organization_id,
+        LessonVersionRecord.lesson_id == lesson.id,
+        LessonVersionRecord.version_number == version_number,
+    ))
+    if version is None:
+        raise HTTPException(404, "Version introuvable.")
+    payload = LessonCreate.model_validate({key: value for key, value in version.snapshot.items() if key != "publication_status"})
+    return update_lesson(db, tenant, formation_id, session_id, course_id, chapter_id, lesson_id, payload, reason="restored")

@@ -4877,6 +4877,11 @@
   width: 100%;
 }
 
+.teacher-lesson-row.is-history-open { flex-basis: 100%; }
+.teacher-lesson-history { display: grid; flex-basis: 100%; min-width: 0; gap: 6px; padding: 9px; border: 1px solid #e3e8ef; border-radius: 8px; background: #f8fafc; }
+.teacher-lesson-history > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.teacher-lesson-history > div + div { border-top: 1px solid #e3e8ef; padding-top: 6px; }
+
 .guided-summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

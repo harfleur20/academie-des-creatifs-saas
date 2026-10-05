@@ -196,6 +196,7 @@ class LessonRead(BaseModel):
     order_index: int
     lesson_type: str
     publication_status: str
+    version_number: int
     content: str | None
     video_url: str | None
     file_url: str | None
@@ -203,6 +204,16 @@ class LessonRead(BaseModel):
     assignment_id: int | None
     resource_id: int | None
     available_at: datetime | None
+
+
+class LessonVersionRead(BaseModel):
+    id: int
+    lesson_id: int
+    version_number: int
+    snapshot: dict
+    reason: str
+    edited_by_user_id: int | None
+    created_at: datetime
 
 
 class ChapterRead(BaseModel):
