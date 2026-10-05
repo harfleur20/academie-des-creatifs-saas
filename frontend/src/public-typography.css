@@ -1,0 +1,70 @@
+/* Public storefront readability pass. Keep all sizes tied to the owner's typography scale. */
+.public-school-shell .school-about > div:first-child {
+  align-self: center;
+}
+
+.public-school-shell .school-about .school-kicker,
+.public-school-shell .school-kicker {
+  margin-bottom: 8px;
+  font-size: calc(11px * var(--school-font-scale, 1));
+  line-height: 1.35;
+}
+
+.public-school-shell .school-about h2 {
+  margin: 0 0 12px;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+}
+
+.public-school-shell .school-about p {
+  margin: 0;
+  color: #66758a;
+  font-size: calc(15px * var(--school-font-scale, 1));
+  line-height: 1.55;
+}
+
+.public-school-shell .school-about-values article {
+  padding: 24px;
+}
+
+.public-school-shell .school-about-values svg {
+  width: 30px;
+  height: 30px;
+}
+
+.public-school-shell .school-about-values strong {
+  margin: 12px 0 7px;
+  font-size: calc(14px * var(--school-font-scale, 1));
+  line-height: 1.35;
+}
+
+.public-school-shell .school-about-values span {
+  font-size: calc(12px * var(--school-font-scale, 1));
+  line-height: 1.55;
+}
+
+/* Raise the smallest storefront text so the public site stays readable. */
+.public-school-shell .public-school-header nav a,
+.public-school-shell .public-school-login,
+.public-school-shell .school-hero a,
+.public-school-shell .school-primary-link,
+.public-school-shell .school-section-heading a {
+  font-size: calc(11px * var(--school-font-scale, 1));
+}
+
+.public-school-shell .school-formation-meta,
+.public-school-shell .school-formation-foot > span,
+.public-school-shell .school-formation-foot a {
+  font-size: calc(10px * var(--school-font-scale, 1));
+}
+
+.public-school-shell .school-formation-card p {
+  font-size: calc(12px * var(--school-font-scale, 1));
+  line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  .public-school-shell .school-about {
+    gap: 34px;
+  }
+}
