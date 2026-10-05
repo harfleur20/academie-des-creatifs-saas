@@ -8,6 +8,7 @@ from app.models.entities import UserRecord
 from app.schemas.auth import (
     AuthResponse,
     AuthUser,
+    GoogleAuthPayload,
     LoginPayload,
     PasswordChangePayload,
     ProfileUpdatePayload,
@@ -17,6 +18,9 @@ from app.services.admin import end_support_session
 from app.services.assets import store_profile_avatar
 from app.services.auth import (
     EmailAlreadyUsedError,
+    GoogleAuthenticationError,
+    GoogleAuthNotConfiguredError,
+    authenticate_google_user,
     authenticate_user,
     create_user,
     change_password,
@@ -72,6 +76,26 @@ def login(
             detail="Adresse email ou mot de passe incorrect.",
         )
     return _response(user, "Connexion réussie.")
+
+
+@router.post("/google", response_model=AuthResponse)
+async def google_login(
+    payload: GoogleAuthPayload,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    try:
+        user = await authenticate_google_user(db, credential=payload.credential)
+    except GoogleAuthNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except GoogleAuthenticationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+    return _response(user, "Connexion Google réussie.")
 
 
 @router.get("/me", response_model=AuthUser)
