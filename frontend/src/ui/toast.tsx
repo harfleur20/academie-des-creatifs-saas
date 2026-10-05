@@ -19,13 +19,23 @@ type ToastItem = {
 type ToastListener = (toast: ToastItem) => void
 
 const listeners = new Set<ToastListener>()
+const recentMessages = new Map<string, number>()
 let nextToastId = 1
 
 function publish(kind: ToastKind, message: string, options: ToastOptions = {}) {
+  const normalizedMessage = message.trim()
+  if (!normalizedMessage) return 0
+
+  const duplicateKey = `${kind}:${normalizedMessage}`
+  const now = Date.now()
+  const lastPublishedAt = recentMessages.get(duplicateKey) ?? 0
+  if (now - lastPublishedAt < 700) return 0
+  recentMessages.set(duplicateKey, now)
+
   const item: ToastItem = {
     id: nextToastId++,
     kind,
-    message,
+    message: normalizedMessage,
     title: options.title,
     duration: options.duration ?? (kind === 'error' ? 5200 : 3600),
   }
@@ -74,6 +84,34 @@ export function ToastViewport() {
       listeners.delete(listener)
       timers.current.forEach((timer) => window.clearTimeout(timer))
       timers.current.clear()
+    }
+  }, [])
+
+  useEffect(() => {
+    document.body.classList.add('toast-feedback-enabled')
+    const previousText = new WeakMap<Element, string>()
+
+    const bridgeFeedback = () => {
+      document.querySelectorAll('.form-success, .form-error').forEach((element) => {
+        const message = element.textContent?.trim() ?? ''
+        if (!message || previousText.get(element) === message) return
+        previousText.set(element, message)
+        if (element.classList.contains('form-error')) toast.error(message)
+        else toast.success(message)
+      })
+    }
+
+    bridgeFeedback()
+    const observer = new MutationObserver(bridgeFeedback)
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    })
+
+    return () => {
+      observer.disconnect()
+      document.body.classList.remove('toast-feedback-enabled')
     }
   }, [])
 
