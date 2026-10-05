@@ -12,7 +12,7 @@ type SchoolCartDrawerProps = {
   onClear: () => void
 }
 
-const CART_ANIMATION_MS = 280
+const CART_ANIMATION_MS = 420
 
 export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: SchoolCartDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null)
@@ -33,7 +33,7 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
     } else {
       setActive(false)
       if (rendered) {
-        timeout = window.setTimeout(() => setRendered(false), reducedMotion ? 0 : CART_ANIMATION_MS)
+        timeout = window.setTimeout(() => setRendered(false), reducedMotion ? 0 : CART_ANIMATION_MS + 80)
       }
     }
 
@@ -42,7 +42,7 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
       window.cancelAnimationFrame(secondFrame)
       window.clearTimeout(timeout)
     }
-  }, [open, rendered])
+  }, [open])
 
   useEffect(() => {
     if (!rendered) return
@@ -81,10 +81,35 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
 
   if (!rendered) return null
 
+  const drawerTransition = active
+    ? 'transform 400ms cubic-bezier(.16,1,.3,1), opacity 280ms ease'
+    : `transform ${CART_ANIMATION_MS}ms cubic-bezier(.4,0,.2,1), opacity 340ms ease`
+
   return (
     <div className={`school-cart-overlay ${active ? 'is-open' : 'is-closing'}`} aria-hidden={!open}>
-      <button className="school-cart-backdrop" type="button" aria-label="Fermer le panier" onClick={onClose} tabIndex={open ? 0 : -1} />
-      <aside className="school-cart-drawer" role="dialog" aria-modal="true" aria-labelledby="school-cart-title">
+      <button
+        className="school-cart-backdrop"
+        type="button"
+        aria-label="Fermer le panier"
+        onClick={onClose}
+        tabIndex={open ? 0 : -1}
+        style={{ opacity: active ? 1 : 0, transition: 'opacity 360ms ease' }}
+      />
+      <aside
+        className="school-cart-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="school-cart-title"
+        onTransitionEnd={(event) => {
+          if (!open && event.propertyName === 'transform') setRendered(false)
+        }}
+        style={{
+          transform: active ? 'translate3d(0, 0, 0)' : 'translate3d(100%, 0, 0)',
+          opacity: active ? 1 : .985,
+          transition: drawerTransition,
+          willChange: 'transform, opacity',
+        }}
+      >
         <header className="school-cart-drawer-header">
           <div><span className="school-kicker">Panier</span><h2 id="school-cart-title">Votre inscription</h2></div>
           <button ref={closeButton} className="school-cart-close" type="button" aria-label="Fermer le panier" onClick={onClose}><X size={20} /></button>
