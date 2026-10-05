@@ -126,7 +126,7 @@ export function LoginPage() {
       returnToLogin(result.message)
     } catch (err) {
       setError(
-        err instanceof ApiError || err instanceof Error
+        err instanceof Error
           ? err.message
           : 'Impossible de continuer.',
       )
@@ -293,7 +293,7 @@ export function LoginPage() {
 
           {mode === 'login' && (
             <button
-              className="auth-forgot-link"
+              className="auth-switch auth-forgot-link"
               type="button"
               onClick={() => switchMode('forgot')}
             >
