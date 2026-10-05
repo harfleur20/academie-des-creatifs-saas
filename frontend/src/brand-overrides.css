@@ -1,0 +1,10 @@
+:root {
+  --green: #63dfa8;
+  --green-ink: #63dfa8;
+}
+
+.login-platform .auth-logo strong,
+.login-platform .auth-form-kicker,
+.login-platform .auth-switch-accent {
+  color: var(--green);
+}
