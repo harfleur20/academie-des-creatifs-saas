@@ -38,16 +38,25 @@ class AuthenticatedSession:
 
 
 def get_authenticated_session(
+    request: Request,
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> AuthenticatedSession:
-    if credentials is None or credentials.scheme.lower() != "bearer":
+    # Bearer stays first so the tab-local super-admin support token can override
+    # the normal browser cookie without leaking impersonation to other tabs.
+    token: str | None = None
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        token = credentials.credentials
+    if not token:
+        token = request.cookies.get(settings.auth_cookie_name)
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentification requise.",
         )
 
-    payload = decode_access_token(credentials.credentials)
+    payload = decode_access_token(token)
     if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
