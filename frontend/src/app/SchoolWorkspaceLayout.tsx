@@ -13,7 +13,6 @@ import {
   LifeBuoy,
   LogOut,
   Menu,
-  MessageCircle,
   Search,
   Settings,
   UserRound,
@@ -38,6 +37,7 @@ import {
 } from '../lib/api'
 import { useTenant } from './TenantContext'
 import { SchoolNotificationBell } from './SchoolNotificationBell'
+import { SchoolMessageBell } from './SchoolMessageBell'
 
 export type WorkspaceNavItem = {
   to: string
@@ -456,15 +456,7 @@ export function SchoolWorkspaceLayout({
           </div>
 
           <div className="tenant-role-topbar__actions" ref={profileRef}>
-            <button
-              type="button"
-              className="tenant-role-icon-button"
-              aria-label="Messagerie bientôt disponible"
-              title="Messagerie bientôt disponible"
-              disabled
-            >
-              <MessageCircle size={19} />
-            </button>
+            <SchoolMessageBell space={space} />
             <SchoolNotificationBell space={space} />
 
             <button

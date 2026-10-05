@@ -2260,6 +2260,19 @@ export const removeSchoolFavorite = (schoolKey: string, formationSlug: string) =
     method: 'DELETE', organizationId: null,
   })
 
+export type SchoolMessageRecipient = { id: number; full_name: string; role: string; avatar_url: string | null }
+export type SchoolMessage = { id: number; thread_id: number; sender_user_id: number; sender_name: string; body: string; created_at: string }
+export type SchoolMessageThread = { id: number; subject: string; participants: SchoolMessageRecipient[]; last_message: SchoolMessage | null; unread_count: number; last_message_at: string | null }
+export type SchoolMessageThreadDetail = SchoolMessageThread & { messages: SchoolMessage[] }
+
+export const listMessageRecipients = () => request<SchoolMessageRecipient[]>('/messages/recipients')
+export const listMessageThreads = () => request<SchoolMessageThread[]>('/messages/threads')
+export const getMessageThread = (id: number) => request<SchoolMessageThreadDetail>('/messages/threads/' + id)
+export const createMessageThread = (payload: { participant_ids: number[]; subject: string; body: string }) =>
+  request<SchoolMessageThreadDetail>('/messages/threads', { method: 'POST', body: JSON.stringify(payload) })
+export const sendSchoolMessage = (threadId: number, body: string) =>
+  request<SchoolMessage>('/messages/threads/' + threadId + '/messages', { method: 'POST', body: JSON.stringify({ body }) })
+
 export const getPublicSchoolFormation = (schoolKey: string, formationSlug: string) =>
   request<PublicFormationDetail>(
     '/public/schools/' + encodeURIComponent(schoolKey) + '/formations/' + encodeURIComponent(formationSlug),

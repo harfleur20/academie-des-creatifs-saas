@@ -1,0 +1,34 @@
+.school-messages-page { max-width: 1280px; }
+.school-messages-layout { display: grid; grid-template-columns: minmax(240px, 330px) minmax(0, 1fr); min-height: 560px; overflow: hidden; border: 1px solid #dfe5ed; border-radius: 15px; background: #fff; }
+.school-messages-threads { overflow-y: auto; border-right: 1px solid #e8edf3; }
+.school-messages-threads > p { padding: 20px; color: #66758a; }
+.school-messages-threads > button { display: grid; width: 100%; gap: 4px; padding: 16px; border: 0; border-bottom: 1px solid #eef1f5; background: #fff; text-align: left; cursor: pointer; }
+.school-messages-threads > button:hover,.school-messages-threads > button.is-selected { background: #f1f6fd; }
+.school-messages-threads > button > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.school-messages-threads strong { font-size: 13px; }
+.school-messages-threads small,.school-messages-threads time { overflow: hidden; color: #69788e; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.school-messages-threads i { display: grid; place-items: center; min-width: 20px; height: 20px; border-radius: 10px; color: #fff; background: var(--blue); font-size: 10px; font-style: normal; }
+.school-messages-detail { display: flex; flex-direction: column; min-width: 0; }
+.school-messages-detail > header { padding: 20px; border-bottom: 1px solid #e8edf3; }
+.school-messages-detail h2 { margin: 0 0 5px; font-size: 19px; }
+.school-messages-detail > header p { margin: 0; color: #66758a; font-size: 12px; }
+.school-messages-placeholder { flex: 1; display: grid; place-content: center; justify-items: center; gap: 10px; color: #748196; text-align: center; }
+.school-messages-feed { display: flex; flex: 1; flex-direction: column; gap: 12px; min-height: 300px; max-height: 540px; overflow-y: auto; padding: 20px; }
+.school-messages-feed article { align-self: flex-start; max-width: min(80%, 520px); padding: 13px 16px; border-radius: 12px 12px 12px 2px; background: #f0f4f8; }
+.school-messages-feed article.is-mine { align-self: flex-end; border-radius: 12px 12px 2px 12px; background: color-mix(in srgb, var(--blue) 12%, white); }
+.school-messages-feed strong { font-size: 11px; }
+.school-messages-feed p { margin: 5px 0; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.school-messages-feed time { color: #748196; font-size: 10px; }
+.school-messages-detail form { display: grid; gap: 12px; padding: 20px; }
+.school-messages-detail form > label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
+.school-messages-detail input:not([type="checkbox"]),.school-messages-detail textarea { width: 100%; padding: 10px; border: 1px solid #d8e0e9; border-radius: 9px; font: inherit; }
+.school-messages-detail textarea { min-height: 95px; resize: vertical; }
+.school-messages-detail fieldset { display: flex; flex-wrap: wrap; gap: 8px; max-height: 180px; overflow-y: auto; border: 1px solid #dfe5ed; border-radius: 9px; }
+.school-messages-detail fieldset legend { font-size: 12px; font-weight: 700; }
+.school-messages-detail fieldset label { display: flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 7px; background: #f2f5f9; font-size: 12px; }
+.school-messages-detail fieldset small { color: #748196; }
+.school-messages-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.school-messages-reply { border-top: 1px solid #e8edf3; }
+@media (max-width: 700px) { .school-messages-layout { grid-template-columns: 1fr; } .school-messages-threads { max-height: 250px; border-right: 0; border-bottom: 1px solid #e8edf3; } }
+.school-message-bell { position: relative; text-decoration: none; }
+.school-message-bell span { position: absolute; top: -4px; right: -5px; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; border-radius: 9px; color: #fff; background: #bd3e61; font-size: 9px; }

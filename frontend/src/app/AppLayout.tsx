@@ -7,6 +7,7 @@ import {
   HeartPulse,
   LayoutDashboard,
   Bell,
+  MessageCircle,
   Settings,
   ShoppingCart,
   Store,
@@ -22,6 +23,7 @@ export function AppLayout() {
       navItems={[
         { to: '/app/manage', label: 'Tableau de bord', icon: <LayoutDashboard size={18} />, end: true },
         { to: '/app/manage/notifications', label: 'Notifications', icon: <Bell size={18} /> },
+        { to: '/app/manage/messages', label: 'Messages', icon: <MessageCircle size={18} /> },
         { to: '/app/manage/formations', label: 'Formations', icon: <BookOpen size={18} /> },
         { to: '/app/manage/students', label: 'Étudiants', icon: <GraduationCap size={18} /> },
         { to: '/app/manage/teachers', label: 'Enseignants', icon: <UserRoundCog size={18} /> },

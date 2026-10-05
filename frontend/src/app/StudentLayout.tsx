@@ -9,6 +9,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   Bell,
+  MessageCircle,
   CreditCard,
   UserRound,
   Users,
@@ -27,6 +28,7 @@ export function StudentLayout() {
           end: true,
         },
         { to: '/app/student/notifications', label: 'Notifications', icon: <Bell size={18} /> },
+        { to: '/app/student/messages', label: 'Messages', icon: <MessageCircle size={18} /> },
         {
           to: '/app/student/formations',
           label: 'Mes parcours',

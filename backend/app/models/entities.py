@@ -1147,6 +1147,35 @@ class SchoolFavoriteRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     formation_id: Mapped[int] = mapped_column(ForeignKey("formations.id", ondelete="CASCADE"), nullable=False, index=True)
 
 
+class SchoolMessageThreadRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "school_message_threads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SchoolMessageParticipantRecord(OrganizationOwnedMixin, Base):
+    __tablename__ = "school_message_participants"
+    __table_args__ = (UniqueConstraint("thread_id", "user_id", name="uq_school_message_participant"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    thread_id: Mapped[int] = mapped_column(ForeignKey("school_message_threads.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    role_snapshot: Mapped[str] = mapped_column(String(32), nullable=False)
+    last_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SchoolMessageRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "school_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    thread_id: Mapped[int] = mapped_column(ForeignKey("school_message_threads.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 class OrganizationLegalProfileRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "organization_legal_profiles"
     __table_args__ = (

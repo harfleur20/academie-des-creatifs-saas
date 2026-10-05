@@ -71,6 +71,7 @@ const StudentPaymentsPage = lazy(() => import('./pages/StudentPaymentsPage').the
 import type { WorkspaceSpace } from './lib/api'
 import { SchoolNotificationsPage } from './pages/SchoolNotificationsPage'
 import { SchoolFavoritesPage } from './pages/SchoolFavoritesPage'
+import { SchoolMessagesPage } from './pages/SchoolMessagesPage'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
   const { user, supportMode, loading } = useAuth()
@@ -223,6 +224,7 @@ export default function App() {
             >
               <Route index element={<SchoolDashboardPage />} />
               <Route path="notifications" element={<SchoolNotificationsPage space="manage" />} />
+              <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="onboarding" element={<OnboardingPage />} />
               <Route path="formations" element={<FormationsManagementPage />} />
               <Route path="formations/:formationId" element={<FormationWorkspacePage />} />
@@ -252,6 +254,7 @@ export default function App() {
             >
               <Route index element={<TeacherDashboardPage />} />
               <Route path="notifications" element={<SchoolNotificationsPage space="teacher" />} />
+              <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="sessions" element={<TeacherSessionsPage />} />
               <Route path="sessions/:sessionId" element={<TeacherSessionPlanningPage />} />
               <Route path="courses" element={<TeacherCoursesPage />} />
@@ -277,6 +280,7 @@ export default function App() {
             >
               <Route index element={<StudentDashboardPage />} />
               <Route path="notifications" element={<SchoolNotificationsPage space="student" />} />
+              <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="formations" element={<StudentParcoursPage />} />
               <Route path="sessions/:sessionId" element={<StudentSessionPlanningPage />} />
               <Route path="planning" element={<StudentPlanningPage />} />

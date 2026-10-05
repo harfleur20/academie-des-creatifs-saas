@@ -8,6 +8,7 @@ import {
   FileText,
   LayoutDashboard,
   Bell,
+  MessageCircle,
   UserRound,
   Users,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ export function TeacherLayout() {
           end: true,
         },
         { to: '/app/teacher/notifications', label: 'Notifications', icon: <Bell size={18} /> },
+        { to: '/app/teacher/messages', label: 'Messages', icon: <MessageCircle size={18} /> },
         {
           to: '/app/teacher/performance',
           label: 'Performance',
