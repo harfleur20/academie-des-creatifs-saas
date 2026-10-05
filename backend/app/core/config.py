@@ -166,6 +166,12 @@ class Settings:
     r2_access_key_id: str = os.getenv("R2_ACCESS_KEY_ID", "").strip()
     r2_secret_access_key: str = os.getenv("R2_SECRET_ACCESS_KEY", "").strip()
     r2_public_base_url: str = os.getenv("R2_PUBLIC_BASE_URL", "").rstrip("/")
+    jaas_enabled: bool = _env_bool("JAAS_ENABLED", False)
+    jaas_domain: str = os.getenv("JAAS_DOMAIN", "8x8.vc").strip().removeprefix("https://").rstrip("/")
+    jaas_app_id: str = os.getenv("JAAS_APP_ID", "").strip()
+    jaas_kid: str = os.getenv("JAAS_KID", "").strip()
+    jaas_private_key: str = os.getenv("JAAS_PRIVATE_KEY", "").replace("\\n", "\n").strip()
+    jaas_private_key_file: str = os.getenv("JAAS_PRIVATE_KEY_FILE", "").strip()
 
     @property
     def r2_configured(self) -> bool:

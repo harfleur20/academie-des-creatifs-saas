@@ -4,12 +4,16 @@ from pathlib import Path
 import asyncio
 
 import pytest
+import jwt
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException, UploadFile
 from reportlab.pdfgen import canvas
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
+from app.core.config import settings
 from app.models.entities import (
     CertificateRecord,
     ChapterRecord,
@@ -63,6 +67,7 @@ from app.services.learning_progress import (
     sync_lesson_video_progress,
     teacher_performance,
 )
+from app.services.live_classes import join_live_class
 from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
@@ -438,6 +443,44 @@ def test_lesson_versions_restore_content_and_keep_school_boundary() -> None:
     db.commit()
     with pytest.raises(HTTPException) as hidden:
         list_lesson_versions(db, ctx(db, other_school, teacher), *ids)
+    assert hidden.value.status_code == 404
+
+
+def test_live_class_join_requires_own_school_membership_and_course_window(monkeypatch) -> None:
+    db = build_db()
+    org, teacher, student, _, session, _, _, _, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.commit()
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = private_key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption(),
+    ).decode()
+    monkeypatch.setattr(settings, "jaas_enabled", True)
+    monkeypatch.setattr(settings, "jaas_app_id", "test-live")
+    monkeypatch.setattr(settings, "jaas_kid", "test-live/key")
+    monkeypatch.setattr(settings, "jaas_private_key", pem)
+    current = datetime(2025, 1, 10, 9, 5, tzinfo=UTC)
+
+    joined = join_live_class(db, ctx(db, org, student), day.id, now=current)
+    claims = jwt.decode(joined["token"], private_key.public_key(), algorithms=["RS256"],
+                        audience="jitsi", options={"verify_exp": False, "verify_nbf": False})
+    assert claims["room"] == f"school-{org.id}-session-{session.id}-day-{day.id}"
+    assert claims["context"]["user"]["moderator"] == "false"
+    assert join_live_class(db, ctx(db, org, teacher), day.id, now=current)["moderator"]
+    with pytest.raises(HTTPException) as too_early:
+        join_live_class(db, ctx(db, org, student), day.id, now=datetime(2025, 1, 10, 8, 40, tzinfo=UTC))
+    assert too_early.value.status_code == 403
+
+    other_school = OrganizationRecord(name="Other live", slug="other-live")
+    db.add(other_school)
+    db.flush()
+    member = OrganizationMemberRecord(organization_id=other_school.id, user_id=teacher.id, role="teacher", status="active")
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"teacher"})
+    db.commit()
+    with pytest.raises(HTTPException) as hidden:
+        join_live_class(db, ctx(db, other_school, teacher), day.id, now=current)
     assert hidden.value.status_code == 404
 
 

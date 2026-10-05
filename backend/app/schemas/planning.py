@@ -61,7 +61,21 @@ class SessionPlanningRead(BaseModel):
     session_id: int
     formation_id: int
     formation_title: str
+    format_type: str
+    live_enabled: bool
     session_label: str
     session_start_date: str
     session_end_date: str
     course_days: list[CourseDayRead]
+
+
+class LiveRoomRead(BaseModel):
+    course_day_id: int
+    title: str
+    starts_at: datetime
+    ends_at: datetime
+    domain: str
+    room_name: str
+    external_api_url: str
+    token: str
+    moderator: bool

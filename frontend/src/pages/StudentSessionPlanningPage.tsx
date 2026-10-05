@@ -11,6 +11,7 @@ import {
   getSessionPlanning,
   type SessionPlanning,
 } from '../lib/api'
+import { liveClassIsOpen } from '../lib/liveWindow'
 
 export function StudentSessionPlanningPage() {
   const { sessionId } = useParams()
@@ -73,6 +74,9 @@ export function StudentSessionPlanningPage() {
                     <span><UserRound size={14} /> {day.teacher_name || 'Professeur'}</span>
                   </div>
                 </div>
+                {planning.format_type === 'live' && (
+                  !planning.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link className="secondary-button" to={`/app/student/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>
+                )}
               </article>
             ))}
 

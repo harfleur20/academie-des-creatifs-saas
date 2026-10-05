@@ -8,7 +8,9 @@ from app.schemas.planning import (
     CourseDayDraftPublish,
     CourseDayUpdate,
     SessionPlanningRead,
+    LiveRoomRead,
 )
+from app.services.live_classes import join_live_class
 from app.services.planning import (
     create_course_day,
     get_session_planning,
@@ -19,6 +21,15 @@ from app.services.tenancy import TenantContext
 
 
 router = APIRouter(prefix="/planning", tags=["planning"])
+
+
+@router.post("/course-days/{course_day_id}/live/join", response_model=LiveRoomRead)
+def join_course_day_live(
+    course_day_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return join_live_class(db, tenant, course_day_id)
 
 
 @router.get(

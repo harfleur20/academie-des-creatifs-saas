@@ -15,6 +15,7 @@ import {
   updateSessionCourseDay,
   type SessionPlanning,
 } from '../lib/api'
+import { liveClassIsOpen } from '../lib/liveWindow'
 
 function toLocalInput(value: string) {
   const date = new Date(value)
@@ -189,6 +190,9 @@ export function TeacherSessionPlanningPage() {
                     <span><UserRound size={14} /> {day.teacher_name || 'Professeur non disponible'}</span>
                   </div>
                 </div>
+                {planning.format_type === 'live' && day.status !== 'cancelled' && (
+                  !planning.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link className="secondary-button" to={`/app/teacher/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>
+                )}
                 {day.can_edit && day.status !== 'cancelled' && (
                   <button
                     className="planning-cancel-button"

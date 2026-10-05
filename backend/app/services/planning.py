@@ -20,6 +20,7 @@ from app.schemas.planning import (
     SessionPlanningRead,
 )
 from app.services.school_communications import queue_session_students_event
+from app.services.live_classes import live_provider_configured
 from app.services.tenancy import TenantContext
 
 
@@ -244,6 +245,8 @@ def get_session_planning(
         session_id=session.id,
         formation_id=session.formation_id,
         formation_title=session.formation.title,
+        format_type=session.formation.format_type,
+        live_enabled=live_provider_configured() if session.formation.format_type == "live" else False,
         session_label=session.label,
         session_start_date=session.start_date.isoformat(),
         session_end_date=session.end_date.isoformat(),

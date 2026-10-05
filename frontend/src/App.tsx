@@ -30,6 +30,7 @@ import { TeacherSessionsPage } from './pages/TeacherSessionsPage'
 import { StudentDashboardPage } from './pages/StudentDashboardPage'
 import { TeacherSessionPlanningPage } from './pages/TeacherSessionPlanningPage'
 import { StudentSessionPlanningPage } from './pages/StudentSessionPlanningPage'
+import { LiveClassPage } from './pages/LiveClassPage'
 const TeacherAssignmentsPage = lazy(() => import('./pages/TeacherAssignmentsPage').then((module) => ({ default: module.TeacherAssignmentsPage })))
 const StudentAssignmentsPage = lazy(() => import('./pages/StudentAssignmentsPage').then((module) => ({ default: module.StudentAssignmentsPage })))
 import { TeacherResourcesPage } from './pages/TeacherResourcesPage'
@@ -257,6 +258,7 @@ export default function App() {
               <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="sessions" element={<TeacherSessionsPage />} />
               <Route path="sessions/:sessionId" element={<TeacherSessionPlanningPage />} />
+              <Route path="live/:courseDayId" element={<LiveClassPage space="teacher" />} />
               <Route path="courses" element={<TeacherCoursesPage />} />
               <Route path="resources" element={<TeacherResourcesPage />} />
               <Route path="assignments" element={<TeacherAssignmentsPage />} />
@@ -283,6 +285,7 @@ export default function App() {
               <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="formations" element={<StudentParcoursPage />} />
               <Route path="sessions/:sessionId" element={<StudentSessionPlanningPage />} />
+              <Route path="live/:courseDayId" element={<LiveClassPage space="student" />} />
               <Route path="planning" element={<StudentPlanningPage />} />
               <Route path="courses" element={<StudentCoursesPage />} />
               <Route path="classic/:enrollmentId" element={<StudentCoursesPage mode="classic" />} />

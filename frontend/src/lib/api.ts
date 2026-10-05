@@ -1373,6 +1373,8 @@ export type SessionPlanning = {
   session_id: number
   formation_id: number
   formation_title: string
+  format_type: 'ligne' | 'live' | 'presentiel'
+  live_enabled: boolean
   session_label: string
   session_start_date: string
   session_end_date: string
@@ -1381,6 +1383,21 @@ export type SessionPlanning = {
 
 export const getSessionPlanning = (sessionId: number) =>
   request<SessionPlanning>(`/planning/sessions/${sessionId}/course-days`)
+
+export type LiveRoom = {
+  course_day_id: number
+  title: string
+  starts_at: string
+  ends_at: string
+  domain: string
+  room_name: string
+  external_api_url: string
+  token: string
+  moderator: boolean
+}
+
+export const joinLiveClass = (courseDayId: number) =>
+  request<LiveRoom>(`/planning/course-days/${courseDayId}/live/join`, { method: 'POST' })
 
 export const createSessionCourseDay = (
   sessionId: number,
