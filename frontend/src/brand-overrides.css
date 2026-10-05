@@ -8,3 +8,21 @@
 .login-platform .auth-switch-accent {
   color: var(--green);
 }
+
+@media (min-width: 901px) {
+  .login-redesign {
+    height: 100vh;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  .login-redesign .auth-copy-panel,
+  .login-redesign .auth-form-panel {
+    height: 100vh;
+    min-height: 100vh;
+  }
+
+  .login-redesign .auth-form-panel {
+    overflow-y: auto;
+  }
+}
