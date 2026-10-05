@@ -1,0 +1,81 @@
+/* Lightweight landing motion: keep reveal effects without continuous GPU work. */
+.landing-product-stage {
+  perspective: none;
+}
+
+.landing-depth,
+.landing-depth-main,
+.landing-depth-near,
+.landing-depth-mid,
+.landing-depth-far {
+  transition: none;
+  will-change: auto;
+  transform: none;
+}
+
+.landing-product-stage .dashboard-window {
+  transform: rotate(-0.65deg);
+  box-shadow: 0 24px 54px rgba(31, 37, 89, .13);
+}
+
+.landing-orbit {
+  animation: none;
+  opacity: .55;
+}
+
+.landing-orbit-two {
+  display: none;
+}
+
+.landing-product-stage::before,
+.landing-product-stage::after {
+  filter: none;
+  opacity: .32;
+}
+
+.landing-float-card {
+  animation: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(31, 37, 89, .11);
+}
+
+.landing-live-pulse {
+  animation: none;
+  box-shadow: none;
+}
+
+[data-landing-reveal] {
+  transition-duration: .5s;
+}
+
+.landing-scenes-grid-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.landing-scenes-grid-two .landing-scene-course,
+.landing-scenes-grid-two .landing-scene-live {
+  grid-column: auto;
+}
+
+.landing-scenes-section,
+.landing-page #fonctionnalites,
+.landing-page .workflow-section,
+.landing-page .pricing-section,
+.landing-page .cta-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 800px;
+}
+
+@media (max-width: 980px) {
+  .landing-scenes-grid-two {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .landing-product-stage .dashboard-window {
+    transform: none;
+  }
+}
