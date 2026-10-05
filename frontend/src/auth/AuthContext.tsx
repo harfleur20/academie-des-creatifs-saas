@@ -34,56 +34,90 @@ type AuthContextValue = {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+const AUTH_SYNC_EVENT_KEY = 'academie_saas_auth_sync_event'
+
+function announceAuthChange() {
+  localStorage.setItem(
+    AUTH_SYNC_EVENT_KEY,
+    `${Date.now()}:${crypto.randomUUID()}`,
+  )
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [supportMode, setSupportMode] = useState<SupportModeState | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const syncBrowserSession = () => {
-      if (isCurrentBrowserSession()) return
+  const syncFromServer = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true)
+
+    if (!isCurrentBrowserSession()) {
+      clearSession()
+      setSupportMode(null)
+    }
+
+    let token = getAccessToken()
+    setSupportMode(token ? getSupportMode() : null)
+
+    try {
+      const nextUser = await getMe()
+      setUser(nextUser)
+      token = getAccessToken()
+      setSupportMode(token ? getSupportMode() : null)
+    } catch {
+      // A stale tab-local bearer token must not hide a still-valid shared cookie.
+      // Clear that local state once and retry the server session cookie.
+      if (token) {
+        clearSession()
+        setSupportMode(null)
+        try {
+          const nextUser = await getMe()
+          setUser(nextUser)
+          return
+        } catch {
+          // No valid browser cookie either.
+        }
+      }
       setSupportMode(null)
       setUser(null)
+    } finally {
       setLoading(false)
-    }
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === browserSessionStorageKey()) syncBrowserSession()
-    }
-    window.addEventListener('storage', onStorage)
-    window.addEventListener('focus', syncBrowserSession)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      window.removeEventListener('focus', syncBrowserSession)
     }
   }, [])
 
   useEffect(() => {
-    const token = getAccessToken()
-    setSupportMode(token ? getSupportMode() : null)
-    if (!token) {
-      setLoading(false)
-      return
+    void syncFromServer(true)
+  }, [syncFromServer])
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (
+        event.key === browserSessionStorageKey()
+        || event.key === AUTH_SYNC_EVENT_KEY
+      ) {
+        void syncFromServer(false)
+      }
+    }
+    const onFocus = () => {
+      void syncFromServer(false)
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void syncFromServer(false)
     }
 
-    getMe()
-      .then((nextUser) => {
-        if (getAccessToken() === token) setUser(nextUser)
-      })
-      .catch(() => {
-        if (getAccessToken() === token) {
-          clearSession()
-          setSupportMode(null)
-          setUser(null)
-        }
-      })
-      .finally(() => setLoading(false))
-  }, [])
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [syncFromServer])
 
   const refreshUser = useCallback(async () => {
-    const token = getAccessToken()
     const nextUser = await getMe()
-    if (token && getAccessToken() === token) setUser(nextUser)
+    setUser(nextUser)
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
@@ -91,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (getAccessToken() !== response.access_token) throw new Error('Une autre connexion a remplacé cette session.')
     setSupportMode(null)
     setUser(response.user)
+    announceAuthChange()
   }, [])
 
   const signUp = useCallback(
@@ -99,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (getAccessToken() !== response.access_token) throw new Error('Une autre connexion a remplacé cette session.')
       setSupportMode(null)
       setUser(response.user)
+      announceAuthChange()
     },
     [],
   )
@@ -108,13 +144,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (getAccessToken() !== response.access_token) throw new Error('Une autre connexion a remplacé cette session.')
     setSupportMode(null)
     setUser(response.user)
+    announceAuthChange()
   }, [])
 
   const signOut = useCallback(() => {
-    if (getAccessToken()) void logoutSession().catch(() => {})
+    const logout = logoutSession().catch(() => {})
     clearSession()
     setSupportMode(null)
     setUser(null)
+    void logout.finally(() => announceAuthChange())
   }, [])
 
   const value = useMemo(
