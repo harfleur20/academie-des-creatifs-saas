@@ -1,7 +1,7 @@
 import logging
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import (
@@ -58,28 +58,51 @@ def _cookie_domain() -> str | None:
     return settings.auth_cookie_domain or None
 
 
-def _set_auth_cookie(response: Response, token: str) -> None:
+def _cookie_domain_for_request(request: Request) -> str | None:
+    configured = _cookie_domain()
+    if not configured:
+        return None
+    hostname = (request.url.hostname or "").lower().rstrip(".")
+    bare_domain = configured.lstrip(".").lower().rstrip(".")
+    if hostname == bare_domain or hostname.endswith(f".{bare_domain}"):
+        return configured
+    # A verified external school domain cannot legally receive a cookie scoped
+    # to the SaaS parent domain. In that case a host-only cookie is used.
+    return None
+
+
+def _set_auth_cookie(response: Response, token: str, request: Request) -> None:
     response.set_cookie(
         key=settings.auth_cookie_name,
         value=token,
         max_age=60 * 60,
         path="/",
-        domain=_cookie_domain(),
+        domain=_cookie_domain_for_request(request),
         secure=settings.auth_cookie_secure,
         httponly=True,
         samesite=settings.auth_cookie_samesite,
     )
 
 
-def _clear_auth_cookie(response: Response) -> None:
+def _clear_auth_cookie(response: Response, request: Request) -> None:
+    domain = _cookie_domain_for_request(request)
     response.delete_cookie(
         key=settings.auth_cookie_name,
         path="/",
-        domain=_cookie_domain(),
+        domain=domain,
         secure=settings.auth_cookie_secure,
         httponly=True,
         samesite=settings.auth_cookie_samesite,
     )
+    if domain is not None:
+        # Also clear an eventual host-only cookie left by an older deployment.
+        response.delete_cookie(
+            key=settings.auth_cookie_name,
+            path="/",
+            secure=settings.auth_cookie_secure,
+            httponly=True,
+            samesite=settings.auth_cookie_samesite,
+        )
 
 
 def _issue_access_token(user: UserRecord) -> str:
@@ -90,9 +113,9 @@ def _issue_access_token(user: UserRecord) -> str:
     )
 
 
-def _response(response: Response, user: UserRecord, message: str) -> AuthResponse:
+def _response(response: Response, request: Request, user: UserRecord, message: str) -> AuthResponse:
     token = _issue_access_token(user)
-    _set_auth_cookie(response, token)
+    _set_auth_cookie(response, token, request)
     return AuthResponse(
         message=message,
         user=AuthUser.model_validate(user),
@@ -114,6 +137,7 @@ def _deliver_password_reset_email(recipient: str, reset_url: str, user_id: int) 
 )
 def register(
     payload: RegisterPayload,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
@@ -124,12 +148,13 @@ def register(
             status_code=status.HTTP_409_CONFLICT,
             detail="Cette adresse email est déjà utilisée.",
         ) from exc
-    return _response(response, user, "Compte créé avec succès.")
+    return _response(response, request, user, "Compte créé avec succès.")
 
 
 @router.post("/login", response_model=AuthResponse)
 def login(
     payload: LoginPayload,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
@@ -143,7 +168,7 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Adresse email ou mot de passe incorrect.",
         )
-    return _response(response, user, "Connexion réussie.")
+    return _response(response, request, user, "Connexion réussie.")
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
@@ -200,6 +225,7 @@ def reset_password(
 @router.post("/google", response_model=AuthResponse)
 async def google_login(
     payload: GoogleAuthPayload,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
 ) -> AuthResponse:
@@ -215,11 +241,12 @@ async def google_login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
         ) from exc
-    return _response(response, user, "Connexion Google réussie.")
+    return _response(response, request, user, "Connexion Google réussie.")
 
 
 @router.get("/me", response_model=AuthUser)
 def me(
+    request: Request,
     response: Response,
     session: AuthenticatedSession = Depends(get_authenticated_session),
 ) -> AuthUser:
@@ -227,18 +254,19 @@ def me(
     # Refreshing /me upgrades them transparently to the browser-shared cookie.
     # Support impersonation remains tab-local and never becomes a shared cookie.
     if session.support_session is None:
-        _set_auth_cookie(response, _issue_access_token(session.user))
+        _set_auth_cookie(response, _issue_access_token(session.user), request)
     return AuthUser.model_validate(session.user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
     current_user: UserRecord = Depends(get_current_user),
 ):
     revoke_user_sessions(db, current_user)
-    _clear_auth_cookie(response)
+    _clear_auth_cookie(response, request)
     return None
 
 
