@@ -206,7 +206,7 @@ def reset_password_with_token(
     ):
         raise ValueError("Lien de réinitialisation invalide ou déjà utilisé.")
 
-    db.execute(
+    updated = db.execute(
         update(UserRecord)
         .where(
             UserRecord.id == user.id,
@@ -217,6 +217,10 @@ def reset_password_with_token(
             session_version=UserRecord.session_version + 1,
         )
     )
+    if updated.rowcount != 1:
+        db.rollback()
+        raise ValueError("Lien de réinitialisation invalide ou déjà utilisé.")
+
     db.commit()
     db.refresh(user)
     return user
