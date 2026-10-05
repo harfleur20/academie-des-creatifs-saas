@@ -33,6 +33,20 @@
   text-decoration: underline;
 }
 
+/* Auth fields stay clean and borderless across login, signup and password reset. */
+.login-redesign .auth-card input {
+  border: 0 !important;
+  outline: 0;
+  box-shadow: none !important;
+}
+
+.login-redesign .auth-card input:focus,
+.login-redesign .auth-card input:focus-visible {
+  border: 0 !important;
+  outline: 0;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 30%, transparent) !important;
+}
+
 .auth-divider {
   display: flex;
   align-items: center;
