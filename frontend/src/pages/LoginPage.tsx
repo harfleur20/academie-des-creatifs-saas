@@ -90,7 +90,7 @@ export function LoginPage() {
 
   return (
     <main
-      className={`auth-page login-redesign ${isPublicSchool ? 'login-school' : 'login-platform'}`}
+      className={`auth-page login-redesign ${isPublicSchool ? 'login-school' : 'login-platform'} ${mode === 'register' ? 'auth-register-mode' : 'auth-login-mode'}`}
       style={hostBrand ? {
         '--blue': hostBrand.primary_color,
         '--green': hostBrand.secondary_color,
