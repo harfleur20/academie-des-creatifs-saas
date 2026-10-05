@@ -103,6 +103,13 @@
   background: transparent !important;
 }
 
+/* Platform auth logo: keep the SaaS mark visually lighter than the wordmark. */
+.login-platform .auth-logo .platform-brand-logo {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+}
+
 .auth-copy-panel .adaptive-logo-image.logo-alpha-transparent,
 .public-school-footer .adaptive-logo-image.logo-alpha-transparent,
 .brand-preview-sidebar .adaptive-logo-image.logo-alpha-transparent {
@@ -333,6 +340,14 @@
 
   .public-school-shell .public-school-footer-grid.has-contact {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .login-platform .auth-logo .platform-brand-logo {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
   }
 }
 
