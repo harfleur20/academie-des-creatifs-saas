@@ -43,6 +43,7 @@ from app.services.pdf_lessons import PDF_READING_PCT, pdf_asset, pdf_lesson_for_
 from app.models.entities import LessonPdfProgressRecord
 from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, linked_lesson_gate, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
+from app.services.school_notifications import notify_session_students
 from app.services.tenancy import TenantContext
 
 
@@ -122,6 +123,15 @@ def create_resource(
         published_at=datetime.now(UTC) if payload.publish_now else None,
     )
     db.add(row)
+    db.flush()
+    if row.published_at is not None:
+        notify_session_students(
+            db, organization_id=tenant.organization_id, session_id=session_id,
+            event_key=f"resource.published:{row.id}",
+            title="Nouvelle ressource disponible",
+            message=f"{row.title} est disponible dans votre session.",
+            action_label="Voir les ressources", action_path="/app/student/resources",
+        )
     db.commit()
     db.refresh(row)
     return _resource_view(db, tenant, row)
@@ -321,6 +331,13 @@ def set_quiz_status(
                 "quiz_title": quiz.title,
                 "session_label": session.label,
             },
+        )
+        notify_session_students(
+            db, organization_id=tenant.organization_id, session_id=quiz.session_id,
+            event_key=f"quiz.published:{quiz.id}",
+            title="Nouveau quiz disponible",
+            message=f"{quiz.title} est disponible dans votre session.",
+            action_label="Voir le quiz", action_path=f"/app/student/quizzes#quiz-{quiz.id}",
         )
     db.commit()
     db.refresh(quiz)

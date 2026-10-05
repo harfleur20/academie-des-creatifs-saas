@@ -35,6 +35,7 @@ from app.models.entities import (
     ResourceRecord,
     SessionCourseDayRecord,
     SessionTeacherRecord,
+    SchoolNotificationRecord,
     UserRecord,
 )
 from app.schemas.academic import (
@@ -221,7 +222,7 @@ def ctx(db: Session, org: OrganizationRecord, user: UserRecord):
 
 def test_resources_are_published_to_enrolled_students() -> None:
     db = build_db()
-    org, teacher, student, _, session, *_ = seed(db)
+    org, teacher, student, classmate, session, *_ = seed(db)
     teacher_tenant = ctx(db, org, teacher)
     student_tenant = ctx(db, org, student)
 
@@ -236,6 +237,10 @@ def test_resources_are_published_to_enrolled_students() -> None:
         ),
     )
     assert created.teacher_name == "Teacher"
+    assert {row.user_id for row in db.scalars(select(SchoolNotificationRecord).where(
+        SchoolNotificationRecord.organization_id == org.id,
+        SchoolNotificationRecord.event_key == f"resource.published:{created.id}",
+    )).all()} == {student.id, classmate.id}
 
     rows = list_student_resources(db, student_tenant)
     assert [item.title for item in rows] == ["Support PDF"]
@@ -264,6 +269,11 @@ def test_quiz_attempt_creates_grade_and_teacher_result() -> None:
         ),
     )
     set_quiz_status(db, teacher_tenant, quiz.id, "active")
+    assert db.scalar(select(SchoolNotificationRecord).where(
+        SchoolNotificationRecord.organization_id == org.id,
+        SchoolNotificationRecord.user_id == student.id,
+        SchoolNotificationRecord.event_key == f"quiz.published:{quiz.id}",
+    )) is not None
 
     student_quiz = list_student_quizzes(db, student_tenant)[0]
     assert student_quiz.questions[0].options == ["3", "4", "5"]
@@ -901,6 +911,16 @@ def test_class_roster_discussion_and_performance() -> None:
         DiscussionCreate(body="Bonjour la classe"),
     )
     assert post.author.full_name == "Student"
+    assert db.scalar(select(SchoolNotificationRecord).where(
+        SchoolNotificationRecord.organization_id == org.id,
+        SchoolNotificationRecord.user_id == classmate.id,
+        SchoolNotificationRecord.event_key == f"discussion.post:{post.id}",
+    )) is not None
+    assert db.scalar(select(SchoolNotificationRecord).where(
+        SchoolNotificationRecord.organization_id == org.id,
+        SchoolNotificationRecord.user_id == student.id,
+        SchoolNotificationRecord.event_key == f"discussion.post:{post.id}",
+    )) is None
     assert discussion_posts(db, teacher_tenant, session.id)[0].body == "Bonjour la classe"
 
     performance = teacher_performance(db, teacher_tenant)

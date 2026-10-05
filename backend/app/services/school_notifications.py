@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.entities import OrganizationMemberRecord, SchoolNotificationRecord
+from app.models.entities import EnrollmentRecord, OrganizationMemberRecord, SchoolNotificationRecord, UserRecord
 from app.services.membership_roles import effective_member_roles
 from app.services.tenancy import TenantContext
 
@@ -76,6 +76,30 @@ def notify_school_managers(db: Session, *, organization_id: int, event_key: str,
             db, organization_id=organization_id, user_id=member.user_id,
             event_key=event_key, title=title, message=message, audience="manage", category=category,
             tone=tone, action_label=action_label, action_path=action_path,
+        )
+
+
+def notify_session_students(
+    db: Session, *, organization_id: int, session_id: int, event_key: str,
+    title: str, message: str, category: str = "learning", tone: str = "info",
+    action_label: str | None = None, action_path: str | None = None,
+    exclude_user_id: int | None = None,
+) -> None:
+    student_ids = db.scalars(select(EnrollmentRecord.student_id).join(
+        UserRecord, UserRecord.id == EnrollmentRecord.student_id,
+    ).where(
+        EnrollmentRecord.organization_id == organization_id,
+        EnrollmentRecord.session_id == session_id,
+        EnrollmentRecord.status.in_(["active", "completed"]),
+        UserRecord.status == "active",
+    ).distinct()).all()
+    for student_id in student_ids:
+        if student_id == exclude_user_id:
+            continue
+        notify_user(
+            db, organization_id=organization_id, user_id=student_id,
+            event_key=event_key, title=title, message=message, audience="student",
+            category=category, tone=tone, action_label=action_label, action_path=action_path,
         )
 
 

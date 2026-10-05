@@ -37,6 +37,7 @@ from app.services.academic_access import (
 from app.services.learning_progress import badge_for_enrollment, progress_for_enrollment
 from app.services.school_branding import branding_snapshot
 from app.services.school_communications import queue_school_event
+from app.services.school_notifications import notify_session_students
 from app.services.tenancy import TenantContext
 
 
@@ -193,6 +194,15 @@ def create_discussion_post(
         image_url=payload.image_url,
     )
     db.add(row)
+    db.flush()
+    notify_session_students(
+        db, organization_id=tenant.organization_id, session_id=session_id,
+        event_key=f"discussion.post:{row.id}",
+        title="Nouvelle discussion dans votre classe",
+        message=f"{tenant.user.full_name} a publié un message dans votre classe.",
+        category="discussion", action_label="Voir la discussion", action_path="/app/student/class",
+        exclude_user_id=tenant.user.id,
+    )
     db.commit()
     db.refresh(row)
     return next(
@@ -233,6 +243,15 @@ def create_discussion_reply(
         image_url=payload.image_url,
     )
     db.add(row)
+    db.flush()
+    notify_session_students(
+        db, organization_id=tenant.organization_id, session_id=session_id,
+        event_key=f"discussion.reply:{row.id}",
+        title="Nouvelle réponse dans votre classe",
+        message=f"{tenant.user.full_name} a répondu à une discussion.",
+        category="discussion", action_label="Voir la discussion", action_path="/app/student/class",
+        exclude_user_id=tenant.user.id,
+    )
     db.commit()
     db.refresh(row)
     return _reply_view(db, tenant, row)

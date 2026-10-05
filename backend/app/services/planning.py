@@ -20,6 +20,7 @@ from app.schemas.planning import (
     SessionPlanningRead,
 )
 from app.services.school_communications import queue_session_students_event
+from app.services.school_notifications import notify_session_students
 from app.services.live_classes import live_provider_configured
 from app.services.tenancy import TenantContext
 
@@ -282,18 +283,25 @@ def create_course_day(
         existing_days=_active_course_days(db, tenant, session.id),
     )
 
-    db.add(
-        SessionCourseDayRecord(
-            organization_id=tenant.organization_id,
-            session_id=session.id,
-            teacher_id=tenant.user.id,
-            title=payload.title,
-            scheduled_at=payload.scheduled_at,
-            duration_minutes=payload.duration_minutes,
-            status="planned",
-        )
+    day = SessionCourseDayRecord(
+        organization_id=tenant.organization_id,
+        session_id=session.id,
+        teacher_id=tenant.user.id,
+        title=payload.title,
+        scheduled_at=payload.scheduled_at,
+        duration_minutes=payload.duration_minutes,
+        status="planned",
     )
+    db.add(day)
+    db.flush()
     if session.formation.format_type == "live":
+        notify_session_students(
+            db, organization_id=tenant.organization_id, session_id=session.id,
+            event_key=f"live.scheduled:{day.id}",
+            title="Nouvelle classe en direct",
+            message=f"{day.title} est planifiée le {_aware(day.scheduled_at).strftime('%d/%m/%Y à %H:%M')}.",
+            action_label="Voir le planning", action_path="/app/student/planning",
+        )
         queue_session_students_event(
             db,
             org=tenant.organization,
@@ -353,17 +361,25 @@ def publish_course_day_draft(
                 )
 
     for item in ordered:
-        db.add(
-            SessionCourseDayRecord(
-                organization_id=tenant.organization_id,
-                session_id=session.id,
-                teacher_id=tenant.user.id,
-                title=item.title,
-                scheduled_at=item.scheduled_at,
-                duration_minutes=item.duration_minutes,
-                status="planned",
-            )
+        day = SessionCourseDayRecord(
+            organization_id=tenant.organization_id,
+            session_id=session.id,
+            teacher_id=tenant.user.id,
+            title=item.title,
+            scheduled_at=item.scheduled_at,
+            duration_minutes=item.duration_minutes,
+            status="planned",
         )
+        db.add(day)
+        db.flush()
+        if session.formation.format_type == "live":
+            notify_session_students(
+                db, organization_id=tenant.organization_id, session_id=session.id,
+                event_key=f"live.scheduled:{day.id}",
+                title="Nouvelle classe en direct",
+                message=f"{day.title} est planifiée le {_aware(day.scheduled_at).strftime('%d/%m/%Y à %H:%M')}.",
+                action_label="Voir le planning", action_path="/app/student/planning",
+            )
     db.commit()
     return get_session_planning(db, tenant, session.id)
 
@@ -420,7 +436,24 @@ def update_course_day(
             ),
         )
 
+    previous_at = record.scheduled_at
+    previous_status = record.status
     for key, value in values.items():
         setattr(record, key, value)
+    if session.formation.format_type == "live" and record.status == "cancelled" and previous_status != "cancelled":
+        notify_session_students(
+            db, organization_id=tenant.organization_id, session_id=session.id,
+            event_key=f"live.cancelled:{record.id}", title="Classe en direct annulée",
+            message=f"La séance {record.title} a été annulée.",
+            action_label="Voir le planning", action_path="/app/student/planning",
+        )
+    elif session.formation.format_type == "live" and "scheduled_at" in values and previous_at != record.scheduled_at:
+        notify_session_students(
+            db, organization_id=tenant.organization_id, session_id=session.id,
+            event_key=f"live.rescheduled:{record.id}:{_aware(record.scheduled_at).isoformat()}",
+            title="Horaire de classe live modifié",
+            message=f"{record.title} est maintenant prévue le {_aware(record.scheduled_at).strftime('%d/%m/%Y à %H:%M')}.",
+            action_label="Voir le planning", action_path="/app/student/planning",
+        )
     db.commit()
     return get_session_planning(db, tenant, session.id)
