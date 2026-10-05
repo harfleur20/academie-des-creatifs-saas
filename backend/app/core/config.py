@@ -14,6 +14,14 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _auth_cookie_domain() -> str:
+    explicit = os.getenv("AUTH_COOKIE_DOMAIN", "").strip()
+    if explicit:
+        return explicit
+    base_domain = os.getenv("SAAS_BASE_DOMAIN", "").strip().lower().strip(".")
+    return f".{base_domain}" if base_domain else ""
+
+
 @dataclass
 class Settings:
     app_name: str = "Académie des Créatifs SaaS API"
@@ -44,7 +52,7 @@ class Settings:
         "AUTH_COOKIE_NAME",
         "academie_saas_session",
     ).strip()
-    auth_cookie_domain: str = os.getenv("AUTH_COOKIE_DOMAIN", "").strip()
+    auth_cookie_domain: str = _auth_cookie_domain()
     auth_cookie_secure: bool = _env_bool(
         "AUTH_COOKIE_SECURE",
         os.getenv("APP_ENV", "development").strip().lower() == "production",
