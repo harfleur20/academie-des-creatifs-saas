@@ -1,7 +1,7 @@
 import logging
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import AuthenticatedSession, get_current_user, get_support_session
@@ -57,6 +57,13 @@ def _response(user: UserRecord, message: str) -> AuthResponse:
     )
 
 
+def _deliver_password_reset_email(recipient: str, reset_url: str, user_id: int) -> None:
+    try:
+        send_password_reset_email(recipient, reset_url)
+    except Exception:
+        logger.exception("Unable to deliver password reset email for user_id=%s", user_id)
+
+
 @router.post(
     "/register",
     response_model=AuthResponse,
@@ -97,6 +104,7 @@ def login(
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(
     payload: PasswordResetRequestPayload,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> MessageResponse:
     user = get_user_by_email(db, str(payload.email))
@@ -113,12 +121,12 @@ def forgot_password(
         query["school"] = payload.school.strip()
     reset_url = f"{settings.frontend_url}/login?{urlencode(query)}"
 
-    try:
-        send_password_reset_email(user.email, reset_url)
-    except Exception:
-        # The public response must not disclose whether an account or email provider exists.
-        logger.exception("Unable to deliver password reset email for user_id=%s", user.id)
-
+    background_tasks.add_task(
+        _deliver_password_reset_email,
+        user.email,
+        reset_url,
+        user.id,
+    )
     return MessageResponse(message=RESET_REQUEST_MESSAGE)
 
 
