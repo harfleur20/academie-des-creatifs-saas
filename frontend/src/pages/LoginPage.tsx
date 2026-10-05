@@ -250,7 +250,18 @@ export function LoginPage() {
 
           {(mode === 'login' || mode === 'register' || mode === 'reset') && (
             <label>
-              {mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}
+              <span className="auth-password-label-row">
+                <span>{mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}</span>
+                {mode === 'login' && (
+                  <button
+                    className="auth-forgot-inline"
+                    type="button"
+                    onClick={() => switchMode('forgot')}
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                )}
+              </span>
               <span className="password-field">
                 <input
                   id="auth-password"
@@ -289,16 +300,6 @@ export function LoginPage() {
                 placeholder="Confirmez votre mot de passe"
               />
             </label>
-          )}
-
-          {mode === 'login' && (
-            <button
-              className="auth-switch auth-forgot-link"
-              type="button"
-              onClick={() => switchMode('forgot')}
-            >
-              Mot de passe oublié ?
-            </button>
           )}
 
           {error && <div className="form-error">{error}</div>}
