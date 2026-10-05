@@ -15,6 +15,7 @@ from app.services.public_catalog import (
     public_home,
     public_school_read,
 )
+from app.services.school_branding import get_or_create_identity_records
 
 
 router = APIRouter(prefix="/public/schools", tags=["public-school"])
@@ -35,6 +36,17 @@ def get_school_identity_public(
 ):
     org = get_public_organization(db, school_key)
     return public_school_read(db, org)
+
+
+@router.get("/{school_key}/contact-channels")
+def get_school_contact_channels(
+    school_key: str,
+    db: Session = Depends(get_db),
+):
+    org = get_public_organization(db, school_key)
+    public_school_read(db, org)
+    _site, _legal, communications, _certification = get_or_create_identity_records(db, org)
+    return {"whatsapp_phone": communications.whatsapp_phone}
 
 
 @router.get("/{school_key}/formations", response_model=list[PublicFormationCardRead])
