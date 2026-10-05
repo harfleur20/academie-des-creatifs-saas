@@ -1,4 +1,10 @@
 interface Window {
+  playerjs?: {
+    Player: new (element: HTMLIFrameElement) => {
+      on: (event: string, callback: (payload?: unknown) => void) => void
+      off: (event: string, callback?: (payload?: unknown) => void) => void
+    }
+  }
   YT?: {
     Player: new (
       element: HTMLIFrameElement,

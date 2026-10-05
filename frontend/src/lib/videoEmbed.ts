@@ -54,3 +54,8 @@ export function loadVimeoApi(): Promise<void> {
   if (window.Vimeo?.Player) return Promise.resolve()
   return loadScriptOnce('https://player.vimeo.com/api/player.js')
 }
+
+export function loadBunnyPlayerApi(): Promise<void> {
+  if (window.playerjs?.Player) return Promise.resolve()
+  return loadScriptOnce('https://assets.mediadelivery.net/playerjs/player-0.1.0.min.js')
+}

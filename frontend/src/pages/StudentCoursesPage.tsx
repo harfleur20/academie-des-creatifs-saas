@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { CheckCircle2, ChevronDown, ChevronRight, ExternalLink, PlayCircle } from 'lucide-react'
 import { useTenant } from '../app/TenantContext'
 import { PdfLessonReader } from '../components/PdfLessonReader'
-import { loadVimeoApi, loadYouTubeApi, parseVideoEmbed } from '../lib/videoEmbed'
+import { loadBunnyPlayerApi, loadVimeoApi, loadYouTubeApi, parseVideoEmbed } from '../lib/videoEmbed'
 import {
   ApiError, completeStudentLesson, listStudentLearning, reportStudentLessonVideoProgress,
   type LearningLesson, type LearningSession,
@@ -11,6 +11,18 @@ import {
 
 type Mode = 'classic' | 'guided'
 type VideoPayload = Parameters<typeof reportStudentLessonVideoProgress>[1]
+
+function bunnyTiming(payload: unknown): { seconds: number; duration: number } | null {
+  try {
+    const value = typeof payload === 'string' ? JSON.parse(payload) as unknown : payload
+    if (!value || typeof value !== 'object') return null
+    const timing = value as Record<string, unknown>
+    if (typeof timing.seconds !== 'number' || typeof timing.duration !== 'number') return null
+    return { seconds: timing.seconds, duration: timing.duration }
+  } catch {
+    return null
+  }
+}
 
 function findLesson(session: LearningSession, lessonId: number): LearningLesson | null {
   for (const course of session.courses) {
@@ -38,6 +50,7 @@ function TrackedLessonVideo({ lesson, onUpdated, onError }: {
   completedRef.current = lesson.completed
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const embed = useMemo(() => parseVideoEmbed(lesson.video_url ?? ''), [lesson.video_url])
+  const [bunnyScriptReady, setBunnyScriptReady] = useState(false)
 
   const send = useCallback(async (payload: VideoPayload) => {
     if (inFlight.current) { queued.current = payload; return }
@@ -123,13 +136,54 @@ function TrackedLessonVideo({ lesson, onUpdated, onError }: {
     }
   }, [embed, report, onError])
 
+  useEffect(() => {
+    if (embed.kind !== 'stream') return
+    let cancelled = false
+    void loadBunnyPlayerApi().then(() => {
+      if (!cancelled) setBunnyScriptReady(true)
+    }).catch(() => { if (!cancelled) onError('Le lecteur Bunny n’a pas pu être chargé.') })
+    return () => { cancelled = true }
+  }, [embed.kind, onError])
+
+  useEffect(() => {
+    if (embed.kind !== 'stream' || !bunnyScriptReady || !iframeRef.current || !window.playerjs?.Player) return
+    const player = new window.playerjs.Player(iframeRef.current)
+    let needsBaseline = true
+    const baseline = () => { needsBaseline = true }
+    const timeupdate = (payload?: unknown) => {
+      const timing = bunnyTiming(payload)
+      if (!timing) return
+      report(timing.seconds, timing.duration, 1, needsBaseline ? 'seek' : 'heartbeat')
+      needsBaseline = false
+    }
+    const ended = (payload?: unknown) => {
+      const timing = bunnyTiming(payload)
+      if (timing) report(timing.seconds, timing.duration, 1, 'ended')
+      needsBaseline = true
+    }
+    player.on('play', baseline)
+    player.on('pause', baseline)
+    player.on('seeking', baseline)
+    player.on('seeked', baseline)
+    player.on('timeupdate', timeupdate)
+    player.on('ended', ended)
+    return () => {
+      player.off('play', baseline)
+      player.off('pause', baseline)
+      player.off('seeking', baseline)
+      player.off('seeked', baseline)
+      player.off('timeupdate', timeupdate)
+      player.off('ended', ended)
+    }
+  }, [embed.kind, bunnyScriptReady, report])
+
   return <>
     {embed.kind === 'direct' ? <video className="student-reader-video" src={embed.src} controls preload="metadata"
       onPlay={(event) => { const video = event.currentTarget; report(video.currentTime, video.duration, video.playbackRate, 'seek') }}
       onSeeking={(event) => { const video = event.currentTarget; report(video.currentTime, video.duration, video.playbackRate, 'seek') }}
       onTimeUpdate={(event) => { const video = event.currentTarget; if (!video.paused && !video.seeking) report(video.currentTime, video.duration, video.playbackRate, 'heartbeat') }}
       onEnded={(event) => { const video = event.currentTarget; report(video.currentTime, video.duration, video.playbackRate, 'ended') }}
-    /> : <iframe className="student-reader-video" ref={iframeRef} src={embed.src} title={lesson.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen />}
+    /> : embed.kind === 'stream' && !bunnyScriptReady ? <div className="student-reader-video">Chargement du lecteur…</div> : <iframe className="student-reader-video" ref={iframeRef} src={embed.src} title={lesson.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen />}
     <p className="student-reader-video-progress">Lecture suivie : {Math.round(lesson.video_watched_pct)} % · validation automatique à 80 %.</p>
   </>
 }
