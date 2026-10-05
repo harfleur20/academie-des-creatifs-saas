@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, ShoppingBag, Trash2, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { SchoolCartItem } from './schoolCart'
@@ -12,18 +12,48 @@ type SchoolCartDrawerProps = {
   onClear: () => void
 }
 
+const CART_ANIMATION_MS = 280
+
 export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: SchoolCartDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null)
+  const [rendered, setRendered] = useState(open)
+  const [active, setActive] = useState(false)
 
   useEffect(() => {
-    if (!open) return
+    let firstFrame = 0
+    let secondFrame = 0
+    let timeout = 0
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (open) {
+      setRendered(true)
+      firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(() => setActive(true))
+      })
+    } else {
+      setActive(false)
+      if (rendered) {
+        timeout = window.setTimeout(() => setRendered(false), reducedMotion ? 0 : CART_ANIMATION_MS)
+      }
+    }
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      window.cancelAnimationFrame(secondFrame)
+      window.clearTimeout(timeout)
+    }
+  }, [open, rendered])
+
+  useEffect(() => {
+    if (!rendered) return
     const previousOverflow = document.body.style.overflow
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     document.body.style.overflow = 'hidden'
-    closeButton.current?.focus()
+    if (open) closeButton.current?.focus()
+
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-      if (event.key === 'Tab') {
+      if (event.key === 'Escape' && open) onClose()
+      if (event.key === 'Tab' && open) {
         const drawer = document.querySelector('.school-cart-drawer')
         const focusables = document.querySelectorAll<HTMLElement>('.school-cart-drawer button, .school-cart-drawer a')
         const first = focusables[0]
@@ -40,19 +70,20 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
         }
       }
     }
+
     window.addEventListener('keydown', onKeyDown)
     return () => {
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', onKeyDown)
       previousFocus?.focus()
     }
-  }, [open, onClose])
+  }, [rendered, open, onClose])
 
-  if (!open) return null
+  if (!rendered) return null
 
   return (
-    <div className="school-cart-overlay">
-      <button className="school-cart-backdrop" type="button" aria-label="Fermer le panier" onClick={onClose} />
+    <div className={`school-cart-overlay ${active ? 'is-open' : 'is-closing'}`} aria-hidden={!open}>
+      <button className="school-cart-backdrop" type="button" aria-label="Fermer le panier" onClick={onClose} tabIndex={open ? 0 : -1} />
       <aside className="school-cart-drawer" role="dialog" aria-modal="true" aria-labelledby="school-cart-title">
         <header className="school-cart-drawer-header">
           <div><span className="school-kicker">Panier</span><h2 id="school-cart-title">Votre inscription</h2></div>
