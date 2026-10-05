@@ -177,6 +177,11 @@
   font-size: inherit;
 }
 
+/* Keep the Académie des Créatifs mark in its original colors in the Powered by signature. */
+.public-school-shell .public-school-powered .adaptive-logo-image.logo-alpha-transparent {
+  filter: none;
+}
+
 /* Softer public-site motion and interactions. */
 .public-school-shell a,
 .public-school-shell button,
