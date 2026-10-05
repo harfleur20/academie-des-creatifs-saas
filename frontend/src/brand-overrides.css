@@ -73,14 +73,10 @@
 }
 
 .google-g-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  font-family: Arial, sans-serif;
-  font-size: 18px;
-  font-weight: 800;
-  color: #4285f4;
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
 }
 
 @media (min-width: 901px) {
@@ -98,5 +94,17 @@
 
   .login-redesign .auth-form-panel {
     overflow-y: auto;
+  }
+
+  .login-redesign.auth-register-mode .auth-form-panel {
+    align-items: start;
+    padding-top: clamp(32px, 4vh, 46px);
+    padding-bottom: 28px;
+  }
+}
+
+@media (max-width: 900px) {
+  .login-redesign.auth-register-mode .auth-form-panel {
+    align-items: start;
   }
 }
