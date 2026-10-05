@@ -4,14 +4,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from app.core.security import create_access_token, decode_access_token, hash_password
+from app.core.security import (
+    create_access_token,
+    create_password_reset_token,
+    decode_access_token,
+    decode_password_reset_token,
+    hash_password,
+    verify_password,
+)
 from app.core.config import Settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.entities import UserRecord
 from app.schemas.auth import LoginPayload, RegisterPayload
-from app.services.auth import authenticate_user, create_user
+from app.services.auth import authenticate_user, create_user, reset_password_with_token
 
 
 def build_db() -> Session:
@@ -116,6 +123,69 @@ def test_access_token_contains_user_subject() -> None:
 
     assert payload is not None
     assert payload["sub"] == "42"
+
+
+def test_password_reset_token_is_typed_and_single_use() -> None:
+    db = build_db()
+    user = create_user(
+        db,
+        RegisterPayload(
+            full_name="Marie Test",
+            email="marie@example.com",
+            password="secret-pass-123",
+        ),
+    )
+    token = create_password_reset_token(
+        user.id,
+        session_version=user.session_version,
+        minutes=30,
+    )
+
+    payload = decode_password_reset_token(token)
+    assert payload is not None
+    assert payload["sub"] == str(user.id)
+    assert payload["type"] == "password_reset"
+
+    reset = reset_password_with_token(
+        db,
+        token=token,
+        new_password="new-secret-pass-456",
+    )
+    assert reset.password_hash is not None
+    assert verify_password("new-secret-pass-456", reset.password_hash)
+    assert not verify_password("secret-pass-123", reset.password_hash)
+
+    with pytest.raises(ValueError, match="déjà utilisé"):
+        reset_password_with_token(
+            db,
+            token=token,
+            new_password="another-secret-789",
+        )
+    db.close()
+
+
+def test_access_token_cannot_be_used_as_password_reset_token() -> None:
+    db = build_db()
+    user = create_user(
+        db,
+        RegisterPayload(
+            full_name="Marie Test",
+            email="marie@example.com",
+            password="secret-pass-123",
+        ),
+    )
+    access_token = create_access_token(
+        user.id,
+        session_version=user.session_version,
+    )
+
+    with pytest.raises(ValueError, match="invalide ou expiré"):
+        reset_password_with_token(
+            db,
+            token=access_token,
+            new_password="new-secret-pass-456",
+        )
+    db.close()
 
 
 def test_password_change_and_logout_revoke_existing_tokens() -> None:
