@@ -112,6 +112,7 @@ class Settings:
         "SMTP_FROM_NAME",
         "Académie des Créatifs",
     ).strip()
+    support_email: str = os.getenv("SUPPORT_EMAIL", "").strip()
 
     wapino_enabled: bool = _env_bool("WAPINO_ENABLED", False)
     wapino_base_url: str = os.getenv(
