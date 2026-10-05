@@ -43,10 +43,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [profileError, setProfileError] = useState('')
   const profileRequest = useRef(0)
   const organizationsRequest = useRef(0)
+  const organizationsReady = useRef(false)
 
   const refreshOrganizations = useCallback(async () => {
     const requestId = ++organizationsRequest.current
     if (!user) {
+      organizationsReady.current = false
       setOrganizations([])
       setActiveOrganization(null)
       setAccessProfile(null)
@@ -54,7 +56,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    setLoading(true)
+    const shouldBlockWorkspace = !organizationsReady.current
+    if (shouldBlockWorkspace) setLoading(true)
     try {
       if (supportMode) {
         setStoredOrganizationId(supportMode.organization_id)
@@ -62,6 +65,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         if (organizationsRequest.current === requestId) {
           setOrganizations([organization])
           setActiveOrganization(organization)
+          organizationsReady.current = true
         }
         return
       }
@@ -78,8 +82,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
       setActiveOrganization(selected)
       setStoredOrganizationId(selected?.id ?? null)
+      organizationsReady.current = true
     } finally {
-      if (organizationsRequest.current === requestId) setLoading(false)
+      if (organizationsRequest.current === requestId && shouldBlockWorkspace) setLoading(false)
     }
   }, [user, supportMode?.organization_id])
 
@@ -107,6 +112,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       if (profileRequest.current === requestId) setProfileLoading(false)
     }
   }, [user, activeOrganization?.id])
+
+  useEffect(() => {
+    organizationsReady.current = false
+  }, [user?.id, supportMode?.organization_id])
 
   useEffect(() => {
     void refreshOrganizations()
