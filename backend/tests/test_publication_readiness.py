@@ -10,7 +10,7 @@ from app.models.entities import EnrollmentRecord, OrganizationInvitationRecord, 
 from app.schemas.commerce import CheckoutCreate, SchoolIdentityPayload
 from app.schemas.formations import FormationCreate, FormationUpdate, SessionCreate, SessionUpdate
 from app.services.formations import create_formation, create_session, get_formation_detail, update_formation, update_session
-from app.services.public_catalog import public_formation_detail
+from app.services.public_catalog import public_formation_detail, public_school_read
 from app.services.publication import valid_cover_url
 from app.services.school_branding import get_school_identity, update_school_identity
 from app.services.school_commerce import price_preview
@@ -58,6 +58,45 @@ def publish_site(db, tenant):
     payload.legal.legal_address = "12 rue des écoles, Paris"
     payload.legal.invoice_email = "factures@example.com"
     assert update_school_identity(db, tenant, payload).public_site.is_published is True
+
+
+def test_school_announcement_is_editable_and_public_only_when_configured():
+    db, org, _owner, tenant = owner_school()
+    publish_site(db, tenant)
+
+    initial = public_school_read(db, org)
+    assert initial.announcement_enabled is False
+    assert initial.announcement_text == ""
+    assert initial.announcement_background_color == "#FFF4E7"
+    assert initial.announcement_text_color == "#7C4200"
+
+    payload = SchoolIdentityPayload.model_validate(get_school_identity(db, tenant).model_dump())
+    payload.public_site.announcement_enabled = True
+    with pytest.raises(HTTPException) as exc:
+        update_school_identity(db, tenant, payload)
+    assert exc.value.status_code == 422
+
+    payload.public_site.announcement_text = "  Inscriptions ouvertes pour la prochaine session  "
+    payload.public_site.announcement_background_color = "#fff4e7"
+    payload.public_site.announcement_text_color = "#7c4200"
+    updated = update_school_identity(db, tenant, payload)
+    assert updated.public_site.announcement_text == "Inscriptions ouvertes pour la prochaine session"
+    public = public_school_read(db, org)
+    assert public.announcement_enabled is True
+    assert public.announcement_text == updated.public_site.announcement_text
+    assert public.announcement_background_color == "#FFF4E7"
+    assert public.announcement_text_color == "#7C4200"
+
+    other_org = OrganizationRecord(name="Other school", slug="other-school", status="active", is_active=True, contact_email="other@example.com", subdomain="other-school")
+    db.add(other_org)
+    db.flush()
+    db.add(OrganizationMemberRecord(organization_id=other_org.id, user_id=_owner.id, role="owner", status="active"))
+    db.commit()
+    other_tenant = resolve_tenant_context(db, user=_owner, organization_id=other_org.id)
+    publish_site(db, other_tenant)
+    other_public = public_school_read(db, other_org)
+    assert other_public.announcement_enabled is False
+    assert other_public.announcement_text == ""
 
 
 def test_publication_requires_presentation_price_and_session_then_opens_enrollment():

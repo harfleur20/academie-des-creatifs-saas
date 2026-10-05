@@ -51,6 +51,8 @@ Les écoles existantes ne sont pas confirmées automatiquement par la migration.
 
 Le choix des polices du site public passe par une liste de familles connues, un réglage de taille de 85 % à 125 % et un aperçu immédiat. Le backend valide les familles et la plage de taille. Le site public applique ces paramètres aux principaux textes et titres.
 
+Chaque école peut aussi activer un bandeau d'annonce défilant sur toutes ses pages publiques, avec son propre texte et ses couleurs. L'écran de gestion en montre un aperçu ; le bandeau propose une pause et respecte la préférence de réduction des animations. Ce réglage de présentation ne modifie pas la parité pédagogique avec le site mère.
+
 Le navigateur conserve toujours le jeton dans chaque onglet, mais une session de navigateur commune identifie le dernier compte connecté. Une connexion ou une déconnexion invalide l'affichage des autres onglets et leurs prochaines requêtes ; l'école sélectionnée est désormais propre à l'onglet. Le serveur conserve sa révocation de session au moment de la déconnexion. Cette coordination concerne les onglets du même navigateur et de la même origine, pas les autres navigateurs ou appareils.
 
 La suite du verrouillage métier est à comparer au site mère : prérequis de formation avant l'ouverture d'une session, affectation et contenu pédagogique avant les inscriptions selon le format, puis contrôles avant certificat. Ces règles ne doivent pas être déduites de la simple présence d'une fiche ou d'un compte.

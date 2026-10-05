@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { schoolFontFamily, schoolFontOptions } from '../brand/schoolTypography'
+import { SchoolAnnouncementBanner } from '../public/SchoolAnnouncementBanner'
 
 const supportedFont = (name: string) => schoolFontOptions.some((option) => option.name === name) ? name : 'Inter'
 import {
@@ -169,6 +170,17 @@ export function SchoolPublicSitePage() {
 
       <section className="app-card school-site-section">
         <div className="settings-section-heading"><div><span className="section-label">Accueil</span><h2>Hero & présentation</h2></div><ImagePlus size={19}/></div>
+        <div className="school-announcement-settings">
+          <strong>Bandeau d’annonce</strong>
+          <p>Un message défilant s’affiche en haut de toutes les pages publiques de l’école.</p>
+          <label className="school-announcement-toggle"><input type="checkbox" checked={data.public_site.announcement_enabled} onChange={(e)=>site('announcement_enabled',e.target.checked)}/> Activer le bandeau</label>
+          <label>Texte du bandeau<textarea maxLength={600} value={data.public_site.announcement_text} onChange={(e)=>site('announcement_text',e.target.value)} placeholder="Ex. Inscriptions ouvertes pour la prochaine session"/></label>
+          <div className="school-announcement-colors">
+            <label>Fond<input type="color" value={data.public_site.announcement_background_color} onChange={(e)=>site('announcement_background_color',e.target.value)}/></label>
+            <label>Texte et icônes<input type="color" value={data.public_site.announcement_text_color} onChange={(e)=>site('announcement_text_color',e.target.value)}/></label>
+          </div>
+          {data.public_site.announcement_text.trim() && <div className="school-announcement-preview"><span>Aperçu</span><SchoolAnnouncementBanner text={data.public_site.announcement_text} backgroundColor={data.public_site.announcement_background_color} textColor={data.public_site.announcement_text_color}/></div>}
+        </div>
         <label>Slogan<input value={data.public_site.tagline} onChange={(e)=>site('tagline',e.target.value)}/></label>
         <label>Titre du hero<input value={data.public_site.hero_title} onChange={(e)=>site('hero_title',e.target.value)}/></label>
         <label>Sous-titre du hero<textarea value={data.public_site.hero_subtitle} onChange={(e)=>site('hero_subtitle',e.target.value)}/></label>

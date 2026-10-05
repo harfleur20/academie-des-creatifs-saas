@@ -9,6 +9,7 @@ import { schoolFontFamily } from '../brand/schoolTypography'
 import { getPublicSchoolIdentity, type PublicSchool } from '../lib/api'
 import { clearSchoolCart, getSchoolCart, type SchoolCartItem } from './schoolCart'
 import { SchoolCartDrawer } from './SchoolCartDrawer'
+import { SchoolAnnouncementBanner } from './SchoolAnnouncementBanner'
 
 export type SchoolPublicOutlet = {
   school: PublicSchool
@@ -140,6 +141,7 @@ export function SchoolPublicLayout() {
 
   return (
     <div className="public-school-shell" style={style}>
+      {school.announcement_enabled && <SchoolAnnouncementBanner text={school.announcement_text} backgroundColor={school.announcement_background_color} textColor={school.announcement_text_color} />}
       <header className="public-school-header">
         <Link className="public-school-brand" to={'/school/' + schoolSlug}>
           <SchoolLogo logoUrl={school.logo_url} alt={school.site_name} />

@@ -1,0 +1,107 @@
+.school-announcement {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+  margin: 10px clamp(12px, 2vw, 28px) 0;
+  padding: 0 14px;
+  overflow: hidden;
+  border-radius: 9px;
+  color: var(--school-announcement-text, #7c4200);
+  background: var(--school-announcement-background, #fff4e7);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.school-announcement > svg {
+  flex: none;
+  color: inherit;
+}
+
+.school-announcement-accessible {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.school-announcement-window {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.school-announcement-track {
+  display: flex;
+  width: max-content;
+  animation: school-announcement-scroll 28s linear infinite;
+}
+
+.school-announcement-track.is-paused,
+.school-announcement:hover .school-announcement-track {
+  animation-play-state: paused;
+}
+
+.school-announcement-track span {
+  flex: none;
+  min-width: max(480px, calc(100vw - 120px));
+  padding-right: 60px;
+  white-space: nowrap;
+}
+
+.school-announcement > button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.school-announcement > button:hover,
+.school-announcement > button:focus-visible {
+  background: color-mix(in srgb, var(--school-announcement-text, #7c4200) 14%, transparent);
+}
+
+@keyframes school-announcement-scroll {
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .school-announcement-track { width: auto; animation: none; }
+  .school-announcement-track span { min-width: 0; padding: 8px 0; white-space: normal; }
+  .school-announcement-track span + span,
+  .school-announcement > button { display: none; }
+}
+
+.school-announcement-settings {
+  display: grid;
+  gap: 9px;
+  margin: 16px 0 22px;
+  padding: 16px;
+  border: 1px solid #dfe5ed;
+  border-radius: 12px;
+  background: #fafbfd;
+}
+
+.school-announcement-settings > strong { font-size: 13px; }
+.school-announcement-settings > p { margin: 0; color: #627086; font-size: 10px; }
+.school-announcement-settings > label:not(.school-announcement-toggle) { display: grid; gap: 6px; color: #526176; font-size: 10px; font-weight: 750; }
+.school-announcement-settings .school-announcement-toggle { display: flex; align-items: center; gap: 8px; color: #526176; font-size: 10px; font-weight: 750; }
+.school-announcement-settings .school-announcement-toggle input { width: auto; }
+.school-announcement-settings textarea { min-height: 70px; }
+.school-announcement-colors { display: flex; flex-wrap: wrap; gap: 16px; }
+.school-announcement-colors label { display: grid; gap: 5px; color: #526176; font-size: 10px; font-weight: 750; }
+.school-announcement-colors input[type="color"] { width: 80px; height: 36px; padding: 4px; }
+.school-announcement-preview { padding: 10px; border: 1px solid #e5eaf0; border-radius: 10px; background: white; }
+.school-announcement-preview > span { display: block; margin-bottom: 7px; color: #627086; font-size: 9px; font-weight: 750; }
+.school-announcement-preview .school-announcement { margin: 0; }

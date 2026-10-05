@@ -2080,6 +2080,10 @@ export type PublicSiteConfig = {
   hero_subtitle: string
   hero_cta_label: string
   hero_image_url: string | null
+  announcement_enabled: boolean
+  announcement_text: string
+  announcement_background_color: string
+  announcement_text_color: string
   about_title: string
   about_text: string
   contact_phone: string | null
@@ -2148,6 +2152,10 @@ export type PublicSchool = {
   hero_subtitle: string
   hero_cta_label: string
   hero_image_url: string | null
+  announcement_enabled: boolean
+  announcement_text: string
+  announcement_background_color: string
+  announcement_text_color: string
   about_title: string
   about_text: string
   contact_phone: string | null

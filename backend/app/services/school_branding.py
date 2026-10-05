@@ -53,6 +53,10 @@ def _public_site_defaults(org: OrganizationRecord) -> dict:
         "hero_subtitle": "Découvrez nos formations et rejoignez la prochaine session.",
         "hero_cta_label": "Découvrir nos formations",
         "hero_image_url": None,
+        "announcement_enabled": False,
+        "announcement_text": "",
+        "announcement_background_color": "#FFF4E7",
+        "announcement_text_color": "#7C4200",
         "about_title": f"À propos de {org.name}",
         "about_text": "",
         "contact_phone": None,
@@ -200,6 +204,10 @@ def _identity_read(
             hero_subtitle=site.hero_subtitle,
             hero_cta_label=site.hero_cta_label,
             hero_image_url=site.hero_image_url,
+            announcement_enabled=site.announcement_enabled,
+            announcement_text=site.announcement_text,
+            announcement_background_color=site.announcement_background_color,
+            announcement_text_color=site.announcement_text_color,
             about_title=site.about_title,
             about_text=site.about_text,
             contact_phone=site.contact_phone,
@@ -271,6 +279,8 @@ def update_school_identity(
     allowed_fonts = {"Inter", "Arial", "Georgia", "Verdana", "Trebuchet MS", "Times New Roman"}
     if p.font_heading not in allowed_fonts or p.font_body not in allowed_fonts:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Choisissez les polices dans la liste proposée.")
+    if p.announcement_enabled and not p.announcement_text.strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Renseignez le texte du bandeau avant de l'activer.")
 
     next_prefix = (p.student_code_prefix.strip() or _prefix_from_name(org.name)).upper()
     if p.student_code_prefix_confirmed and not p.student_code_prefix.strip():
@@ -304,6 +314,8 @@ def update_school_identity(
     for key, value in site_values.items():
         if isinstance(value, str):
             value = value.strip()
+        if key in {"announcement_background_color", "announcement_text_color"}:
+            value = value.upper()
         if key == "student_code_prefix":
             value = next_prefix
         setattr(site, key, value)
