@@ -20,6 +20,7 @@ import {
   type AuthUser,
   type SupportModeState,
 } from '../lib/api'
+import { consumeCustomDomainSsoHandoff, maybeStartCustomDomainSso } from './customDomainSso'
 import { authenticateWithGoogle } from './googleApi'
 
 type AuthContextValue = {
@@ -51,6 +52,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const syncFromServer = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true)
 
+    try {
+      const handoffUser = await consumeCustomDomainSsoHandoff()
+      if (handoffUser) {
+        setSupportMode(null)
+        setUser(handoffUser)
+        announceAuthChange()
+        return
+      }
+    } catch {
+      // The normal session lookup below remains the fallback.
+    }
+
     if (!isCurrentBrowserSession()) {
       clearSession()
       setSupportMode(null)
@@ -80,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setSupportMode(null)
       setUser(null)
+      await maybeStartCustomDomainSso()
     } finally {
       setLoading(false)
     }
