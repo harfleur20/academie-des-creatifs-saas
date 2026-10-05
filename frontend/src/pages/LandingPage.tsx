@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BrandLogo } from '../brand/BrandLogo'
 import '../landing-motion.css'
+import '../landing-performance.css'
 import {
   ArrowRight,
   Award,
@@ -80,13 +81,13 @@ function useLandingMotion() {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const revealElements = Array.from(document.querySelectorAll<HTMLElement>('[data-landing-reveal]'))
 
-    if (reduceMotion) {
+    if (reduceMotion || typeof IntersectionObserver === 'undefined') {
       revealElements.forEach((element) => element.classList.add('is-visible'))
       return undefined
     }
 
     revealElements.forEach((element, index) => {
-      element.style.setProperty('--reveal-delay', `${Math.min(index % 6, 5) * 70}ms`)
+      element.style.setProperty('--reveal-delay', `${Math.min(index % 4, 3) * 45}ms`)
     })
 
     const observer = new IntersectionObserver(
@@ -98,35 +99,11 @@ function useLandingMotion() {
           }
         })
       },
-      { threshold: 0.14, rootMargin: '0px 0px -5% 0px' },
+      { threshold: 0.1, rootMargin: '0px 0px -3% 0px' },
     )
 
     revealElements.forEach((element) => observer.observe(element))
-
-    const stage = document.querySelector<HTMLElement>('.landing-product-stage')
-    if (!stage) return () => observer.disconnect()
-
-    const updateParallax = (event: PointerEvent) => {
-      const rect = stage.getBoundingClientRect()
-      const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2
-      const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2
-      stage.style.setProperty('--landing-x', x.toFixed(3))
-      stage.style.setProperty('--landing-y', y.toFixed(3))
-    }
-
-    const resetParallax = () => {
-      stage.style.setProperty('--landing-x', '0')
-      stage.style.setProperty('--landing-y', '0')
-    }
-
-    stage.addEventListener('pointermove', updateParallax)
-    stage.addEventListener('pointerleave', resetParallax)
-
-    return () => {
-      observer.disconnect()
-      stage.removeEventListener('pointermove', updateParallax)
-      stage.removeEventListener('pointerleave', resetParallax)
-    }
+    return () => observer.disconnect()
   }, [])
 }
 
@@ -145,7 +122,6 @@ function DashboardPreview() {
   return (
     <div className="dashboard-shell landing-product-stage">
       <div className="landing-orbit landing-orbit-one" />
-      <div className="landing-orbit landing-orbit-two" />
 
       <div className="dashboard-window landing-depth landing-depth-main">
         <aside className="preview-sidebar">
@@ -289,12 +265,12 @@ function ProductScenes() {
           </div>
           <h2>Chaque moment de votre école, dans le même produit.</h2>
           <p>
-            La landing montre désormais les vraies briques fonctionnelles du SaaS : formation,
-            live, suivi, paiement, certificats et accès événementiel.
+            Retrouvez les briques essentielles du SaaS : formation, live, planning et suivi,
+            réunies dans une expérience cohérente.
           </p>
         </div>
 
-        <div className="landing-scenes-grid">
+        <div className="landing-scenes-grid landing-scenes-grid-two">
           <article className="landing-scene landing-scene-course" data-landing-reveal>
             <div className="landing-scene-head">
               <span className="landing-scene-icon"><BookOpenCheck size={20} /></span>
@@ -340,32 +316,6 @@ function ProductScenes() {
                 <span><b>09:00</b> Design graphique</span>
                 <span><b>14:30</b> Motion Design</span>
                 <span><b>18:00</b> Atelier portfolio</span>
-              </div>
-            </div>
-          </article>
-
-          <article className="landing-scene landing-scene-commerce" data-landing-reveal>
-            <div className="landing-scene-head">
-              <span className="landing-scene-icon"><CreditCard size={20} /></span>
-              <div>
-                <small>VENTES & CERTIFICATION</small>
-                <strong>Monétisez et valorisez</strong>
-              </div>
-            </div>
-            <div className="landing-commerce-board">
-              <div className="landing-revenue-card">
-                <small>Revenus du mois</small>
-                <strong>12 430 €</strong>
-                <span>+28% vs mois dernier</span>
-                <div className="landing-mini-bars">
-                  <i /><i /><i /><i /><i /><i />
-                </div>
-              </div>
-              <div className="landing-mini-certificate">
-                <Award size={24} />
-                <small>Certificat généré</small>
-                <strong>Motion Design</strong>
-                <span>Signature + QR sécurisé</span>
               </div>
             </div>
           </article>
