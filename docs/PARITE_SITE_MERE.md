@@ -14,7 +14,7 @@ Le site mère définit les parcours et les règles métier de l'école. Le SaaS 
 | Parcours classique et guidé | `ligne` ouvre le parcours `classic` ; `live` et `presentiel` ouvrent le parcours `guided` | Routes par inscription et cartes séparées ; le parcours guidé possède un espace de session avec vue d'ensemble, programme, calendrier, devoirs, quiz, ressources et notes ; le lecteur de leçons reste commun | Comparer les écrans et états du lecteur classique et du suivi guidé avec le site mère, notamment les classes live. |
 | Messagerie entre utilisateurs | Conversations et destinataires autorisés selon les rôles et les inscriptions | Pas de messagerie interne équivalente repérée | Porter ce parcours avec isolation par école, session et participants. |
 | Notifications dans l'application | Cloche avec compteur, panneau récent, page complète, lecture et masquage ; événements administrateur, professeur et étudiant | Notifications enregistrées par école et utilisateur, avec cloche et page dans les trois espaces ; paiements, échéances, affectations de professeur et devoirs raccordés | Reprendre les autres événements du site mère (quiz, ressources, séances live, discussions) au fil des parcours correspondants. |
-| Favoris des formations | Présents | Aucun parcours équivalent repéré | Reprendre le comportement du catalogue du site mère. |
+| Favoris des formations | Présents | Ajout et retrait depuis les cartes et les fiches, avec page « Mes favoris » et séparation par école et utilisateur | Vérifier le parcours connecté sur mobile et domaine d'école. |
 | Classes en direct et enregistrements | Présents | Aucun parcours équivalent repéré dans le SaaS | Porter les accès et enregistrements utilisés par les formations `live` de chaque école. |
 
 Les fonctions d'événements et de billetterie du site mère sont dans un espace organisateur distinct de l'école. La comparaison de l'école se concentre d'abord sur les parcours public, administration, professeur et étudiant.
@@ -62,7 +62,7 @@ La suite du verrouillage métier est à comparer au site mère : prérequis de f
 1. Terminer la reprise écran par écran du lecteur classique et de l'espace guidé : états fins, suivi de séance et accès live. Le lecteur de leçons reste commun aux deux parcours.
 2. Ajouter l'historique et la gestion des versions des leçons ; reprendre les anciens PDF externes vers le stockage privé, avec un nouveau quiz si des évaluations existent déjà.
 3. Comparer puis aligner les calculs de progression, badges, notes, présence et certificats, ainsi que les écrans de suivi professeur et administration.
-4. Porter la messagerie interne, les favoris et les classes en direct avec leurs enregistrements ; compléter les types d'événements de notifications après la reprise de ces parcours.
+4. Porter la messagerie interne et les classes en direct avec leurs enregistrements ; compléter les types d'événements de notifications après la reprise de ces parcours. Vérifier les favoris dans le navigateur.
 5. Raccorder le suivi de lecture des vidéos Bunny ; vérifier le catalogue, la commande et le paiement de bout en bout sur mobile et domaine d'école.
 6. Vérifier les parcours réels dans le navigateur avec au moins deux écoles, notamment les droits d'accès et l'absence de fuite entre écoles. La suite PostgreSQL de concurrence ne peut être exécutée localement sans serveur PostgreSQL.
 

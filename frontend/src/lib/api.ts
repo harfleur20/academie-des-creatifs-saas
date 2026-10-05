@@ -2247,6 +2247,19 @@ export const listPublicSchoolFormations = (schoolKey: string) =>
     organizationId: null,
   })
 
+export const listSchoolFavorites = (schoolKey: string) =>
+  request<PublicFormationCard[]>('/public/schools/' + encodeURIComponent(schoolKey) + '/favorites', { organizationId: null })
+
+export const addSchoolFavorite = (schoolKey: string, formationSlug: string) =>
+  request<PublicFormationCard[]>('/public/schools/' + encodeURIComponent(schoolKey) + '/favorites/' + encodeURIComponent(formationSlug), {
+    method: 'POST', organizationId: null,
+  })
+
+export const removeSchoolFavorite = (schoolKey: string, formationSlug: string) =>
+  request<PublicFormationCard[]>('/public/schools/' + encodeURIComponent(schoolKey) + '/favorites/' + encodeURIComponent(formationSlug), {
+    method: 'DELETE', organizationId: null,
+  })
+
 export const getPublicSchoolFormation = (schoolKey: string, formationSlug: string) =>
   request<PublicFormationDetail>(
     '/public/schools/' + encodeURIComponent(schoolKey) + '/formations/' + encodeURIComponent(formationSlug),

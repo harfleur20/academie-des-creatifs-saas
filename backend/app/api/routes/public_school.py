@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_current_user
 from app.db.session import get_db
+from app.models.entities import UserRecord
 from app.schemas.commerce import (
     PublicFormationCardRead,
     PublicFormationDetailRead,
@@ -16,6 +18,7 @@ from app.services.public_catalog import (
     public_school_read,
 )
 from app.services.school_branding import get_or_create_identity_records
+from app.services.school_favorites import add_school_favorite, list_school_favorites, remove_school_favorite
 
 
 router = APIRouter(prefix="/public/schools", tags=["public-school"])
@@ -69,3 +72,38 @@ def get_school_formation(
     db: Session = Depends(get_db),
 ):
     return public_formation_detail(db, school_key, formation_slug)
+
+
+@router.get("/{school_key}/favorites", response_model=list[PublicFormationCardRead])
+def get_school_favorites(
+    school_key: str,
+    db: Session = Depends(get_db),
+    user: UserRecord = Depends(get_current_user),
+):
+    org = get_public_organization(db, school_key)
+    public_school_read(db, org)
+    return list_school_favorites(db, org, user)
+
+
+@router.post("/{school_key}/favorites/{formation_slug}", response_model=list[PublicFormationCardRead])
+def add_favorite(
+    school_key: str,
+    formation_slug: str,
+    db: Session = Depends(get_db),
+    user: UserRecord = Depends(get_current_user),
+):
+    org = get_public_organization(db, school_key)
+    public_school_read(db, org)
+    return add_school_favorite(db, org, user, formation_slug)
+
+
+@router.delete("/{school_key}/favorites/{formation_slug}", response_model=list[PublicFormationCardRead])
+def remove_favorite(
+    school_key: str,
+    formation_slug: str,
+    db: Session = Depends(get_db),
+    user: UserRecord = Depends(get_current_user),
+):
+    org = get_public_organization(db, school_key)
+    public_school_read(db, org)
+    return remove_school_favorite(db, org, user, formation_slug)

@@ -1136,6 +1136,17 @@ class OrganizationPublicSiteRecord(OrganizationOwnedMixin, TimestampMixin, Base)
     is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+class SchoolFavoriteRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "school_favorites"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "user_id", "formation_id", name="uq_school_favorite_user_formation"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    formation_id: Mapped[int] = mapped_column(ForeignKey("formations.id", ondelete="CASCADE"), nullable=False, index=True)
+
+
 class OrganizationLegalProfileRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "organization_legal_profiles"
     __table_args__ = (

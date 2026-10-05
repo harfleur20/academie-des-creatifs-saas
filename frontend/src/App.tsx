@@ -70,6 +70,7 @@ const SchoolCheckoutPage = lazy(() => import('./pages/SchoolCheckoutPage').then(
 const StudentPaymentsPage = lazy(() => import('./pages/StudentPaymentsPage').then((module) => ({ default: module.StudentPaymentsPage })))
 import type { WorkspaceSpace } from './lib/api'
 import { SchoolNotificationsPage } from './pages/SchoolNotificationsPage'
+import { SchoolFavoritesPage } from './pages/SchoolFavoritesPage'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
   const { user, supportMode, loading } = useAuth()
@@ -189,6 +190,7 @@ export default function App() {
             <Route path="/school/:schoolSlug" element={<SchoolPublicLayout />}>
               <Route index element={<SchoolHomePage />} />
               <Route path="formations" element={<SchoolFormationsPage />} />
+              <Route path="favoris" element={<SchoolFavoritesPage />} />
               <Route path="formations/:formationSlug" element={<SchoolFormationDetailPage />} />
               <Route path="contact" element={<SchoolContactPage />} />
               <Route path="panier" element={<SchoolHomePage />} />

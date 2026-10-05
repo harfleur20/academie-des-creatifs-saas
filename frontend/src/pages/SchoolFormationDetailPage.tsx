@@ -5,6 +5,7 @@ import { getPublicSchoolFormation, type PublicFormationDetail, type PublicSessio
 import { setSchoolCart } from '../public/schoolCart'
 import { formatSchoolDate, formatSchoolMoney } from '../public/publicHelpers'
 import { usePublicSchool } from '../public/SchoolPublicLayout'
+import { SchoolFavoriteButton } from '../public/SchoolFavoriteButton'
 
 export function SchoolFormationDetailPage() {
   const { schoolSlug = '', formationSlug = '' } = useParams()
@@ -32,7 +33,7 @@ export function SchoolFormationDetailPage() {
   const available=formation.sessions.filter((s)=>s.can_purchase)
   return <main className="school-detail-page">
     {toast&&<div className="school-toast">{toast}</div>}
-    <section className="school-detail-hero"><div className="school-detail-cover">{formation.cover_image_url?<img src={formation.cover_image_url} alt={formation.title}/>:<div/>}</div><div className="school-detail-intro"><span className="school-kicker">{formation.category} · {formation.level}</span><h1>{formation.title}</h1><p>{formation.short_description||formation.description}</p><div className="school-detail-meta"><span><Clock3 size={15}/>{formation.training_hours?formation.training_hours+' h':formation.format_type==='ligne'?'À votre rythme':'Durée selon session'}</span><span>{formation.format_type}</span>{formation.teacher_names.length>0&&<span><Users size={15}/>{formation.teacher_names.join(', ')}</span>}</div><div className="school-detail-price">{formation.promotion_discount_cents>0&&<del>{formatSchoolMoney(formation.price_cents,formation.currency)}</del>}<strong>{formatSchoolMoney(formation.current_price_cents,formation.currency)}</strong>{formation.allow_installments&&<small>Paiement jusqu'en {formation.installment_count} tranches.</small>}</div></div></section>
+    <section className="school-detail-hero"><div className="school-detail-cover">{formation.cover_image_url?<img src={formation.cover_image_url} alt={formation.title}/>:<div/>}</div><div className="school-detail-intro"><span className="school-kicker">{formation.category} · {formation.level}</span><h1>{formation.title}</h1><SchoolFavoriteButton slug={formation.slug} title={formation.title}/><p>{formation.short_description||formation.description}</p><div className="school-detail-meta"><span><Clock3 size={15}/>{formation.training_hours?formation.training_hours+' h':formation.format_type==='ligne'?'À votre rythme':'Durée selon session'}</span><span>{formation.format_type}</span>{formation.teacher_names.length>0&&<span><Users size={15}/>{formation.teacher_names.join(', ')}</span>}</div><div className="school-detail-price">{formation.promotion_discount_cents>0&&<del>{formatSchoolMoney(formation.price_cents,formation.currency)}</del>}<strong>{formatSchoolMoney(formation.current_price_cents,formation.currency)}</strong>{formation.allow_installments&&<small>Paiement jusqu'en {formation.installment_count} tranches.</small>}</div></div></section>
 
     <section className="school-detail-layout">
       <article className="school-detail-content">

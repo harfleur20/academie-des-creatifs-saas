@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
-import { Menu, ShoppingBag, UserRound, X } from 'lucide-react'
+import { Heart, Menu, ShoppingBag, UserRound, X } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
 import { BrandLogo } from '../brand/BrandLogo'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { schoolFontFamily } from '../brand/schoolTypography'
-import { getPublicSchoolIdentity, type PublicSchool } from '../lib/api'
+import { addSchoolFavorite, getPublicSchoolIdentity, listSchoolFavorites, removeSchoolFavorite, type PublicFormationCard, type PublicSchool } from '../lib/api'
 import { clearSchoolCart, getSchoolCart, type SchoolCartItem } from './schoolCart'
 import { SchoolCartDrawer } from './SchoolCartDrawer'
 import { SchoolAnnouncementBanner } from './SchoolAnnouncementBanner'
@@ -14,6 +14,9 @@ import { SchoolAnnouncementBanner } from './SchoolAnnouncementBanner'
 export type SchoolPublicOutlet = {
   school: PublicSchool
   openCart: () => void
+  favorites: PublicFormationCard[]
+  favoritesLoading: boolean
+  toggleFavorite: (formationSlug: string) => Promise<void>
 }
 
 export function usePublicSchool() {
@@ -32,6 +35,27 @@ export function SchoolPublicLayout() {
   const [accountOpen, setAccountOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
   const [cartItem, setCartItem] = useState<SchoolCartItem | null>(() => getSchoolCart(schoolSlug))
+  const [favorites, setFavorites] = useState<PublicFormationCard[]>([])
+  const [favoritesLoading, setFavoritesLoading] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    setFavorites([])
+    setFavoritesLoading(Boolean(user))
+    if (user) listSchoolFavorites(schoolSlug)
+      .then((items) => { if (active) setFavorites(items) })
+      .catch(() => {})
+      .finally(() => { if (active) setFavoritesLoading(false) })
+    return () => { active = false }
+  }, [schoolSlug, user?.id])
+
+  const toggleFavorite = useCallback(async (formationSlug: string) => {
+    const current = favorites.some((item) => item.slug === formationSlug)
+    const next = current
+      ? await removeSchoolFavorite(schoolSlug, formationSlug)
+      : await addSchoolFavorite(schoolSlug, formationSlug)
+    setFavorites(next)
+  }, [favorites, schoolSlug])
 
   useEffect(() => {
     let active = true
@@ -153,9 +177,11 @@ export function SchoolPublicLayout() {
         <nav className={menuOpen ? 'is-open' : ''}>
           <NavLink end to={'/school/' + schoolSlug}>Accueil</NavLink>
           <NavLink to={'/school/' + schoolSlug + '/formations'}>Formations</NavLink>
+          {user && <NavLink to={'/school/' + schoolSlug + '/favoris'}>Favoris</NavLink>}
           <NavLink to={'/school/' + schoolSlug + '/contact'}>Nous contacter</NavLink>
         </nav>
         <div className="public-school-actions">
+          {user && <Link className="public-school-favorites-link" to={'/school/' + schoolSlug + '/favoris'} aria-label="Mes formations favorites" title="Mes favoris"><Heart size={18}/>{favorites.length > 0 && <span>{favorites.length}</span>}</Link>}
           {user ? (
             <div className="public-school-account">
               <button type="button" className="public-school-login" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}><UserRound size={16} /><span>{user.full_name}</span></button>
@@ -171,7 +197,7 @@ export function SchoolPublicLayout() {
         </div>
       </header>
 
-      <Outlet context={{ school, openCart: () => setCartOpen(true) }} />
+      <Outlet context={{ school, openCart: () => setCartOpen(true), favorites, favoritesLoading, toggleFavorite }} />
       <SchoolCartDrawer open={cartOpen} item={validCartItem} schoolSlug={schoolSlug} onClose={closeCart} onClear={() => clearSchoolCart(schoolSlug)} />
 
       <footer className="public-school-footer">

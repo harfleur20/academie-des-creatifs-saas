@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import { getPublicSchoolHome, type PublicFormationCard } from '../lib/api'
 import { usePublicSchool } from '../public/SchoolPublicLayout'
 import { formatSchoolMoney } from '../public/publicHelpers'
+import { SchoolFavoriteButton } from '../public/SchoolFavoriteButton'
 
 export function SchoolHomePage() {
   const { schoolSlug = '' } = useParams()
@@ -48,6 +49,7 @@ export function SchoolHomePage() {
 
 export function FormationCard({ schoolSlug, formation }: { schoolSlug: string; formation: PublicFormationCard }) {
   return <article className="school-formation-card">
+    <SchoolFavoriteButton slug={formation.slug} title={formation.title}/>
     <Link className="school-formation-image" to={'/school/' + schoolSlug + '/formations/' + formation.slug}>
       {formation.cover_image_url ? <img src={formation.cover_image_url} alt={formation.title}/> : <div><GraduationCap size={34}/></div>}
       {formation.promotion_label && <span className="school-promo-badge">{formation.promotion_label}</span>}
