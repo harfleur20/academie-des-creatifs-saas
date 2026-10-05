@@ -124,7 +124,7 @@
 
 /* Public header: slightly larger mark with a tighter lockup. */
 .public-school-shell .public-school-brand {
-  gap: 6px;
+  gap: 4px;
 }
 
 .public-school-shell .public-school-brand .brand-logo-image,
@@ -132,6 +132,31 @@
   width: 30px;
   height: 30px;
   flex: 0 0 30px;
+}
+
+/* Keep every logo/name lockup visually compact throughout the product. */
+.login-redesign .auth-logo {
+  gap: 6px;
+}
+
+.app-brand {
+  gap: 6px;
+}
+
+.school-switcher {
+  column-gap: 6px;
+}
+
+.tenant-role-brand {
+  gap: 6px;
+}
+
+.public-school-shell .public-school-footer-brand {
+  gap: 5px;
+}
+
+.public-school-shell .public-school-powered {
+  gap: 4px;
 }
 
 /* The public footer follows the same typography scale configured by the school owner. */
