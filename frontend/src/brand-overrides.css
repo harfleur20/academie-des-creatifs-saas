@@ -193,6 +193,13 @@
   gap: 5px;
 }
 
+.public-school-shell .public-school-footer-brand .brand-logo-image,
+.public-school-shell .public-school-footer-brand .school-logo-placeholder {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+}
+
 .public-school-shell .public-school-powered {
   gap: 4px;
 }
