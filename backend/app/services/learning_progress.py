@@ -619,6 +619,8 @@ def _assignment_stats(
     db: Session,
     tenant: TenantContext,
     enrollment: EnrollmentRecord,
+    *,
+    standard_only: bool = False,
 ) -> tuple[int, int, bool, bool]:
     assignments = list(
         db.scalars(
@@ -640,7 +642,7 @@ def _assignment_stats(
                 AssignmentSubmissionRecord.enrollment_id == enrollment.id,
             )
         )
-        if submission:
+        if submission and (not standard_only or not assignment.is_final_project):
             submitted += 1
         if assignment.is_final_project:
             has_final = True
@@ -652,7 +654,8 @@ def _assignment_stats(
                 and (submission.review_score / submission.review_max_score) * 100 >= 80
             ):
                 final_valid = True
-    return len(assignments), submitted, has_final, final_valid
+    total = sum(not item.is_final_project for item in assignments) if standard_only else len(assignments)
+    return total, submitted, has_final, final_valid
 
 
 def _quiz_stats(
@@ -743,7 +746,7 @@ def badge_for_enrollment(
 ) -> BadgeRead:
     total_lessons, completed_lessons, lesson_pct = _lesson_progress(db, tenant, enrollment)
     total_assignments, submitted_assignments, has_final, final_valid = _assignment_stats(
-        db, tenant, enrollment
+        db, tenant, enrollment, standard_only=True
     )
     total_quizzes, attempted_quizzes, passed_quizzes, _quiz_average = _quiz_stats(
         db, tenant, enrollment
@@ -789,13 +792,12 @@ def badge_for_enrollment(
     if evaluation_values:
         pillars["evaluation"] = sum(evaluation_values) / len(evaluation_values)
 
-    production_values: list[float] = []
-    if assignment_pct is not None:
-        production_values.append(assignment_pct)
-    if has_final:
-        production_values.append(100.0 if final_valid else 0.0)
-    if production_values:
-        pillars["production"] = sum(production_values) / len(production_values)
+    if assignment_pct is not None and has_final:
+        pillars["production"] = assignment_pct * 0.7 + (100.0 if final_valid else 0.0) * 0.3
+    elif assignment_pct is not None:
+        pillars["production"] = assignment_pct
+    elif has_final:
+        pillars["production"] = 100.0 if final_valid else 0.0
 
     if attendance_pct is not None:
         pillars["live"] = attendance_pct

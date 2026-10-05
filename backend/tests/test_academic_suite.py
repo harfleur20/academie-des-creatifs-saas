@@ -15,6 +15,8 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.core.config import settings
 from app.models.entities import (
+    AssignmentRecord,
+    AssignmentSubmissionRecord,
     CertificateRecord,
     ChapterRecord,
     CourseRecord,
@@ -665,6 +667,31 @@ def test_lesson_progress_badge_and_certificate_are_real() -> None:
     filename, pdf = build_certificate_pdf(certificate_row)
     assert filename.endswith(".pdf")
     assert pdf.startswith(b"%PDF")
+
+
+def test_badge_weights_standard_assignments_and_final_project_separately() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, _, _ = seed(db)
+    ordinary = AssignmentRecord(
+        organization_id=org.id, session_id=session.id, teacher_id=teacher.id,
+        title="Exercice", due_date=datetime(2025, 1, 15, tzinfo=UTC), is_final_project=False,
+    )
+    final = AssignmentRecord(
+        organization_id=org.id, session_id=session.id, teacher_id=teacher.id,
+        title="Projet final", due_date=datetime(2025, 1, 20, tzinfo=UTC), is_final_project=True,
+    )
+    db.add_all([ordinary, final])
+    db.flush()
+    db.add(AssignmentSubmissionRecord(
+        organization_id=org.id, assignment_id=ordinary.id, enrollment_id=enrollment.id,
+        file_url="https://example.org/exercice.pdf", submitted_at=datetime(2025, 1, 15, tzinfo=UTC),
+    ))
+    db.commit()
+    progress = student_progress(db, ctx(db, org, student))[0]
+    assert progress.total_assignments == 2
+    assert progress.badge.assignment_progress_pct == 100
+    assert progress.badge.final_project_validated is False
+    assert progress.badge.score_pct == 23.3
 
 
 def test_draft_course_is_invisible_and_cannot_be_completed_by_student() -> None:
