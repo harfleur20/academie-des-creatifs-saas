@@ -1,10 +1,11 @@
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.models.entities import (
+    CommunicationOutboxRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
     UserRecord,
@@ -17,6 +18,8 @@ from app.schemas.organizations import (
 from app.services.organization_management import (
     accept_invitation,
     create_invitation,
+    get_invitation_preview,
+    renew_invitation,
     update_member,
     update_organization_settings,
 )
@@ -228,6 +231,37 @@ def test_manager_can_invite_teacher_but_not_admin() -> None:
     assert exc.value.status_code == 403
 
 
+def test_pending_teacher_invitation_can_be_renewed_by_its_school() -> None:
+    db = build_db()
+    manager = add_user(db, "manager@test.local", "Manager")
+    outsider = add_user(db, "outsider@test.local", "Outsider")
+    org = add_org(db, "School", "school")
+    other_org = add_org(db, "Other", "other")
+    add_membership(db, org, manager, "manager")
+    add_membership(db, other_org, outsider, "owner")
+    db.commit()
+    tenant = resolve_tenant_context(db, user=manager, organization_id=org.id)
+    other_tenant = resolve_tenant_context(db, user=outsider, organization_id=other_org.id)
+    invitation, old_token = create_invitation(
+        db, tenant, OrganizationInvitationCreate(email="teacher@example.com", role="teacher"),
+    )
+    original_email = db.scalar(select(CommunicationOutboxRecord).where(CommunicationOutboxRecord.organization_id == org.id))
+    assert original_email.status == "pending"
+
+    with pytest.raises(HTTPException) as other_school:
+        renew_invitation(db, other_tenant, invitation.id)
+    assert other_school.value.status_code == 404
+
+    renewed, new_token = renew_invitation(db, tenant, invitation.id)
+    assert renewed.id == invitation.id
+    assert new_token != old_token
+    assert original_email.status == "superseded"
+    with pytest.raises(HTTPException) as old_link:
+        get_invitation_preview(db, token=old_token)
+    assert old_link.value.status_code == 404
+    assert get_invitation_preview(db, token=new_token)["email"] == "teacher@example.com"
+
+
 def test_matching_user_can_accept_invitation() -> None:
     db = build_db()
     owner = add_user(db, "owner@test.local", "Owner")
@@ -257,6 +291,9 @@ def test_matching_user_can_accept_invitation() -> None:
     assert membership.user_id == invited.id
     assert membership.role == "teacher"
     assert invitation.status == "accepted"
+    with pytest.raises(HTTPException) as used:
+        renew_invitation(db, tenant, invitation.id)
+    assert used.value.status_code == 409
 
 
 def test_wrong_email_cannot_accept_invitation() -> None:

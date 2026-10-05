@@ -417,6 +417,11 @@ export const createInvitation = (payload: {
     body: JSON.stringify(payload),
   })
 
+export const renewInvitation = (invitationId: number) =>
+  request<Invitation>(`/organizations/current/invitations/${invitationId}/renew`, {
+    method: 'POST',
+  })
+
 
 
 export type InvitationPreview = {

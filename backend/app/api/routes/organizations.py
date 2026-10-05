@@ -44,6 +44,7 @@ from app.services.organization_management import (
     create_invitation,
     get_invitation_preview,
     list_invitations,
+    renew_invitation,
     update_member,
     update_member_functional_roles,
     update_organization_settings,
@@ -241,6 +242,34 @@ def create_current_invitation(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     invitation, token = create_invitation(db, tenant, payload)
+    process_communication_outbox(
+        db,
+        organization_id=tenant.organization_id,
+        limit=20,
+    )
+    return OrganizationInvitationCreated(
+        id=invitation.id,
+        organization_id=invitation.organization_id,
+        email=invitation.email,
+        role=invitation.role,
+        status=invitation.status,
+        invited_by_user_id=invitation.invited_by_user_id,
+        expires_at=invitation.expires_at,
+        created_at=invitation.created_at,
+        acceptance_token=token,
+    )
+
+
+@router.post(
+    "/current/invitations/{invitation_id}/renew",
+    response_model=OrganizationInvitationCreated,
+)
+def renew_current_invitation(
+    invitation_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    invitation, token = renew_invitation(db, tenant, invitation_id)
     process_communication_outbox(
         db,
         organization_id=tenant.organization_id,

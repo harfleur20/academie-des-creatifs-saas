@@ -5,6 +5,7 @@ import {
   CalendarDays,
   GraduationCap,
   Plus,
+  Send,
   Users,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -12,6 +13,7 @@ import {
   ApiError,
   createFormation,
   listFormations,
+  updateFormation,
   type FormationSummary,
 } from '../lib/api'
 
@@ -64,7 +66,9 @@ export function FormationsManagementPage() {
   const [trainingHours, setTrainingHours] = useState('')
   const [description, setDescription] = useState('')
   const [creating, setCreating] = useState(false)
+  const [publishingId, setPublishingId] = useState<number | null>(null)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
 
   async function refresh() {
     try {
@@ -84,6 +88,7 @@ export function FormationsManagementPage() {
     if (!slug) return
     setCreating(true)
     setError('')
+    setMessage('')
     try {
       await createFormation({
         slug,
@@ -105,6 +110,21 @@ export function FormationsManagementPage() {
       setError(err instanceof ApiError ? err.message : 'Création impossible.')
     } finally {
       setCreating(false)
+    }
+  }
+
+  async function publish(formation: FormationSummary) {
+    setPublishingId(formation.id)
+    setError('')
+    setMessage('')
+    try {
+      const updated = await updateFormation(formation.id, { status: 'published' })
+      setFormations((current) => current.map((item) => item.id === formation.id ? updated : item))
+      setMessage('Formation publiée. Pour qu’elle apparaisse aux visiteurs, vérifiez aussi la publication du site public.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Publication impossible.')
+    } finally {
+      setPublishingId(null)
     }
   }
 
@@ -151,6 +171,9 @@ export function FormationsManagementPage() {
           </p>
         </div>
       </header>
+
+      {message && <div className="form-success">{message} <Link to="/app/manage/site-public">Vérifier le site public</Link></div>}
+      {error && <div className="form-error">{error}</div>}
 
       <section className="formation-metrics">
         <article><GraduationCap size={18} /><div><strong>{formations.length}</strong><span>Formations</span></div></article>
@@ -218,8 +241,6 @@ export function FormationsManagementPage() {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={5000} />
           </label>
 
-          {error && <div className="form-error">{error}</div>}
-
           <button className="primary-button" disabled={creating}>
             <Plus size={16} />
             {creating ? 'Création…' : 'Créer la formation'}
@@ -235,7 +256,7 @@ export function FormationsManagementPage() {
                   <h2>{formation.title}</h2>
                   <p>{formation.description || 'Aucune description.'}</p>
                 </div>
-                <span className={`formation-status ${formation.status}`}>{formation.status}</span>
+                <span className={`formation-status ${formation.status}`}>{formation.status === 'published' ? 'Publiée' : 'Brouillon'}</span>
               </div>
 
               <div className="formation-card-meta">
@@ -245,9 +266,12 @@ export function FormationsManagementPage() {
                 <span><BookOpen size={14} /> {formation.course_count} cours</span>
               </div>
 
-              <Link className="secondary-button" to={`/app/manage/formations/${formation.id}`}>
-                Ouvrir la formation <ArrowRight size={15} />
-              </Link>
+              <div className="formation-card-actions">
+                <Link className="secondary-button" to={`/app/manage/formations/${formation.id}`}>
+                  Ouvrir la formation <ArrowRight size={15} />
+                </Link>
+                {formation.status === 'draft' && <button className="primary-button" type="button" disabled={publishingId !== null} onClick={() => void publish(formation)}><Send size={15} /> {publishingId === formation.id ? 'Publication…' : 'Publier la formation'}</button>}
+              </div>
             </article>
           ))}
 

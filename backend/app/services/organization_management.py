@@ -5,11 +5,12 @@ import hashlib
 import secrets
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.models.entities import (
+    CommunicationOutboxRecord,
     OrganizationInvitationRecord,
     OrganizationMemberRecord,
     OrganizationRecord,
@@ -371,19 +372,31 @@ def create_invitation(
     db.commit()
     db.refresh(invitation)
 
+    _queue_invitation_email(db, tenant, invitation, token, existing_user)
+    db.commit()
+    return invitation, token
+
+
+def _queue_invitation_email(
+    db: Session,
+    tenant: TenantContext,
+    invitation: OrganizationInvitationRecord,
+    token: str,
+    existing_user: UserRecord | None,
+) -> None:
     snapshot = branding_snapshot(db, tenant.organization)
     role_label = {
         "teacher": "professeur",
         "manager": "manager",
         "admin": "administrateur",
-    }.get(payload.role, payload.role)
+    }.get(invitation.role, invitation.role)
     acceptance_url = f"{settings.frontend_url.rstrip('/')}/invite/{token}"
     queue_school_event(
         db,
         org=tenant.organization,
         event_key="school.team.invitation",
         user=existing_user,
-        recipient_email=email,
+        recipient_email=invitation.email,
         context={
             "inviter_name": tenant.user.full_name,
             "role_label": role_label,
@@ -393,7 +406,47 @@ def create_invitation(
         },
         include_whatsapp=False,
     )
+
+
+def _supersede_pending_invitation_emails(db: Session, invitation: OrganizationInvitationRecord) -> None:
+    db.execute(
+        update(CommunicationOutboxRecord)
+        .where(
+            CommunicationOutboxRecord.organization_id == invitation.organization_id,
+            CommunicationOutboxRecord.event_key == "school.team.invitation",
+            CommunicationOutboxRecord.recipient == invitation.email,
+            CommunicationOutboxRecord.status.in_(["pending", "failed"]),
+        )
+        .values(status="superseded", last_error="Lien d'invitation remplacé ou annulé.")
+    )
+
+
+def renew_invitation(
+    db: Session,
+    tenant: TenantContext,
+    invitation_id: int,
+) -> tuple[OrganizationInvitationRecord, str]:
+    invitation = db.scalar(
+        select(OrganizationInvitationRecord).where(
+            OrganizationInvitationRecord.id == invitation_id,
+            OrganizationInvitationRecord.organization_id == tenant.organization_id,
+        )
+    )
+    if invitation is None:
+        raise HTTPException(status_code=404, detail="Invitation introuvable.")
+    if not _can_assign_role(_actor_role(tenant), invitation.role):
+        raise HTTPException(status_code=403, detail="Vous ne pouvez pas renouveler cette invitation.")
+    if invitation.status != "pending":
+        raise HTTPException(status_code=409, detail="Cette invitation n'est plus en attente.")
+
+    _supersede_pending_invitation_emails(db, invitation)
+    token = secrets.token_urlsafe(32)
+    invitation.token_hash = _token_hash(token)
+    invitation.expires_at = _utc_now() + timedelta(days=INVITATION_TTL_DAYS)
+    existing_user = db.scalar(select(UserRecord).where(func.lower(UserRecord.email) == invitation.email))
+    _queue_invitation_email(db, tenant, invitation, token, existing_user)
     db.commit()
+    db.refresh(invitation)
     return invitation, token
 
 
@@ -495,6 +548,7 @@ def cancel_invitation(
 
     invitation.status = "cancelled"
     invitation.cancelled_at = _utc_now()
+    _supersede_pending_invitation_emails(db, invitation)
     db.commit()
     db.refresh(invitation)
     return invitation

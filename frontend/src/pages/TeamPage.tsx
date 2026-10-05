@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   MailPlus,
+  Copy,
   MoreHorizontal,
   RefreshCw,
   Shield,
@@ -8,12 +9,14 @@ import {
   Users,
 } from 'lucide-react'
 import { useTenant } from '../app/TenantContext'
+import { InvitationLink } from '../components/InvitationLink'
 import {
   ApiError,
   cancelInvitation,
   createInvitation,
   listInvitations,
   listMembers,
+  renewInvitation,
   updateMember,
   updateMemberFunctionalRoles,
   type Invitation,
@@ -32,6 +35,7 @@ export function TeamPage() {
   const { activeOrganization } = useTenant()
   const [members, setMembers] = useState<Member[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [invitationTokens, setInvitationTokens] = useState<Record<number, string>>({})
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Invitation['role']>('teacher')
   const [loading, setLoading] = useState(false)
@@ -58,6 +62,7 @@ export function TeamPage() {
   }
 
   useEffect(() => {
+    setInvitationTokens({})
     void load()
   }, [activeOrganization?.id])
 
@@ -77,14 +82,28 @@ export function TeamPage() {
     setError('')
     setMessage('')
     try {
-      await createInvitation({ email, role })
+      const created = await createInvitation({ email, role })
+      if (created.acceptance_token) setInvitationTokens((current) => ({ ...current, [created.id]: created.acceptance_token! }))
       setEmail('')
-      setMessage('Invitation créée et transmise au service d’envoi email.')
+      setMessage('Invitation créée. Le lien est disponible ci-dessous et l’e-mail a été préparé.')
       await load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Invitation impossible.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function renew(invitation: Invitation) {
+    setError('')
+    setMessage('')
+    try {
+      const updated = await renewInvitation(invitation.id)
+      if (updated.acceptance_token) setInvitationTokens((current) => ({ ...current, [updated.id]: updated.acceptance_token! }))
+      setMessage(`Nouveau lien créé pour ${invitation.email}. Le précédent n’est plus valide.`)
+      await load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Renouvellement impossible.')
     }
   }
 
@@ -266,17 +285,25 @@ export function TeamPage() {
               <div>
                 <strong>{invitation.email}</strong>
                 <small>{invitation.role} · {invitation.status}</small>
+                {invitation.status === 'pending' && invitationTokens[invitation.id] && <InvitationLink token={invitationTokens[invitation.id]} />}
               </div>
               {invitation.status === 'pending' && (
-                <button
-                  className="text-danger-button"
-                  onClick={async () => {
-                    await cancelInvitation(invitation.id)
-                    await load()
-                  }}
-                >
-                  Annuler
-                </button>
+                <div className="teacher-invitation-actions">
+                  <button className="secondary-button" type="button" onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button>
+                  <button
+                    className="text-danger-button"
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await cancelInvitation(invitation.id)
+                        setInvitationTokens((current) => { const next = { ...current }; delete next[invitation.id]; return next })
+                        await load()
+                      } catch (err) {
+                        setError(err instanceof ApiError ? err.message : 'Annulation impossible.')
+                      }
+                    }}
+                  >Annuler</button>
+                </div>
               )}
             </div>
           ))}

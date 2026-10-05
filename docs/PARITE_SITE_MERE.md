@@ -29,6 +29,11 @@ Les fonctions d'événements et de billetterie du site mère sont dans un espace
 - Une nouvelle leçon reste maintenant en brouillon. Le professeur peut modifier son contenu, ses liens et sa date, publier son cours avec toutes les leçons valides, puis publier séparément les leçons ajoutées ensuite. Les leçons brouillon sont absentes du lecteur et des compteurs étudiant ; les quiz et devoirs liés restent verrouillés. Une modification du support ou de l'activité de validation efface la progression de cette leçon ; le remplacement d'un PDF déjà évalué impose un nouveau quiz. La migration conserve publiées les leçons déjà créées.
 - Le parcours guidé reprend la structure du site mère avec un espace de session et sept sections. Le calendrier est relié aux séances et aux présences ; les listes d'activités et les notes sont filtrées sur l'inscription. Le programme ouvre le lecteur existant. Les classes en direct, leurs enregistrements, les retours de séance et certains états détaillés du site mère restent à porter.
 
+## Publication et invitations de l'école
+
+- L'administration peut désormais publier une formation depuis la liste ou sa fiche. Sa visibilité dans le catalogue dépend aussi de la publication du site public de l'école.
+- Après une invitation de professeur, le lien d'acceptation est affiché avec un bouton de copie. Pour une invitation déjà en attente dont le lien n'a pas été conservé, l'administration peut générer un nouveau lien ; cette action invalide l'ancien et prépare un nouvel e-mail.
+
 ## Travaux restant pour la parité
 
 1. Terminer la reprise écran par écran du lecteur classique et de l'espace guidé : états fins, suivi de séance et accès live. Le lecteur de leçons reste commun aux deux parcours.

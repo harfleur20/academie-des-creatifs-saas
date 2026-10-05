@@ -5,6 +5,7 @@ import {
   CalendarPlus,
   GraduationCap,
   Plus,
+  Send,
   UserPlus,
   Users,
 } from 'lucide-react'
@@ -18,6 +19,7 @@ import {
   createSessionCourse,
   getFormation,
   listMembers,
+  updateFormation,
   type FormationDetail,
   type Member,
 } from '../lib/api'
@@ -34,6 +36,7 @@ export function FormationWorkspacePage() {
   const [campus, setCampus] = useState('')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
 
   async function refresh() {
     try {
@@ -82,6 +85,22 @@ export function FormationWorkspacePage() {
     }
   }
 
+  async function publishFormation() {
+    if (!formation) return
+    setWorking(true)
+    setError('')
+    setMessage('')
+    try {
+      const updated = await updateFormation(formation.id, { status: 'published' })
+      setFormation((current) => current ? { ...current, status: updated.status } : current)
+      setMessage('Formation publiée. Vérifiez aussi que le site public de l’école est publié.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Publication impossible.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
   if (!formation && !error) return <div className="page-state">Chargement de la formation…</div>
   if (!formation) return <main className="app-page"><div className="form-error">{error}</div></main>
 
@@ -97,10 +116,11 @@ export function FormationWorkspacePage() {
           <h1>{formation.title}</h1>
           <p>{formation.description || 'Aucune description.'}</p>
         </div>
-        <span className="status-chip">{formation.session_count} session(s)</span>
+        <div className="formation-workspace-actions"><span className="status-chip">{formation.status === 'published' ? 'Publiée' : 'Brouillon'} · {formation.session_count} session(s)</span>{formation.status === 'draft' && <button className="primary-button" type="button" disabled={working} onClick={() => void publishFormation()}><Send size={15} /> {working ? 'Publication…' : 'Publier la formation'}</button>}</div>
       </header>
 
       {error && <div className="form-error">{error}</div>}
+      {message && <div className="form-success">{message} <Link to="/app/manage/site-public">Vérifier le site public</Link></div>}
 
       <section className="app-card session-create-card">
         <div className="settings-section-heading">
