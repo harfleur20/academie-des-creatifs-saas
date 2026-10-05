@@ -72,3 +72,41 @@ def decode_access_token(token: str) -> dict[str, object] | None:
     if payload.get("type") != "access":
         return None
     return payload
+
+
+def create_password_reset_token(
+    user_id: int,
+    *,
+    session_version: int,
+    minutes: int = 30,
+) -> str:
+    now = utc_now()
+    payload: dict[str, object] = {
+        "sub": str(user_id),
+        "iss": settings.jwt_issuer,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=minutes)).timestamp()),
+        "type": "password_reset",
+        "session_version": session_version,
+    }
+    return jwt.encode(
+        payload,
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
+def decode_password_reset_token(token: str) -> dict[str, object] | None:
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+            issuer=settings.jwt_issuer,
+        )
+    except jwt.PyJWTError:
+        return None
+
+    if payload.get("type") != "password_reset":
+        return None
+    return payload
