@@ -5,7 +5,11 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password, verify_password
+from app.core.security import (
+    decode_password_reset_token,
+    hash_password,
+    verify_password,
+)
 from app.models.entities import UserRecord
 from app.schemas.auth import ProfileUpdatePayload, RegisterPayload
 
@@ -168,6 +172,46 @@ def change_password(
     db.execute(
         update(UserRecord)
         .where(UserRecord.id == user.id)
+        .values(
+            password_hash=hash_password(new_password),
+            session_version=UserRecord.session_version + 1,
+        )
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def reset_password_with_token(
+    db: Session,
+    *,
+    token: str,
+    new_password: str,
+) -> UserRecord:
+    payload = decode_password_reset_token(token)
+    if payload is None:
+        raise ValueError("Lien de réinitialisation invalide ou expiré.")
+
+    try:
+        user_id = int(str(payload.get("sub") or ""))
+        token_session_version = int(payload.get("session_version"))
+    except (TypeError, ValueError):
+        raise ValueError("Lien de réinitialisation invalide ou expiré.") from None
+
+    user = db.get(UserRecord, user_id)
+    if (
+        user is None
+        or user.status != "active"
+        or user.session_version != token_session_version
+    ):
+        raise ValueError("Lien de réinitialisation invalide ou déjà utilisé.")
+
+    db.execute(
+        update(UserRecord)
+        .where(
+            UserRecord.id == user.id,
+            UserRecord.session_version == token_session_version,
+        )
         .values(
             password_hash=hash_password(new_password),
             session_version=UserRecord.session_version + 1,
