@@ -1,3 +1,4 @@
+import { AdaptiveLogoImage } from './AdaptiveLogoImage'
 import { resolveBrandLogo } from './branding'
 
 type BrandLogoProps = {
@@ -12,8 +13,8 @@ export function BrandLogo({
   className = '',
 }: BrandLogoProps) {
   return (
-    <img
-      className={`brand-logo-image ${className}`.trim()}
+    <AdaptiveLogoImage
+      className={className}
       src={resolveBrandLogo(logoUrl)}
       alt={alt}
       draggable={false}
