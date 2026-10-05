@@ -87,6 +87,11 @@
   background: #eef3ff;
 }
 
+body.toast-feedback-enabled .form-success,
+body.toast-feedback-enabled .form-error {
+  display: none !important;
+}
+
 .button-spinner {
   animation: app-button-spin .8s linear infinite;
 }
@@ -106,8 +111,10 @@
   transform: none !important;
 }
 
+.settings-actions .primary-button,
 .stable-action-button {
-  min-width: 146px;
+  min-width: 176px;
+  justify-content: center;
 }
 
 @keyframes app-toast-enter {
