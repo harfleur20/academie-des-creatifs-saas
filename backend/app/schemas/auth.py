@@ -57,6 +57,15 @@ class AuthResponse(BaseModel):
     token_type: str = "Bearer"
 
 
+class AuthSsoConfigRead(BaseModel):
+    enabled: bool
+    start_url: str | None = None
+
+
+class AuthSsoExchangePayload(BaseModel):
+    token: str = Field(min_length=20, max_length=512)
+
+
 class ProfileUpdatePayload(BaseModel):
     full_name: str = Field(min_length=2, max_length=180)
     phone: str | None = Field(default=None, max_length=40)
