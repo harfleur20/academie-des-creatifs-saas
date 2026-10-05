@@ -115,6 +115,18 @@
   color: #fff;
 }
 
+/* Public header: slightly larger mark with a tighter lockup. */
+.public-school-shell .public-school-brand {
+  gap: 6px;
+}
+
+.public-school-shell .public-school-brand .brand-logo-image,
+.public-school-shell .public-school-brand .school-logo-placeholder {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+}
+
 /* The public footer follows the same typography scale configured by the school owner. */
 .public-school-shell .public-school-footer {
   font-size: calc(13px * var(--school-font-scale, 1));
