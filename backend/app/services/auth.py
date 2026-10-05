@@ -1,3 +1,6 @@
+import os
+
+import httpx
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -8,6 +11,14 @@ from app.schemas.auth import ProfileUpdatePayload, RegisterPayload
 
 
 class EmailAlreadyUsedError(ValueError):
+    pass
+
+
+class GoogleAuthenticationError(ValueError):
+    pass
+
+
+class GoogleAuthNotConfiguredError(GoogleAuthenticationError):
     pass
 
 
@@ -47,12 +58,88 @@ def authenticate_user(
     password: str,
 ) -> UserRecord | None:
     user = get_user_by_email(db, email)
-    if user is None or user.status != "active":
+    if user is None or user.status != "active" or not user.password_hash:
         return None
     if not verify_password(password, user.password_hash):
         return None
     return user
 
+
+async def authenticate_google_user(
+    db: Session,
+    *,
+    credential: str,
+) -> UserRecord:
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    if not client_id:
+        raise GoogleAuthNotConfiguredError("Connexion Google non configurée.")
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            response = await client.get(
+                "https://oauth2.googleapis.com/tokeninfo",
+                params={"id_token": credential},
+            )
+    except httpx.HTTPError as exc:
+        raise GoogleAuthenticationError("Impossible de vérifier la connexion Google.") from exc
+
+    if response.status_code != 200:
+        raise GoogleAuthenticationError("Jeton Google invalide ou expiré.")
+
+    try:
+        claims = response.json()
+    except ValueError as exc:
+        raise GoogleAuthenticationError("Réponse Google invalide.") from exc
+
+    if claims.get("aud") != client_id:
+        raise GoogleAuthenticationError("Ce compte Google n’est pas autorisé pour cette application.")
+    if claims.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
+        raise GoogleAuthenticationError("Émetteur Google invalide.")
+    if claims.get("email_verified") not in {True, "true", "True", "1"}:
+        raise GoogleAuthenticationError("L’adresse email Google n’est pas vérifiée.")
+
+    email = str(claims.get("email") or "").strip().lower()
+    if not email or len(email) > 180:
+        raise GoogleAuthenticationError("Adresse email Google invalide.")
+
+    full_name = str(claims.get("name") or email.split("@", 1)[0]).strip()[:180]
+    if len(full_name) < 2:
+        full_name = email.split("@", 1)[0][:180]
+    picture = str(claims.get("picture") or "").strip()
+    avatar_url = picture if picture and len(picture) <= 1024 else None
+
+    user = get_user_by_email(db, email)
+    if user is not None:
+        if user.status != "active":
+            raise GoogleAuthenticationError("Ce compte est désactivé.")
+        changed = False
+        if not user.avatar_url and avatar_url:
+            user.avatar_url = avatar_url
+            changed = True
+        if changed:
+            db.commit()
+            db.refresh(user)
+        return user
+
+    user = UserRecord(
+        full_name=full_name,
+        email=email,
+        password_hash=None,
+        avatar_url=avatar_url,
+        status="active",
+        platform_role="user",
+    )
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        existing = get_user_by_email(db, email)
+        if existing is None or existing.status != "active":
+            raise GoogleAuthenticationError("Impossible de créer le compte Google.") from exc
+        return existing
+    db.refresh(user)
+    return user
 
 
 def update_profile(
@@ -74,6 +161,8 @@ def change_password(
     current_password: str,
     new_password: str,
 ) -> UserRecord:
+    if not user.password_hash:
+        raise ValueError("Ce compte utilise Google et n’a pas encore de mot de passe local.")
     if not verify_password(current_password, user.password_hash):
         raise ValueError("Mot de passe actuel incorrect.")
     db.execute(
