@@ -3,13 +3,14 @@ import { BrandLogo } from '../brand/BrandLogo'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { ArrowRight, Check, Eye, EyeOff } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { GoogleAuthButton } from '../auth/GoogleAuthButton'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError, getPublicSchoolIdentity, resolveHostBranding, type HostBranding } from '../lib/api'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, signIn, signUp } = useAuth()
+  const { user, signIn, signUp, signInWithGoogle } = useAuth()
   const requestedReturn = new URLSearchParams(location.search).get('return')
   const returnPath = requestedReturn?.startsWith('/') && !requestedReturn.startsWith('//') && !requestedReturn.includes('\\')
     ? requestedReturn
@@ -69,6 +70,19 @@ export function LoginPage() {
       navigate(returnPath || '/app', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible de continuer.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleGoogleCredential(credential: string) {
+    setSubmitting(true)
+    setError('')
+    try {
+      await signInWithGoogle(credential)
+      navigate(returnPath || '/app', { replace: true })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Impossible de continuer avec Google.')
     } finally {
       setSubmitting(false)
     }
@@ -184,6 +198,14 @@ export function LoginPage() {
             {!submitting && <ArrowRight size={17} />}
           </button>
 
+          <div className="auth-divider"><span>ou</span></div>
+          <GoogleAuthButton
+            mode={mode}
+            disabled={submitting}
+            onCredential={handleGoogleCredential}
+            onError={setError}
+          />
+
           <button
             className="auth-switch"
             type="button"
@@ -194,9 +216,9 @@ export function LoginPage() {
           >
             {mode === 'login'
               ? isPublicSchool
-                ? 'Pas encore de compte ? S’inscrire'
+                ? <>Pas encore de compte ? <span className="auth-switch-accent">S’inscrire</span></>
                 : <>Pas encore de compte ? <span className="auth-switch-accent">Créer mon école</span></>
-              : 'Déjà un compte ? Se connecter'}
+              : <>Déjà un compte ? <span className="auth-switch-accent">Se connecter</span></>}
           </button>
         </form>
       </section>
