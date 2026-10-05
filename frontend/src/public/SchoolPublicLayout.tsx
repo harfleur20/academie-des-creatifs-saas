@@ -136,6 +136,7 @@ export function SchoolPublicLayout() {
   } as CSSProperties
   const validCartItem = cartItem?.organization_id === school.organization_id ? cartItem : null
   const schoolMembership = organizations.find((organization) => organization.id === school.organization_id)
+  const hasFooterContact = Boolean(school.contact_address || school.contact_phone || school.contact_email)
 
   return (
     <div className="public-school-shell" style={style}>
@@ -172,19 +173,24 @@ export function SchoolPublicLayout() {
       <SchoolCartDrawer open={cartOpen} item={validCartItem} schoolSlug={schoolSlug} onClose={closeCart} onClear={() => clearSchoolCart(schoolSlug)} />
 
       <footer className="public-school-footer">
-        <div className="public-school-footer-grid">
+        <div className={'public-school-footer-grid' + (hasFooterContact ? ' has-contact' : '')}>
           <div>
             <div className="public-school-footer-brand">
               <SchoolLogo logoUrl={school.logo_url} alt={school.site_name} />
               <strong>{school.site_name || school.name}</strong>
             </div>
             <p>{school.footer_text || school.tagline}</p>
-            {school.contact_address && <span>{school.contact_address}</span>}
-            {school.contact_phone && <span>{school.contact_phone}</span>}
-            {school.contact_email && <span>{school.contact_email}</span>}
           </div>
           <div><strong>Navigation</strong><Link to={'/school/' + schoolSlug}>Accueil</Link><Link to={'/school/' + schoolSlug + '/formations'}>Formations</Link><Link to={'/school/' + schoolSlug + '/contact'}>Nous contacter</Link></div>
           <div><strong>Informations</strong><Link to={'/school/' + schoolSlug + '/mentions-legales'}>Mentions légales</Link><Link to={'/school/' + schoolSlug + '/cgv'}>Conditions générales de vente</Link><Link to={'/school/' + schoolSlug + '/confidentialite'}>Confidentialité</Link><Link to={'/school/' + schoolSlug + '/remboursement'}>Remboursement / annulation</Link></div>
+          {hasFooterContact && (
+            <div className="public-school-footer-contact">
+              <strong>Contact</strong>
+              {school.contact_address && <span>{school.contact_address}</span>}
+              {school.contact_phone && <a href={'tel:' + school.contact_phone.replace(/\s+/g, '')}>{school.contact_phone}</a>}
+              {school.contact_email && <a href={'mailto:' + school.contact_email}>{school.contact_email}</a>}
+            </div>
+          )}
         </div>
         <div className="public-school-footer-bottom">
           <span>© {new Date().getFullYear()} {school.site_name || school.name}</span>
