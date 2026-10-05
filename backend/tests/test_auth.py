@@ -117,6 +117,44 @@ def test_local_demo_address_authenticates_through_api() -> None:
         db.close()
 
 
+def test_login_cookie_authenticates_other_tab_without_bearer_token() -> None:
+    db = build_db()
+    create_user(
+        db,
+        RegisterPayload(
+            full_name="Marie Test",
+            email="marie@example.com",
+            password="secret-pass-123",
+        ),
+    )
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        with TestClient(app) as client:
+            login_response = client.post(
+                "/api/v1/auth/login",
+                json={
+                    "email": "marie@example.com",
+                    "password": "secret-pass-123",
+                },
+            )
+            assert login_response.status_code == 200
+            assert login_response.cookies.get("academie_saas_session")
+            assert "httponly" in login_response.headers["set-cookie"].lower()
+
+            # A new browser tab does not have the tab-local bearer token, but it
+            # shares the browser cookie and must still recover the logged-in user.
+            me = client.get("/api/v1/auth/me")
+            assert me.status_code == 200
+            assert me.json()["email"] == "marie@example.com"
+
+            logout = client.post("/api/v1/auth/logout")
+            assert logout.status_code == 204
+            assert client.get("/api/v1/auth/me").status_code == 401
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
+
+
 def test_access_token_contains_user_subject() -> None:
     token = create_access_token(42)
     payload = decode_access_token(token)
