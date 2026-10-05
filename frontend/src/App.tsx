@@ -56,7 +56,8 @@ const CommerceDashboardPage = lazy(() => import('./pages/CommerceDashboardPage')
 import { PromotionsPage } from './pages/PromotionsPage'
 const PedagogicalMonitoringPage = lazy(() => import('./pages/PedagogicalMonitoringPage').then((module) => ({ default: module.PedagogicalMonitoringPage })))
 const SchoolPerformancePage = lazy(() => import('./pages/SchoolPerformancePage').then((module) => ({ default: module.SchoolPerformancePage })))
-import { StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
+import { ManageProfilePage, StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
+import { SupportPage } from './pages/SupportPage'
 import { SchoolPublicLayout } from './public/SchoolPublicLayout'
 import { HostSchoolRedirect } from './public/HostSchoolRedirect'
 import { SchoolWorkspaceEntry } from './public/SchoolWorkspaceEntry'
@@ -232,6 +233,8 @@ export default function App() {
               <Route path="site-public" element={<SchoolPublicSitePage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="billing" element={<BillingPage />} />
+              <Route path="profile" element={<ManageProfilePage />} />
+              <Route path="support" element={<SupportPage space="manage" />} />
               <Route path="settings" element={<SchoolSettingsPage />} />
             </Route>
 
@@ -257,6 +260,7 @@ export default function App() {
               <Route path="students" element={<TeacherStudentsPage />} />
               <Route path="performance" element={<TeacherPerformancePage />} />
               <Route path="profile" element={<TeacherProfilePage />} />
+              <Route path="support" element={<SupportPage space="teacher" />} />
             </Route>
 
             <Route
@@ -287,6 +291,7 @@ export default function App() {
               <Route path="certificates" element={<StudentCertificatesPage />} />
               <Route path="payments" element={<StudentPaymentsPage />} />
               <Route path="profile" element={<StudentProfilePage />} />
+              <Route path="support" element={<SupportPage space="student" />} />
             </Route>
 
             <Route path="/app/onboarding" element={<Navigate to="/app/manage/onboarding" replace />} />
@@ -294,6 +299,8 @@ export default function App() {
             <Route path="/app/formations/:formationId" element={<LegacyFormationRedirect />} />
             <Route path="/app/team" element={<Navigate to="/app/manage/team" replace />} />
             <Route path="/app/billing" element={<Navigate to="/app/manage/billing" replace />} />
+            <Route path="/app/profile" element={<Navigate to="/app/manage/profile" replace />} />
+            <Route path="/app/support" element={<Navigate to="/app/manage/support" replace />} />
             <Route path="/app/settings" element={<Navigate to="/app/manage/settings" replace />} />
 
             <Route
