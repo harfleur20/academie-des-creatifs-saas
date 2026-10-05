@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Camera, Check, Eye, EyeOff, Lock, Mail, Phone, Shield, UserRound } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
+import { useTenant } from '../app/TenantContext'
 import {
   ApiError,
   changeMyPassword,
@@ -8,7 +9,7 @@ import {
   uploadMyAvatar,
 } from '../lib/api'
 
-export function ProfilePage({ roleLabel }: { roleLabel: 'Professeur' | 'Étudiant' }) {
+export function ProfilePage({ roleLabel }: { roleLabel: string }) {
   const { user, refreshUser, signOut } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const [fullName, setFullName] = useState(user?.full_name ?? '')
@@ -237,6 +238,17 @@ export function ProfilePage({ roleLabel }: { roleLabel: 'Professeur' | 'Étudian
       </section>
     </main>
   )
+}
+
+export function ManageProfilePage() {
+  const { accessProfile } = useTenant()
+  const roleLabels: Record<string, string> = {
+    owner: 'Propriétaire',
+    admin: 'Administrateur',
+    manager: 'Gestionnaire',
+    super_admin: 'Super-admin',
+  }
+  return <ProfilePage roleLabel={roleLabels[accessProfile?.primary_role || ''] || 'Gestion'} />
 }
 
 export function TeacherProfilePage() {
