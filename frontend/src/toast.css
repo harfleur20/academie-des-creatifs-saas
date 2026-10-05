@@ -112,9 +112,16 @@ body.toast-feedback-enabled .form-error {
 }
 
 .settings-actions .primary-button,
+.school-site-savebar .primary-button,
 .stable-action-button {
   min-width: 176px;
   justify-content: center;
+}
+
+.school-site-savebar .primary-button:disabled {
+  opacity: 1;
+  cursor: progress;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--blue) 20%, transparent);
 }
 
 @keyframes app-toast-enter {
