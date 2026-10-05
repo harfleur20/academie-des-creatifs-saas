@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Eye,
   ExternalLink,
+  LifeBuoy,
   LogOut,
   Menu,
   MessageCircle,
@@ -281,8 +282,11 @@ export function SchoolWorkspaceLayout({
               </button>
               {profileOpen && <div className="manage-topbar-profile-menu">
                 <div><strong>{user?.full_name}</strong><small>{user?.email}</small></div>
+                <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/profile') }}><UserRound size={16} /> Profil</button>
                 <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/settings') }}><Settings size={16} /> Paramètres de l’école</button>
-                <button type="button" onClick={() => { setProfileOpen(false); handleSignOut() }}><LogOut size={16} /> Se déconnecter</button>
+                <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/support') }}><LifeBuoy size={16} /> Support</button>
+                <span className="account-menu-divider" aria-hidden="true" />
+                <button type="button" className="is-danger" onClick={() => { setProfileOpen(false); handleSignOut() }}><LogOut size={16} /> Se déconnecter</button>
               </div>}
             </div>
           </header>
@@ -317,6 +321,8 @@ export function SchoolWorkspaceLayout({
   const roleHome = space === 'teacher' ? '/app/teacher' : '/app/student'
   const profilePath =
     space === 'teacher' ? '/app/teacher/profile' : '/app/student/profile'
+  const supportPath =
+    space === 'teacher' ? '/app/teacher/support' : '/app/student/support'
   const roleLabel = workspaceLabels[space]
   const schoolName = activeOrganization?.name || 'Académie des Créatifs'
   const schoolLogo = activeOrganization?.logo_url
@@ -498,18 +504,19 @@ export function SchoolWorkspaceLayout({
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate(profilePath)}
+                  onClick={() => { setProfileOpen(false); navigate(profilePath) }}
                 >
                   <UserRound size={15} />
                   Mon profil
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate(profilePath)}
+                  onClick={() => { setProfileOpen(false); navigate(supportPath) }}
                 >
-                  <Settings size={15} />
-                  Paramètres du compte
+                  <LifeBuoy size={15} />
+                  Support
                 </button>
+                <span className="account-menu-divider" aria-hidden="true" />
                 <button
                   type="button"
                   className="is-danger"
