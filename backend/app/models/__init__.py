@@ -1,3 +1,4 @@
+from app.models.auth_handoff import AuthHandoffRecord
 from app.models.entities import (
     SchoolNotificationRecord,
     OrganizationTeacherProfileRecord,
@@ -53,6 +54,7 @@ from app.models.entities import (
 )
 
 __all__ = [
+    "AuthHandoffRecord",
     "SchoolNotificationRecord",
     "OrganizationTeacherProfileRecord",
     "CommunicationOutboxRecord",
