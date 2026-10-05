@@ -13,6 +13,8 @@ from app.models.entities import (
     OrganizationLegalProfileRecord,
     OrganizationPublicSiteRecord,
     OrganizationRecord,
+    OrganizationStudentProfileRecord,
+    OrganizationTeacherProfileRecord,
 )
 from app.schemas.commerce import (
     CertificationProfilePayload,
@@ -23,11 +25,13 @@ from app.schemas.commerce import (
     SchoolIdentityRead,
 )
 from app.services.tenancy import TenantContext
+from app.services.publication import site_publication_issues
+from app.services.school_setup import require_identity_address
 
 
-DEFAULT_PRIMARY = "#1768FF"
-DEFAULT_SECONDARY = "#21C889"
-DEFAULT_ACCENT = "#10233F"
+DEFAULT_PRIMARY = "#1F2559"
+DEFAULT_SECONDARY = "#18A7A3"
+DEFAULT_ACCENT = "#131735"
 
 
 def _prefix_from_name(name: str) -> str:
@@ -62,8 +66,9 @@ def _public_site_defaults(org: OrganizationRecord) -> dict:
         "refund_policy": "",
         "font_heading": "Inter",
         "font_body": "Inter",
+        "font_size_scale": 100,
         "student_code_prefix": _prefix_from_name(org.name),
-        "is_published": True,
+        "is_published": False,
     }
 
 
@@ -190,6 +195,7 @@ def _identity_read(
             accent_color=org.accent_color,
             font_heading=site.font_heading,
             font_body=site.font_body,
+            font_size_scale=site.font_size_scale,
             hero_title=site.hero_title,
             hero_subtitle=site.hero_subtitle,
             hero_cta_label=site.hero_cta_label,
@@ -206,6 +212,7 @@ def _identity_read(
             privacy_policy=site.privacy_policy,
             refund_policy=site.refund_policy,
             student_code_prefix=site.student_code_prefix,
+            student_code_prefix_confirmed=bool(site.student_code_prefix_confirmed_at),
             is_published=site.is_published,
         ),
         legal=LegalProfilePayload(
@@ -261,6 +268,30 @@ def update_school_identity(
     org = tenant.organization
     site, legal, comm, cert = get_or_create_identity_records(db, org)
     p = payload.public_site
+    allowed_fonts = {"Inter", "Arial", "Georgia", "Verdana", "Trebuchet MS", "Times New Roman"}
+    if p.font_heading not in allowed_fonts or p.font_body not in allowed_fonts:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Choisissez les polices dans la liste proposée.")
+
+    next_prefix = (p.student_code_prefix.strip() or _prefix_from_name(org.name)).upper()
+    if p.student_code_prefix_confirmed and not p.student_code_prefix.strip():
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Renseignez le préfixe des matricules.")
+    if p.student_code_prefix_confirmed and not site.student_code_prefix_confirmed_at:
+        require_identity_address(org)
+    if site.student_code_prefix_confirmed_at and next_prefix != site.student_code_prefix:
+        has_codes = db.scalar(
+            select(OrganizationTeacherProfileRecord.id).where(
+                OrganizationTeacherProfileRecord.organization_id == org.id,
+            ).limit(1)
+        ) is not None or db.scalar(
+            select(OrganizationStudentProfileRecord.id).where(
+                OrganizationStudentProfileRecord.organization_id == org.id,
+            ).limit(1)
+        ) is not None
+        if has_codes:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Le préfixe ne peut plus changer après l'attribution d'un matricule.",
+            )
 
     org.logo_url = p.logo_url.strip() if p.logo_url else None
     org.primary_color = p.primary_color.upper()
@@ -268,14 +299,17 @@ def update_school_identity(
     org.accent_color = p.accent_color.upper()
 
     site_values = p.model_dump(
-        exclude={"logo_url", "primary_color", "secondary_color", "accent_color"}
+        exclude={"logo_url", "primary_color", "secondary_color", "accent_color", "student_code_prefix_confirmed"}
     )
     for key, value in site_values.items():
         if isinstance(value, str):
             value = value.strip()
         if key == "student_code_prefix":
-            value = (value or _prefix_from_name(org.name)).upper()
+            value = next_prefix
         setattr(site, key, value)
+
+    if p.student_code_prefix_confirmed and not site.student_code_prefix_confirmed_at:
+        site.student_code_prefix_confirmed_at = datetime.now(UTC)
 
     for record, values in (
         (legal, payload.legal.model_dump()),
@@ -288,6 +322,12 @@ def update_school_identity(
             if key == "default_currency" and value:
                 value = value.upper()
             setattr(record, key, value)
+
+    if site.is_published:
+        issues = site_publication_issues(site, legal, org)
+        if issues:
+            db.rollback()
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Publication du site impossible : " + " ".join(issues))
 
     db.commit()
     return _identity_read(org, site, legal, comm, cert)

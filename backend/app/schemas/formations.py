@@ -81,6 +81,7 @@ class FormationSummaryRead(BaseModel):
     is_featured: bool
     featured_order: int
     status: str
+    publication_issues: list[str]
     session_count: int
     teacher_count: int
     student_count: int

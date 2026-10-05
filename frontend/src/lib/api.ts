@@ -100,6 +100,7 @@ const TOKEN_KEY = 'academie_saas_access_token'
 const ORGANIZATION_KEY = 'academie_saas_organization_id'
 const SUPPORT_MODE_KEY = 'academie_saas_support_mode'
 const ORIGINAL_ADMIN_TOKEN_KEY = 'academie_saas_original_admin_token'
+const BROWSER_SESSION_KEY = 'academie_saas_browser_session'
 
 export type SupportModeState = {
   session_id: number
@@ -120,11 +121,37 @@ export class ApiError extends Error {
 export function getAccessToken() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(ORIGINAL_ADMIN_TOKEN_KEY)
+  if (!isCurrentBrowserSession()) return null
   return sessionStorage.getItem(TOKEN_KEY)
 }
 
+export function isCurrentBrowserSession() {
+  const token = sessionStorage.getItem(TOKEN_KEY)
+  if (!token) return true
+  let tabSession = sessionStorage.getItem(BROWSER_SESSION_KEY)
+  const browserSession = localStorage.getItem(BROWSER_SESSION_KEY)
+  if (!tabSession && !browserSession) {
+    tabSession = crypto.randomUUID()
+    sessionStorage.setItem(BROWSER_SESSION_KEY, tabSession)
+    localStorage.setItem(BROWSER_SESSION_KEY, tabSession)
+    return true
+  }
+  if (tabSession === browserSession) return true
+  clearSession()
+  return false
+}
+
+export function browserSessionStorageKey() {
+  return BROWSER_SESSION_KEY
+}
+
 export function setAccessToken(token: string) {
+  const browserSession = crypto.randomUUID()
   sessionStorage.setItem(TOKEN_KEY, token)
+  sessionStorage.setItem(BROWSER_SESSION_KEY, browserSession)
+  sessionStorage.removeItem(ORGANIZATION_KEY)
+  localStorage.removeItem(ORGANIZATION_KEY)
+  localStorage.setItem(BROWSER_SESSION_KEY, browserSession)
 }
 
 function restoreOriginalAdminSession() {
@@ -136,7 +163,7 @@ function restoreOriginalAdminSession() {
   }
   sessionStorage.removeItem(ORIGINAL_ADMIN_TOKEN_KEY)
   sessionStorage.removeItem(SUPPORT_MODE_KEY)
-  localStorage.removeItem(ORGANIZATION_KEY)
+  sessionStorage.removeItem(ORGANIZATION_KEY)
 }
 
 export function getSupportMode(): SupportModeState | null {
@@ -167,7 +194,13 @@ export function getSupportMode(): SupportModeState | null {
 }
 
 export function clearSession() {
+  const browserSession = sessionStorage.getItem(BROWSER_SESSION_KEY)
+  if (browserSession && localStorage.getItem(BROWSER_SESSION_KEY) === browserSession) {
+    localStorage.removeItem(BROWSER_SESSION_KEY)
+  }
   sessionStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(BROWSER_SESSION_KEY)
+  sessionStorage.removeItem(ORGANIZATION_KEY)
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(ORGANIZATION_KEY)
   sessionStorage.removeItem(SUPPORT_MODE_KEY)
@@ -179,7 +212,8 @@ export function clearSession() {
 export const logoutSession = () => request<void>('/auth/logout', { method: 'POST', organizationId: null, keepalive: true })
 
 export function getStoredOrganizationId(): number | null {
-  const raw = localStorage.getItem(ORGANIZATION_KEY)
+  localStorage.removeItem(ORGANIZATION_KEY)
+  const raw = sessionStorage.getItem(ORGANIZATION_KEY)
   if (!raw) return null
   const parsed = Number(raw)
   return Number.isInteger(parsed) ? parsed : null
@@ -187,10 +221,10 @@ export function getStoredOrganizationId(): number | null {
 
 export function setStoredOrganizationId(id: number | null) {
   if (id === null) {
-    localStorage.removeItem(ORGANIZATION_KEY)
+    sessionStorage.removeItem(ORGANIZATION_KEY)
     return
   }
-  localStorage.setItem(ORGANIZATION_KEY, String(id))
+  sessionStorage.setItem(ORGANIZATION_KEY, String(id))
 }
 
 async function request<T>(
@@ -938,10 +972,11 @@ export async function endAdminSupportMode() {
 
 
 export type OnboardingStep = {
-  key: 'school' | 'identity' | 'address' | 'team' | 'formation'
+  key: 'school' | 'identity' | 'address' | 'matricule' | 'team' | 'billing' | 'formation'
   label: string
   description: string
   completed: boolean
+  available: boolean
   path: string
 }
 
@@ -979,6 +1014,7 @@ export type FormationSummary = {
   is_featured: boolean
   featured_order: number
   status: 'draft' | 'published' | 'archived'
+  publication_issues: string[]
   session_count: number
   teacher_count: number
   student_count: number
@@ -1250,10 +1286,14 @@ export const publishChapterLesson = (formationId: number, sessionId: number, cou
 export type TeacherWorkspaceSession = {
   formation_id: number
   formation_title: string
+  formation_image: string | null
+  format_type: 'ligne' | 'live' | 'presentiel'
   session_id: number
   session_label: string
   start_date: string
   end_date: string
+  campus_label: string | null
+  seat_capacity: number
   status: string
   assignment_role: 'principal' | 'intervenant'
   student_count: number
@@ -1261,6 +1301,7 @@ export type TeacherWorkspaceSession = {
 }
 
 export type TeacherWorkspace = {
+  teacher_code: string
   sessions: TeacherWorkspaceSession[]
   total_sessions: number
   total_students: number
@@ -2034,6 +2075,7 @@ export type PublicSiteConfig = {
   accent_color: string
   font_heading: string
   font_body: string
+  font_size_scale: number
   hero_title: string
   hero_subtitle: string
   hero_cta_label: string
@@ -2050,6 +2092,7 @@ export type PublicSiteConfig = {
   privacy_policy: string
   refund_policy: string
   student_code_prefix: string
+  student_code_prefix_confirmed: boolean
   is_published: boolean
 }
 
@@ -2100,6 +2143,7 @@ export type PublicSchool = {
   accent_color: string
   font_heading: string
   font_body: string
+  font_size_scale: number
   hero_title: string
   hero_subtitle: string
   hero_cta_label: string
@@ -2536,3 +2580,25 @@ export type SchoolPedagogyOverview = {
 
 export const getSchoolPedagogyOverview = () =>
   request<SchoolPedagogyOverview>('/academic/manage/overview')
+
+export type SchoolNotification = {
+  id: number
+  audience: WorkspaceSpace
+  title: string
+  message: string
+  category: string
+  tone: 'info' | 'success' | 'warning'
+  action_label: string | null
+  action_path: string | null
+  created_at: string
+  read_at: string | null
+}
+
+export const listSchoolNotifications = (space: WorkspaceSpace) =>
+  request<SchoolNotification[]>(`/notifications?space=${space}`)
+
+export const markSchoolNotificationsRead = (ids: number[]) =>
+  request<void>('/notifications/read', { method: 'POST', body: JSON.stringify({ ids }) })
+
+export const dismissSchoolNotifications = (ids: number[]) =>
+  request<void>('/notifications/dismiss', { method: 'POST', body: JSON.stringify({ ids }) })

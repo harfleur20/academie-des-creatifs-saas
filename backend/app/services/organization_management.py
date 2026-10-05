@@ -32,6 +32,7 @@ from app.schemas.organizations import (
 from app.services.school_branding import branding_snapshot
 from app.services.school_communications import queue_school_event
 from app.services.school_profiles import ensure_teacher_profile
+from app.services.school_setup import require_team_setup
 from app.services.tenancy import TenantContext
 
 
@@ -187,6 +188,9 @@ def add_member(
             detail="Vous ne pouvez pas attribuer ce rôle.",
         )
 
+    if role in {"admin", "manager", "teacher"}:
+        require_team_setup(db, tenant.organization)
+
     existing = db.scalar(
         select(OrganizationMemberRecord).where(
             OrganizationMemberRecord.organization_id == tenant.organization_id,
@@ -252,6 +256,11 @@ def update_member(
             detail="Vous ne pouvez pas attribuer ce rôle.",
         )
 
+    if new_status == "active" and new_role in {"admin", "manager", "teacher"} and (
+        member.status != "active" or member.role != new_role
+    ):
+        require_team_setup(db, tenant.organization)
+
     removes_active_owner = (
         member.role == "owner"
         and member.status == "active"
@@ -308,6 +317,9 @@ def update_member_functional_roles(
             detail="Les accès fonctionnels autorisés sont teacher et student.",
         )
 
+    if "teacher" in requested and "teacher" not in effective_member_roles(member):
+        require_team_setup(db, tenant.organization)
+
     replace_functional_roles(db, member, requested)
     db.commit()
     return _reload_member(db, member.id)
@@ -324,6 +336,8 @@ def create_invitation(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Vous ne pouvez pas inviter ce rôle.",
         )
+
+    require_team_setup(db, tenant.organization)
 
     email = _normalize_email(str(payload.email))
 
@@ -439,6 +453,8 @@ def renew_invitation(
     if invitation.status != "pending":
         raise HTTPException(status_code=409, detail="Cette invitation n'est plus en attente.")
 
+    require_team_setup(db, tenant.organization)
+
     _supersede_pending_invitation_emails(db, invitation)
     token = secrets.token_urlsafe(32)
     invitation.token_hash = _token_hash(token)
@@ -491,8 +507,8 @@ def get_invitation_preview(
         "role": invitation.role,
         "expires_at": invitation.expires_at,
         "logo_url": snapshot.get("logo_url"),
-        "primary_color": snapshot.get("primary_color") or "#1768FF",
-        "secondary_color": snapshot.get("secondary_color") or "#21C889",
+        "primary_color": snapshot.get("primary_color") or "#1F2559",
+        "secondary_color": snapshot.get("secondary_color") or "#18A7A3",
     }
 
 def list_invitations(
@@ -599,6 +615,8 @@ def accept_invitation(
             detail="École introuvable.",
         )
 
+    require_team_setup(db, organization)
+
     membership = db.scalar(
         select(OrganizationMemberRecord).where(
             OrganizationMemberRecord.organization_id == invitation.organization_id,
@@ -613,6 +631,7 @@ def accept_invitation(
             status="active",
         )
         db.add(membership)
+        db.flush()
     else:
         membership.role = invitation.role
         membership.status = "active"

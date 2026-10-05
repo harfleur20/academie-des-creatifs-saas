@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Copy, MailPlus, RefreshCw, UserRound, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { InvitationLink } from '../components/InvitationLink'
-import { ApiError, cancelInvitation, createInvitation, listInvitations, listMembers, renewInvitation, type Invitation, type Member } from '../lib/api'
+import { ApiError, cancelInvitation, createInvitation, getOnboardingStatus, listInvitations, listMembers, renewInvitation, type Invitation, type Member, type OnboardingStatus } from '../lib/api'
 
 export function TeachersManagementPage() {
   const { activeOrganization } = useTenant()
@@ -13,11 +14,13 @@ export function TeachersManagementPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [working, setWorking] = useState(false)
+  const [setup, setSetup] = useState<OnboardingStatus | null>(null)
 
   async function load() {
-    const [nextMembers, nextInvites] = await Promise.all([listMembers(), listInvitations()])
+    const [nextMembers, nextInvites, setupStatus] = await Promise.all([listMembers(), listInvitations(), getOnboardingStatus()])
     setMembers(nextMembers)
     setInvites(nextInvites)
+    setSetup(setupStatus)
   }
 
   useEffect(() => {
@@ -30,6 +33,8 @@ export function TeachersManagementPage() {
 
   const teachers = useMemo(() => members.filter((member) => member.role === 'teacher' || member.roles.some((role) => role.role === 'teacher')), [members])
   const pending = invites.filter((invitation) => invitation.role === 'teacher' && invitation.status === 'pending')
+  const setupBlockingStep = setup?.steps.find((step) => ['identity', 'address', 'matricule'].includes(step.key) && !step.completed)
+  const invitationReady = Boolean(setup && !setupBlockingStep)
 
   async function invite(event: FormEvent) {
     event.preventDefault()
@@ -84,10 +89,12 @@ export function TeachersManagementPage() {
     {error && <div className="form-error">{error}</div>}
     {message && <div className="form-success">{message}</div>}
 
-    <section className="app-card teacher-invite-card"><div><span className="section-label">Nouvel enseignant</span><h2>Inviter un professeur</h2></div><form onSubmit={(event) => void invite(event)}><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="professeur@ecole.com" required /><button className="primary-button" disabled={working}><MailPlus size={15} />{working ? 'Invitation…' : 'Inviter'}</button></form></section>
+    {setupBlockingStep && <section className="app-card formation-readiness"><strong>Invitations verrouillées</strong><p>Terminez d’abord : {setupBlockingStep.label.toLowerCase()}.</p><Link className="secondary-button compact-action" to={setupBlockingStep.path}>Configurer cette étape</Link></section>}
+
+    <section className="app-card teacher-invite-card"><div><span className="section-label">Nouvel enseignant</span><h2>Inviter un professeur</h2></div><form onSubmit={(event) => void invite(event)}><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="professeur@ecole.com" required /><button className="primary-button" disabled={working || !invitationReady}><MailPlus size={15} />{working ? 'Invitation…' : 'Inviter'}</button></form></section>
 
     <section className="teacher-admin-grid">{teachers.map((teacher) => <article className="app-card teacher-admin-card" key={teacher.id}><span className="roster-avatar"><UserRound size={16} /></span><div><h3>{teacher.user.full_name}</h3><p>{teacher.user.email}</p><small>{teacher.status}</small></div></article>)}{teachers.length === 0 && <div className="app-card formation-empty"><Users size={26} /><strong>Aucun professeur</strong><p>Invitez votre premier enseignant.</p></div>}</section>
 
-    {pending.length > 0 && <section className="app-card"><div className="table-heading"><div><span className="section-label">Invitations</span><h2>En attente</h2></div></div><div className="invitation-list">{pending.map((invitation) => <div className="invitation-row teacher-invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><small>Expire le {new Date(invitation.expires_at).toLocaleDateString('fr-FR')}</small>{tokens[invitation.id] && <InvitationLink token={tokens[invitation.id]} />}</div><div className="teacher-invitation-actions"><button className="secondary-button" type="button" disabled={working} onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button><button className="text-danger-button" type="button" disabled={working} onClick={() => void cancel(invitation)}>Annuler</button></div></div>)}</div></section>}
+    {pending.length > 0 && <section className="app-card"><div className="table-heading"><div><span className="section-label">Invitations</span><h2>En attente</h2></div></div><div className="invitation-list">{pending.map((invitation) => <div className="invitation-row teacher-invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><small>Expire le {new Date(invitation.expires_at).toLocaleDateString('fr-FR')}</small>{tokens[invitation.id] && <InvitationLink token={tokens[invitation.id]} />}</div><div className="teacher-invitation-actions"><button className="secondary-button" type="button" disabled={working || !invitationReady} onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button><button className="text-danger-button" type="button" disabled={working} onClick={() => void cancel(invitation)}>Annuler</button></div></div>)}</div></section>}
   </main>
 }

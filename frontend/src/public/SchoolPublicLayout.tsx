@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
 import { BrandLogo } from '../brand/BrandLogo'
 import { SchoolLogo } from '../brand/SchoolLogo'
+import { schoolFontFamily } from '../brand/schoolTypography'
 import { getPublicSchoolIdentity, type PublicSchool } from '../lib/api'
 import { clearSchoolCart, getSchoolCart, type SchoolCartItem } from './schoolCart'
 import { SchoolCartDrawer } from './SchoolCartDrawer'
@@ -129,8 +130,9 @@ export function SchoolPublicLayout() {
     '--school-primary': school.primary_color,
     '--school-secondary': school.secondary_color,
     '--school-accent': school.accent_color,
-    '--school-heading-font': school.font_heading,
-    '--school-body-font': school.font_body,
+    '--school-heading-font': schoolFontFamily(school.font_heading),
+    '--school-body-font': schoolFontFamily(school.font_body),
+    '--school-font-scale': String(school.font_size_scale / 100),
   } as CSSProperties
   const validCartItem = cartItem?.organization_id === school.organization_id ? cartItem : null
   const schoolMembership = organizations.find((organization) => organization.id === school.organization_id)

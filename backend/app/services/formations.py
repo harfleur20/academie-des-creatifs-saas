@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import HTTPException, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -47,8 +49,12 @@ from app.schemas.formations import (
     LessonRead,
 )
 from app.services.membership_roles import member_has_role
+from app.services.online_formations import ensure_online_content_session
+from app.services.onboarding import get_onboarding_status
 from app.services.pdf_lessons import pdf_asset
+from app.services.publication import formation_content_issues, formation_publication_issues
 from app.services.school_communications import queue_session_students_event
+from app.services.school_notifications import notify_user
 from app.services.tenancy import TenantContext, scoped_select
 
 
@@ -279,6 +285,8 @@ def _serialize_formation_summary(
         formation.id,
         visible_session_ids,
     )
+    if formation.format_type == "ligne":
+        session_count = 0
     return FormationSummaryRead(
         id=formation.id,
         organization_id=formation.organization_id,
@@ -301,6 +309,7 @@ def _serialize_formation_summary(
         is_featured=formation.is_featured,
         featured_order=formation.featured_order,
         status=formation.status,
+        publication_issues=formation_publication_issues(db, formation),
         session_count=session_count,
         teacher_count=teacher_count,
         student_count=student_count,
@@ -418,6 +427,11 @@ def create_formation(
     tenant: TenantContext,
     payload: FormationCreate,
 ) -> FormationSummaryRead:
+    setup = get_onboarding_status(db, tenant)
+    missing = next((step for step in setup.steps if step.key != "formation" and not step.completed), None)
+    if missing:
+        raise HTTPException(status_code=409, detail=f"Terminez d'abord l'étape « {missing.label} » avant de créer une formation.")
+
     formation = FormationRecord(
         organization_id=tenant.organization_id,
         slug=payload.slug.strip().lower(),
@@ -442,7 +456,16 @@ def create_formation(
     )
     db.add(formation)
     try:
+        db.flush()
+        ensure_online_content_session(db, formation)
+        if formation.status == "published":
+            issues = formation_publication_issues(db, formation)
+            if issues:
+                raise HTTPException(status_code=422, detail="Publication impossible : " + " ".join(issues))
         db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
     except IntegrityError as exc:
         db.rollback()
         raise FormationConflictError(
@@ -462,12 +485,21 @@ def update_formation(
     if formation is None:
         raise HTTPException(status_code=404, detail="Formation introuvable.")
 
+    previously_published = formation.status == "published"
+    previously_complete = not formation_content_issues(formation)
     for key, value in payload.model_dump(exclude_unset=True).items():
         if isinstance(value, str):
             value = value.strip()
         if key == "currency" and value:
             value = value.upper()
         setattr(formation, key, value)
+    ensure_online_content_session(db, formation)
+    if formation.status == "published":
+        issues = (formation_publication_issues(db, formation)
+                  if not previously_published else formation_content_issues(formation))
+        if issues and (not previously_published or previously_complete):
+            db.rollback()
+            raise HTTPException(status_code=422, detail="Publication impossible : " + " ".join(issues))
     db.commit()
     db.refresh(formation)
     return _serialize_formation_summary(db, tenant, formation)
@@ -496,6 +528,15 @@ def create_session(
         status=payload.status,
     )
     db.add(record)
+    db.flush()
+    if record.status == "open":
+        issues = formation_publication_issues(db, formation)
+        if formation.status != "published" or issues or record.end_date < datetime.now(UTC).date():
+            db.rollback()
+            raise HTTPException(status_code=422, detail="Ouverture impossible : publiez d'abord une formation complète. " + " ".join(issues))
+        if record.price_override_cents == 0:
+            db.rollback()
+            raise HTTPException(status_code=422, detail="Le prix de la session doit être supérieur à zéro.")
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 
@@ -519,10 +560,23 @@ def update_session(
             status_code=422,
             detail="La date de fin doit être postérieure ou égale à la date de début.",
         )
+    next_open = values.get("enrollment_open_at", session.enrollment_open_at)
+    next_close = values.get("enrollment_close_at", session.enrollment_close_at)
+    if next_open and next_close and next_close.replace(tzinfo=next_close.tzinfo or UTC) < next_open.replace(tzinfo=next_open.tzinfo or UTC):
+        raise HTTPException(status_code=422, detail="La clôture des inscriptions doit suivre leur ouverture.")
     for key, value in values.items():
         if isinstance(value, str):
             value = value.strip()
         setattr(session, key, value)
+    if session.status == "open":
+        formation = get_formation_record(db, tenant, formation_id)
+        issues = formation_publication_issues(db, formation)
+        if formation.status != "published" or issues or session.end_date < datetime.now(UTC).date():
+            db.rollback()
+            raise HTTPException(status_code=422, detail="Ouverture impossible : formation ou session incomplète. " + " ".join(issues))
+        if session.price_override_cents == 0:
+            db.rollback()
+            raise HTTPException(status_code=422, detail="Le prix de la session doit être supérieur à zéro.")
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 
@@ -570,6 +624,16 @@ def assign_teacher(
             item.role = "intervenant"
             db.add(item)
     db.add(existing)
+    db.flush()
+    notify_user(
+        db, organization_id=tenant.organization_id, user_id=payload.user_id,
+        event_key=f"teacher.assigned:{session.id}",
+        audience="teacher",
+        title="Formation attribuée",
+        message=f"Vous intervenez dans {get_formation_record(db, tenant, formation_id).title} ({session.label}).",
+        category="session", action_label="Voir la session",
+        action_path=f"/app/teacher/sessions/{session.id}",
+    )
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 

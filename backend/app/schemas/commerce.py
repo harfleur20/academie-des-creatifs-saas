@@ -14,11 +14,12 @@ class PublicSiteConfigPayload(BaseModel):
     seo_description: str = Field(default="", max_length=500)
     logo_url: str | None = Field(default=None, max_length=1024)
     favicon_url: str | None = Field(default=None, max_length=1024)
-    primary_color: str = Field(default="#1768FF", pattern=r"^#[0-9A-Fa-f]{6}$")
-    secondary_color: str = Field(default="#21C889", pattern=r"^#[0-9A-Fa-f]{6}$")
-    accent_color: str = Field(default="#10233F", pattern=r"^#[0-9A-Fa-f]{6}$")
+    primary_color: str = Field(default="#1F2559", pattern=r"^#[0-9A-Fa-f]{6}$")
+    secondary_color: str = Field(default="#18A7A3", pattern=r"^#[0-9A-Fa-f]{6}$")
+    accent_color: str = Field(default="#131735", pattern=r"^#[0-9A-Fa-f]{6}$")
     font_heading: str = Field(default="Inter", max_length=80)
     font_body: str = Field(default="Inter", max_length=80)
+    font_size_scale: int = Field(default=100, ge=85, le=125)
     hero_title: str = Field(default="", max_length=255)
     hero_subtitle: str = Field(default="", max_length=5000)
     hero_cta_label: str = Field(default="Découvrir nos formations", max_length=120)
@@ -35,7 +36,8 @@ class PublicSiteConfigPayload(BaseModel):
     privacy_policy: str = Field(default="", max_length=30000)
     refund_policy: str = Field(default="", max_length=30000)
     student_code_prefix: str = Field(default="", max_length=8, pattern=r"^[A-Za-z0-9]*$")
-    is_published: bool = True
+    student_code_prefix_confirmed: bool = False
+    is_published: bool = False
 
 
 class LegalProfilePayload(BaseModel):
@@ -94,6 +96,7 @@ class PublicSchoolRead(BaseModel):
     accent_color: str
     font_heading: str
     font_body: str
+    font_size_scale: int
     hero_title: str
     hero_subtitle: str
     hero_cta_label: str

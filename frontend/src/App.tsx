@@ -26,6 +26,7 @@ import { OnboardingPage } from './pages/OnboardingPage'
 import { FormationsManagementPage } from './pages/FormationsManagementPage'
 const FormationWorkspacePage = lazy(() => import('./pages/FormationWorkspacePage').then((module) => ({ default: module.FormationWorkspacePage })))
 import { TeacherDashboardPage } from './pages/TeacherDashboardPage'
+import { TeacherSessionsPage } from './pages/TeacherSessionsPage'
 import { StudentDashboardPage } from './pages/StudentDashboardPage'
 import { TeacherSessionPlanningPage } from './pages/TeacherSessionPlanningPage'
 import { StudentSessionPlanningPage } from './pages/StudentSessionPlanningPage'
@@ -67,6 +68,7 @@ import { SchoolLegalPage } from './pages/SchoolLegalPage'
 const SchoolCheckoutPage = lazy(() => import('./pages/SchoolCheckoutPage').then((module) => ({ default: module.SchoolCheckoutPage })))
 const StudentPaymentsPage = lazy(() => import('./pages/StudentPaymentsPage').then((module) => ({ default: module.StudentPaymentsPage })))
 import type { WorkspaceSpace } from './lib/api'
+import { SchoolNotificationsPage } from './pages/SchoolNotificationsPage'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
   const { user, supportMode, loading } = useAuth()
@@ -217,6 +219,7 @@ export default function App() {
               }
             >
               <Route index element={<SchoolDashboardPage />} />
+              <Route path="notifications" element={<SchoolNotificationsPage space="manage" />} />
               <Route path="onboarding" element={<OnboardingPage />} />
               <Route path="formations" element={<FormationsManagementPage />} />
               <Route path="formations/:formationId" element={<FormationWorkspacePage />} />
@@ -243,7 +246,8 @@ export default function App() {
               }
             >
               <Route index element={<TeacherDashboardPage />} />
-              <Route path="sessions" element={<TeacherDashboardPage />} />
+              <Route path="notifications" element={<SchoolNotificationsPage space="teacher" />} />
+              <Route path="sessions" element={<TeacherSessionsPage />} />
               <Route path="sessions/:sessionId" element={<TeacherSessionPlanningPage />} />
               <Route path="courses" element={<TeacherCoursesPage />} />
               <Route path="resources" element={<TeacherResourcesPage />} />
@@ -266,6 +270,7 @@ export default function App() {
               }
             >
               <Route index element={<StudentDashboardPage />} />
+              <Route path="notifications" element={<SchoolNotificationsPage space="student" />} />
               <Route path="formations" element={<StudentParcoursPage />} />
               <Route path="sessions/:sessionId" element={<StudentSessionPlanningPage />} />
               <Route path="planning" element={<StudentPlanningPage />} />

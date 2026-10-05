@@ -50,10 +50,14 @@ def get_teacher_workspace(
         TeacherSessionWorkspaceRead(
             formation_id=item.session.formation_id,
             formation_title=item.session.formation.title,
+            formation_image=item.session.formation.cover_image_url,
+            format_type=item.session.formation.format_type,
             session_id=item.session.id,
             session_label=item.session.label,
             start_date=item.session.start_date,
             end_date=item.session.end_date,
+            campus_label=item.session.campus_label,
+            seat_capacity=item.session.seat_capacity,
             status=item.session.status,
             assignment_role=item.role,
             student_count=sum(

@@ -63,7 +63,7 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
             <div className="school-cart-drawer-content">
               <article className="school-cart-drawer-item">
                 {item.cover_image_url ? <img src={item.cover_image_url} alt="" /> : <div className="school-cart-placeholder" />}
-                <div><h3>{item.formation_title}</h3><p>Session : {item.session_label}</p><strong>{formatSchoolMoney(item.price_cents, item.currency)}</strong></div>
+                <div><h3>{item.formation_title}</h3><p>{item.format_type === 'ligne' || item.session_label === 'Accès en ligne' ? 'Formation en ligne' : `Session : ${item.session_label}`}</p><strong>{formatSchoolMoney(item.price_cents, item.currency)}</strong></div>
                 <button type="button" aria-label="Retirer du panier" onClick={onClear}><Trash2 size={17} /></button>
               </article>
             </div>

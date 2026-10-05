@@ -8,6 +8,7 @@ import {
   FileText,
   GraduationCap,
   LayoutDashboard,
+  Bell,
   CreditCard,
   UserRound,
   Users,
@@ -25,6 +26,7 @@ export function StudentLayout() {
           icon: <LayoutDashboard size={18} />,
           end: true,
         },
+        { to: '/app/student/notifications', label: 'Notifications', icon: <Bell size={18} /> },
         {
           to: '/app/student/formations',
           label: 'Mes parcours',

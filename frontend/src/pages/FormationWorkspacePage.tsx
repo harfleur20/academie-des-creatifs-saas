@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   ArrowLeft,
   BookOpen,
   CalendarPlus,
   GraduationCap,
+  ImagePlus,
   Plus,
+  Save,
   Send,
   UserPlus,
   Users,
@@ -20,6 +22,8 @@ import {
   getFormation,
   listMembers,
   updateFormation,
+  updateFormationSession,
+  uploadSchoolAsset,
   type FormationDetail,
   type Member,
 } from '../lib/api'
@@ -34,6 +38,10 @@ export function FormationWorkspacePage() {
   const [endDate, setEndDate] = useState('')
   const [capacity, setCapacity] = useState('0')
   const [campus, setCampus] = useState('')
+  const [description, setDescription] = useState('')
+  const [coverUrl, setCoverUrl] = useState('')
+  const [price, setPrice] = useState('')
+  const [publicProgram, setPublicProgram] = useState('')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -45,6 +53,10 @@ export function FormationWorkspacePage() {
         listMembers(),
       ])
       setFormation(detail)
+      setDescription(detail.description)
+      setCoverUrl(detail.cover_image_url || '')
+      setPrice(detail.price_cents ? String(detail.currency === 'XAF' ? detail.price_cents : detail.price_cents / 100) : '')
+      setPublicProgram(detail.public_program)
       setMembers(team)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible de charger la formation.')
@@ -91,11 +103,50 @@ export function FormationWorkspacePage() {
     setError('')
     setMessage('')
     try {
-      const updated = await updateFormation(formation.id, { status: 'published' })
-      setFormation((current) => current ? { ...current, status: updated.status } : current)
+      await updateFormation(formation.id, { status: 'published' })
+      setFormation(await getFormation(formation.id))
       setMessage('Formation publiée. Vérifiez aussi que le site public de l’école est publié.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Publication impossible.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function savePresentation(event: FormEvent) {
+    event.preventDefault()
+    if (!formation) return
+    setWorking(true)
+    setError('')
+    setMessage('')
+    try {
+      await updateFormation(formation.id, {
+        description: description.trim(),
+        cover_image_url: coverUrl || null,
+        price_cents: price ? Math.round(Number(price) * (formation.currency === 'XAF' ? 1 : 100)) : 0,
+        public_program: publicProgram.trim(),
+      })
+      setFormation(await getFormation(formation.id))
+      setMessage('Présentation enregistrée.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function uploadCover(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setWorking(true)
+    setError('')
+    try {
+      const asset = await uploadSchoolAsset(file)
+      setCoverUrl(asset.public_url)
+      setMessage('Photo importée. Enregistrez la présentation pour l’utiliser.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Import de la photo impossible.')
     } finally {
       setWorking(false)
     }
@@ -116,17 +167,31 @@ export function FormationWorkspacePage() {
           <h1>{formation.title}</h1>
           <p>{formation.description || 'Aucune description.'}</p>
         </div>
-        <div className="formation-workspace-actions"><span className="status-chip">{formation.status === 'published' ? 'Publiée' : 'Brouillon'} · {formation.session_count} session(s)</span>{formation.status === 'draft' && <button className="primary-button" type="button" disabled={working} onClick={() => void publishFormation()}><Send size={15} /> {working ? 'Publication…' : 'Publier la formation'}</button>}</div>
+        <div className="formation-workspace-actions"><span className="status-chip">{formation.status === 'published' ? 'Publiée' : 'Brouillon'}{formation.format_type !== 'ligne' && ` · ${formation.session_count} session(s)`}</span>{formation.status === 'draft' && <button className="primary-button" type="button" disabled={working || formation.publication_issues.length > 0} onClick={() => void publishFormation()}><Send size={15} /> {working ? 'Publication…' : 'Publier la formation'}</button>}</div>
       </header>
 
       {error && <div className="form-error">{error}</div>}
-      {message && <div className="form-success">{message} <Link to="/app/manage/site-public">Vérifier le site public</Link></div>}
+      {message && <div className="form-success">{message} {message.startsWith('Formation publiée') && <Link to="/app/manage/site-public">Vérifier le site public</Link>}</div>}
 
-      <section className="app-card session-create-card">
+      {formation.publication_issues.length > 0 && <section className="app-card formation-readiness"><strong>À compléter avant publication ou ouverture des inscriptions</strong>{formation.status === 'published' && <p>Les informations manquantes peuvent masquer la fiche publique ou bloquer les inscriptions.</p>}<ul>{formation.publication_issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></section>}
+
+      <form className="app-card formation-presentation" onSubmit={(event) => void savePresentation(event)}>
+        <div className="settings-section-heading"><div><span className="section-label">Catalogue public</span><h2>Présentation et prix</h2></div><ImagePlus size={20} /></div>
+        <label className="formation-cover-picker">Photo de couverture
+          {coverUrl && <img src={coverUrl} alt="Couverture de la formation" />}
+          <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={(event) => void uploadCover(event)} disabled={working} />
+        </label>
+        <label>Prix ({formation.currency})<input type="number" min={formation.currency === 'XAF' ? '1' : '0.01'} step={formation.currency === 'XAF' ? '1' : '0.01'} value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formation.currency === 'XAF' ? 'Ex. 150000' : 'Ex. 250.00'} /></label>
+        <label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} /></label>
+        <label>Programme public<textarea value={publicProgram} onChange={(event) => setPublicProgram(event.target.value)} maxLength={30000} placeholder="Contenu et objectifs présentés aux futurs étudiants" /></label>
+        <button className="primary-button" type="submit" disabled={working}><Save size={15} /> Enregistrer la présentation</button>
+      </form>
+
+      {formation.format_type !== 'ligne' && <section className="app-card session-create-card">
         <div className="settings-section-heading">
           <div>
             <span className="section-label">Cohorte / session</span>
-            <h2>Ouvrir une nouvelle session</h2>
+            <h2>Créer une session</h2>
           </div>
           <CalendarPlus size={20} />
         </div>
@@ -158,7 +223,7 @@ export function FormationWorkspacePage() {
             <Plus size={15} /> Créer la session
           </button>
         </form>
-      </section>
+      </section>}
 
       <section className="session-list">
         {formation.sessions.map((session) => (
@@ -174,7 +239,7 @@ export function FormationWorkspacePage() {
           <div className="app-card formation-empty">
             <CalendarPlus size={26} />
             <strong>Aucune session</strong>
-            <p>Ouvrez une cohorte pour commencer à affecter professeurs et étudiants.</p>
+            <p>{formation.format_type === 'ligne' ? 'Actualisez la page pour charger le contenu pédagogique.' : 'Ouvrez une cohorte pour commencer à affecter professeurs et étudiants.'}</p>
           </div>
         )}
       </section>
@@ -219,20 +284,26 @@ function SessionWorkspace({
     <article className="app-card session-workspace-card">
       <header className="session-workspace-heading">
         <div>
-          <span className="section-label">{session.status}</span>
-          <h2>{session.label}</h2>
-          <p>
+          <span className="section-label">{formation.format_type === 'ligne' ? 'Contenu pédagogique' : session.status === 'open' ? 'Inscriptions ouvertes' : session.status === 'planned' ? 'Inscriptions fermées' : session.status}</span>
+          <h2>{formation.format_type === 'ligne' ? formation.title : session.label}</h2>
+          {formation.format_type !== 'ligne' && <p>
             {new Date(session.start_date).toLocaleDateString('fr-FR')}
             {' → '}
             {new Date(session.end_date).toLocaleDateString('fr-FR')}
             {session.seat_capacity > 0 ? ` · ${session.enrollments.length}/${session.seat_capacity} places` : ''}
-          </p>
+          </p>}
         </div>
         <div className="session-workspace-stats">
           <span><GraduationCap size={14} /> {session.teachers.length}</span>
           <span><Users size={14} /> {session.enrollments.filter((item) => item.status === 'active').length}</span>
           <span><BookOpen size={14} /> {session.courses.length}</span>
         </div>
+        {formation.format_type !== 'ligne' && (session.status === 'planned' || session.status === 'open') && <button
+          className="secondary-button"
+          type="button"
+          disabled={working || (session.status === 'planned' && (formation.status !== 'published' || formation.publication_issues.length > 0))}
+          onClick={() => void run(() => updateFormationSession(formation.id, session.id, { status: session.status === 'open' ? 'planned' : 'open' }))}
+        >{session.status === 'open' ? 'Fermer les inscriptions' : 'Ouvrir les inscriptions'}</button>}
       </header>
 
       {error && <div className="form-error">{error}</div>}
@@ -275,7 +346,7 @@ function SessionWorkspace({
         <section>
           <h3>Étudiants</h3>
           <p className="muted-note">
-            Les étudiants sont inscrits automatiquement dans cette session après leur achat sur le site public.
+            {formation.format_type === 'ligne' ? 'Les étudiants accèdent automatiquement à la formation après leur achat sur le site public.' : 'Les étudiants sont inscrits automatiquement dans cette session après leur achat sur le site public.'}
           </p>
           <div className="compact-person-list">
             {session.enrollments.filter((item) => item.status !== 'cancelled').map((item) => (
@@ -284,7 +355,7 @@ function SessionWorkspace({
                 <small>{item.status}</small>
               </span>
             ))}
-            {session.enrollments.length === 0 && <small>Aucun achat confirmé pour cette session.</small>}
+            {session.enrollments.length === 0 && <small>{formation.format_type === 'ligne' ? 'Aucun achat confirmé pour cette formation.' : 'Aucun achat confirmé pour cette session.'}</small>}
           </div>
           <Link className="secondary-button compact-action" to="/app/manage/students">
             Voir la gestion des étudiants
@@ -296,7 +367,7 @@ function SessionWorkspace({
         <div className="settings-section-heading">
           <div>
             <span className="section-label">Contenu pédagogique</span>
-            <h3>Cours de la session</h3>
+            <h3>{formation.format_type === 'ligne' ? 'Cours de la formation' : 'Cours de la session'}</h3>
           </div>
         </div>
 
@@ -404,7 +475,7 @@ function SessionWorkspace({
               </div>
             </article>
           ))}
-          {session.courses.length === 0 && <div className="empty-row">Aucun cours dans cette session.</div>}
+          {session.courses.length === 0 && <div className="empty-row">{formation.format_type === 'ligne' ? 'Aucun cours dans cette formation.' : 'Aucun cours dans cette session.'}</div>}
         </div>
       </section>
     </article>

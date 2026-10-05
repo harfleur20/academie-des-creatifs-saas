@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { ArrowRight, CheckCircle2, Mail, ShieldCheck } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useTenant } from '../app/TenantContext'
 import { useAuth } from '../auth/AuthContext'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import {
@@ -20,7 +21,8 @@ const roleLabel: Record<InvitationPreview['role'], string> = {
 export function InvitationAcceptPage() {
   const { token = '' } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, loading: authLoading, signOut } = useAuth()
+  const { refreshOrganizations } = useTenant()
   const [preview, setPreview] = useState<InvitationPreview | null>(null)
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
@@ -43,13 +45,17 @@ export function InvitationAcceptPage() {
       const result = await acceptOrganizationInvitation(token)
       setStoredOrganizationId(result.organization.id)
       setAccepted(true)
+      const destination = result.membership.role === 'teacher'
+        ? '/app/teacher'
+        : '/app/manage'
+      try {
+        await refreshOrganizations()
+      } catch {
+        window.location.assign(destination)
+        return
+      }
       window.setTimeout(() => {
-        navigate(
-          result.membership.role === 'teacher'
-            ? '/app/teacher'
-            : '/app/manage',
-          { replace: true },
-        )
+        navigate(destination, { replace: true })
       }, 700)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Acceptation impossible.')
@@ -65,6 +71,10 @@ export function InvitationAcceptPage() {
       } as CSSProperties)
     : undefined
   const returnPath = '/invite/' + token
+  const loginPath = '/login?return=' + encodeURIComponent(returnPath)
+  const accountMatchesInvitation = Boolean(
+    user && preview && user.email.trim().toLowerCase() === preview.email.trim().toLowerCase(),
+  )
 
   return (
     <main className="invitation-page" style={style}>
@@ -103,12 +113,29 @@ export function InvitationAcceptPage() {
 
             {error && <div className="form-error">{error}</div>}
 
-            {user ? (
+            {authLoading ? (
+              <p>Vérification de votre session…</p>
+            ) : user && preview && !accountMatchesInvitation ? (
+              <div className="invitation-auth-actions">
+                <p>
+                  Cette invitation est destinée à <strong>{preview.email}</strong>.
+                  Vous êtes connecté avec <strong>{user.email}</strong>.
+                </p>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => {
+                    signOut()
+                    navigate(loginPath)
+                  }}
+                >
+                  Changer de compte
+                </button>
+              </div>
+            ) : user ? (
               <>
                 <p>
                   Vous êtes connecté avec <strong>{user.email}</strong>.
-                  L’invitation ne pourra être acceptée que si cette adresse
-                  correspond à celle invitée.
                 </p>
                 <button
                   className="primary-button full"
@@ -125,10 +152,7 @@ export function InvitationAcceptPage() {
                 <p>Connectez-vous ou créez un compte avec l’adresse invitée.</p>
                 <Link
                   className="primary-button"
-                  to={
-                    '/login?return=' +
-                    encodeURIComponent(returnPath)
-                  }
+                  to={loginPath}
                 >
                   Se connecter
                 </Link>

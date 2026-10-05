@@ -3,6 +3,9 @@ import { ExternalLink, ImagePlus, Palette, Save, ShieldCheck } from 'lucide-reac
 import { Link } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { SchoolLogo } from '../brand/SchoolLogo'
+import { schoolFontFamily, schoolFontOptions } from '../brand/schoolTypography'
+
+const supportedFont = (name: string) => schoolFontOptions.some((option) => option.name === name) ? name : 'Inter'
 import {
   ApiError,
   getSchoolIdentity,
@@ -21,7 +24,14 @@ export function SchoolPublicSitePage() {
   useEffect(() => {
     if (!activeOrganization) return
     getSchoolIdentity()
-      .then(setData)
+      .then((identity) => setData({
+        ...identity,
+        public_site: {
+          ...identity.public_site,
+          font_heading: supportedFont(identity.public_site.font_heading),
+          font_body: supportedFont(identity.public_site.font_body),
+        },
+      }))
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Chargement impossible.'))
   }, [activeOrganization?.id])
 
@@ -74,10 +84,16 @@ export function SchoolPublicSitePage() {
     setError('')
     setMessage('')
     try {
-      const updated = await updateSchoolIdentity(data)
+      const moveToDraft = data.public_site.is_published && publicationIssues.length > 0
+      const updated = await updateSchoolIdentity({
+        ...data,
+        public_site: { ...data.public_site, is_published: moveToDraft ? false : data.public_site.is_published },
+      })
       setData(updated)
       await refreshOrganizations()
-      setMessage('Identité et site public enregistrés.')
+      setMessage(moveToDraft
+        ? 'Identité enregistrée. Le site est passé en brouillon jusqu’à la fin de sa configuration.'
+        : 'Identité et site public enregistrés.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.')
     } finally {
@@ -87,6 +103,19 @@ export function SchoolPublicSitePage() {
 
   if (!activeOrganization) return <div className="page-state">Créez d’abord une école.</div>
   if (!data) return <div className="page-state">{error || 'Chargement de l’identité de l’école…'}</div>
+  const publicationIssues = [
+    !activeOrganization.contact_email?.trim() && 'Email de contact de l’école',
+    !activeOrganization.subdomain?.trim() && 'Sous-domaine de l’école',
+    !data.public_site.student_code_prefix_confirmed && 'Préfixe des matricules à confirmer',
+    !data.public_site.legal_notice.trim() && 'Mentions légales',
+    !data.public_site.sales_terms.trim() && 'Conditions générales de vente',
+    !data.public_site.privacy_policy.trim() && 'Politique de confidentialité',
+    !data.public_site.refund_policy.trim() && 'Politique de remboursement',
+    !data.legal.legal_name.trim() && 'Raison sociale des factures',
+    !data.legal.legal_address.trim() && 'Adresse légale des factures',
+    !data.legal.invoice_email?.trim() && 'Email de facturation',
+    !/^[A-Za-z]{3}$/.test(data.legal.default_currency.trim()) && 'Devise de facturation',
+  ].filter((issue): issue is string => Boolean(issue))
 
   return <main className="app-page school-site-admin">
     <header className="app-page-header">
@@ -102,6 +131,7 @@ export function SchoolPublicSitePage() {
 
     {error && <div className="form-error">{error}</div>}
     {message && <div className="form-success">{message}</div>}
+    {publicationIssues.length > 0 && <div className="app-card formation-readiness"><strong>À compléter avant de publier le site</strong>{data.public_site.is_published && <p>Ce site est déjà inaccessible au public. Son prochain enregistrement le passera en brouillon pour vous laisser terminer les étapes.</p>}<ul>{publicationIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul></div>}
 
     <form className="school-site-admin-form" onSubmit={save}>
       <section className="app-card school-site-section">
@@ -117,9 +147,24 @@ export function SchoolPublicSitePage() {
           <label>Couleur principale<input type="color" value={data.public_site.primary_color} onChange={(e)=>site('primary_color',e.target.value)}/></label>
           <label>Couleur secondaire<input type="color" value={data.public_site.secondary_color} onChange={(e)=>site('secondary_color',e.target.value)}/></label>
           <label>Couleur accent<input type="color" value={data.public_site.accent_color} onChange={(e)=>site('accent_color',e.target.value)}/></label>
-          <label>Police titres<input value={data.public_site.font_heading} onChange={(e)=>site('font_heading',e.target.value)}/></label>
-          <label>Police texte<input value={data.public_site.font_body} onChange={(e)=>site('font_body',e.target.value)}/></label>
+          <label>Police des titres<select value={schoolFontOptions.some((option) => option.name === data.public_site.font_heading) ? data.public_site.font_heading : 'Inter'} onChange={(e)=>site('font_heading',e.target.value)}>{schoolFontOptions.map((option) => <option key={option.name} value={option.name}>{option.name}</option>)}</select></label>
+          <label>Police du texte<select value={schoolFontOptions.some((option) => option.name === data.public_site.font_body) ? data.public_site.font_body : 'Inter'} onChange={(e)=>site('font_body',e.target.value)}>{schoolFontOptions.map((option) => <option key={option.name} value={option.name}>{option.name}</option>)}</select></label>
         </div>
+        <div className="school-typography-controls">
+          <label htmlFor="school-font-size">Taille des textes <strong>{data.public_site.font_size_scale}%</strong></label>
+          <input id="school-font-size" type="range" min="85" max="125" step="5" value={data.public_site.font_size_scale} onChange={(e)=>site('font_size_scale',Number(e.target.value))}/>
+          <button className="secondary-button compact-action" type="button" onClick={()=>site('font_size_scale',100)}>Taille normale</button>
+        </div>
+        <div className="school-typography-preview" aria-label="Aperçu de la typographie">
+          <strong style={{ fontFamily: schoolFontFamily(data.public_site.font_heading), fontSize: `${Math.round(28 * data.public_site.font_size_scale / 100)}px` }}>Découvrez nos formations</strong>
+          <p style={{ fontFamily: schoolFontFamily(data.public_site.font_body), fontSize: `${Math.round(15 * data.public_site.font_size_scale / 100)}px` }}>Un aperçu immédiat des titres et des textes de votre école.</p>
+        </div>
+        <label className="school-prefix-confirmation">
+          <input type="checkbox" checked={data.public_site.student_code_prefix_confirmed} disabled={data.public_site.student_code_prefix_confirmed || !activeOrganization.contact_email || !activeOrganization.subdomain} onChange={(e)=>site('student_code_prefix_confirmed',e.target.checked)}/>
+          <span>{data.public_site.student_code_prefix_confirmed ? 'Préfixe confirmé pour cette école' : 'Je confirme ce préfixe pour les matricules des professeurs et étudiants.'}</span>
+        </label>
+        {(!activeOrganization.contact_email || !activeOrganization.subdomain) && !data.public_site.student_code_prefix_confirmed && <p className="muted-note">Renseignez d’abord l’email de contact et l’adresse de l’école dans <Link to="/app/manage/settings">Paramètres</Link>.</p>}
+        <p className="muted-note">La valeur proposée est provisoire jusqu’à votre confirmation. Les matricules déjà attribués ne changent pas.</p>
       </section>
 
       <section className="app-card school-site-section">
@@ -144,7 +189,7 @@ export function SchoolPublicSitePage() {
       </section>
 
       <section className="app-card school-site-section">
-        <div className="settings-section-heading"><div><span className="section-label">Documents</span><h2>Identité légale & facturation</h2></div><ShieldCheck size={19}/></div>
+        <div className="settings-section-heading"><div><span className="section-label">Documents</span><h2>Identité légale & facturation</h2><p>Ces quatre informations sont nécessaires avant toute publication et émission de facture. Les numéros d'enregistrement et fiscaux sont à renseigner selon votre situation.</p></div><ShieldCheck size={19}/></div>
         <div className="school-site-form-grid">
           <label>Raison sociale<input value={data.legal.legal_name} onChange={(e)=>legal('legal_name',e.target.value)}/></label>
           <label>N° registre / RCCM / SIRET<input value={data.legal.registration_number} onChange={(e)=>legal('registration_number',e.target.value)}/></label>
@@ -190,7 +235,7 @@ export function SchoolPublicSitePage() {
       </section>
 
       <div className="school-site-savebar">
-        <label className="school-site-publish"><input type="checkbox" checked={data.public_site.is_published} onChange={(e)=>site('is_published',e.target.checked)}/> Site public publié</label>
+        <label className="school-site-publish"><input type="checkbox" checked={data.public_site.is_published} disabled={!data.public_site.is_published && publicationIssues.length > 0} onChange={(e)=>site('is_published',e.target.checked)}/> Site public publié</label>
         <button className="primary-button" disabled={working}><Save size={15}/>{working?'Enregistrement…':'Enregistrer'}</button>
       </div>
     </form>

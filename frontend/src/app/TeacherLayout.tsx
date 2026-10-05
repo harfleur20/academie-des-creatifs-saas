@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   FileText,
   LayoutDashboard,
+  Bell,
   UserRound,
   Users,
 } from 'lucide-react'
@@ -23,6 +24,7 @@ export function TeacherLayout() {
           icon: <LayoutDashboard size={18} />,
           end: true,
         },
+        { to: '/app/teacher/notifications', label: 'Notifications', icon: <Bell size={18} /> },
         {
           to: '/app/teacher/performance',
           label: 'Performance',

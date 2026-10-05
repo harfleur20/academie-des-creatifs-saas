@@ -7,9 +7,9 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  Bell,
   ChevronDown,
   Eye,
+  ExternalLink,
   LogOut,
   Menu,
   MessageCircle,
@@ -36,6 +36,7 @@ import {
   type WorkspaceSpace,
 } from '../lib/api'
 import { useTenant } from './TenantContext'
+import { SchoolNotificationBell } from './SchoolNotificationBell'
 
 export type WorkspaceNavItem = {
   to: string
@@ -98,6 +99,9 @@ export function SchoolWorkspaceLayout({
     '--green': isRoleSpace
       ? organizationSecondary
       : DEFAULT_BRAND_COLORS.secondary,
+    '--button-end': isRoleSpace
+      ? `color-mix(in srgb, ${organizationPrimary} 80%, white)`
+      : '#35409A',
     '--tenant-accent': isRoleSpace
       ? organizationAccent
       : DEFAULT_BRAND_COLORS.accent,
@@ -120,7 +124,6 @@ export function SchoolWorkspaceLayout({
       .filter((item) => item.label.toLocaleLowerCase('fr-FR').includes(query))
       .slice(0, 6)
   }, [navItems, search])
-
   useEffect(() => {
     setSidebarOpen(false)
     setProfileOpen(false)
@@ -163,7 +166,8 @@ export function SchoolWorkspaceLayout({
   if (!isRoleSpace) {
     return (
       <div className="saas-app" style={brandStyle}>
-        <aside className="app-sidebar">
+        {sidebarOpen && <button className="manage-sidebar-backdrop" type="button" aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} />}
+        <aside className={`app-sidebar${sidebarOpen ? ' is-open' : ''}`}>
           <div className="app-brand">
             <BrandLogo
               logoUrl={DEFAULT_PLATFORM_LOGO_URL}
@@ -256,6 +260,32 @@ export function SchoolWorkspaceLayout({
         </aside>
 
         <div className="app-content">
+          <header className="manage-topbar">
+            <button type="button" className="manage-topbar-menu" aria-label={sidebarOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((value) => !value)}>
+              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <div className="manage-topbar-search">
+              <Search size={17} />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher dans le dashboard..." aria-label="Rechercher une rubrique de gestion" />
+              {searchResults.length > 0 && <div className="manage-topbar-results">
+                {searchResults.map((item) => <button type="button" key={item.to} onClick={() => { navigate(item.to); setSearch('') }}>{item.icon}<span>{item.label}</span></button>)}
+              </div>}
+            </div>
+            <div className="manage-topbar-actions" ref={profileRef}>
+              {activeOrganization && <NavLink className="manage-topbar-site" to={`/school/${activeOrganization.slug}`} target="_blank" rel="noopener noreferrer" title="Voir le site public"><ExternalLink size={17} /><span>Voir le site</span></NavLink>}
+              <SchoolNotificationBell space="manage" />
+              <button type="button" className="manage-topbar-profile" onClick={() => setProfileOpen((value) => !value)} aria-expanded={profileOpen} aria-label="Ouvrir le menu du compte">
+                <span className="manage-topbar-avatar">{user?.avatar_url ? <img src={user.avatar_url} alt="" /> : initialsFor(user?.full_name)}</span>
+                <span className="manage-topbar-profile-label"><strong>{user?.full_name || 'Administrateur'}</strong><small>{activeOrganization?.name || 'Gestion de l’école'}</small></span>
+                <ChevronDown size={15} />
+              </button>
+              {profileOpen && <div className="manage-topbar-profile-menu">
+                <div><strong>{user?.full_name}</strong><small>{user?.email}</small></div>
+                <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/settings') }}><Settings size={16} /> Paramètres de l’école</button>
+                <button type="button" onClick={() => { setProfileOpen(false); handleSignOut() }}><LogOut size={16} /> Se déconnecter</button>
+              </div>}
+            </div>
+          </header>
           {supportMode && (
             <div className="support-mode-banner">
               <div>
@@ -423,19 +453,13 @@ export function SchoolWorkspaceLayout({
             <button
               type="button"
               className="tenant-role-icon-button"
-              aria-label="Messages"
-              title="Messages"
+              aria-label="Messagerie bientôt disponible"
+              title="Messagerie bientôt disponible"
+              disabled
             >
               <MessageCircle size={19} />
             </button>
-            <button
-              type="button"
-              className="tenant-role-icon-button"
-              aria-label="Notifications"
-              title="Notifications"
-            >
-              <Bell size={19} />
-            </button>
+            <SchoolNotificationBell space={space} />
 
             <button
               type="button"

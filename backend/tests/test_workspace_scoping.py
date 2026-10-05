@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 from fastapi import HTTPException
@@ -12,6 +12,7 @@ from app.models.entities import (
     FormationRecord,
     FormationSessionRecord,
     OrganizationMemberRecord,
+    OrganizationPublicSiteRecord,
     OrganizationRecord,
     SessionTeacherRecord,
     UserRecord,
@@ -38,6 +39,11 @@ def seed(db: Session):
     org = OrganizationRecord(name="School", slug="school")
     db.add_all([owner, teacher, student, other_teacher, org])
     db.flush()
+    db.add(OrganizationPublicSiteRecord(
+        organization_id=org.id,
+        student_code_prefix="SC",
+        student_code_prefix_confirmed_at=datetime.now(UTC),
+    ))
 
     memberships = [
         OrganizationMemberRecord(organization_id=org.id, user_id=owner.id, role="owner", status="active"),
@@ -63,6 +69,7 @@ def seed(db: Session):
         label="Cohorte Octobre",
         start_date=date(2026, 10, 1),
         end_date=date(2026, 11, 1),
+        seat_capacity=25,
         status="open",
     )
     db.add(session)
@@ -102,6 +109,8 @@ def test_teacher_workspace_only_contains_assigned_sessions() -> None:
     assert workspace.total_students == 1
     assert workspace.total_courses == 1
     assert workspace.sessions[0].formation_title == "Motion Design"
+    assert workspace.sessions[0].format_type == "ligne"
+    assert workspace.sessions[0].seat_capacity == 25
 
     other_tenant = resolve_tenant_context(db, user=other_teacher, organization_id=org.id)
     other_workspace = get_teacher_workspace(db, other_tenant)

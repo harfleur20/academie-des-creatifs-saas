@@ -94,17 +94,17 @@ class OrganizationRecord(TimestampMixin, Base):
     primary_color: Mapped[str] = mapped_column(
         String(7),
         nullable=False,
-        default="#1768FF",
+        default="#1F2559",
     )
     secondary_color: Mapped[str] = mapped_column(
         String(7),
         nullable=False,
-        default="#21C889",
+        default="#18A7A3",
     )
     accent_color: Mapped[str] = mapped_column(
         String(7),
         nullable=False,
-        default="#10233F",
+        default="#131735",
     )
 
     members: Mapped[list["OrganizationMemberRecord"]] = relationship(
@@ -1124,10 +1124,12 @@ class OrganizationPublicSiteRecord(OrganizationOwnedMixin, TimestampMixin, Base)
     refund_policy: Mapped[str] = mapped_column(Text, nullable=False, default="")
     font_heading: Mapped[str] = mapped_column(String(80), nullable=False, default="Inter")
     font_body: Mapped[str] = mapped_column(String(80), nullable=False, default="Inter")
+    font_size_scale: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     student_code_prefix: Mapped[str] = mapped_column(String(8), nullable=False, default="")
+    student_code_prefix_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     student_code_sequence_year: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     student_code_sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class OrganizationLegalProfileRecord(OrganizationOwnedMixin, TimestampMixin, Base):
@@ -1350,3 +1352,24 @@ class OrganizationTeacherProfileRecord(OrganizationOwnedMixin, TimestampMixin, B
     first_assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["UserRecord"] = relationship()
+
+
+class SchoolNotificationRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "school_notifications"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "user_id", "event_key", name="uq_school_notifications_event"),
+        Index("ix_school_notifications_recipient", "organization_id", "user_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    audience: Mapped[str] = mapped_column(String(16), nullable=False)
+    title: Mapped[str] = mapped_column(String(180), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False, default="system")
+    tone: Mapped[str] = mapped_column(String(16), nullable=False, default="info")
+    action_label: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    action_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

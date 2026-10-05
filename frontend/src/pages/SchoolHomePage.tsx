@@ -57,7 +57,7 @@ export function FormationCard({ schoolSlug, formation }: { schoolSlug: string; f
       <h3><Link to={'/school/' + schoolSlug + '/formations/' + formation.slug}>{formation.title}</Link></h3>
       <p>{formation.short_description}</p>
       <div className="school-formation-price">{formation.promotion_discount_cents > 0 && <del>{formatSchoolMoney(formation.price_cents, formation.currency)}</del>}<strong>{formatSchoolMoney(formation.current_price_cents, formation.currency)}</strong></div>
-      <div className="school-formation-foot"><span>{formation.available_session_count > 0 ? formation.available_session_count + ' session(s) disponible(s)' : 'Aucune session disponible'}</span><Link to={'/school/' + schoolSlug + '/formations/' + formation.slug}>Voir la formation <ArrowRight size={14}/></Link></div>
+      <div className="school-formation-foot"><span>{formation.format_type === 'ligne' ? (formation.can_purchase ? 'Disponible en ligne' : 'Indisponible') : formation.available_session_count > 0 ? formation.available_session_count + ' session(s) disponible(s)' : 'Aucune session disponible'}</span><Link to={'/school/' + schoolSlug + '/formations/' + formation.slug}>Voir la formation <ArrowRight size={14}/></Link></div>
     </div>
   </article>
 }

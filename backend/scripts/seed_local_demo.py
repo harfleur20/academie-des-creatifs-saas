@@ -88,9 +88,9 @@ def main() -> None:
                 contact_email="contact.demo@academie.local",
                 timezone="Europe/Paris",
                 locale="fr-FR",
-                primary_color="#1768FF",
-                secondary_color="#21C889",
-                accent_color="#10233F",
+                primary_color="#1F2559",
+                secondary_color="#18A7A3",
+                accent_color="#131735",
             )
             db.add(school)
             db.flush()

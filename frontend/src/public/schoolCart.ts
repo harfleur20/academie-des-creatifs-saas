@@ -5,6 +5,7 @@ export type SchoolCartItem = {
   formation_title: string
   session_id: number
   session_label: string
+  format_type?: string
   price_cents: number
   currency: string
   cover_image_url: string | null

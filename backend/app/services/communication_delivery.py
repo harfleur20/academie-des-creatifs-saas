@@ -29,8 +29,8 @@ def _delivery_key(row: CommunicationOutboxRecord) -> str:
 
 def _email_html(row: CommunicationOutboxRecord) -> str:
     snapshot = dict(row.branding_snapshot or {})
-    primary = html.escape(str(snapshot.get("primary_color") or "#1768FF"))
-    accent = html.escape(str(snapshot.get("accent_color") or "#10233F"))
+    primary = html.escape(str(snapshot.get("primary_color") or "#1F2559"))
+    accent = html.escape(str(snapshot.get("accent_color") or "#131735"))
     school = html.escape(str(snapshot.get("school_name") or "École"))
     logo = snapshot.get("logo_url")
     logo_html = (

@@ -128,7 +128,7 @@ export function OnboardingPage() {
           <section className="onboarding-step-list">
             {status.steps.map((step, index) => (
               <article
-                className={`onboarding-step ${step.completed ? 'complete' : ''}`}
+                className={`onboarding-step ${step.completed ? 'complete' : !step.available ? 'locked' : ''}`}
                 key={step.key}
               >
                 <span className="onboarding-step-number">
@@ -140,6 +140,8 @@ export function OnboardingPage() {
                 </div>
                 {step.completed ? (
                   <span className="onboarding-done">Terminé</span>
+                ) : !step.available ? (
+                  <span className="onboarding-done">Après l’étape précédente</span>
                 ) : step.key !== 'formation' ? (
                   <Link className="secondary-button compact-action" to={step.path}>
                     Continuer <ArrowRight size={14} />

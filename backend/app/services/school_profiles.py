@@ -5,20 +5,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.entities import (
-    OrganizationPublicSiteRecord,
     OrganizationRecord,
     OrganizationTeacherProfileRecord,
 )
-
-
-def _school_prefix(db: Session, organization: OrganizationRecord) -> str:
-    site = db.scalar(
-        select(OrganizationPublicSiteRecord).where(
-            OrganizationPublicSiteRecord.organization_id == organization.id
-        )
-    )
-    value = (site.student_code_prefix if site else "") or organization.slug[:2] or "AC"
-    return value.upper()[:8]
+from app.services.school_setup import require_confirmed_matricule_prefix
 
 
 def ensure_teacher_profile(
@@ -37,7 +27,8 @@ def ensure_teacher_profile(
             existing.status = "active"
         return existing
 
-    prefix = _school_prefix(db, organization)
+    site = require_confirmed_matricule_prefix(db, organization.id)
+    prefix = site.student_code_prefix.upper()
     year = datetime.now(UTC).strftime("%y")
     base = f"{prefix}-P{year}-"
     count = int(

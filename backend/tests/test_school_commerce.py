@@ -61,6 +61,8 @@ def seed(db: Session):
         primary_color="#1122AA",
         secondary_color="#22AA77",
         accent_color="#172033",
+        contact_email="contact@example.com",
+        subdomain="school-business",
     )
     user = UserRecord(
         email="student@test.dev",
@@ -69,14 +71,25 @@ def seed(db: Session):
     )
     db.add_all([org, user])
     db.flush()
-    site, *_ = get_or_create_identity_records(db, org)
+    site, legal, *_ = get_or_create_identity_records(db, org)
     site.student_code_prefix = "SB"
+    site.student_code_prefix_confirmed_at = datetime.now(UTC)
+    site.legal_notice = "Mentions légales de School Business"
+    site.sales_terms = "Conditions de vente de School Business"
+    site.privacy_policy = "Politique de confidentialité de School Business"
+    site.refund_policy = "Politique de remboursement de School Business"
+    site.is_published = True
+    legal.legal_name = "School Business SARL"
+    legal.legal_address = "12 rue des écoles"
+    legal.invoice_email = "factures@example.com"
     formation = FormationRecord(
         organization_id=org.id,
         slug="motion-design",
         title="Motion Design",
         description="Description",
         short_description="Court",
+        cover_image_url="https://example.test/motion-design.jpg",
+        public_program="Fondamentaux du motion design",
         status="published",
         format_type="live",
         price_cents=300_000,
@@ -394,7 +407,7 @@ def test_commerce_totals_are_separated_by_currency() -> None:
     org, user, formation, session = seed(db)
     create_checkout(db, org, user, CheckoutCreate(session_id=session.id))
     second = UserRecord(email="eur@test.dev", full_name="Euro Student", status="active")
-    formation_eur = FormationRecord(organization_id=org.id, slug="design-eur", title="Design EUR", description="Test", status="published", format_type="live", price_cents=25000, currency="EUR")
+    formation_eur = FormationRecord(organization_id=org.id, slug="design-eur", title="Design EUR", description="Test", cover_image_url="https://example.test/design-eur.jpg", public_program="Programme Design EUR", status="published", format_type="live", price_cents=25000, currency="EUR")
     db.add_all([second, formation_eur])
     db.flush()
     session_eur = FormationSessionRecord(organization_id=org.id, formation_id=formation_eur.id, label="EUR", start_date=session.start_date, end_date=session.end_date, seat_capacity=10, status="open")

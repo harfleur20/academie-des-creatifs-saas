@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import create_engine, select
@@ -7,6 +9,7 @@ from app.db.base import Base
 from app.models.entities import (
     CommunicationOutboxRecord,
     OrganizationMemberRecord,
+    OrganizationPublicSiteRecord,
     OrganizationRecord,
     UserRecord,
 )
@@ -15,6 +18,7 @@ from app.schemas.organizations import (
     OrganizationMemberUpdate,
     OrganizationUpdate,
 )
+from app.schemas.commerce import SchoolIdentityPayload
 from app.services.organization_management import (
     accept_invitation,
     create_invitation,
@@ -23,6 +27,7 @@ from app.services.organization_management import (
     update_member,
     update_organization_settings,
 )
+from app.services.school_branding import get_school_identity, update_school_identity
 from app.services.tenancy import resolve_tenant_context
 
 
@@ -43,8 +48,14 @@ def add_user(db: Session, email: str, name: str) -> UserRecord:
 
 
 def add_org(db: Session, name: str, slug: str) -> OrganizationRecord:
-    org = OrganizationRecord(name=name, slug=slug)
+    org = OrganizationRecord(name=name, slug=slug, contact_email="contact@test.local", subdomain=slug)
     db.add(org)
+    db.flush()
+    db.add(OrganizationPublicSiteRecord(
+        organization_id=org.id,
+        student_code_prefix="SC",
+        student_code_prefix_confirmed_at=datetime.now(UTC),
+    ))
     db.flush()
     return org
 
@@ -64,6 +75,64 @@ def add_membership(
     db.add(member)
     db.flush()
     return member
+
+
+def test_setup_blocks_invitation_until_identity_address_and_matricule_are_confirmed() -> None:
+    db = build_db()
+    owner = add_user(db, "owner@example.com", "Owner")
+    teacher = add_user(db, "teacher@example.com", "Teacher")
+    org = OrganizationRecord(name="New School", slug="new-school")
+    db.add(org)
+    db.flush()
+    add_membership(db, org, owner, "owner")
+    db.commit()
+    tenant = resolve_tenant_context(db, user=owner, organization_id=org.id)
+    invitation_payload = OrganizationInvitationCreate(email=teacher.email, role="teacher")
+
+    with pytest.raises(HTTPException) as exc:
+        create_invitation(db, tenant, invitation_payload)
+    assert exc.value.status_code == 409
+
+    identity = get_school_identity(db, tenant)
+    assert identity.public_site.student_code_prefix
+    assert not identity.public_site.student_code_prefix_confirmed
+    confirmation = SchoolIdentityPayload.model_validate(identity.model_dump())
+    confirmation.public_site.student_code_prefix_confirmed = True
+    with pytest.raises(HTTPException) as exc:
+        update_school_identity(db, tenant, confirmation)
+    assert exc.value.status_code == 409
+
+    org.contact_email = "contact@example.com"
+    org.subdomain = "new-school"
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        create_invitation(db, tenant, invitation_payload)
+    assert exc.value.status_code == 409
+
+    confirmed = update_school_identity(db, tenant, confirmation)
+    assert confirmed.public_site.student_code_prefix_confirmed
+    invitation, token = create_invitation(db, tenant, invitation_payload)
+    assert invitation.status == "pending"
+
+    site = db.scalar(select(OrganizationPublicSiteRecord).where(OrganizationPublicSiteRecord.organization_id == org.id))
+    site.student_code_prefix_confirmed_at = None
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        accept_invitation(db, current_user=teacher, token=token)
+    assert exc.value.status_code == 409
+    assert db.scalar(select(OrganizationMemberRecord).where(
+        OrganizationMemberRecord.organization_id == org.id,
+        OrganizationMemberRecord.user_id == teacher.id,
+    )) is None
+
+    site.student_code_prefix_confirmed_at = datetime.now(UTC)
+    db.commit()
+    accept_invitation(db, current_user=teacher, token=token)
+    changed = SchoolIdentityPayload.model_validate(get_school_identity(db, tenant).model_dump())
+    changed.public_site.student_code_prefix = "OTHER"
+    with pytest.raises(HTTPException) as exc:
+        update_school_identity(db, tenant, changed)
+    assert exc.value.status_code == 409
 
 
 def test_last_owner_cannot_be_demoted() -> None:

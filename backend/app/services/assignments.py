@@ -9,6 +9,7 @@ from app.services.assets import validate_submission_asset
 from app.services.lesson_completion import complete_activity_lessons
 from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, linked_lesson_gate, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
+from app.services.school_notifications import notify_user
 from app.services.tenancy import TenantContext
 
 def _utc(v:datetime)->datetime: return v.astimezone(UTC).replace(tzinfo=None) if v.tzinfo else v
@@ -143,6 +144,15 @@ def submit_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentSubmit
             GradeRecord.source_id == a.id,
         )
     )
+    if a.teacher_id:
+        notify_user(
+            db, organization_id=tenant.organization_id, user_id=a.teacher_id,
+            event_key=f"assignment.submitted:{aid}:{e.id}:{now.isoformat()}",
+            audience="teacher",
+            title="Devoir remis", message=f"{tenant.user.full_name} a remis « {a.title} ».",
+            category="assignment", action_label="Voir les devoirs",
+            action_path="/app/teacher/assignments",
+        )
     db.commit(); db.refresh(sub); return _student_view(db,a,e,sub,now)
 
 def list_submissions(db,tenant,aid):
@@ -186,6 +196,14 @@ def review_submission(db,tenant,aid,sid,p:ReviewSubmission):
                 "assignment_title": a.title,
                 "score_label": f"{p.review_score}/20",
             },
+        )
+        notify_user(
+            db, organization_id=tenant.organization_id, user_id=student.id,
+            event_key=f"assignment.reviewed:{s.id}:{p.review_score}",
+            audience="student",
+            title="Devoir corrigé", message=f"Votre devoir « {a.title} » a été corrigé : {p.review_score}/20.",
+            category="assignment", tone="success", action_label="Voir mes résultats",
+            action_path="/app/student/results",
         )
     db.commit()
     return next(x for x in list_submissions(db,tenant,aid) if x.id==sid)

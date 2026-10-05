@@ -48,11 +48,13 @@ from app.services.public_catalog import (
     _active_promotion,
     _session_availability,
 )
+from app.services.publication import formation_content_issues, site_publication_issues
 from app.services.school_branding import (
     branding_snapshot,
     get_or_create_identity_records,
 )
 from app.services.school_communications import queue_school_event
+from app.services.school_notifications import dismiss_event, notify_school_managers, notify_user
 from app.services.tara_money import create_payment_link, verify_payment
 
 
@@ -104,12 +106,14 @@ def _load_session_formation(
     )
     if formation is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Formation introuvable.")
+    if formation_content_issues(formation):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Cette formation doit être complétée avant toute inscription.")
     return session, formation
 
 
 def _require_published_site(db: Session, org: OrganizationRecord) -> None:
-    site, *_ = get_or_create_identity_records(db, org)
-    if not site.is_published:
+    site, legal, *_ = get_or_create_identity_records(db, org)
+    if not site.is_published or site_publication_issues(site, legal, org):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Le site public de cette école n'est pas publié.")
 
 
@@ -222,6 +226,8 @@ def price_preview(
         raise HTTPException(status.HTTP_409_CONFLICT, reason or "Cette session n'est pas disponible.")
 
     base = session.price_override_cents if session.price_override_cents is not None else formation.price_cents
+    if base <= 0:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Le prix de cette session doit être supérieur à zéro.")
     promotion, promotion_discount = _active_promotion(db, org.id, formation.id, session.id, base)
     after_promotion = max(0, base - promotion_discount)
     coupon, coupon_discount = _valid_coupon(
@@ -290,7 +296,13 @@ def _student_code(
             "Identité de l'école introuvable pour générer le matricule.",
         )
 
-    prefix = (site.student_code_prefix or "AC").upper()[:8]
+    if not site.student_code_prefix.strip() or not site.student_code_prefix_confirmed_at:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Confirmez le préfixe des matricules avant d'inscrire un étudiant.",
+        )
+
+    prefix = site.student_code_prefix.upper()[:8]
     now = utc_now()
     sequence_year = int(now.strftime("%Y"))
     code_year = now.strftime("%y")
@@ -480,6 +492,8 @@ def _apply_installment_payment(
     paid_time = _aware(paid_at) or utc_now()
     installment.status = "paid"
     installment.paid_at = paid_time
+    dismiss_event(db, organization_id=org.id, event_key=f"payment.due:{installment.id}")
+    dismiss_event(db, organization_id=org.id, event_key=f"payment.overdue:{installment.id}")
     db.flush()
 
     order.paid_cents = int(
@@ -542,6 +556,22 @@ def _apply_installment_payment(
             user=user,
             event_key="student.payment.confirmed",
             context=message_context,
+        )
+        notify_user(
+            db, organization_id=org.id, user_id=user.id,
+            event_key=f"payment.confirmed:{installment.id}",
+            audience="student",
+            title="Paiement confirmé",
+            message=f"Votre paiement pour {formation.title} a été confirmé.",
+            category="payment", tone="success", action_label="Mes paiements",
+            action_path="/app/student/payments",
+        )
+        notify_school_managers(
+            db, organization_id=org.id, event_key=f"admin.payment.confirmed:{installment.id}",
+            title="Nouvelle inscription" if was_unpaid else "Échéance réglée",
+            message=f"{user.full_name} a réglé {'son inscription' if was_unpaid else 'une échéance'} pour {formation.title}.",
+            category="payment", tone="success", action_label="Commerce",
+            action_path="/app/manage/commerce",
         )
         if reactivated:
             queue_school_event(
@@ -678,6 +708,21 @@ def create_checkout(
         StudentOrderRecord.status == "pending",
     ).order_by(StudentOrderRecord.created_at.desc()))
     if pending:
+        now = utc_now()
+        enrollment_closed = (
+            session.status == "cancelled"
+            or (
+                formation.format_type != "ligne"
+                and (
+                    session.status != "open"
+                    or session.end_date < now.date()
+                    or (session.enrollment_open_at and now < _aware(session.enrollment_open_at))
+                    or (session.enrollment_close_at and now > _aware(session.enrollment_close_at))
+                )
+            )
+        )
+        if enrollment_closed:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Les inscriptions à cette session sont fermées.")
         requested_coupon = (payload.coupon_code or "").strip().upper()
         if pending.payment_mode != payload.payment_mode or (pending.coupon_code or "").upper() != requested_coupon:
             raise HTTPException(status.HTTP_409_CONFLICT, "Une commande est déjà en attente pour cette session. Terminez-la avant de modifier le paiement.")
@@ -769,7 +814,10 @@ def create_checkout(
 
     installment_rows = []
     for sequence, (amount, due, grace) in enumerate(
-        _split_installments(preview.final_price_cents, count, session_end=session.end_date),
+        _split_installments(
+            preview.final_price_cents, count,
+            session_end=(utc_now() + timedelta(days=30 * count)).date() if formation.format_type == "ligne" else session.end_date,
+        ),
         start=1,
     ):
         row = OrderInstallmentRecord(
@@ -894,6 +942,13 @@ def reconcile_tara_reference(
         order.paid_at = installment.paid_at
         order.status = "payment_review"
         order.access_status = "pending_review"
+        notify_school_managers(
+            db, organization_id=org.id, event_key=f"payment.review:{installment.id}",
+            title="Paiement à vérifier",
+            message=f"Un paiement de la commande {order.order_number} est arrivé après expiration.",
+            category="payment", tone="warning", action_label="Vérifier le paiement",
+            action_path="/app/manage/commerce",
+        )
         db.commit()
         return order
     if order.status in {"refunded", "payment_review"}:
@@ -1053,6 +1108,14 @@ def process_installment_lifecycle(
                             "grace_date": f"{_aware(row.grace_until):%d/%m/%Y}",
                         },
                     )
+                    notify_user(
+                        db, organization_id=org.id, user_id=user.id,
+                        event_key=f"payment.due:{row.id}", title="Paiement à régler",
+                        audience="student",
+                        message=f"Une échéance pour {formation.title} est à régler.",
+                        category="payment", tone="warning", action_label="Mes paiements",
+                        action_path="/app/student/payments",
+                    )
                 changed += 1
             continue
         if row.status != "late":
@@ -1089,6 +1152,21 @@ def process_installment_lifecycle(
                     user=user,
                     event_key="student.payment.overdue",
                     context=event_context,
+                )
+                notify_user(
+                    db, organization_id=org.id, user_id=user.id,
+                    event_key=f"payment.overdue:{row.id}", title="Paiement en retard",
+                    audience="student",
+                    message=f"Une échéance pour {event_context['formation_title']} est en retard.",
+                    category="payment", tone="warning", action_label="Mes paiements",
+                    action_path="/app/student/payments",
+                )
+                notify_school_managers(
+                    db, organization_id=org.id, event_key=f"payment.overdue:{row.id}",
+                    title="Échéance en retard",
+                    message=f"{user.full_name} a une échéance en retard pour {event_context['formation_title']}.",
+                    category="payment", tone="warning", action_label="Commerce",
+                    action_path="/app/manage/commerce",
                 )
                 queue_school_event(
                     db,

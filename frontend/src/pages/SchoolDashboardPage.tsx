@@ -95,6 +95,8 @@ export function SchoolDashboardPage() {
   const publishedCount = formations?.filter((formation) => formation.status === 'published').length ?? null
   const draftCount = formations?.filter((formation) => formation.status === 'draft').length ?? null
   const sessionCount = formations?.reduce((sum, formation) => sum + formation.session_count, 0) ?? null
+  const hasGuidedFormation = formations?.some((formation) => formation.format_type !== 'ligne') ?? false
+  const hasOnlineFormation = formations?.some((formation) => formation.format_type === 'ligne') ?? false
   const courseCount = formations?.reduce((sum, formation) => sum + formation.course_count, 0) ?? null
   const displayCount = (count: number | null) => count === null ? '—' : count.toLocaleString('fr-FR')
 
@@ -106,17 +108,17 @@ export function SchoolDashboardPage() {
         ? 'Créez votre première formation pour commencer à construire votre école.'
         : publishedCount === 0
           ? 'Vos formations sont en préparation. Publiez-en une pour ouvrir votre catalogue.'
-          : `${displayCount(activeStudents)} étudiant(s) actif(s) · ${displayCount(publishedCount)} formation(s) publiée(s) · ${displayCount(sessionCount)} session(s).`
+          : `${displayCount(activeStudents)} étudiant(s) actif(s) · ${displayCount(publishedCount)} formation(s) publiée(s)${hasGuidedFormation ? ` · ${displayCount(sessionCount)} session(s)` : ''}.`
 
   const nextAction = formations && members && commerce
     ? formations.length === 0
       ? { title: 'Créez votre première formation', description: 'Ajoutez un programme pour préparer les cours et les inscriptions.', to: '/app/manage/formations', label: 'Créer une formation' }
       : publishedCount === 0
         ? { title: 'Préparez votre catalogue', description: 'Vos formations existent déjà. Finalisez-en une et publiez-la sur le site de l’école.', to: '/app/manage/formations', label: 'Voir les formations' }
-        : sessionCount === 0
+        : hasGuidedFormation && sessionCount === 0
           ? { title: 'Ouvrez une première session', description: 'Une session permet de planifier la formation et d’accueillir les étudiants.', to: '/app/manage/formations', label: 'Gérer les sessions' }
           : activeTeachers === 0
-            ? { title: 'Invitez un enseignant', description: 'Confiez vos sessions à un professeur pour animer les cours.', to: '/app/manage/teachers', label: 'Gérer les enseignants' }
+            ? { title: 'Invitez un enseignant', description: 'Confiez vos formations à un professeur pour animer les cours.', to: '/app/manage/teachers', label: 'Gérer les enseignants' }
             : activeStudents === 0
               ? { title: 'Faites connaître vos formations', description: 'Votre école est prête à accueillir ses premiers étudiants.', to: '/app/manage/site-public', label: 'Voir le site public' }
               : { title: 'Suivez la progression de l’école', description: 'Retrouvez les indicateurs pédagogiques et les résultats de vos programmes.', to: '/app/manage/performance', label: 'Voir la performance' }
@@ -202,10 +204,10 @@ export function SchoolDashboardPage() {
         </article>
         <article>
           <span className="stat-icon"><CalendarDays size={20} /></span>
-          <small>Sessions</small>
-          <strong>{displayCount(sessionCount)}</strong>
-          <p>{formations === null ? 'Données indisponibles.' : sessionCount === 0 ? 'Ouvrez une session pour lancer les inscriptions.' : `${displayCount(courseCount)} cours dans vos formations.`}</p>
-          <Link className="dashboard-stat-link" to="/app/manage/formations">Gérer les sessions <ArrowRight size={15} /></Link>
+          <small>{hasGuidedFormation || !hasOnlineFormation ? 'Sessions' : 'Cours'}</small>
+          <strong>{displayCount(hasGuidedFormation || !hasOnlineFormation ? sessionCount : courseCount)}</strong>
+          <p>{formations === null ? 'Données indisponibles.' : hasGuidedFormation && sessionCount === 0 ? 'Ouvrez une session pour lancer les inscriptions guidées.' : hasOnlineFormation && !hasGuidedFormation ? 'Contenus de vos formations en ligne.' : `${displayCount(courseCount)} cours dans vos formations.`}</p>
+          <Link className="dashboard-stat-link" to="/app/manage/formations">Voir les formations <ArrowRight size={15} /></Link>
         </article>
         <article>
           <span className="stat-icon"><BookOpen size={20} /></span>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import {
   MailPlus,
   Copy,
@@ -14,6 +15,7 @@ import {
   ApiError,
   cancelInvitation,
   createInvitation,
+  getOnboardingStatus,
   listInvitations,
   listMembers,
   renewInvitation,
@@ -21,6 +23,7 @@ import {
   updateMemberFunctionalRoles,
   type Invitation,
   type Member,
+  type OnboardingStatus,
 } from '../lib/api'
 
 const roleLabels: Record<Member['role'], string> = {
@@ -42,18 +45,21 @@ export function TeamPage() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [setup, setSetup] = useState<OnboardingStatus | null>(null)
 
   async function load() {
     if (!activeOrganization) return
     setLoading(true)
     setError('')
     try {
-      const [memberItems, invitationItems] = await Promise.all([
+      const [memberItems, invitationItems, setupStatus] = await Promise.all([
         listMembers(),
         listInvitations(),
+        getOnboardingStatus(),
       ])
       setMembers(memberItems)
       setInvitations(invitationItems)
+      setSetup(setupStatus)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible de charger l’équipe.')
     } finally {
@@ -75,6 +81,10 @@ export function TeamPage() {
     () => teamMembers.filter((member) => member.status === 'active').length,
     [teamMembers],
   )
+  const setupBlockingStep = setup?.steps.find((step) =>
+    ['identity', 'address', 'matricule'].includes(step.key) && !step.completed,
+  )
+  const invitationReady = Boolean(setup && !setupBlockingStep)
 
   async function invite(event: FormEvent) {
     event.preventDefault()
@@ -167,6 +177,8 @@ export function TeamPage() {
         <article><Shield size={20} /><div><strong>5</strong><span>Rôles disponibles</span></div></article>
       </div>
 
+      {setupBlockingStep && <section className="app-card formation-readiness"><strong>Invitations verrouillées</strong><p>Terminez d’abord : {setupBlockingStep.label.toLowerCase()}.</p><Link className="secondary-button compact-action" to={setupBlockingStep.path}>Configurer cette étape</Link></section>}
+
       <section className="app-card invite-card">
         <div>
           <span className="section-label">Ajouter quelqu’un</span>
@@ -186,7 +198,7 @@ export function TeamPage() {
             <option value="manager">Manager</option>
             <option value="teacher">Professeur</option>
           </select>
-          <button className="primary-button" disabled={submitting}>
+          <button className="primary-button" disabled={submitting || !invitationReady}>
             <MailPlus size={17} />
             {submitting ? 'Invitation…' : 'Inviter'}
           </button>
@@ -289,7 +301,7 @@ export function TeamPage() {
               </div>
               {invitation.status === 'pending' && (
                 <div className="teacher-invitation-actions">
-                  <button className="secondary-button" type="button" onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button>
+                  <button className="secondary-button" type="button" disabled={!invitationReady} onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button>
                   <button
                     className="text-danger-button"
                     type="button"

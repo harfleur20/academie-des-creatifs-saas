@@ -6,10 +6,14 @@ from pydantic import BaseModel
 class TeacherSessionWorkspaceRead(BaseModel):
     formation_id: int
     formation_title: str
+    formation_image: str | None
+    format_type: str
     session_id: int
     session_label: str
     start_date: date
     end_date: date
+    campus_label: str | None
+    seat_capacity: int
     status: str
     assignment_role: str
     student_count: int

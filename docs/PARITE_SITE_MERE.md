@@ -13,7 +13,7 @@ Le site mère définit les parcours et les règles métier de l'école. Le SaaS 
 | Classe, présence et certificats | Présents | Routes et modèles présents | Vérifier les écarts de calcul, d'émission et de téléchargement. |
 | Parcours classique et guidé | `ligne` ouvre le parcours `classic` ; `live` et `presentiel` ouvrent le parcours `guided` | Routes par inscription et cartes séparées ; le parcours guidé possède un espace de session avec vue d'ensemble, programme, calendrier, devoirs, quiz, ressources et notes ; le lecteur de leçons reste commun | Comparer les écrans et états du lecteur classique et du suivi guidé avec le site mère, notamment les classes live. |
 | Messagerie entre utilisateurs | Conversations et destinataires autorisés selon les rôles et les inscriptions | Pas de messagerie interne équivalente repérée | Porter ce parcours avec isolation par école, session et participants. |
-| Notifications dans l'application | Boîte et indicateur de notifications | Envois email et WhatsApp, sans boîte dans l'interface | Porter la boîte et ses événements pour chaque école. |
+| Notifications dans l'application | Cloche avec compteur, panneau récent, page complète, lecture et masquage ; événements administrateur, professeur et étudiant | Notifications enregistrées par école et utilisateur, avec cloche et page dans les trois espaces ; paiements, échéances, affectations de professeur et devoirs raccordés | Reprendre les autres événements du site mère (quiz, ressources, séances live, discussions) au fil des parcours correspondants. |
 | Favoris des formations | Présents | Aucun parcours équivalent repéré | Reprendre le comportement du catalogue du site mère. |
 | Classes en direct et enregistrements | Présents | Aucun parcours équivalent repéré dans le SaaS | Porter les accès et enregistrements utilisés par les formations `live` de chaque école. |
 
@@ -31,15 +31,36 @@ Les fonctions d'événements et de billetterie du site mère sont dans un espace
 
 ## Publication et invitations de l'école
 
-- L'administration peut désormais publier une formation depuis la liste ou sa fiche. Sa visibilité dans le catalogue dépend aussi de la publication du site public de l'école.
+- L'administration peut publier une formation depuis la liste ou sa fiche après avoir renseigné description, photo de couverture, prix strictement positif et programme public. Une formation `live` ou `presentiel` doit aussi avoir une session à venir. Le backend applique ces règles à la création et à la publication ; les anciennes fiches incomplètes sont masquées du catalogue et bloquées à l'achat jusqu'à correction.
+- La fiche d'administration permet d'importer la couverture, de saisir le prix et le programme, puis d'ouvrir ou de fermer explicitement les inscriptions d'une session. Une session créée reste `planned` jusqu'à cette ouverture ; une session planifiée reste visible mais indisponible sur la fiche publique.
+- Un nouveau site d'école commence non publié. La publication exige des mentions légales, des conditions de vente, une politique de confidentialité et une politique de remboursement. Les sites existants avec ces textes vides sont également indisponibles au public jusqu'à correction.
+- La formation `ligne` se vend désormais sans choix de session sur le site public : une fiche complète et publiée peut être ajoutée au panier, payée et suivie dans le parcours classique. Une session interne conserve les liens existants des cours, commandes et inscriptions ; elle est créée à la création de la formation ou par la migration pour les anciennes fiches sans session. Les dates et capacités de cette session technique ne conditionnent pas l'achat.
+- L'espace de gestion de l'école reprend la barre haute du dashboard admin du site mère : recherche des rubriques, accès au site public, menu du compte et ouverture de la navigation sur mobile. La cloche de notifications ouvre les événements récents et leur compteur ; une page dédiée permet de lire et masquer les notifications. La messagerie interne reste à porter.
+- Les espaces enseignant et étudiant alignent dans leur barre haute la recherche, l'icône de messagerie, la cloche de notifications et l'avatar avec le site mère. L'icône de messagerie indique son indisponibilité tant que ce parcours n'est pas porté.
+- L'onglet « Mes sessions » de l'enseignant affiche maintenant sa propre liste de cohortes assignées avec filtres, dates, effectifs et accès au planning ; la vue d'ensemble conserve ses indicateurs et son calendrier. La fiche de session du site mère contient encore d'autres outils à reprendre au-delà du planning.
 - Après une invitation de professeur, le lien d'acceptation est affiché avec un bouton de copie. Pour une invitation déjà en attente dont le lien n'a pas été conservé, l'administration peut générer un nouveau lien ; cette action invalide l'ancien et prépare un nouvel e-mail.
+- La page d'invitation vérifie la session déjà ouverte : elle propose directement l'acceptation si l'adresse correspond, ou le changement de compte si elle diffère. L'adhésion est enregistrée avant ses rôles, y compris avec la configuration de session du serveur, puis la liste des écoles est actualisée avant l'ouverture de l'espace.
+
+## Ordre de configuration de l'école
+
+Le parcours de mise en route suit maintenant cet ordre : école créée → email de contact → sous-domaine → préfixe des matricules confirmé → équipe → facturation → première formation. Le préfixe déduit du nom de l'école est seulement une proposition. Le propriétaire ou un administrateur doit le confirmer dans **Gestion > Site public** après avoir défini l'email et l'adresse dans **Paramètres**. Les étapes suivantes sont affichées comme verrouillées dans la mise en route.
+
+Les invitations d'équipe, leur renouvellement ou leur acceptation, l'ajout direct d'un membre de l'équipe et l'attribution d'un rôle professeur vérifient ces prérequis dans le backend. La création d'une nouvelle formation attend aussi que l'équipe et les informations de facturation soient en place. Un nouveau matricule professeur ou étudiant ne peut pas être émis sans préfixe confirmé. Dès qu'un matricule existe après confirmation, le préfixe de l'école ne peut plus être changé. Les matricules historiques conservent leur valeur.
+
+Les écoles existantes ne sont pas confirmées automatiquement par la migration. Elles doivent compléter leur identité et valider leur préfixe. Un ancien site indiqué comme publié mais incomplet reste inaccessible au public ; lors du prochain enregistrement de son identité, il passe en brouillon afin de pouvoir terminer sa configuration par étapes. Sa publication exige ensuite l'email de contact, le sous-domaine, le préfixe confirmé, les quatre textes juridiques et les données de facturation (raison sociale, adresse légale, email, devise). La disponibilité publique et les achats réévaluent ces données côté serveur. Les numéros d'enregistrement et fiscaux restent facultatifs dans le parcours commun, car leur obligation dépend de l'école et de sa juridiction.
+
+Le choix des polices du site public passe par une liste de familles connues, un réglage de taille de 85 % à 125 % et un aperçu immédiat. Le backend valide les familles et la plage de taille. Le site public applique ces paramètres aux principaux textes et titres.
+
+Le navigateur conserve toujours le jeton dans chaque onglet, mais une session de navigateur commune identifie le dernier compte connecté. Une connexion ou une déconnexion invalide l'affichage des autres onglets et leurs prochaines requêtes ; l'école sélectionnée est désormais propre à l'onglet. Le serveur conserve sa révocation de session au moment de la déconnexion. Cette coordination concerne les onglets du même navigateur et de la même origine, pas les autres navigateurs ou appareils.
+
+La suite du verrouillage métier est à comparer au site mère : prérequis de formation avant l'ouverture d'une session, affectation et contenu pédagogique avant les inscriptions selon le format, puis contrôles avant certificat. Ces règles ne doivent pas être déduites de la simple présence d'une fiche ou d'un compte.
 
 ## Travaux restant pour la parité
 
 1. Terminer la reprise écran par écran du lecteur classique et de l'espace guidé : états fins, suivi de séance et accès live. Le lecteur de leçons reste commun aux deux parcours.
 2. Ajouter l'historique et la gestion des versions des leçons ; reprendre les anciens PDF externes vers le stockage privé, avec un nouveau quiz si des évaluations existent déjà.
 3. Comparer puis aligner les calculs de progression, badges, notes, présence et certificats, ainsi que les écrans de suivi professeur et administration.
-4. Porter la messagerie interne, les notifications dans l'application, les favoris et les classes en direct avec leurs enregistrements.
+4. Porter la messagerie interne, les favoris et les classes en direct avec leurs enregistrements ; compléter les types d'événements de notifications après la reprise de ces parcours.
 5. Raccorder le suivi de lecture des vidéos Bunny ; vérifier le catalogue, la commande et le paiement de bout en bout sur mobile et domaine d'école.
 6. Vérifier les parcours réels dans le navigateur avec au moins deux écoles, notamment les droits d'accès et l'absence de fuite entre écoles. La suite PostgreSQL de concurrence ne peut être exécutée localement sans serveur PostgreSQL.
 
@@ -47,6 +68,6 @@ Ordre de reprise : parcours étudiant classique et guidé, règles de progressio
 
 ## Sécurité et exploitation
 
-- Les jetons d'accès du SaaS portent une version de session ; mot de passe et déconnexion révoquent toutes les sessions de ce compte. Les jetons du navigateur sont en `sessionStorage`, qui reste accessible aux scripts. Le passage à des sessions serveur par cookie `HttpOnly` avec protection CSRF reste à concevoir.
+- Les jetons d'accès du SaaS portent une version de session ; mot de passe et déconnexion révoquent toutes les sessions de ce compte. Les jetons du navigateur sont en `sessionStorage`, qui reste accessible aux scripts. Les onglets d'une même origine sont synchronisés pour ne pas afficher deux comptes différents. Le passage à des sessions serveur par cookie `HttpOnly` avec protection CSRF reste à concevoir.
 - Les messages sortants sont réclamés en base avant l'appel fournisseur. Un résultat incertain reste en revue manuelle dans l'écran Commerce. La clé d'idempotence Brevo aide pour les nouvelles tentatives dans sa fenêtre de validité ; SMTP et WhatsApp ne garantissent pas la déduplication côté fournisseur.
 - Les tests de concurrence PostgreSQL sont exécutés par la CI. La validation locale utilise SQLite tant qu'un serveur PostgreSQL local n'est pas disponible.

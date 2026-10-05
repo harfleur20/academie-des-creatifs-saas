@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { BrandLogo } from '../brand/BrandLogo'
 import { SchoolLogo } from '../brand/SchoolLogo'
-import { ArrowRight, Building2, Check, Eye, EyeOff } from 'lucide-react'
+import { ArrowRight, Check, Eye, EyeOff } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError, getPublicSchoolIdentity, resolveHostBranding, type HostBranding } from '../lib/api'
@@ -76,10 +76,11 @@ export function LoginPage() {
 
   return (
     <main
-      className="auth-page"
+      className={`auth-page login-redesign ${isPublicSchool ? 'login-school' : 'login-platform'}`}
       style={hostBrand ? {
         '--blue': hostBrand.primary_color,
         '--green': hostBrand.secondary_color,
+        '--button-end': `color-mix(in srgb, ${hostBrand.primary_color} 80%, white)`,
       } as CSSProperties : undefined}
     >
       <section className="auth-panel auth-copy-panel">
@@ -92,46 +93,44 @@ export function LoginPage() {
             {!isPublicSchool && <> <strong>SaaS</strong></>}
           </span>
         </a>
-        <div>
+        <div className="auth-visual-copy">
           {isPublicSchool ? <>
             <span className="auth-kicker">Votre espace personnel</span>
-            <h1>Retrouvez vos formations.</h1>
-            <p>Connectez-vous pour finaliser votre inscription et accéder à vos cours.</p>
+            <h1>La suite de votre parcours commence ici.</h1>
+            <p>Retrouvez vos formations, vos cours et vos progrès dans un espace à votre image.</p>
           </> : <>
             <span className="auth-kicker">Votre école digitale</span>
-            <h1>Un seul espace pour piloter toute votre école.</h1>
+            <h1>Toute votre école, à votre image.</h1>
             <p>
-              Formations, professeurs, étudiants, cours, lives et suivi pédagogique
-              réunis dans une plateforme que vous administrez.
+              Créez vos formations, accompagnez vos élèves et faites grandir
+              votre communauté créative.
             </p>
-            <div className="auth-benefits">
-              <span><Check size={16} /> Espace isolé pour chaque école</span>
-              <span><Check size={16} /> Rôles et accès maîtrisés</span>
-              <span><Check size={16} /> Prêt pour vos abonnements et votre branding</span>
-            </div>
           </>}
+          <span className="auth-visual-caption"><Check size={15} /> Un espace pensé pour apprendre et transmettre</span>
         </div>
       </section>
 
       <section className="auth-panel auth-form-panel">
         <form className="auth-card" onSubmit={submit}>
-          <div className="auth-icon"><Building2 size={22} /></div>
-          <h2>{mode === 'login' ? 'Bienvenue' : 'Créez votre compte'}</h2>
+          <span className="auth-form-kicker">{isPublicSchool ? hostBrand?.name || 'Votre école' : 'Académie des Créatifs'}</span>
+          <h2>{mode === 'login' ? 'Heureux de vous revoir.' : 'Commençons ensemble.'}</h2>
           <p>
             {mode === 'login'
-              ? isPublicSchool ? 'Connectez-vous à votre compte.' : 'Connectez-vous à votre espace école.'
-              : isPublicSchool ? 'Créez un compte pour vous inscrire aux formations.' : 'Vous pourrez créer votre première école juste après.'}
+              ? isPublicSchool ? 'Connectez-vous pour retrouver votre parcours.' : 'Connectez-vous pour retrouver votre espace école.'
+              : isPublicSchool ? 'Créez votre compte pour rejoindre les formations.' : 'Créez votre compte, puis donnez vie à votre école.'}
           </p>
 
           {mode === 'register' && (
             <label>
               Nom complet
               <input
+                id="auth-full-name"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
                 minLength={2}
                 maxLength={180}
                 required
+                autoComplete="name"
                 placeholder="Votre nom"
               />
             </label>
@@ -140,10 +139,12 @@ export function LoginPage() {
           <label>
             Adresse email
             <input
+              id="auth-email"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
+              autoComplete="email"
               placeholder="vous@ecole.com"
             />
           </label>
@@ -152,12 +153,14 @@ export function LoginPage() {
             Mot de passe
             <span className="password-field">
               <input
+                id="auth-password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 minLength={8}
                 maxLength={72}
                 required
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 placeholder="8 caractères minimum"
               />
               <button
@@ -172,7 +175,7 @@ export function LoginPage() {
 
           {error && <div className="form-error">{error}</div>}
 
-          <button className="primary-button full" disabled={submitting}>
+          <button className="primary-button full auth-submit" disabled={submitting}>
             {submitting
               ? 'Veuillez patienter…'
               : mode === 'login'
@@ -190,7 +193,9 @@ export function LoginPage() {
             }}
           >
             {mode === 'login'
-              ? isPublicSchool ? "Pas encore de compte ? S’inscrire" : "Pas encore de compte ? Créer mon école"
+              ? isPublicSchool
+                ? 'Pas encore de compte ? S’inscrire'
+                : <>Pas encore de compte ? <span className="auth-switch-accent">Créer mon école</span></>
               : 'Déjà un compte ? Se connecter'}
           </button>
         </form>

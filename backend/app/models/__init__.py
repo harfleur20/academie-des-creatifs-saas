@@ -1,4 +1,5 @@
 from app.models.entities import (
+    SchoolNotificationRecord,
     OrganizationTeacherProfileRecord,
     CommunicationOutboxRecord,
     OrderInvoiceRecord,
@@ -52,6 +53,7 @@ from app.models.entities import (
 )
 
 __all__ = [
+    "SchoolNotificationRecord",
     "OrganizationTeacherProfileRecord",
     "CommunicationOutboxRecord",
     "OrderInvoiceRecord",

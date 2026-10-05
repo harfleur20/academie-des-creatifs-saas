@@ -152,8 +152,8 @@ def build_invoice_pdf(
         )
     )
     snapshot = dict(invoice.branding_snapshot or {})
-    primary = _hex(snapshot.get("primary_color"), "#1768FF")
-    accent = _hex(snapshot.get("accent_color"), "#10233F")
+    primary = _hex(snapshot.get("primary_color"), "#1F2559")
+    accent = _hex(snapshot.get("accent_color"), "#131735")
 
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
@@ -284,9 +284,9 @@ def build_certificate_pdf(
 ) -> tuple[str, bytes]:
     snapshot = dict(certificate.branding_snapshot or {})
     document = dict(snapshot.get("document") or {})
-    primary = _hex(snapshot.get("primary_color"), "#1768FF")
-    secondary = _hex(snapshot.get("secondary_color"), "#21C889")
-    accent = _hex(snapshot.get("accent_color"), "#10233F")
+    primary = _hex(snapshot.get("primary_color"), "#1F2559")
+    secondary = _hex(snapshot.get("secondary_color"), "#18A7A3")
+    accent = _hex(snapshot.get("accent_color"), "#131735")
 
     buffer = BytesIO()
     page = landscape(A4)

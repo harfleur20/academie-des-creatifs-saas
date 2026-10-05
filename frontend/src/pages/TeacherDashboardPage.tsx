@@ -135,7 +135,7 @@ export function TeacherDashboardPage() {
                 <span>ESPACE ENSEIGNANT</span>
                 <h1>Bonjour, {firstName(user?.full_name)}</h1>
                 <p>
-                  Code enseignant : <strong>—</strong>
+                  Code enseignant : <strong>{workspace.teacher_code}</strong>
                 </p>
                 <p>
                   Sessions ouvertes :{' '}

@@ -296,11 +296,11 @@ export function SchoolCheckoutPage() {
     return <main className="school-section school-checkout-page"><section className="school-login-required">
       <CreditCard size={28} />
       <h1>{order.status === 'paid' ? 'Commande payée' : order.status === 'payment_review' ? 'Paiement en vérification' : order.status === 'cancelled' ? 'Réservation expirée' : 'Paiement de votre commande'}</h1>
-      <p>{order.formation_title} · {order.session_label}</p>
+      <p>{order.formation_title}{order.session_label === 'Accès en ligne' ? ' · Formation en ligne' : ` · ${order.session_label}`}</p>
       <strong>{formatSchoolMoney(order.final_price_cents, order.currency)}</strong>
       {error && <div className="school-checkout-error">{error}</div>}
       {order.status === 'payment_review' && <p>Votre paiement est arrivé après l'expiration de la réservation. L'école doit vérifier votre dossier avant de vous donner accès ou de procéder à un remboursement.</p>}
-      {order.status === 'cancelled' && <p>Cette réservation ne retient plus de place. Vous pouvez créer une nouvelle commande si la session est encore disponible.</p>}
+      {order.status === 'cancelled' && <p>{order.session_label === 'Accès en ligne' ? 'Cette commande a expiré. Vous pouvez en créer une nouvelle si la formation est encore disponible.' : 'Cette réservation ne retient plus de place. Vous pouvez créer une nouvelle commande si la session est encore disponible.'}</p>}
       {!['cancelled', 'payment_review', 'refunded'].includes(order.status) && orderInstallments.some((row) => row.status !== 'paid') && <button type="button" disabled={working} onClick={() => void resumePayment()}>{working ? 'Ouverture…' : 'Reprendre le paiement'}</button>}
       {order.status === 'pending' && <button type="button" disabled={working} onClick={() => void cancelOrder()}>Annuler cette commande</button>}
       {order.status === 'paid' && <button type="button" onClick={() => void enterSpace()}>Accéder à mon espace étudiant</button>}
@@ -325,7 +325,7 @@ export function SchoolCheckoutPage() {
         <section className="school-checkout-main">
           <article className="school-checkout-order">
             <h2>{item.formation_title}</h2>
-            <p>Session : {item.session_label}</p>
+            <p>{item.format_type === 'ligne' || item.session_label === 'Accès en ligne' ? 'Formation en ligne' : `Session : ${item.session_label}`}</p>
             <div className="school-coupon-box">
               <Tag size={16} />
               <input

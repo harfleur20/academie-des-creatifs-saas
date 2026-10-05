@@ -9,9 +9,11 @@ import {
 } from 'react'
 import {
   clearSession,
+  browserSessionStorageKey,
   getAccessToken,
   getMe,
   getSupportMode,
+  isCurrentBrowserSession,
   login as apiLogin,
   logoutSession,
   register as apiRegister,
@@ -37,32 +39,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const activeSupportMode = getSupportMode()
-    setSupportMode(activeSupportMode)
+    const syncBrowserSession = () => {
+      if (isCurrentBrowserSession()) return
+      setSupportMode(null)
+      setUser(null)
+      setLoading(false)
+    }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === browserSessionStorageKey()) syncBrowserSession()
+    }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('focus', syncBrowserSession)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', syncBrowserSession)
+    }
+  }, [])
 
+  useEffect(() => {
     const token = getAccessToken()
+    setSupportMode(token ? getSupportMode() : null)
     if (!token) {
       setLoading(false)
       return
     }
 
     getMe()
-      .then(setUser)
+      .then((nextUser) => {
+        if (getAccessToken() === token) setUser(nextUser)
+      })
       .catch(() => {
-        clearSession()
-        setSupportMode(null)
-        setUser(null)
+        if (getAccessToken() === token) {
+          clearSession()
+          setSupportMode(null)
+          setUser(null)
+        }
       })
       .finally(() => setLoading(false))
   }, [])
 
   const refreshUser = useCallback(async () => {
+    const token = getAccessToken()
     const nextUser = await getMe()
-    setUser(nextUser)
+    if (token && getAccessToken() === token) setUser(nextUser)
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
     const response = await apiLogin(email, password)
+    if (getAccessToken() !== response.access_token) throw new Error('Une autre connexion a remplacé cette session.')
     setSupportMode(null)
     setUser(response.user)
   }, [])
@@ -70,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(
     async (fullName: string, email: string, password: string) => {
       const response = await apiRegister(fullName, email, password)
+      if (getAccessToken() !== response.access_token) throw new Error('Une autre connexion a remplacé cette session.')
       setSupportMode(null)
       setUser(response.user)
     },

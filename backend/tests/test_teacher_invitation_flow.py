@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -5,6 +7,7 @@ from app.db.base import Base
 from app.models.entities import (
     CommunicationOutboxRecord,
     OrganizationMemberRecord,
+    OrganizationPublicSiteRecord,
     OrganizationRecord,
     OrganizationTeacherProfileRecord,
     UserRecord,
@@ -25,12 +28,13 @@ def build_db() -> Session:
         connect_args={"check_same_thread": False},
     )
     Base.metadata.create_all(engine)
-    return Session(engine, expire_on_commit=False)
+    # Match the API session: pending members need an explicit flush before roles.
+    return Session(engine, autoflush=False, expire_on_commit=False)
 
 
 def test_teacher_invitation_is_branded_and_creates_teacher_profile() -> None:
     db = build_db()
-    org = OrganizationRecord(name="School Business", slug="school-business")
+    org = OrganizationRecord(name="School Business", slug="school-business", contact_email="contact@test.dev", subdomain="school-business")
     owner = UserRecord(
         email="owner@test.dev",
         full_name="Owner",
@@ -43,6 +47,11 @@ def test_teacher_invitation_is_branded_and_creates_teacher_profile() -> None:
     )
     db.add_all([org, owner, teacher])
     db.flush()
+    db.add(OrganizationPublicSiteRecord(
+        organization_id=org.id,
+        student_code_prefix="SB",
+        student_code_prefix_confirmed_at=datetime.now(UTC),
+    ))
     member = OrganizationMemberRecord(
         organization_id=org.id,
         user_id=owner.id,

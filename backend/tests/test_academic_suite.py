@@ -25,6 +25,7 @@ from app.models.entities import (
     QuizAttemptRecord,
     QuizRecord,
     OrganizationMemberRecord,
+    OrganizationPublicSiteRecord,
     OrganizationRecord,
     ResourceRecord,
     SessionCourseDayRecord,
@@ -93,6 +94,11 @@ def seed(db: Session):
     classmate = UserRecord(email="mate@test.dev", full_name="Classmate", status="active")
     db.add_all([org, teacher, student, classmate])
     db.flush()
+    db.add(OrganizationPublicSiteRecord(
+        organization_id=org.id,
+        student_code_prefix="SC",
+        student_code_prefix_confirmed_at=datetime.now(UTC),
+    ))
 
     members = [
         OrganizationMemberRecord(

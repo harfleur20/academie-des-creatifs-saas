@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.models.entities import OrganizationMemberRecord, OrganizationRecord, UserRecord
+from app.models.entities import OrganizationLegalProfileRecord, OrganizationMemberRecord, OrganizationPublicSiteRecord, OrganizationRecord, UserRecord
 from app.schemas.formations import (
     ChapterCreate,
     CourseCreate,
@@ -42,13 +42,17 @@ def seed(db: Session):
     teacher = UserRecord(email="teacher@test.dev", full_name="Teacher", status="active")
     student = UserRecord(email="student@test.dev", full_name="Student", status="active")
     outsider = UserRecord(email="outside@test.dev", full_name="Outside", status="active")
-    org = OrganizationRecord(name="School", slug="school")
+    org = OrganizationRecord(name="School", slug="school", contact_email="contact@example.com", subdomain="school")
     db.add_all([owner, teacher, student, outsider, org])
     db.flush()
     db.add_all([
         OrganizationMemberRecord(organization_id=org.id, user_id=owner.id, role="owner", status="active"),
         OrganizationMemberRecord(organization_id=org.id, user_id=teacher.id, role="teacher", status="active"),
         OrganizationMemberRecord(organization_id=org.id, user_id=student.id, role="student", status="active"),
+    ])
+    db.add_all([
+        OrganizationPublicSiteRecord(organization_id=org.id, student_code_prefix="SC", student_code_prefix_confirmed_at=datetime.now(UTC)),
+        OrganizationLegalProfileRecord(organization_id=org.id, legal_name="School", legal_address="12 rue des écoles", invoice_email="factures@example.com", default_currency="XAF"),
     ])
     db.commit()
     tenant = resolve_tenant_context(db, user=owner, organization_id=org.id)
@@ -227,7 +231,7 @@ def test_teacher_formation_detail_hides_unassigned_sibling_session() -> None:
     formation = create_formation(
         db,
         owner_tenant,
-        FormationCreate(slug="scoped", title="Scoped formation"),
+        FormationCreate(slug="scoped", title="Scoped formation", format_type="live"),
     )
     first = create_session(
         db,

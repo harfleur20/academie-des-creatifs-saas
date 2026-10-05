@@ -6,6 +6,7 @@ class OnboardingStepRead(BaseModel):
     label: str
     description: str
     completed: bool
+    available: bool = True
     path: str
 
 

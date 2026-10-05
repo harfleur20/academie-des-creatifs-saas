@@ -31,6 +31,7 @@ from app.services.school_branding import (
     DEFAULT_SECONDARY,
     get_or_create_identity_records,
 )
+from app.services.publication import formation_content_issues, site_publication_issues
 
 
 def get_public_organization(
@@ -57,8 +58,8 @@ def public_school_read(
     db: Session,
     org: OrganizationRecord,
 ) -> PublicSchoolRead:
-    site, _legal, _comm, _cert = get_or_create_identity_records(db, org)
-    if not site.is_published:
+    site, legal, _comm, _cert = get_or_create_identity_records(db, org)
+    if not site.is_published or site_publication_issues(site, legal, org):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Le site public de cette école n'est pas publié.")
     return PublicSchoolRead(
         organization_id=org.id,
@@ -75,6 +76,7 @@ def public_school_read(
         accent_color=org.accent_color or DEFAULT_ACCENT,
         font_heading=site.font_heading,
         font_body=site.font_body,
+        font_size_scale=site.font_size_scale,
         hero_title=site.hero_title,
         hero_subtitle=site.hero_subtitle,
         hero_cta_label=site.hero_cta_label,
@@ -159,11 +161,26 @@ def _session_availability(
     session: FormationSessionRecord,
 ) -> tuple[bool, str | None, int | None]:
     now = datetime.now(UTC)
+    enrollment_open = session.enrollment_open_at
+    enrollment_close = session.enrollment_close_at
+    if enrollment_open and enrollment_open.tzinfo is None:
+        enrollment_open = enrollment_open.replace(tzinfo=UTC)
+    if enrollment_close and enrollment_close.tzinfo is None:
+        enrollment_close = enrollment_close.replace(tzinfo=UTC)
+    effective_price = session.price_override_cents if session.price_override_cents is not None else formation.price_cents
+    if formation.format_type == "ligne":
+        if session.status == "cancelled":
+            return False, "Cette formation n'est pas disponible à l'inscription.", None
+        if effective_price <= 0:
+            return False, "Le prix de cette formation n'est pas défini.", None
+        return True, None, None
     if session.status != "open":
         return False, "Cette session n'est pas ouverte aux inscriptions.", None
-    if session.enrollment_open_at and now < session.enrollment_open_at:
+    if effective_price <= 0:
+        return False, "Le prix de cette session n'est pas défini.", None
+    if enrollment_open and now < enrollment_open:
         return False, "Les inscriptions ne sont pas encore ouvertes.", None
-    if session.enrollment_close_at and now > session.enrollment_close_at:
+    if enrollment_close and now > enrollment_close:
         return False, "Les inscriptions sont clôturées.", None
     if session.end_date < now.date():
         return False, "Cette session est terminée.", None
@@ -261,7 +278,7 @@ def _formation_card(
             formation.sessions,
             key=lambda value: (value.start_date, value.id),
         )
-        if item.status not in {"cancelled", "completed"}
+        if formation.format_type == "ligne" or item.status not in {"cancelled", "completed"}
     ]
     available = [item for item in sessions if item.can_purchase]
     next_session = available[0] if available else (sessions[0] if sessions else None)
@@ -302,7 +319,7 @@ def list_public_formations(
             .order_by(FormationRecord.created_at.desc())
         ).unique().all()
     )
-    return [_formation_card(db, row) for row in rows]
+    return [_formation_card(db, row) for row in rows if not formation_content_issues(row)]
 
 
 def public_home(
@@ -339,13 +356,13 @@ def public_formation_detail(
             FormationRecord.slug == formation_slug.strip().lower()
         )
     )
-    if formation is None:
+    if formation is None or formation_content_issues(formation):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Formation introuvable.")
     card = _formation_card(db, formation)
     session_reads = [
         _session_read(db, formation, item)
         for item in sorted(formation.sessions, key=lambda value: (value.start_date, value.id))
-        if item.status not in {"cancelled", "completed"}
+        if formation.format_type != "ligne" and item.status not in {"cancelled", "completed"}
     ]
     source_session = next(
         (

@@ -9,12 +9,15 @@ import {
   Users,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useTenant } from '../app/TenantContext'
 import {
   ApiError,
   createFormation,
+  getOnboardingStatus,
   listFormations,
   updateFormation,
   type FormationSummary,
+  type OnboardingStatus,
 } from '../lib/api'
 
 function slugify(value: string) {
@@ -57,7 +60,9 @@ const suggestedLevels = [
 const otherCategoryValue = '__other__'
 
 export function FormationsManagementPage() {
+  const { activeOrganization } = useTenant()
   const [formations, setFormations] = useState<FormationSummary[]>([])
+  const [setup, setSetup] = useState<OnboardingStatus | null>(null)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [customCategory, setCustomCategory] = useState('')
@@ -72,7 +77,9 @@ export function FormationsManagementPage() {
 
   async function refresh() {
     try {
-      setFormations(await listFormations())
+      const [items, setupStatus] = await Promise.all([listFormations(), getOnboardingStatus()])
+      setFormations(items)
+      setSetup(setupStatus)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible de charger les formations.')
     }
@@ -80,7 +87,7 @@ export function FormationsManagementPage() {
 
   useEffect(() => {
     void refresh()
-  }, [])
+  }, [activeOrganization?.id])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -131,6 +138,8 @@ export function FormationsManagementPage() {
   const totals = useMemo(
     () => ({
       sessions: formations.reduce((sum, item) => sum + item.session_count, 0),
+      online: formations.filter((item) => item.format_type === 'ligne').length,
+      hasGuided: formations.some((item) => item.format_type !== 'ligne'),
       students: formations.reduce((sum, item) => sum + item.student_count, 0),
       courses: formations.reduce((sum, item) => sum + item.course_count, 0),
     }),
@@ -158,6 +167,7 @@ export function FormationsManagementPage() {
     ],
     [formations],
   )
+  const setupBlockingStep = setup?.steps.find((step) => step.key !== 'formation' && !step.completed)
 
   return (
     <main className="app-page formations-page">
@@ -174,16 +184,17 @@ export function FormationsManagementPage() {
 
       {message && <div className="form-success">{message} <Link to="/app/manage/site-public">Vérifier le site public</Link></div>}
       {error && <div className="form-error">{error}</div>}
+      {setupBlockingStep && <div className="app-card formation-readiness"><strong>Création verrouillée</strong><p>Terminez d’abord l’étape « {setupBlockingStep.label} ».</p><Link className="secondary-button compact-action" to={setupBlockingStep.path}>Continuer cette étape <ArrowRight size={15} /></Link></div>}
 
       <section className="formation-metrics">
         <article><GraduationCap size={18} /><div><strong>{formations.length}</strong><span>Formations</span></div></article>
-        <article><CalendarDays size={18} /><div><strong>{totals.sessions}</strong><span>Sessions</span></div></article>
+        <article><CalendarDays size={18} /><div><strong>{totals.hasGuided || totals.online === 0 ? totals.sessions : totals.online}</strong><span>{totals.hasGuided || totals.online === 0 ? 'Sessions' : 'Formations en ligne'}</span></div></article>
         <article><Users size={18} /><div><strong>{totals.students}</strong><span>Étudiants inscrits</span></div></article>
         <article><BookOpen size={18} /><div><strong>{totals.courses}</strong><span>Cours</span></div></article>
       </section>
 
       <section className="formation-layout">
-        <form className="app-card formation-create-card" onSubmit={submit}>
+        <form className="app-card formation-create-card" onSubmit={submit} aria-disabled={Boolean(setupBlockingStep)}>
           <div>
             <span className="section-label">Nouvelle formation</span>
             <h2>Créer un programme</h2>
@@ -241,7 +252,7 @@ export function FormationsManagementPage() {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={5000} />
           </label>
 
-          <button className="primary-button" disabled={creating}>
+          <button className="primary-button" disabled={creating || !setup || Boolean(setupBlockingStep)}>
             <Plus size={16} />
             {creating ? 'Création…' : 'Créer la formation'}
           </button>
@@ -260,17 +271,18 @@ export function FormationsManagementPage() {
               </div>
 
               <div className="formation-card-meta">
-                <span><CalendarDays size={14} /> {formation.session_count} session(s)</span>
+                <span><CalendarDays size={14} /> {formation.format_type === 'ligne' ? 'Formation en ligne' : `${formation.session_count} session(s)`}</span>
                 <span><Users size={14} /> {formation.student_count} étudiant(s)</span>
                 <span><GraduationCap size={14} /> {formation.teacher_count} prof(s)</span>
                 <span><BookOpen size={14} /> {formation.course_count} cours</span>
               </div>
+              {formation.publication_issues.length > 0 && <div className="formation-card-issues"><strong>À compléter</strong><ul>{formation.publication_issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></div>}
 
               <div className="formation-card-actions">
                 <Link className="secondary-button" to={`/app/manage/formations/${formation.id}`}>
                   Ouvrir la formation <ArrowRight size={15} />
                 </Link>
-                {formation.status === 'draft' && <button className="primary-button" type="button" disabled={publishingId !== null} onClick={() => void publish(formation)}><Send size={15} /> {publishingId === formation.id ? 'Publication…' : 'Publier la formation'}</button>}
+                {formation.status === 'draft' && <button className="primary-button" type="button" disabled={publishingId !== null || formation.publication_issues.length > 0} onClick={() => void publish(formation)}><Send size={15} /> {publishingId === formation.id ? 'Publication…' : 'Publier la formation'}</button>}
               </div>
             </article>
           ))}
