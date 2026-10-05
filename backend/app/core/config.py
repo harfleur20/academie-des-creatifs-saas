@@ -40,6 +40,19 @@ class Settings:
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     jwt_issuer: str = os.getenv("JWT_ISSUER", "academie-des-creatifs-saas")
     tenant_header: str = "X-Organization-Id"
+    auth_cookie_name: str = os.getenv(
+        "AUTH_COOKIE_NAME",
+        "academie_saas_session",
+    ).strip()
+    auth_cookie_domain: str = os.getenv("AUTH_COOKIE_DOMAIN", "").strip()
+    auth_cookie_secure: bool = _env_bool(
+        "AUTH_COOKIE_SECURE",
+        os.getenv("APP_ENV", "development").strip().lower() == "production",
+    )
+    auth_cookie_samesite: str = os.getenv(
+        "AUTH_COOKIE_SAMESITE",
+        "lax",
+    ).strip().lower()
 
     payment_mode: str = os.getenv("PAYMENT_MODE", "production").strip().lower()
     allow_demo_payments: bool = _env_bool("ALLOW_DEMO_PAYMENTS", False)
@@ -177,6 +190,8 @@ class Settings:
             or self.jwt_secret_key == "academie-saas-development-secret-change-me"
         ):
             raise RuntimeError("JWT_SECRET_KEY doit être un secret unique d'au moins 32 caractères en production.")
+        if self.auth_cookie_samesite not in {"lax", "strict", "none"}:
+            raise RuntimeError("AUTH_COOKIE_SAMESITE doit valoir lax, strict ou none.")
 
 
 settings = Settings()
