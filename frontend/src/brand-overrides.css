@@ -4,9 +4,83 @@
 }
 
 .login-platform .auth-logo strong,
-.login-platform .auth-form-kicker,
-.login-platform .auth-switch-accent {
+.login-redesign .auth-form-kicker,
+.login-redesign .auth-switch-accent {
   color: var(--green);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #97a3b4;
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: #e2e7ee;
+}
+
+.google-auth-button,
+.google-auth-fallback {
+  width: 100%;
+  min-height: 44px;
+}
+
+.google-auth-button {
+  display: flex;
+  justify-content: center;
+}
+
+.google-auth-button > div,
+.google-auth-button iframe {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.google-auth-button.is-disabled {
+  opacity: .55;
+  pointer-events: none;
+}
+
+.google-auth-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid #d9dee7;
+  border-radius: 10px;
+  color: #26344b;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.google-auth-fallback:hover:not(:disabled) {
+  background: #f7f9fc;
+}
+
+.google-auth-fallback:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+.google-g-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: #4285f4;
 }
 
 @media (min-width: 901px) {
