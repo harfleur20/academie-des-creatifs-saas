@@ -6,9 +6,11 @@ import {
   BookOpenCheck,
   ClipboardList,
   CreditCard,
+  FileText,
   GraduationCap,
   HeartPulse,
   LayoutDashboard,
+  Plug,
   Settings,
   ShoppingCart,
   Store,
@@ -24,6 +26,9 @@ export function AppLayout() {
       space="manage"
       navItems={[
         { to: '/app/manage', label: 'Tableau de bord', icon: <LayoutDashboard size={18} />, end: true },
+        { to: '/app/manage/reports', label: 'Rapports', icon: <FileText size={18} /> },
+        { to: '/app/manage/connect', label: 'Connect', icon: <Plug size={18} /> },
+        { to: '/app/manage/billing', label: 'Abonnement', icon: <CreditCard size={18} /> },
       ]}
       navGroups={[
         {
@@ -72,7 +77,6 @@ export function AppLayout() {
           icon: <Settings size={18} />,
           items: [
             { to: '/app/manage/charters', label: 'Chartes & règles', icon: <BookOpenCheck size={18} /> },
-            { to: '/app/manage/billing', label: 'Abonnement', icon: <CreditCard size={18} /> },
             { to: '/app/manage/settings', label: 'Paramètres', icon: <Settings size={18} /> },
           ],
         },
