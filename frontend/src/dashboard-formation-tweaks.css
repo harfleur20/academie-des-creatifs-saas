@@ -1,0 +1,70 @@
+/* Dashboard KPI folders: 3 per row on desktop inside the main dashboard column. */
+.owner-dashboard-stats-column .app-stat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.owner-dashboard-stats-column .app-stat-grid article {
+  min-width: 0;
+  padding: 22px 20px 20px;
+}
+
+.owner-dashboard-stats-column .app-stat-grid article > p {
+  max-width: 100%;
+}
+
+/* Formation public-page editor. */
+.formation-public-fields {
+  display: grid;
+  gap: 16px;
+  margin-top: 4px;
+  padding: 22px;
+  border-radius: 20px;
+  background: #f7f9fc;
+}
+
+.formation-public-fields-heading {
+  display: grid;
+  gap: 5px;
+}
+
+.formation-public-fields-heading h3 {
+  margin: 0;
+  color: #10213d;
+  font-size: 18px;
+}
+
+.formation-public-fields-heading p {
+  margin: 0;
+  color: #738197;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.formation-public-fields label,
+.formation-presentation label {
+  gap: 7px;
+}
+
+.formation-public-fields small,
+.formation-presentation label > small {
+  color: #8390a3;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1180px) {
+  .owner-dashboard-stats-column .app-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .owner-dashboard-stats-column .app-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .formation-public-fields {
+    padding: 18px;
+    border-radius: 16px;
+  }
+}
