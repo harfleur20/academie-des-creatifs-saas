@@ -83,6 +83,20 @@
   .school-announcement > button { display: none; }
 }
 
+/* On the home page, the first content section already has generous vertical
+   padding. When the announcement banner is present above the header, that
+   padding can look like an accidental blank strip under the hero. Tighten only
+   that first gap while keeping the normal spacing when the banner is disabled. */
+.school-announcement + .public-school-header + main > .school-hero + .school-section {
+  padding-top: 34px;
+}
+
+@media (max-width: 600px) {
+  .school-announcement + .public-school-header + main > .school-hero + .school-section {
+    padding-top: 26px;
+  }
+}
+
 .school-announcement-settings {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
