@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Activity, AlertTriangle, Banknote, CalendarDays, GraduationCap, TrendingUp, Users } from 'lucide-react'
+import { AlertTriangle, Banknote, CalendarDays, GraduationCap, TrendingUp, Users } from 'lucide-react'
 import {
   ApiError,
   getCommercialDashboard,
@@ -13,7 +13,6 @@ import { ChartCanvas } from '../components/ChartCanvas'
 import { formatSchoolMoney } from '../public/publicHelpers'
 import '../statistics.css'
 
-const pct = (value: number | null) => value === null ? '—' : value.toFixed(1) + '%'
 const errorMessage = (error: unknown) => error instanceof ApiError ? error.message : 'Chargement impossible.'
 
 export function SchoolPerformancePage() {
@@ -48,9 +47,7 @@ export function SchoolPerformancePage() {
 
   const sessions = pedagogy?.sessions.slice(0, 8) ?? []
   const sessionsToWatch = pedagogy?.sessions.filter((row) =>
-    row.at_risk_count > 0
-    || row.pending_reviews_count > 0
-    || (row.attendance_rate_pct !== null && row.attendance_rate_pct < 75)
+    row.at_risk_count > 0 || row.pending_reviews_count > 0
   ) ?? []
   const paidOrders = commerce?.paid_order_count ?? 0
   const totalOrders = commerce?.order_count ?? 0
