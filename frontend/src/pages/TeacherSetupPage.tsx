@@ -28,6 +28,7 @@ import '../teacher-contact-fields.css'
 
 const OTHER_PROFESSION = '__other__'
 const DEFAULT_PHONE_COUNTRY = 'CM'
+const FLAG_BASE_URL = 'https://purecatamphetamine.github.io/country-flag-icons/3x2'
 
 const DIGITAL_PROFESSIONS = [
   'Graphiste / Designer graphique',
@@ -56,10 +57,8 @@ function toText(values: string[]) {
   return values.join(', ')
 }
 
-function flagForCountry(code: string) {
-  return code
-    .toUpperCase()
-    .replace(/[A-Z]/g, (letter) => String.fromCodePoint(127397 + letter.charCodeAt(0)))
+function flagImageUrl(code: string) {
+  return `${FLAG_BASE_URL}/${(code || DEFAULT_PHONE_COUNTRY).toUpperCase()}.svg`
 }
 
 function localPhoneValue(phone: string | null, dialCode: string) {
@@ -323,24 +322,36 @@ export function TeacherSetupPage() {
             <div className="span-two teacher-whatsapp-field">
               <span className="teacher-input-label">Numéro WhatsApp *</span>
               <div className="teacher-phone-control">
-                <div className="teacher-country-picker" title={regionNames.of(whatsappCountry) || 'Pays du numéro WhatsApp'}>
-                  <span className="teacher-country-flag" aria-hidden="true">
-                    {flagForCountry(whatsappCountry || DEFAULT_PHONE_COUNTRY)}
-                  </span>
-                  <ChevronDown size={14} aria-hidden="true" />
-                  <select
-                    aria-label="Pays du numéro WhatsApp"
-                    value={whatsappCountry}
-                    onChange={(event) => setWhatsappCountry(event.target.value)}
-                    required
-                  >
+                <details className="teacher-country-picker">
+                  <summary aria-label={`Pays du numéro WhatsApp : ${regionNames.of(whatsappCountry) || whatsappCountry}`}>
+                    <img
+                      src={flagImageUrl(whatsappCountry)}
+                      alt=""
+                      className="teacher-country-flag"
+                      aria-hidden="true"
+                    />
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </summary>
+                  <div className="teacher-country-menu" role="listbox" aria-label="Choisir le pays du numéro WhatsApp">
                     {sortedPhoneCountries.map((item) => (
-                      <option key={item.code} value={item.code}>
-                        {flagForCountry(item.code)} {regionNames.of(item.code) || item.code} ({item.dial_code})
-                      </option>
+                      <button
+                        key={item.code}
+                        type="button"
+                        className={item.code === whatsappCountry ? 'is-selected' : ''}
+                        role="option"
+                        aria-selected={item.code === whatsappCountry}
+                        onClick={(event) => {
+                          setWhatsappCountry(item.code)
+                          event.currentTarget.closest('details')?.removeAttribute('open')
+                        }}
+                      >
+                        <img src={flagImageUrl(item.code)} alt="" aria-hidden="true" />
+                        <span>{regionNames.of(item.code) || item.code}</span>
+                        <strong>{item.dial_code}</strong>
+                      </button>
                     ))}
-                  </select>
-                </div>
+                  </div>
+                </details>
                 <span className="teacher-phone-dial-code">{selectedPhoneCountry?.dial_code || '+237'}</span>
                 <input
                   aria-label="Numéro WhatsApp"
