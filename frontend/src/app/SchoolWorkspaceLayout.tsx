@@ -46,6 +46,13 @@ export type WorkspaceNavItem = {
   end?: boolean
 }
 
+export type WorkspaceNavGroup = {
+  key: string
+  label: string
+  icon: ReactNode
+  items: WorkspaceNavItem[]
+}
+
 const workspaceLabels: Record<WorkspaceSpace, string> = {
   manage: 'Gestion',
   teacher: 'Enseignant',
@@ -61,12 +68,18 @@ function initialsFor(name?: string | null) {
     .join('')
 }
 
+function navItemMatches(pathname: string, item: WorkspaceNavItem) {
+  return pathname === item.to || (!item.end && pathname.startsWith(item.to))
+}
+
 export function SchoolWorkspaceLayout({
   space,
   navItems,
+  navGroups = [],
 }: {
   space: WorkspaceSpace
   navItems: WorkspaceNavItem[]
+  navGroups?: WorkspaceNavGroup[]
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -81,6 +94,7 @@ export function SchoolWorkspaceLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [openNavGroups, setOpenNavGroups] = useState<string[]>([])
   const profileRef = useRef<HTMLDivElement>(null)
 
   const isRoleSpace = space === 'teacher' || space === 'student'
@@ -111,25 +125,32 @@ export function SchoolWorkspaceLayout({
     '--school-accent': organizationAccent,
   } as CSSProperties
 
+  const allNavItems = useMemo(
+    () => [...navItems, ...navGroups.flatMap((group) => group.items)],
+    [navItems, navGroups],
+  )
+  const activeNavGroup = navGroups.find((group) =>
+    group.items.some((item) => navItemMatches(location.pathname, item)),
+  )?.key
+
   const currentLabel =
-    navItems.find((item) => (
-      location.pathname === item.to
-      || (!item.end && location.pathname.startsWith(item.to))
-    ))?.label
+    allNavItems.find((item) => navItemMatches(location.pathname, item))?.label
     || workspaceLabels[space]
 
   const searchResults = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('fr-FR')
     if (!query) return []
-    return navItems
+    return allNavItems
       .filter((item) => item.label.toLocaleLowerCase('fr-FR').includes(query))
       .slice(0, 6)
-  }, [navItems, search])
+  }, [allNavItems, search])
+
   useEffect(() => {
     setSidebarOpen(false)
     setProfileOpen(false)
     setSearch('')
-  }, [location.pathname])
+    if (!isRoleSpace) setOpenNavGroups(activeNavGroup ? [activeNavGroup] : [])
+  }, [location.pathname, activeNavGroup, isRoleSpace])
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
@@ -162,6 +183,14 @@ export function SchoolWorkspaceLayout({
   function handleSignOut() {
     signOut()
     navigate('/login')
+  }
+
+  function toggleNavGroup(key: string) {
+    setOpenNavGroups((current) => (
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key]
+    ))
   }
 
   if (!isRoleSpace) {
@@ -236,6 +265,33 @@ export function SchoolWorkspaceLayout({
                 {item.icon} {item.label}
               </NavLink>
             ))}
+            {navGroups.map((group) => {
+              const isOpen = openNavGroups.includes(group.key)
+              const isActive = group.items.some((item) => navItemMatches(location.pathname, item))
+              return (
+                <div key={group.key} className={`app-nav-group${isOpen ? ' is-open' : ''}${isActive ? ' is-active' : ''}`}>
+                  <button
+                    type="button"
+                    className="app-nav-group-trigger"
+                    onClick={() => toggleNavGroup(group.key)}
+                    aria-expanded={isOpen}
+                  >
+                    {group.icon}
+                    <span>{group.label}</span>
+                    <ChevronDown className="app-nav-group-chevron" size={14} />
+                  </button>
+                  {isOpen && (
+                    <div className="app-nav-subnav">
+                      {group.items.map((item) => (
+                        <NavLink key={item.to} to={item.to} end={item.end}>
+                          {item.icon} {item.label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </nav>
 
           <div className="sidebar-user">
