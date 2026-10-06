@@ -16,6 +16,110 @@
   margin: 0;
 }
 
+.owner-dashboard-subscription-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: min(100%, 510px);
+  min-height: 82px;
+  padding: 13px 14px;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .055);
+  color: #172844;
+  text-decoration: none;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.owner-dashboard-subscription-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, .075);
+}
+
+.owner-dashboard-subscription-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--green) 14%, #fff);
+  color: #15745c;
+}
+
+.owner-dashboard-subscription-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.owner-dashboard-subscription-plan {
+  color: #718096;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.owner-dashboard-subscription-copy strong {
+  color: #10213d;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.owner-dashboard-subscription-copy small {
+  overflow: hidden;
+  color: #7b899e;
+  font-size: 10.5px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.owner-dashboard-subscription-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f3f6fa;
+  color: #263957;
+  font-size: 10.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.owner-dashboard-subscription-card.is-trialing .owner-dashboard-subscription-icon,
+.owner-dashboard-subscription-card.is-empty .owner-dashboard-subscription-icon {
+  background: #eef2ff;
+  color: #3d49a8;
+}
+
+.owner-dashboard-subscription-card.is-trialing .owner-dashboard-subscription-action,
+.owner-dashboard-subscription-card.is-empty .owner-dashboard-subscription-action {
+  background: #303b9c;
+  color: #fff;
+}
+
+.owner-dashboard-subscription-card.is-past_due .owner-dashboard-subscription-icon,
+.owner-dashboard-subscription-card.is-suspended .owner-dashboard-subscription-icon {
+  background: #fff1f1;
+  color: #c44747;
+}
+
+.owner-dashboard-subscription-card.is-past_due .owner-dashboard-subscription-action,
+.owner-dashboard-subscription-card.is-suspended .owner-dashboard-subscription-action {
+  background: #c44747;
+  color: #fff;
+}
+
+.owner-dashboard-subscription-card.is-cancelled {
+  opacity: .78;
+}
+
 .owner-dashboard-overview {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(285px, 340px);
@@ -466,11 +570,34 @@
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 860px) {
   .owner-dashboard-title-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .owner-dashboard-subscription-card {
+    width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .owner-dashboard-title-row {
     gap: 10px;
+  }
+
+  .owner-dashboard-subscription-card {
+    grid-template-columns: 40px minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .owner-dashboard-subscription-action {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .owner-dashboard-subscription-copy small {
+    white-space: normal;
   }
 
   .owner-dashboard-welcome {
@@ -547,6 +674,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .owner-dashboard-action,
+  .owner-dashboard-subscription-card,
   .public-school-shell .school-contact-grid > a {
     transition: none;
   }
