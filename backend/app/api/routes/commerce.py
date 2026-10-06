@@ -36,6 +36,10 @@ from app.schemas.commerce import (
 from app.services.assets import store_school_asset
 from app.services.communication_delivery import process_communication_outbox
 from app.services.membership_roles import load_effective_member_roles
+from app.services.purchase_policy import (
+    cancel_blocked_staff_unpaid_orders,
+    review_blocked_staff_payment,
+)
 from app.services.school_documents import build_invoice_pdf
 from app.services.public_catalog import get_public_organization
 from app.services.school_branding import get_school_identity, update_school_identity
@@ -466,6 +470,16 @@ def reconcile_checkout(
     user: UserRecord = Depends(get_current_user),
 ):
     org = get_public_organization(db, school_key)
+    reviewed = review_blocked_staff_payment(
+        db,
+        provider_reference,
+        organization_id=org.id,
+        user_id=user.id,
+    )
+    if reviewed is not None:
+        return CheckoutRead(
+            **get_order_for_user(db, org, user, reviewed.id).model_dump()
+        )
     return reconcile_tara_for_user(db, org, user, provider_reference)
 
 
@@ -480,6 +494,7 @@ def commerce_lifecycle(
         or not hmac.compare_digest(settings.billing_cron_secret, cron_secret)
     ):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Secret cron invalide.")
+    cancel_blocked_staff_unpaid_orders(db)
     transitioned = process_installment_lifecycle(db)
     communications = process_communication_outbox(db)
     return {
@@ -510,7 +525,8 @@ async def commerce_tara_webhook(
     if not authenticated:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Notification non vérifiable.")
 
-    order = reconcile_tara_reference(db, product_id)
+    reviewed = review_blocked_staff_payment(db, product_id)
+    order = reviewed if reviewed is not None else reconcile_tara_reference(db, product_id)
     return {
         "received": True,
         "authenticated": authenticated,
