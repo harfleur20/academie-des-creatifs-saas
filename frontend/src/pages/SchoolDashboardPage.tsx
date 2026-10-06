@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, BookOpen, Building2, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
+import { Activity, ArrowRight, BookOpen, Building2, CalendarDays, ClipboardList, Clock3, CreditCard, GraduationCap, HeartPulse, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
 import {
   createOrganization,
   getCommercialDashboard,
   getCurrentSubscription,
   getOnboardingStatus,
+  getSchoolPedagogyOverview,
   listFormations,
   listMembers,
   listPlans,
@@ -14,6 +15,7 @@ import {
   type Member,
   type OnboardingStatus,
   type Plan,
+  type SchoolPedagogyOverview,
   type Subscription,
 } from '../lib/api'
 import { ChartCanvas } from '../components/ChartCanvas'
@@ -59,17 +61,42 @@ type DashboardSummaryCache = {
   formations: FormationSummary[] | null
   members: Member[] | null
   commerce: CommercialDashboard | null
+  pedagogy: SchoolPedagogyOverview | null
   subscription: Subscription | null
   plans: Plan[]
 }
 
 const dashboardSummaryCache = new Map<number, DashboardSummaryCache>()
+const DASHBOARD_CACHE_PREFIX = 'academie_saas_dashboard_summary_'
+
+function readDashboardSummaryCache(organizationId: number) {
+  const memory = dashboardSummaryCache.get(organizationId)
+  if (memory) return memory
+  try {
+    const raw = sessionStorage.getItem(`${DASHBOARD_CACHE_PREFIX}${organizationId}`)
+    if (!raw) return undefined
+    const parsed = JSON.parse(raw) as DashboardSummaryCache
+    dashboardSummaryCache.set(organizationId, parsed)
+    return parsed
+  } catch {
+    return undefined
+  }
+}
+
+function writeDashboardSummaryCache(organizationId: number, summary: DashboardSummaryCache) {
+  dashboardSummaryCache.set(organizationId, summary)
+  try {
+    sessionStorage.setItem(`${DASHBOARD_CACHE_PREFIX}${organizationId}`, JSON.stringify(summary))
+  } catch {
+    // Memory cache remains available if session storage is unavailable.
+  }
+}
 
 export function SchoolDashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { activeOrganization, refreshOrganizations, loading } = useTenant()
-  const cachedSummary = activeOrganization ? dashboardSummaryCache.get(activeOrganization.id) : undefined
+  const cachedSummary = activeOrganization ? readDashboardSummaryCache(activeOrganization.id) : undefined
   const [schoolName, setSchoolName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -77,6 +104,7 @@ export function SchoolDashboardPage() {
   const [formations, setFormations] = useState<FormationSummary[] | null>(cachedSummary?.formations ?? null)
   const [members, setMembers] = useState<Member[] | null>(cachedSummary?.members ?? null)
   const [commerce, setCommerce] = useState<CommercialDashboard | null>(cachedSummary?.commerce ?? null)
+  const [pedagogy, setPedagogy] = useState<SchoolPedagogyOverview | null>(cachedSummary?.pedagogy ?? null)
   const [subscription, setSubscription] = useState<Subscription | null>(cachedSummary?.subscription ?? null)
   const [plans, setPlans] = useState<Plan[]>(cachedSummary?.plans ?? [])
   const [summaryLoading, setSummaryLoading] = useState(!cachedSummary)
@@ -89,6 +117,7 @@ export function SchoolDashboardPage() {
       setFormations(null)
       setMembers(null)
       setCommerce(null)
+      setPedagogy(null)
       setSubscription(null)
       setPlans([])
       setSummaryLoading(false)
@@ -96,12 +125,13 @@ export function SchoolDashboardPage() {
     }
 
     let active = true
-    const cached = dashboardSummaryCache.get(activeOrganization.id)
+    const cached = readDashboardSummaryCache(activeOrganization.id)
     if (cached) {
       setOnboarding(cached.onboarding)
       setFormations(cached.formations)
       setMembers(cached.members)
       setCommerce(cached.commerce)
+      setPedagogy(cached.pedagogy)
       setSubscription(cached.subscription)
       setPlans(cached.plans)
       setSummaryLoading(false)
@@ -110,6 +140,7 @@ export function SchoolDashboardPage() {
       setFormations(null)
       setMembers(null)
       setCommerce(null)
+      setPedagogy(null)
       setSubscription(null)
       setPlans([])
       setSummaryLoading(true)
@@ -121,27 +152,30 @@ export function SchoolDashboardPage() {
       listFormations(),
       listMembers(),
       getCommercialDashboard(),
+      getSchoolPedagogyOverview(),
       getCurrentSubscription(),
       listPlans(),
     ])
-      .then(([onboardingResult, formationsResult, membersResult, commerceResult, subscriptionResult, plansResult]) => {
+      .then(([onboardingResult, formationsResult, membersResult, commerceResult, pedagogyResult, subscriptionResult, plansResult]) => {
         if (!active) return
         const nextSummary: DashboardSummaryCache = {
           onboarding: onboardingResult.status === 'fulfilled' ? onboardingResult.value : cached?.onboarding ?? null,
           formations: formationsResult.status === 'fulfilled' ? formationsResult.value : cached?.formations ?? null,
           members: membersResult.status === 'fulfilled' ? membersResult.value : cached?.members ?? null,
           commerce: commerceResult.status === 'fulfilled' ? commerceResult.value : cached?.commerce ?? null,
+          pedagogy: pedagogyResult.status === 'fulfilled' ? pedagogyResult.value : cached?.pedagogy ?? null,
           subscription: subscriptionResult.status === 'fulfilled' ? subscriptionResult.value : cached?.subscription ?? null,
           plans: plansResult.status === 'fulfilled' ? plansResult.value : cached?.plans ?? [],
         }
-        dashboardSummaryCache.set(activeOrganization.id, nextSummary)
+        writeDashboardSummaryCache(activeOrganization.id, nextSummary)
         setOnboarding(nextSummary.onboarding)
         setFormations(nextSummary.formations)
         setMembers(nextSummary.members)
         setCommerce(nextSummary.commerce)
+        setPedagogy(nextSummary.pedagogy)
         setSubscription(nextSummary.subscription)
         setPlans(nextSummary.plans)
-        setSummaryError([onboardingResult, formationsResult, membersResult, commerceResult].some((result) => result.status === 'rejected'))
+        setSummaryError([onboardingResult, formationsResult, membersResult, commerceResult, pedagogyResult].some((result) => result.status === 'rejected'))
         setSummaryLoading(false)
       })
     return () => { active = false }
@@ -178,6 +212,7 @@ export function SchoolDashboardPage() {
   const hasOnlineFormation = formations?.some((formation) => formation.format_type === 'ligne') ?? false
   const courseCount = formations?.reduce((sum, formation) => sum + formation.course_count, 0) ?? null
   const displayCount = (count: number | null) => count === null ? '—' : count.toLocaleString('fr-FR')
+  const displayPercent = (value: number | null | undefined) => value === null || value === undefined ? '—' : `${Math.round(value)}%`
   const unpublishedCount = formations ? Math.max(0, formations.length - (publishedCount ?? 0)) : 0
   const unpaidOrderCount = commerce ? Math.max(0, commerce.order_count - commerce.paid_order_count) : 0
 
@@ -235,7 +270,7 @@ export function SchoolDashboardPage() {
         : hasGuidedFormation && sessionCount === 0
           ? { title: 'Ouvrez une première session', description: 'Une session permet de planifier la formation et d’accueillir les étudiants.', to: '/app/manage/formations', label: 'Gérer les sessions' }
           : activeTeachers === 0
-            ? { title: 'Invitez un enseignant', description: 'Confiez vos formations à un professeur pour animer les cours.', to: '/app/manage/teachers', label: 'Gérer les enseignants' }
+            ? { title: 'Invitez un enseignant', description: 'Confiez vos formations à un professeur pour animer vos cours.', to: '/app/manage/teachers', label: 'Gérer les enseignants' }
             : activeStudents === 0
               ? { title: 'Faites connaître vos formations', description: 'Votre école est prête à accueillir ses premiers étudiants.', to: '/app/manage/site-public', label: 'Voir le site public' }
               : { title: 'Suivez la progression de l’école', description: 'Retrouvez les indicateurs pédagogiques et les résultats de vos programmes.', to: '/app/manage/performance', label: 'Voir les statistiques' }
@@ -446,10 +481,10 @@ export function SchoolDashboardPage() {
           ) : null}
 
           <div className="owner-dashboard-rail-metrics">
-            <Link to="/app/manage/formations"><GraduationCap size={18} /><span><strong>{displayCount(publishedCount)}</strong><small>formations publiées</small></span></Link>
-            <Link to="/app/manage/teachers"><BookOpen size={18} /><span><strong>{displayCount(activeTeachers)}</strong><small>enseignants actifs</small></span></Link>
-            <Link to="/app/manage/commerce"><ShoppingCart size={18} /><span><strong>{displayCount(commerce?.order_count ?? null)}</strong><small>commandes</small></span></Link>
-            <Link to="/app/manage/formations"><Building2 size={18} /><span><strong>{displayCount(draftCount)}</strong><small>brouillons à finaliser</small></span></Link>
+            <Link to="/app/manage/performance"><Activity size={18} /><span><strong>{displayPercent(pedagogy?.average_progress_pct)}</strong><small>progression moyenne</small></span></Link>
+            <Link to="/app/manage/pedagogy"><CalendarDays size={18} /><span><strong>{displayPercent(pedagogy?.average_attendance_pct)}</strong><small>présence moyenne</small></span></Link>
+            <Link to="/app/manage/pedagogy" className={(pedagogy?.pending_reviews_count ?? 0) > 0 ? 'is-alert' : ''}><ClipboardList size={18} /><span><strong>{displayCount(pedagogy?.pending_reviews_count ?? null)}</strong><small>corrections à traiter</small></span></Link>
+            <Link to="/app/manage/pedagogy" className={(pedagogy?.at_risk_students ?? 0) > 0 ? 'is-alert' : ''}><HeartPulse size={18} /><span><strong>{displayCount(pedagogy?.at_risk_students ?? null)}</strong><small>étudiants à risque</small></span></Link>
           </div>
 
           {(onboarding && !onboarding.is_complete) ? (
