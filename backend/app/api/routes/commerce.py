@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_user, get_tenant_context
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.entities import CommunicationOutboxRecord, OrderInvoiceRecord, StudentOrderRecord, UserRecord
+from app.models.entities import (
+    CommunicationOutboxRecord,
+    OrderInvoiceRecord,
+    OrganizationMemberRecord,
+    StudentOrderRecord,
+    UserRecord,
+)
 from app.schemas.commerce import (
     CheckoutCreate,
     CheckoutRead,
@@ -29,6 +35,7 @@ from app.schemas.commerce import (
 )
 from app.services.assets import store_school_asset
 from app.services.communication_delivery import process_communication_outbox
+from app.services.membership_roles import load_effective_member_roles
 from app.services.school_documents import build_invoice_pdf
 from app.services.public_catalog import get_public_organization
 from app.services.school_branding import get_school_identity, update_school_identity
@@ -61,6 +68,33 @@ from app.services.tenancy import TenantContext
 
 router = APIRouter(prefix="/commerce", tags=["commerce"])
 MAX_TARA_WEBHOOK_BYTES = 16 * 1024
+PURCHASE_BLOCKING_ROLES = frozenset({"owner", "admin", "manager", "teacher"})
+PURCHASE_BLOCKED_MESSAGE = (
+    "Un compte administrateur ou enseignant ne peut pas acheter une formation de cette école."
+)
+
+
+def _require_public_purchase_allowed(
+    db: Session,
+    *,
+    organization_id: int,
+    user: UserRecord,
+) -> None:
+    if user.platform_role == "super_admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, PURCHASE_BLOCKED_MESSAGE)
+
+    member = db.scalar(
+        select(OrganizationMemberRecord).where(
+            OrganizationMemberRecord.organization_id == organization_id,
+            OrganizationMemberRecord.user_id == user.id,
+        )
+    )
+    if member is None:
+        return
+
+    roles = load_effective_member_roles(db, member)
+    if roles.intersection(PURCHASE_BLOCKING_ROLES):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, PURCHASE_BLOCKED_MESSAGE)
 
 
 @router.get("/identity", response_model=SchoolIdentityRead)
@@ -322,6 +356,7 @@ def preview_public_price(
     user: UserRecord = Depends(get_current_user),
 ):
     org = get_public_organization(db, school_key)
+    _require_public_purchase_allowed(db, organization_id=org.id, user=user)
     return price_preview(
         db,
         org,
@@ -344,6 +379,7 @@ def checkout_public(
     user: UserRecord = Depends(get_current_user),
 ):
     org = get_public_organization(db, school_key)
+    _require_public_purchase_allowed(db, organization_id=org.id, user=user)
     return create_checkout(
         db, org, user, payload,
         return_origin=verified_return_origin(db, org, request.headers.get("origin")),
@@ -397,6 +433,7 @@ def demo_confirm(
     user: UserRecord = Depends(get_current_user),
 ):
     org = get_public_organization(db, school_key)
+    _require_public_purchase_allowed(db, organization_id=org.id, user=user)
     return confirm_demo_checkout(db, org, user, order_id, payment_ref)
 
 
@@ -410,6 +447,7 @@ def pay_installment(
     user: UserRecord = Depends(get_current_user),
 ):
     org = get_public_organization(db, school_key)
+    _require_public_purchase_allowed(db, organization_id=org.id, user=user)
     return {
         "checkout_url": create_installment_payment_link(
             db, org, user, installment_id
