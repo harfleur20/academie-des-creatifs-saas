@@ -24,6 +24,7 @@ import {
   RoleDashboardCalendar,
   type RoleScheduleItem,
 } from '../components/RoleDashboardCalendar'
+import { RoleSchoolVisual } from '../components/RoleSchoolVisual'
 
 function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Enseignant'
@@ -146,9 +147,11 @@ export function TeacherDashboardPage() {
                   session.
                 </small>
               </div>
-              <div className="role-hero__visual">
-                <img src="/img-bg-8.png" alt="" aria-hidden />
-              </div>
+              <RoleSchoolVisual
+                role="teacher"
+                schoolName={activeOrganization?.name || 'Votre école'}
+                logoUrl={activeOrganization?.logo_url}
+              />
             </section>
 
             <section className="role-calendar-card">
