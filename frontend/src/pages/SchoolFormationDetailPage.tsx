@@ -19,6 +19,7 @@ import { setSchoolCart } from '../public/schoolCart'
 import { formatSchoolDate, formatSchoolMoney } from '../public/publicHelpers'
 import { usePublicSchool } from '../public/SchoolPublicLayout'
 import { SchoolFavoriteButton } from '../public/SchoolFavoriteButton'
+import { PublicProgramSection } from '../components/PublicProgramSection'
 
 const formatLabels: Record<PublicFormationDetail['format_type'], string> = {
   ligne: 'En ligne',
@@ -220,40 +221,10 @@ export function SchoolFormationDetailPage() {
           )}
 
           {hasProgram && (
-            <section className="school-detail-section-block">
-              <div className="school-detail-section-heading-v2">
-                <span className="school-detail-section-icon"><Layers3 size={19} /></span>
-                <div>
-                  <span className="school-detail-section-kicker">Votre parcours</span>
-                  <h2>Programme de la formation</h2>
-                </div>
-              </div>
-
-              {formation.public_program.trim() && (
-                <p className="school-preline school-detail-program-intro">{formation.public_program}</p>
-              )}
-
-              {formation.modules.length > 0 && (
-                <div className="school-program-modules school-program-modules-v2">
-                  {formation.modules.map((module, index) => (
-                    <details key={`${module.title}-${index}`} open={index === 0}>
-                      <summary>
-                        <span>Module {index + 1}</span>
-                        <strong>{module.title}</strong>
-                        <small>{module.chapters.length} chapitre(s)</small>
-                      </summary>
-                      {module.chapters.length > 0 && (
-                        <ul>
-                          {module.chapters.map((chapter, chapterIndex) => (
-                            <li key={`${chapter}-${chapterIndex}`}><CheckCircle2 size={14} />{chapter}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </details>
-                  ))}
-                </div>
-              )}
-            </section>
+            <PublicProgramSection
+              rawProgram={formation.public_program}
+              fallbackModules={formation.modules}
+            />
           )}
 
           {formation.teacher_names.length > 0 && (
