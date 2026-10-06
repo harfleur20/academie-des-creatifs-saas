@@ -51,7 +51,7 @@ from app.schemas.academic import (
 )
 from app.schemas.assignments import AssignmentCreate, AssignmentSubmit
 from app.schemas.formations import CourseUpdate, LessonCreate
-from app.schemas.planning import CourseDayReportSubmit
+from app.schemas.planning import CourseDayFeedbackSubmit, CourseDayReportSubmit
 from app.services.assignments import create_assignment, list_student_assignments, submit_assignment
 from app.services.class_certificates import (
     create_discussion_post,
@@ -72,7 +72,7 @@ from app.services.learning_progress import (
     teacher_performance,
 )
 from app.services.live_classes import join_live_class
-from app.services.planning import get_session_planning, submit_course_day_report
+from app.services.planning import get_session_planning, list_course_day_feedback, submit_course_day_feedback, submit_course_day_report
 from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
@@ -544,6 +544,61 @@ def test_non_held_course_day_does_not_count_as_student_absence() -> None:
     with pytest.raises(HTTPException) as closed:
         join_live_class(db, student_tenant, day.id, now=datetime(2025, 1, 10, 11, 5, tzinfo=UTC))
     assert closed.value.status_code == 404
+
+
+def test_student_course_day_feedback_is_private_and_school_scoped() -> None:
+    db = build_db()
+    org, teacher, student, classmate, session, _, _, _, day = seed(db)
+    student_tenant = ctx(db, org, student)
+    classmate_tenant = ctx(db, org, classmate)
+    teacher_tenant = ctx(db, org, teacher)
+    payload = CourseDayFeedbackSubmit(rating=4, delivery_status="partial", comment="  Cours utile  ")
+    with pytest.raises(HTTPException) as early:
+        submit_course_day_feedback(db, student_tenant, day.id, payload, now=datetime(2025, 1, 10, 9, 30, tzinfo=UTC))
+    assert early.value.status_code == 409
+
+    planning = submit_course_day_feedback(db, student_tenant, day.id, payload)
+    assert planning.course_days[0].my_feedback.comment == "Cours utile"
+    assert planning.course_days[0].feedback_count == 1
+    assert get_session_planning(db, classmate_tenant, session.id).course_days[0].my_feedback is None
+    submit_course_day_feedback(db, classmate_tenant, day.id, CourseDayFeedbackSubmit(
+        rating=2, delivery_status="not_held", comment=None,
+    ))
+    updated = submit_course_day_feedback(db, student_tenant, day.id, CourseDayFeedbackSubmit(
+        rating=5, delivery_status="held", comment="Finalement bien tenu",
+    ))
+    assert updated.course_days[0].feedback_count == 2
+    assert updated.course_days[0].average_rating == 3.5
+    with pytest.raises(HTTPException) as forbidden:
+        list_course_day_feedback(db, student_tenant, day.id)
+    assert forbidden.value.status_code == 403
+    reviews = list_course_day_feedback(db, teacher_tenant, day.id)
+    assert {item.student_name for item in reviews} == {"Student", "Classmate"}
+    assert {item.rating for item in reviews} == {2, 5}
+    other_org = OrganizationRecord(name="Other school", slug="other-school")
+    db.add(other_org)
+    db.flush()
+    other_formation = FormationRecord(organization_id=other_org.id, slug="other", title="Other course")
+    db.add(other_formation)
+    db.flush()
+    other_session = FormationSessionRecord(
+        organization_id=other_org.id, formation_id=other_formation.id, label="Other session",
+        start_date=date(2025, 1, 1), end_date=date(2025, 2, 1), status="open",
+    )
+    db.add(other_session)
+    db.flush()
+    other_day = SessionCourseDayRecord(
+        organization_id=other_org.id, session_id=other_session.id, title="Other day",
+        scheduled_at=datetime(2025, 1, 10, 9, tzinfo=UTC), duration_minutes=60,
+    )
+    db.add(other_day)
+    db.commit()
+    with pytest.raises(HTTPException) as hidden:
+        submit_course_day_feedback(db, student_tenant, other_day.id, payload)
+    assert hidden.value.status_code == 404
+    with pytest.raises(HTTPException) as hidden_reviews:
+        list_course_day_feedback(db, teacher_tenant, other_day.id)
+    assert hidden_reviews.value.status_code == 404
 
 
 def test_course_publication_publishes_valid_lessons_together() -> None:

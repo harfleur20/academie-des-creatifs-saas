@@ -1368,6 +1368,9 @@ export type CourseDay = {
   delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted' | null
   report_summary: string | null
   report_submitted_at: string | null
+  feedback_count: number
+  average_rating: number | null
+  my_feedback: CourseDayFeedback | null
   can_edit: boolean
   created_at: string
 }
@@ -1389,6 +1392,23 @@ export const getSessionPlanning = (sessionId: number) =>
 
 export const submitCourseDayReport = (courseDayId: number, payload: { delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted'; summary: string }) =>
   request<SessionPlanning>(`/planning/course-days/${courseDayId}/report`, { method: 'POST', body: JSON.stringify(payload) })
+
+export type CourseDayFeedback = {
+  id: number
+  rating: number
+  delivery_status: 'held' | 'partial' | 'not_held'
+  comment: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CourseDayFeedbackReview = CourseDayFeedback & { student_name: string }
+
+export const submitCourseDayFeedback = (courseDayId: number, payload: { rating: number; delivery_status: CourseDayFeedback['delivery_status']; comment: string }) =>
+  request<SessionPlanning>(`/planning/course-days/${courseDayId}/feedback`, { method: 'POST', body: JSON.stringify(payload) })
+
+export const listCourseDayFeedback = (courseDayId: number) =>
+  request<CourseDayFeedbackReview[]>(`/planning/course-days/${courseDayId}/feedback`)
 
 export type LiveRoom = {
   course_day_id: number

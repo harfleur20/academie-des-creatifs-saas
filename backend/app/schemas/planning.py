@@ -57,6 +57,9 @@ class CourseDayRead(BaseModel):
     delivery_status: str | None
     report_summary: str | None
     report_submitted_at: datetime | None
+    feedback_count: int
+    average_rating: float | None
+    my_feedback: "CourseDayFeedbackRead | None"
     can_edit: bool
     created_at: datetime
 
@@ -96,3 +99,27 @@ class CourseDayReportSubmit(BaseModel):
         if len(cleaned) < 10:
             raise ValueError("Le compte rendu doit contenir au moins 10 caractères.")
         return cleaned
+
+
+class CourseDayFeedbackSubmit(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    delivery_status: Literal["held", "partial", "not_held"]
+    comment: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("comment")
+    @classmethod
+    def normalize_comment(cls, value: str | None) -> str | None:
+        return value.strip() or None if value is not None else None
+
+
+class CourseDayFeedbackRead(BaseModel):
+    id: int
+    rating: int
+    delivery_status: Literal["held", "partial", "not_held"]
+    comment: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CourseDayFeedbackReviewRead(CourseDayFeedbackRead):
+    student_name: str

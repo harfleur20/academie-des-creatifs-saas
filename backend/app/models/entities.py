@@ -684,6 +684,22 @@ class SessionCourseDayRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     teacher: Mapped["UserRecord | None"] = relationship()
 
 
+class CourseDayFeedbackRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "course_day_feedback"
+    __table_args__ = (
+        UniqueConstraint("course_day_id", "enrollment_id", name="uq_course_day_feedback_enrollment"),
+        Index("ix_course_day_feedback_org_day", "organization_id", "course_day_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False)
+    course_day_id: Mapped[int] = mapped_column(ForeignKey("session_course_days.id", ondelete="CASCADE"), nullable=False)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    delivery_status: Mapped[str] = mapped_column(String(16), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class SessionTeacherRecord(OrganizationOwnedMixin, Base):
     __tablename__ = "session_teachers"
     __table_args__ = (

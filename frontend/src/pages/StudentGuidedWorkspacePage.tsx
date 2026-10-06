@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
-import { ApiError, getSessionPlanning, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources,
+import { ApiError, getSessionPlanning, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources, submitCourseDayFeedback,
   type AcademicResource, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz } from '../lib/api'
 import { liveClassIsOpen } from '../lib/liveWindow'
 
@@ -29,6 +29,28 @@ export function StudentGuidedWorkspacePage() {
   const [progress, setProgress] = useState<StudentProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [feedbackDayId, setFeedbackDayId] = useState<number | null>(null)
+  const [feedbackRating, setFeedbackRating] = useState(5)
+  const [feedbackDelivery, setFeedbackDelivery] = useState<'held' | 'partial' | 'not_held'>('held')
+  const [feedbackComment, setFeedbackComment] = useState('')
+  const [feedbackSaving, setFeedbackSaving] = useState(false)
+
+  async function saveFeedback(event: FormEvent) {
+    event.preventDefault()
+    if (feedbackDayId === null) return
+    setFeedbackSaving(true)
+    setError('')
+    try {
+      setPlanning(await submitCourseDayFeedback(feedbackDayId, {
+        rating: feedbackRating, delivery_status: feedbackDelivery, comment: feedbackComment.trim(),
+      }))
+      setFeedbackDayId(null)
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Avis impossible à enregistrer.')
+    } finally {
+      setFeedbackSaving(false)
+    }
+  }
 
   useEffect(() => {
     if (!activeOrganization) { setSession(null); return }
@@ -94,6 +116,20 @@ export function StudentGuidedWorkspacePage() {
           return <div className="guided-list-row" key={day.id}>
             <strong>{day.title}</strong><span>{dateLabel(day.scheduled_at)} · {day.duration_minutes} min</span><small>{presenceLabel}</small>
             {session.format_type === 'live' && !day.report_submitted_at && (!planning?.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link to={`/app/student/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>)}
+            {day.feedback_count > 0 && <small>{day.feedback_count} avis · note moyenne {day.average_rating}/5</small>}
+            {day.my_feedback && <small>Votre avis : {day.my_feedback.rating}/5 · {day.my_feedback.delivery_status === 'held' ? 'tenue' : day.my_feedback.delivery_status === 'partial' ? 'partielle' : 'non tenue'}</small>}
+            {Date.now() >= new Date(day.scheduled_at).getTime() + day.duration_minutes * 60_000 && <button className="secondary-button" type="button" onClick={() => {
+              setFeedbackDayId(day.id)
+              setFeedbackRating(day.my_feedback?.rating ?? 5)
+              setFeedbackDelivery(day.my_feedback?.delivery_status ?? 'held')
+              setFeedbackComment(day.my_feedback?.comment ?? '')
+            }}>{day.my_feedback ? 'Modifier mon avis' : 'Donner mon avis'}</button>}
+            {feedbackDayId === day.id && <form className="course-day-report-form" onSubmit={(event) => void saveFeedback(event)}>
+              <label>Note<select value={feedbackRating} onChange={(event) => setFeedbackRating(Number(event.target.value))}>{[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating}/5</option>)}</select></label>
+              <label>La séance a-t-elle eu lieu ?<select value={feedbackDelivery} onChange={(event) => setFeedbackDelivery(event.target.value as typeof feedbackDelivery)}><option value="held">Oui</option><option value="partial">En partie</option><option value="not_held">Non</option></select></label>
+              <label>Commentaire facultatif<textarea maxLength={1000} value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} /></label>
+              <div><button className="primary-button" type="submit" disabled={feedbackSaving}>Enregistrer mon avis</button><button className="secondary-button" type="button" onClick={() => setFeedbackDayId(null)}>Annuler</button></div>
+            </form>}
           </div>
         })}{days.length === 0 && <p>Le calendrier est en préparation.</p>}</>}
         {tab === 'assignments' && <><h2>Devoirs</h2>{assignments.map((item) => <div className="guided-list-row" key={item.id}><strong>{item.title}</strong><span>À rendre le {dateLabel(item.due_date)}</span><small>{item.is_locked ? 'À venir' : item.student_status === 'submitted' ? 'Rendu' : item.student_status === 'reviewed' ? 'Corrigé' : item.student_status === 'late' ? 'En retard' : 'À rendre'}</small><Link to={`/app/student/assignments#assignment-${item.id}`}>Ouvrir</Link></div>)}{assignments.length === 0 && <p>Aucun devoir pour cette session.</p>}</>}

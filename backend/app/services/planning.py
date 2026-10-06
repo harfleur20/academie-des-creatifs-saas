@@ -3,19 +3,24 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import (
     AttendanceRecord,
+    CourseDayFeedbackRecord,
     EnrollmentRecord,
     FormationSessionRecord,
     SessionCourseDayRecord,
     SessionTeacherRecord,
+    UserRecord,
 )
 from app.schemas.planning import (
     CourseDayCreate,
     CourseDayDraftItem,
+    CourseDayFeedbackRead,
+    CourseDayFeedbackReviewRead,
+    CourseDayFeedbackSubmit,
     CourseDayRead,
     CourseDayReportSubmit,
     CourseDayUpdate,
@@ -203,6 +208,8 @@ def _ensure_no_overlap(
 def _serialize_day(
     tenant: TenantContext,
     record: SessionCourseDayRecord,
+    *, feedback_count: int = 0, average_rating: float | None = None,
+    my_feedback: CourseDayFeedbackRecord | None = None,
 ) -> CourseDayRead:
     can_read_report = (
         (tenant.has_role("teacher") and record.teacher_id == tenant.user.id)
@@ -220,6 +227,9 @@ def _serialize_day(
         delivery_status=record.delivery_status,
         report_summary=record.report_summary if can_read_report else None,
         report_submitted_at=record.report_submitted_at,
+        feedback_count=feedback_count,
+        average_rating=average_rating,
+        my_feedback=_serialize_feedback(my_feedback) if my_feedback else None,
         can_edit=(
             tenant.has_role("teacher")
             and record.teacher_id == tenant.user.id
@@ -227,6 +237,13 @@ def _serialize_day(
             and record.report_submitted_at is None
         ),
         created_at=record.created_at,
+    )
+
+
+def _serialize_feedback(record: CourseDayFeedbackRecord) -> CourseDayFeedbackRead:
+    return CourseDayFeedbackRead(
+        id=record.id, rating=record.rating, delivery_status=record.delivery_status,
+        comment=record.comment, created_at=record.created_at, updated_at=record.updated_at,
     )
 
 
@@ -252,6 +269,28 @@ def get_session_planning(
             )
         ).all()
     )
+    day_ids = [day.id for day in days]
+    feedback_summary: dict[int, tuple[int, float | None]] = {}
+    my_feedback: dict[int, CourseDayFeedbackRecord] = {}
+    if day_ids:
+        feedback_summary = {
+            day_id: (count, round(float(average), 1) if average is not None else None)
+            for day_id, count, average in db.execute(select(
+                CourseDayFeedbackRecord.course_day_id,
+                func.count(CourseDayFeedbackRecord.id),
+                func.avg(CourseDayFeedbackRecord.rating),
+            ).where(
+                CourseDayFeedbackRecord.organization_id == tenant.organization_id,
+                CourseDayFeedbackRecord.course_day_id.in_(day_ids),
+            ).group_by(CourseDayFeedbackRecord.course_day_id)).all()
+        }
+        enrollment = _student_enrollment(db, tenant, session.id) if tenant.has_role("student") else None
+        if enrollment:
+            my_feedback = {item.course_day_id: item for item in db.scalars(select(CourseDayFeedbackRecord).where(
+                CourseDayFeedbackRecord.organization_id == tenant.organization_id,
+                CourseDayFeedbackRecord.enrollment_id == enrollment.id,
+                CourseDayFeedbackRecord.course_day_id.in_(day_ids),
+            )).all()}
     return SessionPlanningRead(
         session_id=session.id,
         formation_id=session.formation_id,
@@ -261,8 +300,73 @@ def get_session_planning(
         session_label=session.label,
         session_start_date=session.start_date.isoformat(),
         session_end_date=session.end_date.isoformat(),
-        course_days=[_serialize_day(tenant, item) for item in days],
+        course_days=[_serialize_day(
+            tenant, item, feedback_count=feedback_summary.get(item.id, (0, None))[0],
+            average_rating=feedback_summary.get(item.id, (0, None))[1],
+            my_feedback=my_feedback.get(item.id),
+        ) for item in days],
     )
+
+
+def submit_course_day_feedback(
+    db: Session, tenant: TenantContext, course_day_id: int, payload: CourseDayFeedbackSubmit,
+    *, now: datetime | None = None,
+) -> SessionPlanningRead:
+    day = db.scalar(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.id == course_day_id,
+        SessionCourseDayRecord.organization_id == tenant.organization_id,
+    ))
+    if day is None:
+        raise HTTPException(404, "Séance introuvable.")
+    if day.status == "cancelled":
+        raise HTTPException(409, "Aucun avis n'est attendu pour une séance annulée.")
+    enrollment = _student_enrollment(db, tenant, day.session_id) if tenant.has_role("student") else None
+    if enrollment is None:
+        raise HTTPException(403, "Vous n'êtes pas inscrit à cette séance.")
+    if tenant.support_mode:
+        raise HTTPException(403, "Le mode support est en lecture seule.")
+    if _aware(now or datetime.now(UTC)) < _aware(day.scheduled_at) + timedelta(minutes=day.duration_minutes):
+        raise HTTPException(409, "Vous pourrez noter cette séance une fois terminée.")
+    feedback = db.scalar(select(CourseDayFeedbackRecord).where(
+        CourseDayFeedbackRecord.organization_id == tenant.organization_id,
+        CourseDayFeedbackRecord.course_day_id == day.id,
+        CourseDayFeedbackRecord.enrollment_id == enrollment.id,
+    ))
+    if feedback is None:
+        feedback = CourseDayFeedbackRecord(
+            organization_id=tenant.organization_id, session_id=day.session_id,
+            course_day_id=day.id, enrollment_id=enrollment.id,
+        )
+    feedback.rating = payload.rating
+    feedback.delivery_status = payload.delivery_status
+    feedback.comment = payload.comment
+    db.add(feedback)
+    db.commit()
+    return get_session_planning(db, tenant, day.session_id)
+
+
+def list_course_day_feedback(
+    db: Session, tenant: TenantContext, course_day_id: int,
+) -> list[CourseDayFeedbackReviewRead]:
+    day = db.scalar(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.id == course_day_id,
+        SessionCourseDayRecord.organization_id == tenant.organization_id,
+    ))
+    if day is None:
+        raise HTTPException(404, "Séance introuvable.")
+    if not _can_manage_school(tenant) and not (
+        tenant.has_role("teacher") and _teacher_assignment(db, tenant, day.session_id)
+    ):
+        raise HTTPException(403, "Accès aux avis réservé à l'équipe pédagogique.")
+    rows = db.execute(select(CourseDayFeedbackRecord, UserRecord.full_name)
+        .join(EnrollmentRecord, EnrollmentRecord.id == CourseDayFeedbackRecord.enrollment_id)
+        .join(UserRecord, UserRecord.id == EnrollmentRecord.student_id)
+        .where(
+            CourseDayFeedbackRecord.organization_id == tenant.organization_id,
+            CourseDayFeedbackRecord.course_day_id == day.id,
+            EnrollmentRecord.organization_id == tenant.organization_id,
+        ).order_by(CourseDayFeedbackRecord.created_at.desc())).all()
+    return [CourseDayFeedbackReviewRead(**_serialize_feedback(item).model_dump(), student_name=name) for item, name in rows]
 
 
 def create_course_day(

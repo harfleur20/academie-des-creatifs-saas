@@ -4888,6 +4888,9 @@
 .course-day-report-form textarea { min-height: 90px; resize: vertical; }
 .course-day-report-form select, .course-day-report-form textarea { width: 100%; padding: 9px; border: 1px solid #d8e0ea; border-radius: 8px; background: #fff; }
 .course-day-report-form > div { display: flex; gap: 8px; }
+.course-day-feedback-list { flex-basis: 100%; width: 100%; padding: 10px 14px; border: 1px solid #e3e8ef; border-radius: 10px; background: #f8fafc; }
+.course-day-feedback-list p { margin: 0; padding: 8px 0; overflow-wrap: anywhere; }
+.course-day-feedback-list p + p { border-top: 1px solid #e3e8ef; }
 
 .guided-summary-grid {
   display: grid;
