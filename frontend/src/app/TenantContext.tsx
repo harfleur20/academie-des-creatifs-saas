@@ -86,7 +86,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     } finally {
       if (organizationsRequest.current === requestId && shouldBlockWorkspace) setLoading(false)
     }
-  }, [user, supportMode?.organization_id])
+  }, [user?.id, supportMode?.organization_id])
 
   const refreshAccessProfile = useCallback(async () => {
     const requestId = ++profileRequest.current
@@ -111,7 +111,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     } finally {
       if (profileRequest.current === requestId) setProfileLoading(false)
     }
-  }, [user, activeOrganization?.id])
+  }, [user?.id, activeOrganization?.id])
 
   useEffect(() => {
     organizationsReady.current = false
