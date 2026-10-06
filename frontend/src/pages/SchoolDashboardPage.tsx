@@ -1,16 +1,20 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, BookOpen, Building2, CalendarDays, Clock3, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
+import { ArrowRight, BookOpen, Building2, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
 import {
   createOrganization,
   getCommercialDashboard,
+  getCurrentSubscription,
   getOnboardingStatus,
   listFormations,
   listMembers,
+  listPlans,
   setStoredOrganizationId,
   type CommercialDashboard,
   type FormationSummary,
   type Member,
   type OnboardingStatus,
+  type Plan,
+  type Subscription,
 } from '../lib/api'
 import { useTenant } from '../app/TenantContext'
 import { useAuth } from '../auth/AuthContext'
@@ -30,6 +34,24 @@ function firstName(value?: string | null) {
   return (value || '').trim().split(/\s+/)[0] || 'vous'
 }
 
+function daysUntil(value: string | null | undefined) {
+  if (!value) return null
+  const diff = new Date(value).getTime() - Date.now()
+  return Math.max(0, Math.ceil(diff / 86_400_000))
+}
+
+function planSortPrice(plan: Plan) {
+  return plan.monthly_price_cents ?? plan.annual_price_cents ?? Number.MAX_SAFE_INTEGER
+}
+
+const subscriptionStatusLabels: Record<Subscription['status'], string> = {
+  trialing: 'Période d’essai',
+  active: 'Abonnement actif',
+  past_due: 'Paiement en retard',
+  suspended: 'Abonnement suspendu',
+  cancelled: 'Abonnement résilié',
+}
+
 export function SchoolDashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -41,6 +63,8 @@ export function SchoolDashboardPage() {
   const [formations, setFormations] = useState<FormationSummary[] | null>(null)
   const [members, setMembers] = useState<Member[] | null>(null)
   const [commerce, setCommerce] = useState<CommercialDashboard | null>(null)
+  const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [plans, setPlans] = useState<Plan[]>([])
   const [summaryLoading, setSummaryLoading] = useState(true)
   const [summaryError, setSummaryError] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -51,6 +75,8 @@ export function SchoolDashboardPage() {
       setFormations(null)
       setMembers(null)
       setCommerce(null)
+      setSubscription(null)
+      setPlans([])
       setSummaryLoading(false)
       return
     }
@@ -59,15 +85,26 @@ export function SchoolDashboardPage() {
     setFormations(null)
     setMembers(null)
     setCommerce(null)
+    setSubscription(null)
+    setPlans([])
     setSummaryError(false)
     setSummaryLoading(true)
-    void Promise.allSettled([getOnboardingStatus(), listFormations(), listMembers(), getCommercialDashboard()])
-      .then(([onboardingResult, formationsResult, membersResult, commerceResult]) => {
+    void Promise.allSettled([
+      getOnboardingStatus(),
+      listFormations(),
+      listMembers(),
+      getCommercialDashboard(),
+      getCurrentSubscription(),
+      listPlans(),
+    ])
+      .then(([onboardingResult, formationsResult, membersResult, commerceResult, subscriptionResult, plansResult]) => {
         if (!active) return
         setOnboarding(onboardingResult.status === 'fulfilled' ? onboardingResult.value : null)
         setFormations(formationsResult.status === 'fulfilled' ? formationsResult.value : null)
         setMembers(membersResult.status === 'fulfilled' ? membersResult.value : null)
         setCommerce(commerceResult.status === 'fulfilled' ? commerceResult.value : null)
+        setSubscription(subscriptionResult.status === 'fulfilled' ? subscriptionResult.value : null)
+        setPlans(plansResult.status === 'fulfilled' ? plansResult.value : [])
         setSummaryError([onboardingResult, formationsResult, membersResult, commerceResult].some((result) => result.status === 'rejected'))
         setSummaryLoading(false)
       })
@@ -105,6 +142,42 @@ export function SchoolDashboardPage() {
   const hasOnlineFormation = formations?.some((formation) => formation.format_type === 'ligne') ?? false
   const courseCount = formations?.reduce((sum, formation) => sum + formation.course_count, 0) ?? null
   const displayCount = (count: number | null) => count === null ? '—' : count.toLocaleString('fr-FR')
+
+  const publicPlans = plans.filter((plan) => plan.is_public).sort((a, b) => planSortPrice(a) - planSortPrice(b))
+  const currentPlanPrice = subscription ? planSortPrice(subscription.plan) : null
+  const upgradePlan = subscription && currentPlanPrice !== null
+    ? publicPlans.find((plan) => plan.code !== subscription.plan.code && planSortPrice(plan) > currentPlanPrice)
+    : publicPlans[0]
+  const subscriptionDeadline = subscription?.status === 'trialing'
+    ? subscription.trial_ends_at
+    : subscription?.status === 'past_due'
+      ? subscription.grace_period_ends_at || subscription.current_period_end
+      : subscription?.current_period_end
+  const subscriptionDays = daysUntil(subscriptionDeadline)
+  const providerLabel = subscription?.provider
+    ? subscription.provider.toLowerCase().includes('tara') ? 'TaraMoney' : subscription.provider
+    : 'Paiement à configurer'
+  const billingIntervalLabel = subscription?.billing_interval === 'annual' ? 'Annuel' : 'Mensuel'
+  const subscriptionPeriodText = !subscription
+    ? 'Aucune offre souscrite pour le moment.'
+    : subscription.status === 'trialing'
+      ? subscriptionDays === null ? 'Essai en cours.' : `${subscriptionDays} jour${subscriptionDays > 1 ? 's' : ''} d’essai restant${subscriptionDays > 1 ? 's' : ''}.`
+      : subscription.status === 'past_due'
+        ? subscriptionDays === null ? 'Paiement à régulariser.' : `${subscriptionDays} jour${subscriptionDays > 1 ? 's' : ''} avant suspension.`
+        : subscription.status === 'suspended'
+          ? 'Régularisez votre abonnement pour rétablir tous les accès.'
+          : subscription.status === 'cancelled'
+            ? 'Votre abonnement est terminé.'
+            : subscription.cancel_at_period_end
+              ? subscriptionDays === null ? 'Résiliation programmée.' : `Se termine dans ${subscriptionDays} jour${subscriptionDays > 1 ? 's' : ''}.`
+              : subscriptionDays === null ? 'Période en cours.' : `Renouvellement dans ${subscriptionDays} jour${subscriptionDays > 1 ? 's' : ''}.`
+  const subscriptionActionLabel = !subscription
+    ? 'Voir les offres'
+    : ['past_due', 'suspended'].includes(subscription.status)
+      ? 'Régulariser'
+      : upgradePlan
+        ? `Passer à ${upgradePlan.name}`
+        : 'Gérer l’abonnement'
 
   const summaryText = summaryLoading
     ? 'Préparation du résumé de votre école…'
@@ -175,9 +248,24 @@ export function SchoolDashboardPage() {
         <span className="page-kicker">Tableau de bord</span>
         <div className="owner-dashboard-title-row">
           <h1>Vue d’ensemble</h1>
-          <span className={`status-chip${activeOrganization.is_active ? '' : ' is-inactive'}`}>
-            {activeOrganization.is_active ? 'École active' : 'École suspendue'}
-          </span>
+          <Link
+            to="/app/manage/billing"
+            className={`owner-dashboard-subscription-card${subscription ? ` is-${subscription.status}` : ' is-empty'}`}
+          >
+            <span className="owner-dashboard-subscription-icon"><CreditCard size={21} /></span>
+            <span className="owner-dashboard-subscription-copy">
+              <span className="owner-dashboard-subscription-plan">
+                {subscription ? subscription.plan.name : 'Votre abonnement'}
+              </span>
+              <strong>{subscription ? subscriptionStatusLabels[subscription.status] : 'Choisissez une offre'}</strong>
+              <small>
+                {subscription ? `${billingIntervalLabel} · ${providerLabel} · ${subscriptionPeriodText}` : subscriptionPeriodText}
+              </small>
+            </span>
+            <span className="owner-dashboard-subscription-action">
+              {subscriptionActionLabel} <ArrowRight size={14} />
+            </span>
+          </Link>
         </div>
       </header>
 
