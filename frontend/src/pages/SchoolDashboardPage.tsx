@@ -19,6 +19,7 @@ import {
   type Subscription,
 } from '../lib/api'
 import { ChartCanvas } from '../components/ChartCanvas'
+import { DashboardActivityFeed } from '../components/DashboardActivityFeed'
 import { useTenant } from '../app/TenantContext'
 import { useAuth } from '../auth/AuthContext'
 import { Link, useNavigate } from 'react-router-dom'
@@ -439,6 +440,8 @@ export function SchoolDashboardPage() {
         </div>
 
         <aside className="owner-dashboard-rail">
+          <DashboardActivityFeed />
+
           <section className="owner-dashboard-priority-card">
             <div className="owner-dashboard-card-title">
               <span>À surveiller</span>
