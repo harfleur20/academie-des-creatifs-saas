@@ -16,9 +16,11 @@ import {
   type Plan,
   type Subscription,
 } from '../lib/api'
+import { ChartCanvas } from '../components/ChartCanvas'
 import { useTenant } from '../app/TenantContext'
 import { useAuth } from '../auth/AuthContext'
 import { Link, useNavigate } from 'react-router-dom'
+import '../statistics.css'
 
 function slugify(value: string) {
   return value
@@ -52,20 +54,32 @@ const subscriptionStatusLabels: Record<Subscription['status'], string> = {
   cancelled: 'Abonnement résilié',
 }
 
+type DashboardSummaryCache = {
+  onboarding: OnboardingStatus | null
+  formations: FormationSummary[] | null
+  members: Member[] | null
+  commerce: CommercialDashboard | null
+  subscription: Subscription | null
+  plans: Plan[]
+}
+
+const dashboardSummaryCache = new Map<number, DashboardSummaryCache>()
+
 export function SchoolDashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { activeOrganization, refreshOrganizations, loading } = useTenant()
+  const cachedSummary = activeOrganization ? dashboardSummaryCache.get(activeOrganization.id) : undefined
   const [schoolName, setSchoolName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null)
-  const [formations, setFormations] = useState<FormationSummary[] | null>(null)
-  const [members, setMembers] = useState<Member[] | null>(null)
-  const [commerce, setCommerce] = useState<CommercialDashboard | null>(null)
-  const [subscription, setSubscription] = useState<Subscription | null>(null)
-  const [plans, setPlans] = useState<Plan[]>([])
-  const [summaryLoading, setSummaryLoading] = useState(true)
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(cachedSummary?.onboarding ?? null)
+  const [formations, setFormations] = useState<FormationSummary[] | null>(cachedSummary?.formations ?? null)
+  const [members, setMembers] = useState<Member[] | null>(cachedSummary?.members ?? null)
+  const [commerce, setCommerce] = useState<CommercialDashboard | null>(cachedSummary?.commerce ?? null)
+  const [subscription, setSubscription] = useState<Subscription | null>(cachedSummary?.subscription ?? null)
+  const [plans, setPlans] = useState<Plan[]>(cachedSummary?.plans ?? [])
+  const [summaryLoading, setSummaryLoading] = useState(!cachedSummary)
   const [summaryError, setSummaryError] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -80,15 +94,28 @@ export function SchoolDashboardPage() {
       setSummaryLoading(false)
       return
     }
+
     let active = true
-    setOnboarding(null)
-    setFormations(null)
-    setMembers(null)
-    setCommerce(null)
-    setSubscription(null)
-    setPlans([])
+    const cached = dashboardSummaryCache.get(activeOrganization.id)
+    if (cached) {
+      setOnboarding(cached.onboarding)
+      setFormations(cached.formations)
+      setMembers(cached.members)
+      setCommerce(cached.commerce)
+      setSubscription(cached.subscription)
+      setPlans(cached.plans)
+      setSummaryLoading(false)
+    } else {
+      setOnboarding(null)
+      setFormations(null)
+      setMembers(null)
+      setCommerce(null)
+      setSubscription(null)
+      setPlans([])
+      setSummaryLoading(true)
+    }
     setSummaryError(false)
-    setSummaryLoading(true)
+
     void Promise.allSettled([
       getOnboardingStatus(),
       listFormations(),
@@ -99,12 +126,21 @@ export function SchoolDashboardPage() {
     ])
       .then(([onboardingResult, formationsResult, membersResult, commerceResult, subscriptionResult, plansResult]) => {
         if (!active) return
-        setOnboarding(onboardingResult.status === 'fulfilled' ? onboardingResult.value : null)
-        setFormations(formationsResult.status === 'fulfilled' ? formationsResult.value : null)
-        setMembers(membersResult.status === 'fulfilled' ? membersResult.value : null)
-        setCommerce(commerceResult.status === 'fulfilled' ? commerceResult.value : null)
-        setSubscription(subscriptionResult.status === 'fulfilled' ? subscriptionResult.value : null)
-        setPlans(plansResult.status === 'fulfilled' ? plansResult.value : [])
+        const nextSummary: DashboardSummaryCache = {
+          onboarding: onboardingResult.status === 'fulfilled' ? onboardingResult.value : cached?.onboarding ?? null,
+          formations: formationsResult.status === 'fulfilled' ? formationsResult.value : cached?.formations ?? null,
+          members: membersResult.status === 'fulfilled' ? membersResult.value : cached?.members ?? null,
+          commerce: commerceResult.status === 'fulfilled' ? commerceResult.value : cached?.commerce ?? null,
+          subscription: subscriptionResult.status === 'fulfilled' ? subscriptionResult.value : cached?.subscription ?? null,
+          plans: plansResult.status === 'fulfilled' ? plansResult.value : cached?.plans ?? [],
+        }
+        dashboardSummaryCache.set(activeOrganization.id, nextSummary)
+        setOnboarding(nextSummary.onboarding)
+        setFormations(nextSummary.formations)
+        setMembers(nextSummary.members)
+        setCommerce(nextSummary.commerce)
+        setSubscription(nextSummary.subscription)
+        setPlans(nextSummary.plans)
         setSummaryError([onboardingResult, formationsResult, membersResult, commerceResult].some((result) => result.status === 'rejected'))
         setSummaryLoading(false)
       })
@@ -142,6 +178,8 @@ export function SchoolDashboardPage() {
   const hasOnlineFormation = formations?.some((formation) => formation.format_type === 'ligne') ?? false
   const courseCount = formations?.reduce((sum, formation) => sum + formation.course_count, 0) ?? null
   const displayCount = (count: number | null) => count === null ? '—' : count.toLocaleString('fr-FR')
+  const unpublishedCount = formations ? Math.max(0, formations.length - (publishedCount ?? 0)) : 0
+  const unpaidOrderCount = commerce ? Math.max(0, commerce.order_count - commerce.paid_order_count) : 0
 
   const publicPlans = plans.filter((plan) => plan.is_public).sort((a, b) => planSortPrice(a) - planSortPrice(b))
   const currentPlanPrice = subscription ? planSortPrice(subscription.plan) : null
@@ -200,7 +238,7 @@ export function SchoolDashboardPage() {
             ? { title: 'Invitez un enseignant', description: 'Confiez vos formations à un professeur pour animer les cours.', to: '/app/manage/teachers', label: 'Gérer les enseignants' }
             : activeStudents === 0
               ? { title: 'Faites connaître vos formations', description: 'Votre école est prête à accueillir ses premiers étudiants.', to: '/app/manage/site-public', label: 'Voir le site public' }
-              : { title: 'Suivez la progression de l’école', description: 'Retrouvez les indicateurs pédagogiques et les résultats de vos programmes.', to: '/app/manage/performance', label: 'Voir la performance' }
+              : { title: 'Suivez la progression de l’école', description: 'Retrouvez les indicateurs pédagogiques et les résultats de vos programmes.', to: '/app/manage/performance', label: 'Voir les statistiques' }
     : null
 
   if (loading) {
@@ -248,24 +286,30 @@ export function SchoolDashboardPage() {
         <span className="page-kicker">Tableau de bord</span>
         <div className="owner-dashboard-title-row">
           <h1>Vue d’ensemble</h1>
-          <Link
-            to="/app/manage/billing"
-            className={`owner-dashboard-subscription-card${subscription ? ` is-${subscription.status}` : ' is-empty'}`}
-          >
-            <span className="owner-dashboard-subscription-icon"><CreditCard size={21} /></span>
-            <span className="owner-dashboard-subscription-copy">
-              <span className="owner-dashboard-subscription-plan">
-                {subscription ? subscription.plan.name : 'Votre abonnement'}
+          {summaryLoading && !subscription ? (
+            <div className="owner-dashboard-subscription-card dashboard-subscription-loading" aria-label="Chargement de l’abonnement">
+              <div className="dashboard-subscription-skeleton" />
+            </div>
+          ) : (
+            <Link
+              to="/app/manage/billing"
+              className={`owner-dashboard-subscription-card${subscription ? ` is-${subscription.status}` : ' is-empty'}`}
+            >
+              <span className="owner-dashboard-subscription-icon"><CreditCard size={21} /></span>
+              <span className="owner-dashboard-subscription-copy">
+                <span className="owner-dashboard-subscription-plan">
+                  {subscription ? subscription.plan.name : 'Votre abonnement'}
+                </span>
+                <strong>{subscription ? subscriptionStatusLabels[subscription.status] : 'Choisissez une offre'}</strong>
+                <small>
+                  {subscription ? `${billingIntervalLabel} · ${providerLabel} · ${subscriptionPeriodText}` : subscriptionPeriodText}
+                </small>
               </span>
-              <strong>{subscription ? subscriptionStatusLabels[subscription.status] : 'Choisissez une offre'}</strong>
-              <small>
-                {subscription ? `${billingIntervalLabel} · ${providerLabel} · ${subscriptionPeriodText}` : subscriptionPeriodText}
-              </small>
-            </span>
-            <span className="owner-dashboard-subscription-action">
-              {subscriptionActionLabel} <ArrowRight size={14} />
-            </span>
-          </Link>
+              <span className="owner-dashboard-subscription-action">
+                {subscriptionActionLabel} <ArrowRight size={14} />
+              </span>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -371,6 +415,35 @@ export function SchoolDashboardPage() {
               <ArrowRight size={15} />
             </Link>
           </section>
+
+          {(formations && formations.length > 0) || (commerce && commerce.order_count > 0) ? (
+            <section className="dashboard-mini-charts" aria-label="Raccourcis statistiques">
+              {formations && formations.length > 0 && (
+                <Link to="/app/manage/performance" className="dashboard-mini-chart-link">
+                  <div className="dashboard-mini-chart-head"><span>Publication des formations</span><strong>Statistiques →</strong></div>
+                  <ChartCanvas
+                    type="doughnut"
+                    compact
+                    height={78}
+                    labels={['Publiées', 'Autres']}
+                    datasets={[{ label: 'Formations', data: [publishedCount ?? 0, unpublishedCount] }]}
+                  />
+                </Link>
+              )}
+              {commerce && commerce.order_count > 0 && (
+                <Link to="/app/manage/performance" className="dashboard-mini-chart-link">
+                  <div className="dashboard-mini-chart-head"><span>Commandes réglées</span><strong>{commerce.paid_order_count}/{commerce.order_count}</strong></div>
+                  <ChartCanvas
+                    type="doughnut"
+                    compact
+                    height={78}
+                    labels={['Réglées', 'À régler']}
+                    datasets={[{ label: 'Commandes', data: [commerce.paid_order_count, unpaidOrderCount] }]}
+                  />
+                </Link>
+              )}
+            </section>
+          ) : null}
 
           <div className="owner-dashboard-rail-metrics">
             <Link to="/app/manage/formations"><GraduationCap size={18} /><span><strong>{displayCount(publishedCount)}</strong><small>formations publiées</small></span></Link>
