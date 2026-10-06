@@ -16,8 +16,8 @@ import { LoginPage } from './pages/LoginPage'
 import { InvitationAcceptPage } from './pages/InvitationAcceptPage'
 import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
 import { TeamPage } from './pages/TeamPage'
-const SchoolSettingsPage = lazy(() => import('./pages/SchoolSettingsPage').then((module) => ({ default: module.SchoolSettingsPage })))
-const BillingPage = lazy(() => import('./pages/BillingPage').then((module) => ({ default: module.BillingPage })))
+import { SchoolSettingsPage } from './pages/SchoolSettingsPage'
+import { BillingPage } from './pages/BillingPage'
 import { AdminLayout } from './admin/AdminLayout'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminSchoolsPage } from './pages/AdminSchoolsPage'
@@ -25,7 +25,7 @@ const AdminSchoolDetailPage = lazy(() => import('./pages/AdminSchoolDetailPage')
 const AdminPlansPage = lazy(() => import('./pages/AdminPlansPage').then((module) => ({ default: module.AdminPlansPage })))
 import { OnboardingPage } from './pages/OnboardingPage'
 import { FormationsManagementPage } from './pages/FormationsManagementPage'
-const FormationWorkspacePage = lazy(() => import('./pages/FormationWorkspacePage').then((module) => ({ default: module.FormationWorkspacePage })))
+import { FormationWorkspacePage } from './pages/FormationWorkspacePage'
 import { TeacherDashboardPage } from './pages/TeacherDashboardPage'
 import { TeacherSessionsPage } from './pages/TeacherSessionsPage'
 import { StudentDashboardPage } from './pages/StudentDashboardPage'
@@ -51,14 +51,14 @@ import { StudentClassPage } from './pages/StudentClassPage'
 import { StudentCertificatesPage } from './pages/StudentCertificatesPage'
 import { StudentPlanningPage } from './pages/StudentPlanningPage'
 import { CertificateVerifyPage } from './pages/CertificateVerifyPage'
-const SchoolPublicSitePage = lazy(() => import('./pages/SchoolPublicSitePage').then((module) => ({ default: module.SchoolPublicSitePage })))
+import { SchoolPublicSitePage } from './pages/SchoolPublicSitePage'
 import { StudentsManagementPage } from './pages/StudentsManagementPage'
 import { TeachersManagementPage } from './pages/TeachersManagementPage'
-const CommerceDashboardPage = lazy(() => import('./pages/CommerceDashboardPage').then((module) => ({ default: module.CommerceDashboardPage })))
+import { CommerceDashboardPage } from './pages/CommerceDashboardPage'
 import { PromotionsPage } from './pages/PromotionsPage'
-const PedagogicalMonitoringPage = lazy(() => import('./pages/PedagogicalMonitoringPage').then((module) => ({ default: module.PedagogicalMonitoringPage })))
-const SchoolPerformancePage = lazy(() => import('./pages/SchoolPerformancePage').then((module) => ({ default: module.SchoolPerformancePage })))
-const SchoolCourseReportsPage = lazy(() => import('./pages/SchoolCourseReportsPage').then((module) => ({ default: module.SchoolCourseReportsPage })))
+import { PedagogicalMonitoringPage } from './pages/PedagogicalMonitoringPage'
+import { SchoolPerformancePage } from './pages/SchoolPerformancePage'
+import { SchoolCourseReportsPage } from './pages/SchoolCourseReportsPage'
 import { ManageProfilePage, StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
 import { SupportPage } from './pages/SupportPage'
 import { SchoolPublicLayout } from './public/SchoolPublicLayout'
@@ -98,9 +98,9 @@ function RequireSchoolUser({ children }: { children: React.ReactNode }) {
 }
 
 function WorkspaceEntry() {
-  const { activeOrganization, accessProfile, loading, profileLoading } = useTenant()
+  const { activeOrganization, accessProfile, loading, profileLoading, profileError } = useTenant()
 
-  if (loading || profileLoading) {
+  if (loading || (profileLoading && !accessProfile)) {
     return <div className="app-loading">Préparation de votre espace…</div>
   }
 
@@ -108,7 +108,11 @@ function WorkspaceEntry() {
     return <Navigate to="/app/manage" replace />
   }
 
-  if (!accessProfile || accessProfile.spaces.length === 0) {
+  if (!accessProfile) {
+    return <div className="app-loading">{profileError || 'Préparation de vos accès…'}</div>
+  }
+
+  if (accessProfile.spaces.length === 0) {
     return <div className="app-loading">Aucun espace disponible pour ce compte.</div>
   }
 
@@ -128,9 +132,9 @@ function RequireWorkspace({
   children: React.ReactNode
 }) {
   const { supportMode } = useAuth()
-  const { activeOrganization, accessProfile, loading, profileLoading } = useTenant()
+  const { activeOrganization, accessProfile, loading, profileLoading, profileError } = useTenant()
 
-  if (loading || profileLoading) {
+  if (loading || (profileLoading && !accessProfile)) {
     return <div className="app-loading">Chargement de votre espace…</div>
   }
 
@@ -140,11 +144,15 @@ function RequireWorkspace({
       : <Navigate to="/app/manage" replace />
   }
 
+  if (!accessProfile) {
+    return <div className="app-loading">{profileError || 'Préparation de vos accès…'}</div>
+  }
+
   if (supportMode && space !== 'manage') {
     return <Navigate to="/app/manage" replace />
   }
 
-  if (!accessProfile?.spaces.includes(space)) {
+  if (!accessProfile.spaces.includes(space)) {
     return <Navigate to="/app" replace />
   }
 
