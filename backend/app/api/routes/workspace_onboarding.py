@@ -5,13 +5,14 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.entities import OrganizationTeacherProfileRecord
+from app.models.entities import OrganizationTeacherProfileRecord, UserRecord
 from app.models.teacher_onboarding import (
     OrganizationCharterAcceptanceRecord,
     OrganizationCharterRecord,
@@ -109,21 +110,24 @@ def _teacher_profile_read(
     db: Session,
     tenant: TenantContext,
     row: TeacherProfessionalProfileRecord,
+    *,
+    user: UserRecord | None = None,
 ) -> TeacherProfessionalProfileRead:
+    target_user = user or tenant.user
     code = db.scalar(
         select(OrganizationTeacherProfileRecord.teacher_code).where(
             OrganizationTeacherProfileRecord.organization_id == tenant.organization_id,
-            OrganizationTeacherProfileRecord.user_id == tenant.user.id,
+            OrganizationTeacherProfileRecord.user_id == target_user.id,
         )
     )
     return TeacherProfessionalProfileRead(
         organization_id=tenant.organization_id,
         organization_name=tenant.organization.name,
-        user_id=tenant.user.id,
-        full_name=tenant.user.full_name,
-        email=tenant.user.email,
-        phone=tenant.user.phone,
-        avatar_url=tenant.user.avatar_url,
+        user_id=target_user.id,
+        full_name=target_user.full_name,
+        email=target_user.email,
+        phone=target_user.phone,
+        avatar_url=target_user.avatar_url,
         teacher_code=code,
         professional_title=row.professional_title,
         experience_years=row.experience_years,
@@ -147,6 +151,33 @@ def _teacher_profile_read(
         profile_completed_at=row.profile_completed_at,
         is_complete=teacher_profile_complete(row),
     )
+
+
+def _can_manage_teacher_profiles(tenant: TenantContext) -> bool:
+    return bool(
+        tenant.organization_roles.intersection({"owner", "admin", "manager"})
+        or tenant.user.platform_role == "super_admin"
+    )
+
+
+def _require_teacher_profile_access(tenant: TenantContext, user_id: int) -> None:
+    if user_id == tenant.user.id and tenant.has_role("teacher"):
+        return
+    if _can_manage_teacher_profiles(tenant):
+        return
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès à cette fiche enseignant refusé.")
+
+
+def _get_teacher_profile_row(db: Session, tenant: TenantContext, user_id: int) -> TeacherProfessionalProfileRecord:
+    row = db.scalar(
+        select(TeacherProfessionalProfileRecord).where(
+            TeacherProfessionalProfileRecord.organization_id == tenant.organization_id,
+            TeacherProfessionalProfileRecord.user_id == user_id,
+        )
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Cet enseignant n’a pas encore commencé sa fiche professionnelle.")
+    return row
 
 
 def _ensure_charter(
@@ -215,7 +246,8 @@ def _charter_read(
 def get_phone_countries(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    require_organization_roles(tenant, "teacher")
+    if not tenant.has_role("teacher") and not _can_manage_teacher_profiles(tenant):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès refusé.")
     return supported_phone_countries()
 
 
@@ -229,6 +261,20 @@ def get_teacher_professional_profile(
         db.commit()
         db.refresh(row)
     return _teacher_profile_read(db, tenant, row)
+
+
+@router.get("/teacher-profiles/{user_id}", response_model=TeacherProfessionalProfileRead)
+def get_teacher_professional_profile_for_school(
+    user_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    _require_teacher_profile_access(tenant, user_id)
+    row = _get_teacher_profile_row(db, tenant, user_id)
+    user = db.get(UserRecord, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Enseignant introuvable.")
+    return _teacher_profile_read(db, tenant, row, user=user)
 
 
 @router.put("/teacher-profile", response_model=TeacherProfessionalProfileRead)
@@ -257,8 +303,8 @@ def update_teacher_professional_profile(
     row.behance_url = _clean_text(payload.behance_url)
     row.github_url = _clean_text(payload.github_url)
     row.website_url = _clean_text(payload.website_url)
-    row.city = _clean_text(payload.city)
-    row.country = _clean_text(payload.country)
+    row.city = payload.city.strip()
+    row.country = payload.country.strip()
     row.languages = _clean_list(payload.languages, limit=20)
     row.whatsapp_phone = whatsapp_phone
     row.whatsapp_country = payload.whatsapp_country.strip().upper()
@@ -326,6 +372,46 @@ async def upload_teacher_professional_document(
     db.commit()
     db.refresh(row)
     return _teacher_profile_read(db, tenant, row)
+
+
+@router.get("/teacher-profiles/{user_id}/documents/{document_kind}")
+def preview_teacher_professional_document(
+    user_id: int,
+    document_kind: str,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    if document_kind not in {"portfolio", "cv"}:
+        raise HTTPException(status_code=404, detail="Type de document inconnu.")
+    _require_teacher_profile_access(tenant, user_id)
+    row = _get_teacher_profile_row(db, tenant, user_id)
+    key = row.portfolio_file_key if document_kind == "portfolio" else row.cv_file_key
+    if not key:
+        raise HTTPException(status_code=404, detail="Ce document n’a pas été importé.")
+
+    headers = {"Content-Disposition": "inline"}
+    if settings.storage_provider == "r2":
+        if not settings.r2_configured or not settings.r2_private_bucket_name:
+            raise HTTPException(status_code=503, detail="Stockage privé R2 non configuré.")
+        import boto3
+
+        client = boto3.client(
+            "s3",
+            endpoint_url=settings.r2_endpoint_url,
+            aws_access_key_id=settings.r2_access_key_id,
+            aws_secret_access_key=settings.r2_secret_access_key,
+            region_name="auto",
+        )
+        try:
+            stored = client.get_object(Bucket=settings.r2_private_bucket_name, Key=key)
+        except Exception as exc:
+            raise HTTPException(status_code=404, detail="Document introuvable dans le stockage.") from exc
+        return Response(content=stored["Body"].read(), media_type="application/pdf", headers=headers)
+
+    destination = Path(__file__).resolve().parents[3] / "private_uploads" / key
+    if not destination.is_file():
+        raise HTTPException(status_code=404, detail="Document introuvable dans le stockage.")
+    return FileResponse(destination, media_type="application/pdf", headers=headers)
 
 
 @router.get("/charters/{audience}", response_model=OrganizationCharterRead)
