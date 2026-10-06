@@ -6,22 +6,26 @@ export type CurrentSchoolBranding = {
   organization_id: number
   school_name: string
   logo_url: string | null
+  favicon_url: string | null
   primary_color: string
   secondary_color: string
   accent_color: string
 }
 
-export async function getCurrentSchoolBranding(): Promise<CurrentSchoolBranding> {
+export async function getCurrentSchoolBranding(organizationId?: number): Promise<CurrentSchoolBranding> {
   const headers = new Headers()
   const token = getAccessToken()
-  const organizationId = getStoredOrganizationId()
+  const selectedOrganizationId = organizationId ?? getStoredOrganizationId()
 
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  if (organizationId !== null) {
-    headers.set('X-Organization-Id', String(organizationId))
+  if (selectedOrganizationId !== null && selectedOrganizationId !== undefined) {
+    headers.set('X-Organization-Id', String(selectedOrganizationId))
   }
 
-  const response = await fetch(`${API_BASE}/branding/current`, { headers })
+  const response = await fetch(`${API_BASE}/branding/current`, {
+    headers,
+    cache: 'no-store',
+  })
   if (!response.ok) {
     throw new Error(`Impossible de charger l’identité de l’école (HTTP ${response.status}).`)
   }
