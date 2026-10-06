@@ -97,8 +97,15 @@ export function ChartCanvas({
             enabled: !compact,
             displayColors: datasets.length > 1,
             callbacks: {
-              label: (context: { dataset: { label?: string }; parsed: { x?: number; y?: number } }) => {
-                const numeric = horizontal ? context.parsed.x : context.parsed.y
+              label: (context: {
+                dataset: { label?: string }
+                parsed: number | { x?: number; y?: number }
+              }) => {
+                const numeric = typeof context.parsed === 'number'
+                  ? context.parsed
+                  : horizontal
+                    ? context.parsed.x
+                    : context.parsed.y
                 const label = context.dataset.label ? `${context.dataset.label} : ` : ''
                 return `${label}${numeric ?? 0}${valueSuffix}`
               },
