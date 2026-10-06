@@ -3,6 +3,8 @@ import { ChevronDown, Heart, LifeBuoy, LogOut, Menu, Settings, ShoppingBag, User
 import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
+import { SchoolMessageBell } from '../app/SchoolMessageBell'
+import { SchoolNotificationBell } from '../app/SchoolNotificationBell'
 import { BrandLogo } from '../brand/BrandLogo'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { schoolFontFamily } from '../brand/schoolTypography'
@@ -241,6 +243,9 @@ export function SchoolPublicLayout() {
                   <strong>{user.full_name}</strong>
                   <small>{user.email}</small>
                 </div>
+                {accountSpace && <SchoolNotificationBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
+                {accountSpace && <SchoolMessageBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
+                {accountSpace && <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />}
                 {profilePath && <button type="button" onClick={() => openAccountPage(profilePath)}><UserRound size={17} /><span>Profil</span></button>}
                 {canManageSchool && <button type="button" onClick={() => openAccountPage('/app/manage/settings')}><Settings size={17} /><span>Paramètres de l’école</span></button>}
                 {supportPath && <button type="button" onClick={() => openAccountPage(supportPath)}><LifeBuoy size={17} /><span>Support</span></button>}
