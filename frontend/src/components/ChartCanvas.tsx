@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import '../chartjs-polish.css'
 
 type ChartKind = 'bar' | 'line' | 'doughnut'
 
