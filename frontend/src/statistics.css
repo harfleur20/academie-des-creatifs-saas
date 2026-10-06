@@ -1,0 +1,297 @@
+.school-statistics-page {
+  display: grid;
+  gap: 24px;
+}
+
+.statistics-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.statistics-kpi-card,
+.statistics-chart-card,
+.dashboard-mini-chart-link {
+  border: 1px solid var(--border-color, rgba(15, 23, 42, 0.09));
+  background: var(--card-bg, #fff);
+  border-radius: 18px;
+}
+
+.statistics-kpi-card {
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.statistics-kpi-card > span {
+  color: var(--text-muted, #64748b);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.statistics-kpi-card strong {
+  font-size: clamp(1.45rem, 2.3vw, 2.05rem);
+  letter-spacing: -0.04em;
+}
+
+.statistics-kpi-card small {
+  color: var(--text-muted, #64748b);
+}
+
+.statistics-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(290px, 0.75fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.statistics-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.statistics-chart-card {
+  padding: 20px;
+  min-width: 0;
+}
+
+.statistics-chart-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.statistics-chart-heading h2,
+.statistics-chart-heading h3 {
+  margin: 3px 0 0;
+}
+
+.statistics-chart-heading p {
+  margin: 5px 0 0;
+  color: var(--text-muted, #64748b);
+  font-size: 0.9rem;
+}
+
+.statistics-bar-list {
+  display: grid;
+  gap: 15px;
+}
+
+.statistics-bar-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(180px, 2.2fr) 54px;
+  align-items: center;
+  gap: 12px;
+}
+
+.statistics-bar-label {
+  min-width: 0;
+}
+
+.statistics-bar-label strong,
+.statistics-bar-label small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statistics-bar-label small {
+  margin-top: 2px;
+  color: var(--text-muted, #64748b);
+}
+
+.statistics-bar-track,
+.dashboard-mini-chart-track {
+  position: relative;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--school-primary, #16a34a) 9%, transparent);
+}
+
+.statistics-bar-fill,
+.dashboard-mini-chart-fill {
+  height: 100%;
+  width: var(--bar-value, 0%);
+  border-radius: inherit;
+  transform-origin: left center;
+  animation: statisticsBarGrow 720ms cubic-bezier(.2,.75,.25,1) both;
+  background: linear-gradient(90deg, var(--school-primary, #16a34a), var(--school-accent, #22c55e));
+}
+
+.statistics-bar-value {
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.statistics-comparison-list {
+  display: grid;
+  gap: 16px;
+}
+
+.statistics-comparison-row {
+  display: grid;
+  gap: 8px;
+}
+
+.statistics-comparison-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.statistics-comparison-bars {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+}
+
+.statistics-comparison-bars .statistics-bar-track {
+  height: 7px;
+}
+
+.statistics-comparison-bars .is-secondary .statistics-bar-fill {
+  opacity: .46;
+}
+
+.statistics-donut-wrap {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: center;
+  gap: 20px;
+}
+
+.statistics-donut {
+  width: 140px;
+  height: 140px;
+  transform: rotate(-90deg);
+}
+
+.statistics-donut circle {
+  fill: none;
+  stroke-width: 12;
+}
+
+.statistics-donut .track {
+  stroke: color-mix(in srgb, var(--school-primary, #16a34a) 10%, transparent);
+}
+
+.statistics-donut .value {
+  stroke: var(--school-primary, #16a34a);
+  stroke-linecap: round;
+  stroke-dasharray: 314.16;
+  stroke-dashoffset: var(--donut-offset, 314.16);
+  animation: statisticsDonutGrow 850ms cubic-bezier(.2,.75,.25,1) both;
+}
+
+.statistics-donut-copy strong {
+  display: block;
+  font-size: 2rem;
+  letter-spacing: -0.04em;
+}
+
+.statistics-donut-copy span,
+.statistics-donut-copy small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted, #64748b);
+}
+
+.statistics-empty {
+  padding: 24px 0 6px;
+  color: var(--text-muted, #64748b);
+}
+
+.dashboard-mini-charts {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-mini-chart-link {
+  display: grid;
+  gap: 8px;
+  padding: 13px 14px;
+  color: inherit;
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dashboard-mini-chart-link:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--school-primary, #16a34a) 36%, transparent);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+.dashboard-mini-chart-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.dashboard-mini-chart-head span {
+  font-size: .78rem;
+  color: var(--text-muted, #64748b);
+}
+
+.dashboard-mini-chart-head strong {
+  font-size: .9rem;
+}
+
+.dashboard-mini-chart-track {
+  height: 6px;
+}
+
+.dashboard-subscription-loading {
+  min-width: min(390px, 42vw);
+}
+
+.dashboard-subscription-skeleton {
+  width: 100%;
+  height: 54px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(148,163,184,.12), rgba(148,163,184,.24), rgba(148,163,184,.12));
+  background-size: 220% 100%;
+  animation: statisticsShimmer 1.1s linear infinite;
+}
+
+@keyframes statisticsBarGrow {
+  from { transform: scaleX(0); opacity: .45; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes statisticsDonutGrow {
+  from { stroke-dashoffset: 314.16; }
+  to { stroke-dashoffset: var(--donut-offset, 314.16); }
+}
+
+@keyframes statisticsShimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statistics-bar-fill,
+  .dashboard-mini-chart-fill,
+  .statistics-donut .value,
+  .dashboard-subscription-skeleton {
+    animation: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .statistics-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .statistics-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .statistics-kpi-grid { grid-template-columns: 1fr; }
+  .statistics-bar-row { grid-template-columns: 1fr; gap: 6px; }
+  .statistics-bar-value { text-align: left; }
+  .statistics-donut-wrap { grid-template-columns: 1fr; }
+  .dashboard-subscription-loading { min-width: 0; width: 100%; }
+}
