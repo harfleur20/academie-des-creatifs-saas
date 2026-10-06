@@ -38,7 +38,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [activeOrganization, setActiveOrganization] = useState<Organization | null>(null)
   const [accessProfile, setAccessProfile] = useState<OrganizationAccessProfile | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState('')
   const profileRequest = useRef(0)
