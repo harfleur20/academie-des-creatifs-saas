@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { ChevronDown, Heart, LifeBuoy, LogOut, Menu, Settings, ShoppingBag, UserRound, X } from 'lucide-react'
+import { ChevronDown, Heart, LayoutDashboard, LifeBuoy, LogOut, Menu, Settings, ShoppingBag, UserRound, X } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
@@ -243,13 +243,14 @@ export function SchoolPublicLayout() {
                   <strong>{user.full_name}</strong>
                   <small>{user.email}</small>
                 </div>
+                {accountSpace && <button type="button" onClick={() => openAccountPage('/school/' + schoolSlug + '/espace')}><LayoutDashboard size={17} /><span>Mon espace</span></button>}
+                {accountSpace && <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />}
                 {accountSpace && <SchoolNotificationBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
                 {accountSpace && <SchoolMessageBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
                 {accountSpace && <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />}
                 {profilePath && <button type="button" onClick={() => openAccountPage(profilePath)}><UserRound size={17} /><span>Profil</span></button>}
                 {canManageSchool && <button type="button" onClick={() => openAccountPage('/app/manage/settings')}><Settings size={17} /><span>Paramètres de l’école</span></button>}
                 {supportPath && <button type="button" onClick={() => openAccountPage(supportPath)}><LifeBuoy size={17} /><span>Support</span></button>}
-                {!profilePath && schoolMembership && <button type="button" onClick={() => openAccountPage('/school/' + schoolSlug + '/espace')}><UserRound size={17} /><span>Mon espace</span></button>}
                 <span className="public-school-account-menu-divider" aria-hidden="true" />
                 <button type="button" className="is-danger" onClick={() => { setAccountOpen(false); signOut(); navigate('/school/' + schoolSlug) }}><LogOut size={17} /><span>Se déconnecter</span></button>
               </div>}
