@@ -12,6 +12,10 @@
   max-width: 100%;
 }
 
+.owner-dashboard-stats-heading {
+  display: none;
+}
+
 /* Formation public-page editor. */
 .formation-public-fields {
   display: grid;
@@ -91,8 +95,8 @@
   }
 
   .formation-public-fields {
-    margin-bottom: 20px;
     padding: 18px;
+    margin-bottom: 20px;
     border-radius: 16px;
   }
 }
