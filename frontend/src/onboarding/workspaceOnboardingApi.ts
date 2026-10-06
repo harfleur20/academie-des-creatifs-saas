@@ -112,7 +112,7 @@ async function request<T>(path: string, init: RequestInit = {}) {
 
 async function withCurrentSchoolName(profile: TeacherProfessionalProfile) {
   try {
-    const branding = await getCurrentSchoolBranding()
+    const branding = await getCurrentSchoolBranding(profile.organization_id)
     if (branding.organization_id !== profile.organization_id) return profile
     return { ...profile, organization_name: branding.school_name || profile.organization_name }
   } catch {
