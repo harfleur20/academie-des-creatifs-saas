@@ -14,6 +14,7 @@ import './public-formation-detail.css'
 import './account-support.css'
 import './teacher-onboarding.css'
 import './toast.css'
+import './tenant-role-theme.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 
