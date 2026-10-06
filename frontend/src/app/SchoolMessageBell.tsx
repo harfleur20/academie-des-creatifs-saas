@@ -1,7 +1,7 @@
 import { MessageCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listMessageThreads, type WorkspaceSpace } from '../lib/api'
+import { listMessageThreads, subscribeSchoolMessages, type WorkspaceSpace } from '../lib/api'
 import { useTenant } from './TenantContext'
 
 export function SchoolMessageBell({
@@ -17,6 +17,7 @@ export function SchoolMessageBell({
   const [unread, setUnread] = useState(0)
 
   useEffect(() => {
+    if (!activeOrganization) { setUnread(0); return }
     let active = true
     const refresh = () => listMessageThreads()
       .then((threads) => {
@@ -26,6 +27,9 @@ export function SchoolMessageBell({
       .catch(() => { if (active) setUnread(0) })
 
     void refresh()
+    const unsubscribe = subscribeSchoolMessages((event) => {
+      if (active) setUnread(event.unread_count)
+    })
     const timer = window.setInterval(() => {
       if (!document.hidden) void refresh()
     }, 15000)
@@ -33,6 +37,7 @@ export function SchoolMessageBell({
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       active = false
+      unsubscribe()
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }

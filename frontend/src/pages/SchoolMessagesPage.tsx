@@ -4,6 +4,7 @@ import { useTenant } from '../app/TenantContext'
 import { useAuth } from '../auth/AuthContext'
 import {
   createMessageThread, getMessageThread, listMessageRecipients, listMessageThreads, sendSchoolMessage,
+  subscribeSchoolMessages,
   type SchoolMessageRecipient, type SchoolMessageThread, type SchoolMessageThreadDetail,
 } from '../lib/api'
 import './school-messages.css'
@@ -48,11 +49,17 @@ export function SchoolMessagesPage() {
 
   useEffect(() => {
     if (!activeOrganization) return
+    let active = true
+    const unsubscribe = subscribeSchoolMessages((event) => {
+      if (!active || event.type !== 'messages.changed') return
+      void listMessageThreads().then((items) => { if (active) setThreads(items) }).catch(() => {})
+      if (selectedId !== null) void getMessageThread(selectedId).then((value) => { if (active) setDetail(value) }).catch(() => {})
+    })
     const timer = window.setInterval(() => {
-      listMessageThreads().then(setThreads).catch(() => {})
-      if (selectedId !== null) getMessageThread(selectedId).then(setDetail).catch(() => {})
+      listMessageThreads().then((items) => { if (active) setThreads(items) }).catch(() => {})
+      if (selectedId !== null) getMessageThread(selectedId).then((value) => { if (active) setDetail(value) }).catch(() => {})
     }, 15000)
-    return () => window.clearInterval(timer)
+    return () => { active = false; unsubscribe(); window.clearInterval(timer) }
   }, [activeOrganization?.id, selectedId])
 
   async function create(event: FormEvent) {

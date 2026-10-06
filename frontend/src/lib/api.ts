@@ -2366,6 +2366,44 @@ export type SchoolMessageThreadDetail = SchoolMessageThread & { messages: School
 
 export const listMessageRecipients = () => request<SchoolMessageRecipient[]>('/messages/recipients')
 export const listMessageThreads = () => request<SchoolMessageThread[]>('/messages/threads')
+
+export type SchoolMessageStreamEvent =
+  | { type: 'messages.summary'; unread_count: number }
+  | { type: 'messages.changed'; unread_count: number }
+
+export function subscribeSchoolMessages(onEvent: (event: SchoolMessageStreamEvent) => void): () => void {
+  let closed = false
+  let socket: WebSocket | null = null
+  let retryTimer: number | null = null
+  const connect = async () => {
+    try {
+      const { ticket } = await request<{ ticket: string }>('/messages/ws-ticket')
+      if (closed) return
+      const url = new URL(`${API_BASE}/messages/ws`, window.location.origin)
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+      socket = new WebSocket(url, ['school-messages', ticket])
+      socket.onmessage = (message) => {
+        try {
+          const event = JSON.parse(message.data) as SchoolMessageStreamEvent
+          if (event.type === 'messages.summary' || event.type === 'messages.changed') onEvent(event)
+        } catch { /* Ignore malformed events and keep the polling fallback. */ }
+      }
+      socket.onclose = () => {
+        socket = null
+        if (!closed) retryTimer = window.setTimeout(() => void connect(), 5000)
+      }
+    } catch {
+      if (!closed) retryTimer = window.setTimeout(() => void connect(), 5000)
+    }
+  }
+  void connect()
+  return () => {
+    closed = true
+    if (retryTimer !== null) window.clearTimeout(retryTimer)
+    socket?.close()
+  }
+}
+
 export const getMessageThread = (id: number) => request<SchoolMessageThreadDetail>('/messages/threads/' + id)
 export const createMessageThread = (payload: { participant_ids: number[]; subject: string; body: string }) =>
   request<SchoolMessageThreadDetail>('/messages/threads', { method: 'POST', body: JSON.stringify(payload) })

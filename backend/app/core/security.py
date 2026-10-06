@@ -74,6 +74,33 @@ def decode_access_token(token: str) -> dict[str, object] | None:
     return payload
 
 
+def create_message_ws_ticket(user_id: int, organization_id: int, session_version: int) -> str:
+    now = utc_now()
+    return jwt.encode(
+        {
+            "sub": str(user_id), "organization_id": organization_id,
+            "session_version": session_version, "type": "message_ws",
+            "iss": settings.jwt_issuer, "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(minutes=5)).timestamp()),
+        },
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
+def decode_message_ws_ticket(ticket: str) -> dict[str, object] | None:
+    try:
+        payload = jwt.decode(
+            ticket, settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm], issuer=settings.jwt_issuer,
+        )
+    except jwt.PyJWTError:
+        return None
+    if payload.get("type") != "message_ws":
+        return None
+    return payload
+
+
 def create_password_reset_token(
     user_id: int,
     *,

@@ -1,9 +1,13 @@
 from datetime import date
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
+
+from app.api.routes import messages as messages_route
+from app.core.security import create_message_ws_ticket
 
 from app.db.base import Base
 from app.models.entities import (
@@ -11,11 +15,15 @@ from app.models.entities import (
     OrganizationRecord, SchoolNotificationRecord, SessionTeacherRecord, UserRecord,
 )
 from app.services.school_messages import create_thread, get_thread, list_recipients, list_threads, send_message
+from app.services.school_message_stream import message_snapshot
 from app.services.tenancy import resolve_tenant_context
 
 
-def test_messaging_recipients_and_threads_stay_within_school_and_session():
-    engine = create_engine("sqlite+pysqlite:///:memory:")
+def test_messaging_recipients_and_threads_stay_within_school_and_session(monkeypatch, tmp_path):
+    engine = create_engine(
+        "sqlite+pysqlite:///" + (tmp_path / "messages.db").as_posix(),
+        connect_args={"check_same_thread": False},
+    )
     Base.metadata.create_all(engine)
     with Session(engine, expire_on_commit=False) as db:
         first = OrganizationRecord(name="First", slug="first", status="active", is_active=True)
@@ -57,12 +65,31 @@ def test_messaging_recipients_and_threads_stay_within_school_and_session():
         assert invalid.value.status_code == 403
 
         thread = create_thread(db, student_tenant, [teacher.id], "Cours", "Une question")
+        assert message_snapshot(db, teacher_tenant) == (thread.messages[0].id, 1)
+        assert message_snapshot(db, second_tenant) == (0, 0)
         assert thread.unread_count == 0
         assert len(list_threads(db, teacher_tenant)) == 1
         assert list_threads(db, teacher_tenant)[0].unread_count == 1
         assert get_thread(db, teacher_tenant, thread.id).unread_count == 0
+        assert message_snapshot(db, teacher_tenant)[1] == 0
         assert send_message(db, teacher_tenant, thread.id, "Voici la réponse").body == "Voici la réponse"
         assert list_threads(db, student_tenant)[0].unread_count == 1
+        assert message_snapshot(db, student_tenant)[1] == 1
+        monkeypatch.setattr(messages_route, "SessionLocal", lambda: Session(engine, expire_on_commit=False))
+        ticket = create_message_ws_ticket(student.id, first.id, student.session_version)
+        assert messages_route._validated_snapshot(ticket) == message_snapshot(db, student_tenant)
+        assert messages_route._validated_snapshot(create_message_ws_ticket(student.id, second.id, student.session_version)) is None
+        app = FastAPI()
+        app.include_router(messages_route.router)
+        with TestClient(app) as client, client.websocket_connect(
+            "/messages/ws", subprotocols=["school-messages", ticket],
+        ) as socket:
+            assert socket.receive_json() == {"type": "messages.summary", "unread_count": 1}
+            send_message(db, teacher_tenant, thread.id, "Deuxième réponse")
+            assert socket.receive_json() == {"type": "messages.changed", "unread_count": 2}
+        student.session_version += 1
+        db.commit()
+        assert messages_route._validated_snapshot(ticket) is None
         with pytest.raises(HTTPException) as unrelated:
             get_thread(db, classmate_tenant, thread.id)
         assert unrelated.value.status_code == 404
