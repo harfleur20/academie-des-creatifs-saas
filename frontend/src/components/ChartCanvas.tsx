@@ -52,8 +52,8 @@ function ensureChartJs() {
   return chartJsPromise
 }
 
-function cssColor(name: string, fallback: string) {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+function cssColor(scope: Element, name: string, fallback: string) {
+  const value = getComputedStyle(scope).getPropertyValue(name).trim()
   return value || fallback
 }
 
@@ -86,10 +86,11 @@ export function ChartCanvas({
       }
       setLibraryReady(true)
 
-      const primary = cssColor('--school-primary', '#16a34a')
-      const secondary = cssColor('--school-secondary', '#0f172a')
-      const accent = cssColor('--school-accent', '#22c55e')
-      const palette = [primary, accent, secondary, '#64748b', '#94a3b8', '#0ea5e9']
+      const scope = canvas.closest('.saas-app') ?? document.documentElement
+      const primary = cssColor(scope, '--blue', '#25308f')
+      const secondary = cssColor(scope, '--green', '#14a76c')
+      const accent = cssColor(scope, '--tenant-accent', '#22c55e')
+      const palette = [primary, secondary, accent, '#64748b', '#94a3b8', '#0ea5e9']
 
       instance = new ChartConstructor(canvas, {
         type,
@@ -158,24 +159,32 @@ export function ChartCanvas({
           scales: type === 'doughnut' ? undefined : {
             x: {
               display: !compact,
+              beginAtZero: horizontal,
+              suggestedMax: horizontal ? max : undefined,
+              max: horizontal ? max : undefined,
               grid: { display: false },
               ticks: {
                 maxRotation: 0,
                 autoSkip: !horizontal,
                 color: '#64748b',
                 font: { size: 11 },
+                callback: horizontal
+                  ? (value: string | number) => `${value}${valueSuffix}`
+                  : undefined,
               },
             },
             y: {
               display: !compact,
-              beginAtZero: true,
-              suggestedMax: max,
-              max,
+              beginAtZero: !horizontal,
+              suggestedMax: horizontal ? undefined : max,
+              max: horizontal ? undefined : max,
               grid: { color: 'rgba(148, 163, 184, 0.16)' },
               ticks: {
                 color: '#64748b',
                 font: { size: 11 },
-                callback: (value: string | number) => `${value}${valueSuffix}`,
+                callback: horizontal
+                  ? undefined
+                  : (value: string | number) => `${value}${valueSuffix}`,
               },
             },
           },
