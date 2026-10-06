@@ -1,0 +1,153 @@
+.teacher-whatsapp-field {
+  display: grid;
+  gap: 9px;
+}
+
+.teacher-input-label,
+.teacher-language-fieldset legend {
+  color: #162843;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.teacher-phone-row {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.8fr) minmax(300px, 1.2fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.teacher-country-select-wrap,
+.teacher-phone-input-wrap {
+  margin: 0;
+}
+
+.teacher-country-select-wrap select {
+  height: 58px;
+  width: 100%;
+}
+
+.teacher-phone-input-wrap {
+  min-height: 58px;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch;
+  gap: 0 !important;
+  overflow: hidden;
+  border: 1px solid #d7dfeb;
+  border-radius: 14px;
+  background: #f8fafc;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.teacher-phone-input-wrap:focus-within {
+  border-color: var(--green, #19b9a7);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green, #19b9a7) 13%, transparent);
+  background: #fff;
+}
+
+.teacher-phone-prefix {
+  min-width: 104px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-right: 1px solid #d7dfeb;
+  background: #eef3f8;
+  color: #152b4b;
+  font-size: 1rem;
+}
+
+.teacher-phone-input-wrap input {
+  min-width: 0;
+  width: 100%;
+  height: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding-left: 16px !important;
+}
+
+.teacher-field-help,
+.teacher-legacy-phone-note {
+  line-height: 1.45;
+}
+
+.teacher-legacy-phone-note {
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #fff8df;
+  color: #725c0f !important;
+  font-weight: 650;
+}
+
+.teacher-language-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.teacher-language-fieldset legend {
+  margin-bottom: 10px;
+}
+
+.teacher-language-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.teacher-language-options > label {
+  min-height: 45px;
+  padding: 0 16px;
+  display: inline-flex;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 9px !important;
+  border: 1px solid #dce4ed;
+  border-radius: 999px;
+  background: #f7f9fc;
+  color: #334764;
+  font-weight: 750;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.teacher-language-options > label:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--green, #19b9a7) 55%, #dce4ed);
+}
+
+.teacher-language-options > label.is-selected {
+  border-color: color-mix(in srgb, var(--green, #19b9a7) 65%, white);
+  background: color-mix(in srgb, var(--green, #19b9a7) 9%, white);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--green, #19b9a7) 10%, transparent);
+  color: #123f46;
+}
+
+.teacher-language-options input {
+  width: 17px !important;
+  height: 17px !important;
+  min-height: 0 !important;
+  margin: 0;
+  accent-color: var(--green, #19b9a7);
+}
+
+.teacher-other-language {
+  margin-top: 13px;
+  display: grid !important;
+  gap: 7px !important;
+}
+
+@media (max-width: 760px) {
+  .teacher-phone-row {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-phone-input-wrap {
+    width: 100%;
+  }
+}
