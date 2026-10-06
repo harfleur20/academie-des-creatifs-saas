@@ -48,7 +48,7 @@ def join_live_class(
         FormationSessionRecord.id == day.session_id,
         FormationSessionRecord.organization_id == tenant.organization_id,
     ))
-    if session is None or session.formation.format_type != "live" or session.status == "cancelled" or day.status == "cancelled":
+    if session is None or session.formation.format_type != "live" or session.status == "cancelled" or day.status == "cancelled" or day.report_submitted_at is not None:
         raise HTTPException(404, "Classe live introuvable.")
 
     manager = bool(tenant.organization_roles.intersection({"owner", "admin", "manager", "super_admin"}))

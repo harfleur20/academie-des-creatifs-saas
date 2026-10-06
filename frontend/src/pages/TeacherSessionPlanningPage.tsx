@@ -12,6 +12,7 @@ import {
   ApiError,
   createSessionCourseDay,
   getSessionPlanning,
+  submitCourseDayReport,
   updateSessionCourseDay,
   type SessionPlanning,
 } from '../lib/api'
@@ -31,6 +32,9 @@ export function TeacherSessionPlanningPage() {
   const [scheduledAt, setScheduledAt] = useState('')
   const [duration, setDuration] = useState('90')
   const [working, setWorking] = useState(false)
+  const [reportDayId, setReportDayId] = useState<number | null>(null)
+  const [reportStatus, setReportStatus] = useState<'held' | 'partial' | 'not_held' | 'interrupted'>('held')
+  const [reportSummary, setReportSummary] = useState('')
   const [error, setError] = useState('')
 
   async function refresh() {
@@ -81,6 +85,23 @@ export function TeacherSessionPlanningPage() {
       setPlanning(await updateSessionCourseDay(dayId, { status: 'cancelled' }))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Modification impossible.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function submitReport(event: FormEvent) {
+    event.preventDefault()
+    if (reportDayId === null) return
+    setWorking(true)
+    setError('')
+    try {
+      setPlanning(await submitCourseDayReport(reportDayId, { delivery_status: reportStatus, summary: reportSummary.trim() }))
+      setReportDayId(null)
+      setReportSummary('')
+      setReportStatus('held')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Rapport impossible à enregistrer.')
     } finally {
       setWorking(false)
     }
@@ -190,9 +211,18 @@ export function TeacherSessionPlanningPage() {
                     <span><UserRound size={14} /> {day.teacher_name || 'Professeur non disponible'}</span>
                   </div>
                 </div>
-                {planning.format_type === 'live' && day.status !== 'cancelled' && (
+                {planning.format_type === 'live' && day.status !== 'cancelled' && !day.report_submitted_at && (
                   !planning.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link className="secondary-button" to={`/app/teacher/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>
                 )}
+                {day.report_submitted_at && <small>Rapport remis · {day.delivery_status === 'held' ? 'Séance tenue' : day.delivery_status === 'partial' ? 'Séance partielle' : day.delivery_status === 'not_held' ? 'Séance non tenue' : 'Séance interrompue'}</small>}
+                {day.report_submitted_at && day.report_summary && <p>{day.report_summary}</p>}
+                {day.can_edit && day.status !== 'cancelled' && Date.now() >= new Date(day.scheduled_at).getTime() + day.duration_minutes * 60_000 && <button className="secondary-button" type="button" onClick={() => { setReportDayId(day.id); setReportStatus('held'); setReportSummary('') }}>Clôturer la séance</button>}
+                {reportDayId === day.id && <form className="course-day-report-form" onSubmit={(event) => void submitReport(event)}>
+                  <label>Déroulement<select value={reportStatus} onChange={(event) => setReportStatus(event.target.value as typeof reportStatus)}><option value="held">Séance tenue</option><option value="partial">Séance partielle</option><option value="not_held">Séance non tenue</option><option value="interrupted">Séance interrompue</option></select></label>
+                  <label>Compte rendu<textarea minLength={10} maxLength={5000} required value={reportSummary} onChange={(event) => setReportSummary(event.target.value)} placeholder="Résumé de la séance et points à retenir" /></label>
+                  {(reportStatus === 'held' || reportStatus === 'partial') && <small>Marquez la présence de chaque étudiant dans « Présences » avant de remettre ce rapport.</small>}
+                  <div><button className="primary-button" type="submit" disabled={working || reportSummary.trim().length < 10}>Remettre le rapport</button><button className="secondary-button" type="button" onClick={() => setReportDayId(null)}>Annuler</button></div>
+                </form>}
                 {day.can_edit && day.status !== 'cancelled' && (
                   <button
                     className="planning-cancel-button"

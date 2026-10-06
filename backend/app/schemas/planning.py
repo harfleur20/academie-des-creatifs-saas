@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -53,6 +54,9 @@ class CourseDayRead(BaseModel):
     scheduled_at: datetime
     duration_minutes: int
     status: str
+    delivery_status: str | None
+    report_summary: str | None
+    report_submitted_at: datetime | None
     can_edit: bool
     created_at: datetime
 
@@ -79,3 +83,16 @@ class LiveRoomRead(BaseModel):
     external_api_url: str
     token: str
     moderator: bool
+
+
+class CourseDayReportSubmit(BaseModel):
+    delivery_status: Literal["held", "partial", "not_held", "interrupted"]
+    summary: str = Field(min_length=10, max_length=5000)
+
+    @field_validator("summary")
+    @classmethod
+    def normalize_summary(cls, value: str) -> str:
+        cleaned = value.strip()
+        if len(cleaned) < 10:
+            raise ValueError("Le compte rendu doit contenir au moins 10 caractères.")
+        return cleaned

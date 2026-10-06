@@ -1365,6 +1365,9 @@ export type CourseDay = {
   scheduled_at: string
   duration_minutes: number
   status: 'planned' | 'cancelled'
+  delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted' | null
+  report_summary: string | null
+  report_submitted_at: string | null
   can_edit: boolean
   created_at: string
 }
@@ -1383,6 +1386,9 @@ export type SessionPlanning = {
 
 export const getSessionPlanning = (sessionId: number) =>
   request<SessionPlanning>(`/planning/sessions/${sessionId}/course-days`)
+
+export const submitCourseDayReport = (courseDayId: number, payload: { delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted'; summary: string }) =>
+  request<SessionPlanning>(`/planning/course-days/${courseDayId}/report`, { method: 'POST', body: JSON.stringify(payload) })
 
 export type LiveRoom = {
   course_day_id: number
@@ -1891,6 +1897,8 @@ export type AttendanceCourseDay = {
   teacher_id: number | null
   teacher_name: string | null
   can_edit: boolean
+  delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted' | null
+  report_submitted_at: string | null
   rows: Array<{
     enrollment_id: number
     student_id: number

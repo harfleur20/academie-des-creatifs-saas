@@ -224,6 +224,8 @@ class AttendanceCourseDayRead(BaseModel):
     teacher_id: int | None
     teacher_name: str | None
     can_edit: bool
+    delivery_status: str | None
+    report_submitted_at: datetime | None
     rows: list[AttendanceRowRead]
 
 

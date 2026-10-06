@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -49,7 +49,7 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.grades import grade_average_pct
-from app.services.pedagogy_access import dashboard_type, learning_is_open, lesson_access, require_learning_open, session_starts_at
+from app.services.pedagogy_access import PARIS, dashboard_type, learning_is_open, lesson_access, require_learning_open, session_starts_at
 from app.services.tenancy import TenantContext
 
 
@@ -448,7 +448,9 @@ def _course_day_attendance(
         scheduled_at=day.scheduled_at,
         teacher_id=day.teacher_id,
         teacher_name=teacher.full_name if teacher else None,
-        can_edit=day.teacher_id == tenant.user.id and not tenant.support_mode,
+        can_edit=day.teacher_id == tenant.user.id and not tenant.support_mode and day.report_submitted_at is None,
+        delivery_status=day.delivery_status,
+        report_submitted_at=day.report_submitted_at,
         rows=rows,
     )
 
@@ -493,6 +495,8 @@ def mark_attendance(
         )
     if tenant.support_mode:
         raise HTTPException(403, "Le mode support est en lecture seule.")
+    if day.report_submitted_at is not None or day.status == "cancelled":
+        raise HTTPException(409, "Les présences de cette séance sont clôturées.")
 
     enrollment = db.scalar(
         select(EnrollmentRecord).where(
@@ -715,17 +719,22 @@ def _attendance_stats(
     enrollment: EnrollmentRecord,
 ) -> tuple[int, int]:
     now = datetime.now(UTC)
-    days = list(
-        db.scalars(
-            select(SessionCourseDayRecord).where(
-                SessionCourseDayRecord.organization_id == tenant.organization_id,
-                SessionCourseDayRecord.session_id == enrollment.session_id,
-                SessionCourseDayRecord.status != "cancelled",
-                SessionCourseDayRecord.scheduled_at <= now,
-            )
-        ).all()
+    formation = formation_for_session(db, tenant, enrollment.session_id)
+    guided = dashboard_type(formation) == "guided"
+    query = select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.organization_id == tenant.organization_id,
+        SessionCourseDayRecord.session_id == enrollment.session_id,
+        SessionCourseDayRecord.status != "cancelled",
+        SessionCourseDayRecord.scheduled_at <= now,
     )
+    if guided:
+        query = query.where(
+            SessionCourseDayRecord.report_submitted_at.is_not(None),
+            SessionCourseDayRecord.delivery_status.in_(["held", "partial"]),
+        )
+    days = list(db.scalars(query).all())
     present = 0
+    excused = 0
     for day in days:
         row = db.scalar(
             select(AttendanceRecord).where(
@@ -734,9 +743,12 @@ def _attendance_stats(
                 AttendanceRecord.enrollment_id == enrollment.id,
             )
         )
+        if row and row.status == "excused" and guided:
+            excused += 1
+            continue
         if row and row.status == "present":
             present += 1
-    return len(days), present
+    return len(days) - excused, present
 
 
 def badge_for_enrollment(
@@ -775,6 +787,17 @@ def badge_for_enrollment(
     )
 
     formation = formation_for_session(db, tenant, enrollment.session_id)
+    session = get_session(db, tenant, enrollment.session_id)
+    guided = dashboard_type(formation) == "guided"
+    current = datetime.now(UTC)
+    session_end = datetime.combine(session.end_date + timedelta(days=1), datetime.min.time(), tzinfo=PARIS).astimezone(UTC)
+    unresolved_days = db.scalar(select(SessionCourseDayRecord.id).where(
+        SessionCourseDayRecord.organization_id == tenant.organization_id,
+        SessionCourseDayRecord.session_id == session.id,
+        SessionCourseDayRecord.status != "cancelled",
+        SessionCourseDayRecord.scheduled_at <= current,
+        SessionCourseDayRecord.report_submitted_at.is_(None),
+    )) is not None if guided else False
     weights = (
         {"content": 24.7, "evaluation": 17.6, "production": 17.7, "live": 40.0}
         if formation.format_type == "live"
@@ -811,6 +834,7 @@ def badge_for_enrollment(
 
     professional = (
         score >= 90
+        and (not guided or (session.status != "cancelled" and current >= session_end and not unresolved_days))
         and (not total_lessons or lesson_pct >= 100)
         and (not total_assignments or submitted_assignments >= total_assignments)
         and (not total_quizzes or passed_quizzes >= max(1, round(total_quizzes * 0.8)))

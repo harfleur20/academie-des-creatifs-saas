@@ -45,7 +45,7 @@ export function TeacherAttendancePage() {
     <label className="academic-session-select">Session<select value={sessionId ?? ''} onChange={(event)=>setSessionId(Number(event.target.value))}>{workspace?.sessions.map((item)=><option key={item.session_id} value={item.session_id}>{item.formation_title} · {item.session_label}</option>)}</select></label>
     <section className="attendance-day-list">
       {days.map((day)=><article className="app-card attendance-day-card" key={day.course_day_id}>
-        <header><div><span className="section-label">{new Date(day.scheduled_at).toLocaleString('fr-FR')}</span><h2>{day.title}</h2><p>Prof. {day.teacher_name || '—'}</p></div>{day.can_edit?<CalendarCheck2 size={20}/>:<LockKeyhole size={18}/>}</header>
+        <header><div><span className="section-label">{new Date(day.scheduled_at).toLocaleString('fr-FR')}</span><h2>{day.title}</h2><p>Prof. {day.teacher_name || '—'}</p>{day.report_submitted_at && <small>Présences clôturées · {day.delivery_status === 'held' ? 'séance tenue' : day.delivery_status === 'partial' ? 'partielle' : day.delivery_status === 'not_held' ? 'non tenue' : 'interrompue'}</small>}</div>{day.can_edit?<CalendarCheck2 size={20}/>:<LockKeyhole size={18}/>}</header>
         <div className="attendance-table">
           {day.rows.map((row)=><div className="attendance-row" key={row.enrollment_id}><strong>{row.student_name}</strong><select value={row.status ?? ''} disabled={!day.can_edit} onChange={(event)=>void mark(day,row.enrollment_id,event.target.value as 'present'|'absent'|'excused')}><option value="">Non marqué</option><option value="present">Présent</option><option value="absent">Absent</option><option value="excused">Excusé</option></select></div>)}
         </div>

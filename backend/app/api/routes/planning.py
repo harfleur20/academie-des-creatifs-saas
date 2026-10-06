@@ -7,6 +7,7 @@ from app.schemas.planning import (
     CourseDayCreate,
     CourseDayDraftPublish,
     CourseDayUpdate,
+    CourseDayReportSubmit,
     SessionPlanningRead,
     LiveRoomRead,
 )
@@ -16,6 +17,7 @@ from app.services.planning import (
     get_session_planning,
     publish_course_day_draft,
     update_course_day,
+    submit_course_day_report,
 )
 from app.services.tenancy import TenantContext
 
@@ -83,3 +85,11 @@ def update_session_course_day(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return update_course_day(db, tenant, course_day_id, payload)
+
+
+@router.post("/course-days/{course_day_id}/report", response_model=SessionPlanningRead)
+def submit_session_course_day_report(
+    course_day_id: int, payload: CourseDayReportSubmit,
+    db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
+):
+    return submit_course_day_report(db, tenant, course_day_id, payload)

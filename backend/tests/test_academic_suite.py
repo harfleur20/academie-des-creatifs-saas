@@ -51,6 +51,7 @@ from app.schemas.academic import (
 )
 from app.schemas.assignments import AssignmentCreate, AssignmentSubmit
 from app.schemas.formations import CourseUpdate, LessonCreate
+from app.schemas.planning import CourseDayReportSubmit
 from app.services.assignments import create_assignment, list_student_assignments, submit_assignment
 from app.services.class_certificates import (
     create_discussion_post,
@@ -71,6 +72,7 @@ from app.services.learning_progress import (
     teacher_performance,
 )
 from app.services.live_classes import join_live_class
+from app.services.planning import get_session_planning, submit_course_day_report
 from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
@@ -494,6 +496,54 @@ def test_live_class_join_requires_own_school_membership_and_course_window(monkey
     with pytest.raises(HTTPException) as hidden:
         join_live_class(db, ctx(db, other_school, teacher), day.id, now=current)
     assert hidden.value.status_code == 404
+
+
+def test_guided_badge_waits_for_course_day_report_and_finalized_attendance() -> None:
+    db = build_db()
+    org, teacher, student, classmate, session, enrollment, classmate_enrollment, lesson, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.commit()
+    teacher_tenant = ctx(db, org, teacher)
+    student_tenant = ctx(db, org, student)
+    mark_lesson_complete(db, student_tenant, lesson.id)
+    assert student_progress(db, student_tenant)[0].badge.level == "semi_pro"
+    with pytest.raises(HTTPException) as too_early:
+        submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(delivery_status="held", summary="Cours terminé normalement"), now=datetime(2025, 1, 10, 9, 30, tzinfo=UTC))
+    assert too_early.value.status_code == 409
+    with pytest.raises(HTTPException) as unmarked:
+        submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(delivery_status="held", summary="Cours terminé normalement"))
+    assert unmarked.value.status_code == 409
+    for current_enrollment in (enrollment, classmate_enrollment):
+        mark_attendance(db, teacher_tenant, day.id, AttendanceMarkPayload(enrollment_id=current_enrollment.id, status="present"))
+    planning = submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(delivery_status="held", summary="Cours terminé normalement"))
+    assert planning.course_days[0].report_submitted_at is not None
+    assert planning.course_days[0].report_summary == "Cours terminé normalement"
+    assert get_session_planning(db, student_tenant, session.id).course_days[0].report_summary is None
+    assert student_progress(db, student_tenant)[0].badge.level == "professionnel"
+    with pytest.raises(HTTPException) as closed:
+        mark_attendance(db, teacher_tenant, day.id, AttendanceMarkPayload(enrollment_id=enrollment.id, status="absent"))
+    assert closed.value.status_code == 409
+
+
+def test_non_held_course_day_does_not_count_as_student_absence() -> None:
+    db = build_db()
+    org, teacher, student, _, session, _, _, lesson, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.commit()
+    teacher_tenant = ctx(db, org, teacher)
+    student_tenant = ctx(db, org, student)
+    mark_lesson_complete(db, student_tenant, lesson.id)
+
+    planning = submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(
+        delivery_status="not_held", summary="La séance n'a pas pu avoir lieu.",
+    ))
+    assert planning.course_days[0].delivery_status == "not_held"
+    progress = student_progress(db, student_tenant)[0]
+    assert progress.attendance_total == 0
+    assert progress.badge.level == "professionnel"
+    with pytest.raises(HTTPException) as closed:
+        join_live_class(db, student_tenant, day.id, now=datetime(2025, 1, 10, 11, 5, tzinfo=UTC))
+    assert closed.value.status_code == 404
 
 
 def test_course_publication_publishes_valid_lessons_together() -> None:

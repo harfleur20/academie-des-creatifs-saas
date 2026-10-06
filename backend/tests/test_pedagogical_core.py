@@ -190,7 +190,7 @@ def test_capacity_is_enforced() -> None:
             seat_capacity=1,
         ),
     )
-    session_id = detail.sessions[0].id
+    session_id = next(item.id for item in detail.sessions if item.label == "Session")
     enroll_student(db, tenant, formation.id, session_id, EnrollmentCreate(user_id=student.id))
 
     try:

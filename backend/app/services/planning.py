@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import (
+    AttendanceRecord,
     EnrollmentRecord,
     FormationSessionRecord,
     SessionCourseDayRecord,
@@ -16,6 +17,7 @@ from app.schemas.planning import (
     CourseDayCreate,
     CourseDayDraftItem,
     CourseDayRead,
+    CourseDayReportSubmit,
     CourseDayUpdate,
     SessionPlanningRead,
 )
@@ -202,6 +204,10 @@ def _serialize_day(
     tenant: TenantContext,
     record: SessionCourseDayRecord,
 ) -> CourseDayRead:
+    can_read_report = (
+        (tenant.has_role("teacher") and record.teacher_id == tenant.user.id)
+        or bool(tenant.organization_roles.intersection({"owner", "admin", "manager", "super_admin"}))
+    )
     return CourseDayRead(
         id=record.id,
         session_id=record.session_id,
@@ -211,10 +217,14 @@ def _serialize_day(
         scheduled_at=record.scheduled_at,
         duration_minutes=record.duration_minutes,
         status=record.status,
+        delivery_status=record.delivery_status,
+        report_summary=record.report_summary if can_read_report else None,
+        report_submitted_at=record.report_submitted_at,
         can_edit=(
             tenant.has_role("teacher")
             and record.teacher_id == tenant.user.id
             and not tenant.support_mode
+            and record.report_submitted_at is None
         ),
         created_at=record.created_at,
     )
@@ -413,6 +423,8 @@ def update_course_day(
                 "Vous pouvez le consulter, mais pas le modifier."
             ),
         )
+    if record.report_submitted_at is not None:
+        raise HTTPException(status_code=409, detail="Le rapport a clôturé cette séance.")
     if session.status in {"cancelled", "completed"}:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -455,5 +467,45 @@ def update_course_day(
             message=f"{record.title} est maintenant prévue le {_aware(record.scheduled_at).strftime('%d/%m/%Y à %H:%M')}.",
             action_label="Voir le planning", action_path="/app/student/planning",
         )
+    db.commit()
+    return get_session_planning(db, tenant, session.id)
+
+
+def submit_course_day_report(
+    db: Session, tenant: TenantContext, course_day_id: int, payload: CourseDayReportSubmit,
+    *, now: datetime | None = None,
+) -> SessionPlanningRead:
+    day = db.scalar(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.id == course_day_id,
+        SessionCourseDayRecord.organization_id == tenant.organization_id,
+    ))
+    if day is None:
+        raise HTTPException(404, "Séance introuvable.")
+    session = _session_or_404(db, tenant, day.session_id)
+    _require_teacher_assignment(db, tenant, session)
+    if tenant.support_mode or day.teacher_id != tenant.user.id:
+        raise HTTPException(403, "Seul le professeur responsable peut clôturer cette séance.")
+    if day.status == "cancelled" or session.status == "cancelled":
+        raise HTTPException(409, "Une séance annulée ne peut pas être clôturée.")
+    if day.report_submitted_at is not None:
+        raise HTTPException(409, "Le rapport de cette séance est déjà remis.")
+    current = _aware(now or datetime.now(UTC))
+    if current < _aware(day.scheduled_at) + timedelta(minutes=day.duration_minutes):
+        raise HTTPException(409, "Le rapport s'ouvre à la fin de la séance.")
+    if payload.delivery_status in {"held", "partial"}:
+        enrollment_ids = set(db.scalars(select(EnrollmentRecord.id).where(
+            EnrollmentRecord.organization_id == tenant.organization_id,
+            EnrollmentRecord.session_id == session.id,
+            EnrollmentRecord.status.in_(["active", "completed"]),
+        )).all())
+        marked_ids = set(db.scalars(select(AttendanceRecord.enrollment_id).where(
+            AttendanceRecord.organization_id == tenant.organization_id,
+            AttendanceRecord.course_day_id == day.id,
+        )).all())
+        if enrollment_ids - marked_ids:
+            raise HTTPException(409, "Marquez la présence de tous les étudiants avant de clôturer.")
+    day.delivery_status = payload.delivery_status
+    day.report_summary = payload.summary
+    day.report_submitted_at = current
     db.commit()
     return get_session_planning(db, tenant, session.id)
