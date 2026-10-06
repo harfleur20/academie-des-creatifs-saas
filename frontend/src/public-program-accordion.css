@@ -1,0 +1,219 @@
+.school-public-program-section {
+  overflow: visible;
+}
+
+.school-public-program-accordion {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.school-public-program-module {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--school-primary, #1f2559) 14%, #e6eaf0);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, .04);
+}
+
+.school-public-program-module > summary,
+.school-public-program-chapter > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.school-public-program-module > summary::-webkit-details-marker,
+.school-public-program-chapter > summary::-webkit-details-marker {
+  display: none;
+}
+
+.school-public-program-module > summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 17px 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--school-primary, #1f2559) 7%, white), #fff 70%);
+}
+
+.school-public-program-module-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--school-secondary, #18a7a3) 13%, white);
+  color: var(--school-secondary, #18a7a3);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+
+.school-public-program-module-title {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.school-public-program-module-title strong {
+  color: #13233f;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.school-public-program-module-title small,
+.school-public-program-chapter small {
+  color: #7b8798;
+  font-size: .75rem;
+}
+
+.school-public-program-chevron {
+  color: #728096;
+  transition: transform 180ms ease;
+}
+
+.school-public-program-module[open] > summary .school-public-program-chevron,
+.school-public-program-chapter[open] > summary .school-public-program-chevron {
+  transform: rotate(180deg);
+}
+
+.school-public-program-module-body {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px 15px;
+  border-top: 1px solid #edf1f5;
+  background: #fbfcfe;
+}
+
+.school-public-program-chapter {
+  overflow: hidden;
+  border: 1px solid #e6ebf2;
+  border-radius: 13px;
+  background: #fff;
+}
+
+.school-public-program-chapter > summary {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 13px;
+}
+
+.school-public-program-chapter-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--school-primary, #1f2559) 8%, white);
+  color: var(--school-primary, #1f2559);
+}
+
+.school-public-program-chapter > summary > span:nth-child(2) {
+  display: grid;
+  gap: 2px;
+}
+
+.school-public-program-chapter > summary strong {
+  color: #24344d;
+  font-size: .9rem;
+  line-height: 1.35;
+}
+
+.school-public-program-chapter-meta {
+  color: #8692a3;
+  font-size: .73rem;
+  white-space: nowrap;
+}
+
+.school-public-program-lessons {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0 14px 12px 55px;
+  list-style: none;
+}
+
+.school-public-program-lessons li {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+  padding: 9px 0;
+  border-top: 1px solid #f0f2f6;
+  color: #495971;
+  font-size: .84rem;
+}
+
+.school-public-program-lessons li > span:last-child {
+  display: grid;
+  gap: 1px;
+}
+
+.school-public-program-lessons li small {
+  color: #98a2b1;
+  font-size: .67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .035em;
+}
+
+.school-public-program-lesson-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: #f4f7fa;
+  color: #6b7b91;
+}
+
+.school-public-program-no-lessons {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px 13px 55px;
+  color: #8995a5;
+  font-size: .78rem;
+}
+
+@media (max-width: 640px) {
+  .school-public-program-module > summary {
+    grid-template-columns: 1fr auto;
+    gap: 9px;
+  }
+  .school-public-program-module-number {
+    width: max-content;
+  }
+  .school-public-program-module-title {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .school-public-program-module > summary .school-public-program-chevron {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .school-public-program-chapter > summary {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+  }
+  .school-public-program-chapter-meta {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .school-public-program-chapter > summary .school-public-program-chevron {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+  .school-public-program-lessons,
+  .school-public-program-no-lessons {
+    padding-left: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .school-public-program-chevron { transition: none; }
+}
