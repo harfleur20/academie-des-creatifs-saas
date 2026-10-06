@@ -3,6 +3,7 @@ import { ApiError, getAccessToken, getStoredOrganizationId } from '../lib/api'
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
 export type CharterAudience = 'teacher' | 'student'
+export type TeacherDocumentKind = 'portfolio' | 'cv'
 
 export type TeacherProfessionalProfile = {
   organization_id: number
@@ -47,8 +48,8 @@ export type TeacherProfessionalProfilePayload = {
   behance_url?: string | null
   github_url?: string | null
   website_url?: string | null
-  city?: string | null
-  country?: string | null
+  city: string
+  country: string
   languages: string[]
   whatsapp_phone: string
   whatsapp_country: string
@@ -112,6 +113,10 @@ export function getTeacherProfessionalProfile() {
   return request<TeacherProfessionalProfile>('/workspace-onboarding/teacher-profile')
 }
 
+export function getTeacherProfessionalProfileForAdmin(userId: number) {
+  return request<TeacherProfessionalProfile>(`/workspace-onboarding/teacher-profiles/${userId}`)
+}
+
 export function getPhoneCountries() {
   return request<PhoneCountryOption[]>('/workspace-onboarding/phone-countries')
 }
@@ -123,7 +128,7 @@ export function saveTeacherProfessionalProfile(payload: TeacherProfessionalProfi
   })
 }
 
-export async function uploadTeacherProfessionalDocument(kind: 'portfolio' | 'cv', file: File) {
+export async function uploadTeacherProfessionalDocument(kind: TeacherDocumentKind, file: File) {
   const form = new FormData()
   form.set('file', file)
   const response = await fetch(`${API_BASE}/workspace-onboarding/teacher-profile/documents/${kind}`, {
@@ -134,6 +139,32 @@ export async function uploadTeacherProfessionalDocument(kind: 'portfolio' | 'cv'
   })
   if (!response.ok) throw await readError(response)
   return response.json() as Promise<TeacherProfessionalProfile>
+}
+
+export async function previewTeacherProfessionalDocument(userId: number, kind: TeacherDocumentKind) {
+  const previewWindow = window.open('about:blank', '_blank')
+  try {
+    const response = await fetch(`${API_BASE}/workspace-onboarding/teacher-profiles/${userId}/documents/${kind}`, {
+      credentials: 'include',
+      headers: headers(false),
+    })
+    if (!response.ok) throw await readError(response)
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    if (previewWindow) {
+      previewWindow.location.href = objectUrl
+    } else {
+      const anchor = document.createElement('a')
+      anchor.href = objectUrl
+      anchor.target = '_blank'
+      anchor.rel = 'noopener noreferrer'
+      anchor.click()
+    }
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120_000)
+  } catch (error) {
+    previewWindow?.close()
+    throw error
+  }
 }
 
 export function getSchoolCharter(audience: CharterAudience) {
