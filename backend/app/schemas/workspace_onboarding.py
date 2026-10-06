@@ -17,7 +17,9 @@ class TeacherProfessionalProfileUpdate(BaseModel):
     website_url: str | None = Field(default=None, max_length=1024)
     city: str | None = Field(default=None, max_length=120)
     country: str | None = Field(default=None, max_length=120)
-    languages: list[str] = Field(default_factory=list, max_length=20)
+    languages: list[str] = Field(min_length=1, max_length=20)
+    whatsapp_phone: str = Field(min_length=4, max_length=64)
+    whatsapp_country: str = Field(min_length=2, max_length=2)
 
 
 class TeacherProfessionalProfileRead(BaseModel):
@@ -44,8 +46,17 @@ class TeacherProfessionalProfileRead(BaseModel):
     city: str | None
     country: str | None
     languages: list[str]
+    whatsapp_phone: str | None
+    whatsapp_country: str | None
+    whatsapp_phone_legacy: bool
+    whatsapp_phone_verified_at: datetime | None
     profile_completed_at: datetime | None
     is_complete: bool
+
+
+class PhoneCountryRead(BaseModel):
+    code: str
+    dial_code: str
 
 
 class OrganizationCharterUpdate(BaseModel):
