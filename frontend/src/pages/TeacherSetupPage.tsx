@@ -14,13 +14,34 @@ import { useNavigate } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import {
   acceptSchoolCharter,
+  getPhoneCountries,
   getSchoolCharter,
   getTeacherProfessionalProfile,
   saveTeacherProfessionalProfile,
   uploadTeacherProfessionalDocument,
+  type PhoneCountryOption,
   type SchoolCharter,
   type TeacherProfessionalProfile,
 } from '../onboarding/workspaceOnboardingApi'
+import '../teacher-contact-fields.css'
+
+const OTHER_PROFESSION = '__other__'
+
+const DIGITAL_PROFESSIONS = [
+  'Graphiste / Designer graphique',
+  'Motion Designer',
+  'Développeur web',
+  'Développeur mobile',
+  'UX/UI Designer',
+  'Photographe',
+  'Vidéaste / Monteur vidéo',
+  'Community Manager',
+  'Social Media Manager / Content Creator',
+  'Spécialiste marketing digital',
+  'Data Analyst',
+  'Artiste 3D / Animateur 3D',
+  'DevOps / Cloud Engineer',
+] as const
 
 function toList(value: string) {
   return value
@@ -33,17 +54,40 @@ function toText(values: string[]) {
   return values.join(', ')
 }
 
+function flagForCountry(code: string) {
+  return code
+    .toUpperCase()
+    .replace(/[A-Z]/g, (letter) => String.fromCodePoint(127397 + letter.charCodeAt(0)))
+}
+
+function localPhoneValue(phone: string | null, dialCode: string) {
+  if (!phone) return ''
+  if (dialCode && phone.startsWith(dialCode)) return phone.slice(dialCode.length)
+  return phone
+}
+
+function normalizeLanguageName(value: string) {
+  return value.trim().toLocaleLowerCase('fr-FR')
+}
+
 export function TeacherSetupPage() {
   const navigate = useNavigate()
   const { activeOrganization } = useTenant()
   const [profile, setProfile] = useState<TeacherProfessionalProfile | null>(null)
   const [charter, setCharter] = useState<SchoolCharter | null>(null)
-  const [professionalTitle, setProfessionalTitle] = useState('')
-  const [experienceYears, setExperienceYears] = useState(0)
+  const [phoneCountries, setPhoneCountries] = useState<PhoneCountryOption[]>([])
+  const [professionalTitleChoice, setProfessionalTitleChoice] = useState('')
+  const [customProfessionalTitle, setCustomProfessionalTitle] = useState('')
+  const [experienceYears, setExperienceYears] = useState('')
   const [domains, setDomains] = useState('')
   const [bio, setBio] = useState('')
   const [skills, setSkills] = useState('')
-  const [languages, setLanguages] = useState('')
+  const [teachesFrench, setTeachesFrench] = useState(false)
+  const [teachesEnglish, setTeachesEnglish] = useState(false)
+  const [teachesOther, setTeachesOther] = useState(false)
+  const [otherLanguages, setOtherLanguages] = useState('')
+  const [whatsappCountry, setWhatsappCountry] = useState('')
+  const [whatsappPhone, setWhatsappPhone] = useState('')
   const [portfolioUrl, setPortfolioUrl] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
   const [behanceUrl, setBehanceUrl] = useState('')
@@ -57,20 +101,63 @@ export function TeacherSetupPage() {
   const [uploading, setUploading] = useState<'portfolio' | 'cv' | null>(null)
   const [error, setError] = useState('')
 
+  const regionNames = useMemo(() => new Intl.DisplayNames(['fr-FR'], { type: 'region' }), [])
+
+  const sortedPhoneCountries = useMemo(() => (
+    [...phoneCountries].sort((a, b) => (
+      (regionNames.of(a.code) || a.code).localeCompare(regionNames.of(b.code) || b.code, 'fr-FR')
+    ))
+  ), [phoneCountries, regionNames])
+
+  const selectedPhoneCountry = phoneCountries.find((item) => item.code === whatsappCountry)
+
   useEffect(() => {
     let active = true
     setLoading(true)
-    Promise.all([getTeacherProfessionalProfile(), getSchoolCharter('teacher')])
-      .then(([nextProfile, nextCharter]) => {
+    Promise.all([
+      getTeacherProfessionalProfile(),
+      getSchoolCharter('teacher'),
+      getPhoneCountries(),
+    ])
+      .then(([nextProfile, nextCharter, countries]) => {
         if (!active) return
         setProfile(nextProfile)
         setCharter(nextCharter)
-        setProfessionalTitle(nextProfile.professional_title)
-        setExperienceYears(nextProfile.experience_years)
+        setPhoneCountries(countries)
+
+        if (DIGITAL_PROFESSIONS.some((title) => title === nextProfile.professional_title)) {
+          setProfessionalTitleChoice(nextProfile.professional_title)
+          setCustomProfessionalTitle('')
+        } else if (nextProfile.professional_title) {
+          setProfessionalTitleChoice(OTHER_PROFESSION)
+          setCustomProfessionalTitle(nextProfile.professional_title)
+        } else {
+          setProfessionalTitleChoice('')
+          setCustomProfessionalTitle('')
+        }
+
+        setExperienceYears(String(nextProfile.experience_years))
         setDomains(toText(nextProfile.activity_domains))
         setBio(nextProfile.bio)
         setSkills(toText(nextProfile.skills))
-        setLanguages(toText(nextProfile.languages))
+
+        const other = nextProfile.languages.filter((language) => {
+          const normalized = normalizeLanguageName(language)
+          return normalized !== 'français' && normalized !== 'francais' && normalized !== 'anglais'
+        })
+        setTeachesFrench(nextProfile.languages.some((language) => {
+          const normalized = normalizeLanguageName(language)
+          return normalized === 'français' || normalized === 'francais'
+        }))
+        setTeachesEnglish(nextProfile.languages.some((language) => normalizeLanguageName(language) === 'anglais'))
+        setTeachesOther(other.length > 0)
+        setOtherLanguages(toText(other))
+
+        const phoneCountry = nextProfile.whatsapp_country || ''
+        const phoneCountryRow = countries.find((item) => item.code === phoneCountry)
+        setWhatsappCountry(phoneCountry)
+        setWhatsappPhone(localPhoneValue(nextProfile.whatsapp_phone, phoneCountryRow?.dial_code || ''))
+
         setPortfolioUrl(nextProfile.portfolio_url || '')
         setLinkedinUrl(nextProfile.linkedin_url || '')
         setBehanceUrl(nextProfile.behance_url || '')
@@ -117,11 +204,38 @@ export function TeacherSetupPage() {
   async function submit(event: FormEvent) {
     event.preventDefault()
     setError('')
+
+    const professionalTitle = professionalTitleChoice === OTHER_PROFESSION
+      ? customProfessionalTitle.trim()
+      : professionalTitleChoice.trim()
+    const experienceText = experienceYears.trim()
+    const experienceNumber = Number(experienceText)
     const domainList = toList(domains)
     const skillList = toList(skills)
-    const languageList = toList(languages)
-    if (!professionalTitle.trim() || domainList.length === 0 || skillList.length === 0 || bio.trim().length < 40) {
+    const languageList = [
+      ...(teachesFrench ? ['Français'] : []),
+      ...(teachesEnglish ? ['Anglais'] : []),
+      ...(teachesOther ? toList(otherLanguages) : []),
+    ]
+
+    if (!professionalTitle || domainList.length === 0 || skillList.length === 0 || bio.trim().length < 40) {
       setError('Complétez le métier, les domaines, les compétences et une bio d’au moins 40 caractères.')
+      return
+    }
+    if (!experienceText || !Number.isInteger(experienceNumber) || experienceNumber < 0 || experienceNumber > 80) {
+      setError('Renseignez un nombre d’années d’expérience compris entre 0 et 80.')
+      return
+    }
+    if (languageList.length === 0) {
+      setError('Choisissez au moins une langue d’enseignement.')
+      return
+    }
+    if (teachesOther && toList(otherLanguages).length === 0) {
+      setError('Précisez la ou les autres langues d’enseignement.')
+      return
+    }
+    if (!whatsappCountry || !whatsappPhone.trim()) {
+      setError('Choisissez le pays et renseignez votre numéro WhatsApp.')
       return
     }
     if (!portfolioUrl.trim() && !profile?.portfolio_file_name) {
@@ -136,12 +250,14 @@ export function TeacherSetupPage() {
     setWorking(true)
     try {
       const saved = await saveTeacherProfessionalProfile({
-        professional_title: professionalTitle.trim(),
-        experience_years: Number(experienceYears) || 0,
+        professional_title: professionalTitle,
+        experience_years: experienceNumber,
         activity_domains: domainList,
         bio: bio.trim(),
         skills: skillList,
         languages: languageList,
+        whatsapp_phone: whatsappPhone.trim(),
+        whatsapp_country: whatsappCountry,
         portfolio_url: portfolioUrl.trim() || null,
         linkedin_url: linkedinUrl.trim() || null,
         behance_url: behanceUrl.trim() || null,
@@ -174,7 +290,7 @@ export function TeacherSetupPage() {
         <div>
           <span className="page-kicker">Bienvenue dans {profile?.organization_name || activeOrganization?.name}</span>
           <h1>Complétez votre fiche enseignant.</h1>
-          <p>Quelques informations professionnelles suffisent avant d’accéder à votre espace pédagogique.</p>
+          <p>Ces informations doivent être finalisées avant de pouvoir commencer à donner cours.</p>
         </div>
         <div className="teacher-onboarding-progress">
           <span>1</span><i /> <span>2</span><i /> <span>3</span>
@@ -199,8 +315,50 @@ export function TeacherSetupPage() {
           <div className="teacher-onboarding-grid two">
             <label>Nom complet<input value={profile?.full_name || ''} readOnly /></label>
             <label>Adresse e-mail<input value={profile?.email || ''} readOnly /></label>
-            <label>Téléphone<input value={profile?.phone || 'Non renseigné'} readOnly /></label>
-            <label>École<input value={profile?.organization_name || ''} readOnly /></label>
+
+            <div className="span-two teacher-whatsapp-field">
+              <span className="teacher-input-label">Numéro WhatsApp *</span>
+              <div className="teacher-phone-row">
+                <label className="teacher-country-select-wrap" aria-label="Pays du numéro WhatsApp">
+                  <select value={whatsappCountry} onChange={(event) => {
+                    setWhatsappCountry(event.target.value)
+                    setWhatsappPhone('')
+                  }} required>
+                    <option value="">Choisir le pays</option>
+                    {sortedPhoneCountries.map((item) => (
+                      <option key={item.code} value={item.code}>
+                        {flagForCountry(item.code)} {regionNames.of(item.code) || item.code} ({item.dial_code})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="teacher-phone-input-wrap" aria-label="Numéro WhatsApp">
+                  <span className="teacher-phone-prefix">
+                    {whatsappCountry ? flagForCountry(whatsappCountry) : '🌐'}
+                    <strong>{selectedPhoneCountry?.dial_code || '+'}</strong>
+                  </span>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={whatsappPhone}
+                    onChange={(event) => setWhatsappPhone(event.target.value)}
+                    placeholder="6 12 34 56 78"
+                    required
+                  />
+                </label>
+              </div>
+              <small className="teacher-field-help">
+                Le format international est contrôlé automatiquement. Certains anciens formats africains encore utilisés sur WhatsApp sont conservés pour une vérification WhatsApp ultérieure.
+              </small>
+              {profile?.whatsapp_phone_legacy && (
+                <small className="teacher-legacy-phone-note">
+                  Ancien format WhatsApp détecté : le numéro est conservé sans transformation arbitraire et devra être confirmé lors de la future vérification WhatsApp.
+                </small>
+              )}
+            </div>
+
+            <label className="span-two">École<input value={profile?.organization_name || ''} readOnly /></label>
           </div>
         </section>
 
@@ -210,14 +368,69 @@ export function TeacherSetupPage() {
             <BriefcaseBusiness size={21} />
           </div>
           <div className="teacher-onboarding-grid two">
-            <label>Intitulé professionnel *<input value={professionalTitle} onChange={(e) => setProfessionalTitle(e.target.value)} placeholder="Ex. Motion Designer / Formateur" maxLength={180} /></label>
-            <label>Années d’expérience *<input type="number" min={0} max={80} value={experienceYears} onChange={(e) => setExperienceYears(Number(e.target.value))} /></label>
+            <label>
+              Intitulé professionnel *
+              <select value={professionalTitleChoice} onChange={(event) => setProfessionalTitleChoice(event.target.value)} required>
+                <option value="">Choisir un métier</option>
+                {DIGITAL_PROFESSIONS.map((profession) => <option key={profession} value={profession}>{profession}</option>)}
+                <option value={OTHER_PROFESSION}>Autre</option>
+              </select>
+            </label>
+            <label>
+              Années d’expérience *
+              <input
+                type="number"
+                min={0}
+                max={80}
+                step={1}
+                value={experienceYears}
+                onChange={(event) => setExperienceYears(event.target.value)}
+                placeholder="Ex. 5"
+                required
+              />
+            </label>
+            {professionalTitleChoice === OTHER_PROFESSION && (
+              <label className="span-two">
+                Précisez votre métier *
+                <input
+                  value={customProfessionalTitle}
+                  onChange={(event) => setCustomProfessionalTitle(event.target.value)}
+                  placeholder="Ex. Consultant SEO"
+                  maxLength={180}
+                  required
+                />
+              </label>
+            )}
             <label className="span-two">Domaines d’activité *<input value={domains} onChange={(e) => setDomains(e.target.value)} placeholder="Motion design, Design graphique, 3D" /><small>Séparez les domaines par des virgules.</small></label>
             <label className="span-two">Compétences / spécialités *<input value={skills} onChange={(e) => setSkills(e.target.value)} placeholder="After Effects, Blender, Figma" /><small>Séparez les compétences par des virgules.</small></label>
             <label className="span-two">Bio professionnelle *<textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={5} maxLength={2000} placeholder="Présentez votre parcours, votre manière d’enseigner et votre expertise…" /><small>{bio.length}/2000 · minimum 40 caractères</small></label>
             <label>Ville<input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Douala" /></label>
             <label>Pays<input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Cameroun" /></label>
-            <label className="span-two">Langues d’enseignement<input value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder="Français, Anglais" /></label>
+
+            <fieldset className="span-two teacher-language-fieldset">
+              <legend>Langues d’enseignement *</legend>
+              <div className="teacher-language-options">
+                <label className={teachesFrench ? 'is-selected' : ''}>
+                  <input type="checkbox" checked={teachesFrench} onChange={(event) => setTeachesFrench(event.target.checked)} />
+                  Français
+                </label>
+                <label className={teachesEnglish ? 'is-selected' : ''}>
+                  <input type="checkbox" checked={teachesEnglish} onChange={(event) => setTeachesEnglish(event.target.checked)} />
+                  Anglais
+                </label>
+                <label className={teachesOther ? 'is-selected' : ''}>
+                  <input type="checkbox" checked={teachesOther} onChange={(event) => setTeachesOther(event.target.checked)} />
+                  Autre
+                </label>
+              </div>
+              {teachesOther && (
+                <label className="teacher-other-language">
+                  Précisez la ou les autres langues *
+                  <input value={otherLanguages} onChange={(event) => setOtherLanguages(event.target.value)} placeholder="Ex. Espagnol, Allemand" required />
+                  <small>Séparez plusieurs langues par des virgules.</small>
+                </label>
+              )}
+            </fieldset>
           </div>
 
           <div className="teacher-documents-grid">
