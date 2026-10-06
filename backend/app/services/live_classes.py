@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.models.entities import EnrollmentRecord, FormationSessionRecord, SessionCourseDayRecord, SessionTeacherRecord
+from app.services.teacher_readiness import require_teacher_ready
 from app.services.tenancy import TenantContext
 
 
@@ -57,6 +58,7 @@ def start_live_class(
     )) is not None
     if not assigned or day.teacher_id != tenant.user.id or tenant.support_mode:
         raise HTTPException(403, "Seul le professeur responsable peut démarrer cette classe live.")
+    require_teacher_ready(db, tenant)
     if session.status == "cancelled" or day.status == "cancelled" or day.report_submitted_at is not None:
         raise HTTPException(409, "Cette classe live est clôturée ou annulée.")
     current = _aware(now or datetime.now(UTC))
@@ -100,6 +102,8 @@ def join_live_class(
         raise HTTPException(403, "Vous n'êtes pas inscrit ou affecté à cette classe live.")
     if tenant.support_mode:
         raise HTTPException(403, "Le mode support ne peut pas rejoindre une classe live.")
+    if teacher:
+        require_teacher_ready(db, tenant)
 
     current = _aware(now or datetime.now(UTC))
     starts_at = _aware(day.scheduled_at)
