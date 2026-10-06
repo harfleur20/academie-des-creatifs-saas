@@ -20,6 +20,38 @@ type ChartCanvasProps = {
   valueSuffix?: string
 }
 
+type ChartInstance = { destroy: () => void }
+
+const CHART_JS_SOURCE = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js'
+let chartJsPromise: Promise<AcademieChartConstructor | null> | null = null
+
+function ensureChartJs() {
+  if (window.Chart) return Promise.resolve(window.Chart)
+  if (chartJsPromise) return chartJsPromise
+
+  chartJsPromise = new Promise((resolve) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-academie-chartjs]')
+    const finish = () => resolve(window.Chart ?? null)
+    const fail = () => resolve(null)
+
+    if (existing) {
+      existing.addEventListener('load', finish, { once: true })
+      existing.addEventListener('error', fail, { once: true })
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = CHART_JS_SOURCE
+    script.async = true
+    script.dataset.academieChartjs = 'true'
+    script.addEventListener('load', finish, { once: true })
+    script.addEventListener('error', fail, { once: true })
+    document.head.appendChild(script)
+  })
+
+  return chartJsPromise
+}
+
 function cssColor(name: string, fallback: string) {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return value || fallback
@@ -42,111 +74,119 @@ export function ChartCanvas({
   const datasetsKey = JSON.stringify(datasets)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    const ChartConstructor = window.Chart
-    if (!canvas || !ChartConstructor) {
-      setLibraryReady(false)
-      return
-    }
-    setLibraryReady(true)
+    let active = true
+    let instance: ChartInstance | null = null
 
-    const primary = cssColor('--school-primary', '#16a34a')
-    const secondary = cssColor('--school-secondary', '#0f172a')
-    const accent = cssColor('--school-accent', '#22c55e')
-    const palette = [primary, accent, secondary, '#64748b', '#94a3b8', '#0ea5e9']
+    void ensureChartJs().then((ChartConstructor) => {
+      const canvas = canvasRef.current
+      if (!active) return
+      if (!canvas || !ChartConstructor) {
+        setLibraryReady(false)
+        return
+      }
+      setLibraryReady(true)
 
-    const instance = new ChartConstructor(canvas, {
-      type,
-      data: {
-        labels,
-        datasets: datasets.map((dataset, index) => ({
-          ...dataset,
-          borderColor: type === 'doughnut' ? '#ffffff' : palette[index % palette.length],
-          backgroundColor: type === 'doughnut'
-            ? labels.map((_, labelIndex) => palette[labelIndex % palette.length])
-            : palette[index % palette.length],
-          borderWidth: type === 'doughnut' ? 3 : type === 'line' ? 3 : 0,
-          borderRadius: type === 'bar' ? 8 : undefined,
-          borderSkipped: false,
-          fill: false,
-          tension: type === 'line' ? 0.38 : undefined,
-          pointRadius: type === 'line' ? (compact ? 0 : 3) : undefined,
-          pointHoverRadius: type === 'line' ? 5 : undefined,
-        })),
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        indexAxis: horizontal ? 'y' : 'x',
-        animation: {
-          duration: compact ? 650 : 950,
-          easing: 'easeOutQuart',
+      const primary = cssColor('--school-primary', '#16a34a')
+      const secondary = cssColor('--school-secondary', '#0f172a')
+      const accent = cssColor('--school-accent', '#22c55e')
+      const palette = [primary, accent, secondary, '#64748b', '#94a3b8', '#0ea5e9']
+
+      instance = new ChartConstructor(canvas, {
+        type,
+        data: {
+          labels,
+          datasets: datasets.map((dataset, index) => ({
+            ...dataset,
+            borderColor: type === 'doughnut' ? '#ffffff' : palette[index % palette.length],
+            backgroundColor: type === 'doughnut'
+              ? labels.map((_, labelIndex) => palette[labelIndex % palette.length])
+              : palette[index % palette.length],
+            borderWidth: type === 'doughnut' ? 3 : type === 'line' ? 3 : 0,
+            borderRadius: type === 'bar' ? 8 : undefined,
+            borderSkipped: false,
+            fill: false,
+            tension: type === 'line' ? 0.38 : undefined,
+            pointRadius: type === 'line' ? (compact ? 0 : 3) : undefined,
+            pointHoverRadius: type === 'line' ? 5 : undefined,
+          })),
         },
-        interaction: {
-          intersect: false,
-          mode: type === 'doughnut' ? 'nearest' : 'index',
-        },
-        plugins: {
-          legend: {
-            display: showLegend && (type === 'doughnut' || datasets.length > 1),
-            position: 'bottom',
-            labels: {
-              usePointStyle: true,
-              boxWidth: 8,
-              padding: 16,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: horizontal ? 'y' : 'x',
+          animation: {
+            duration: compact ? 650 : 950,
+            easing: 'easeOutQuart',
+          },
+          interaction: {
+            intersect: false,
+            mode: type === 'doughnut' ? 'nearest' : 'index',
+          },
+          plugins: {
+            legend: {
+              display: showLegend && (type === 'doughnut' || datasets.length > 1),
+              position: 'bottom',
+              labels: {
+                usePointStyle: true,
+                boxWidth: 8,
+                padding: 16,
+              },
+            },
+            tooltip: {
+              enabled: !compact,
+              displayColors: type === 'doughnut' || datasets.length > 1,
+              callbacks: {
+                label: (context: {
+                  dataset: { label?: string }
+                  label?: string
+                  parsed: number | { x?: number; y?: number }
+                }) => {
+                  const numeric = typeof context.parsed === 'number'
+                    ? context.parsed
+                    : horizontal
+                      ? context.parsed.x
+                      : context.parsed.y
+                  const label = type === 'doughnut'
+                    ? context.label ? `${context.label} : ` : ''
+                    : context.dataset.label ? `${context.dataset.label} : ` : ''
+                  return `${label}${numeric ?? 0}${valueSuffix}`
+                },
+              },
             },
           },
-          tooltip: {
-            enabled: !compact,
-            displayColors: type === 'doughnut' || datasets.length > 1,
-            callbacks: {
-              label: (context: {
-                dataset: { label?: string }
-                label?: string
-                parsed: number | { x?: number; y?: number }
-              }) => {
-                const numeric = typeof context.parsed === 'number'
-                  ? context.parsed
-                  : horizontal
-                    ? context.parsed.x
-                    : context.parsed.y
-                const label = type === 'doughnut'
-                  ? context.label ? `${context.label} : ` : ''
-                  : context.dataset.label ? `${context.dataset.label} : ` : ''
-                return `${label}${numeric ?? 0}${valueSuffix}`
+          cutout: type === 'doughnut' ? (compact ? '70%' : '72%') : undefined,
+          scales: type === 'doughnut' ? undefined : {
+            x: {
+              display: !compact,
+              grid: { display: false },
+              ticks: {
+                maxRotation: 0,
+                autoSkip: !horizontal,
+                color: '#64748b',
+                font: { size: 11 },
+              },
+            },
+            y: {
+              display: !compact,
+              beginAtZero: true,
+              suggestedMax: max,
+              max,
+              grid: { color: 'rgba(148, 163, 184, 0.16)' },
+              ticks: {
+                color: '#64748b',
+                font: { size: 11 },
+                callback: (value: string | number) => `${value}${valueSuffix}`,
               },
             },
           },
         },
-        cutout: type === 'doughnut' ? (compact ? '70%' : '72%') : undefined,
-        scales: type === 'doughnut' ? undefined : {
-          x: {
-            display: !compact,
-            grid: { display: false },
-            ticks: {
-              maxRotation: 0,
-              autoSkip: !horizontal,
-              color: '#64748b',
-              font: { size: 11 },
-            },
-          },
-          y: {
-            display: !compact,
-            beginAtZero: true,
-            suggestedMax: max,
-            max,
-            grid: { color: 'rgba(148, 163, 184, 0.16)' },
-            ticks: {
-              color: '#64748b',
-              font: { size: 11 },
-              callback: (value: string | number) => `${value}${valueSuffix}`,
-            },
-          },
-        },
-      },
+      }) as ChartInstance
     })
 
-    return () => instance.destroy()
+    return () => {
+      active = false
+      instance?.destroy()
+    }
   }, [type, labelsKey, datasetsKey, height, compact, horizontal, showLegend, max, valueSuffix])
 
   if (!libraryReady) {
