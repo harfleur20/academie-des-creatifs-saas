@@ -215,11 +215,7 @@ export function SchoolDashboardPage() {
   const unpublishedCount = formations ? Math.max(0, formations.length - (publishedCount ?? 0)) : 0
   const unpaidOrderCount = commerce ? Math.max(0, commerce.order_count - commerce.paid_order_count) : 0
   const sessionsToWatch = pedagogy
-    ? pedagogy.sessions.filter((row) =>
-        row.at_risk_count > 0
-        || row.pending_reviews_count > 0
-        || (row.attendance_rate_pct !== null && row.attendance_rate_pct < 75)
-      ).length
+    ? pedagogy.sessions.filter((row) => row.at_risk_count > 0 || row.pending_reviews_count > 0).length
     : null
   const schoolAlerts = pedagogy || commerce
     ? (pedagogy?.at_risk_students ?? 0) + (commerce?.late_installments ?? 0) + (sessionsToWatch ?? 0)
