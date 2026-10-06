@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, BookOpen, Building2, CalendarDays, Clock3, GraduationCap, ShoppingCart, Users } from 'lucide-react'
+import { ArrowRight, BookOpen, Building2, CalendarDays, Clock3, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
 import {
   createOrganization,
   getCommercialDashboard,
@@ -13,6 +13,7 @@ import {
   type OnboardingStatus,
 } from '../lib/api'
 import { useTenant } from '../app/TenantContext'
+import { useAuth } from '../auth/AuthContext'
 import { Link, useNavigate } from 'react-router-dom'
 
 function slugify(value: string) {
@@ -25,8 +26,13 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, '')
 }
 
+function firstName(value?: string | null) {
+  return (value || '').trim().split(/\s+/)[0] || 'vous'
+}
+
 export function SchoolDashboardPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { activeOrganization, refreshOrganizations, loading } = useTenant()
   const [schoolName, setSchoolName] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -164,12 +170,11 @@ export function SchoolDashboardPage() {
   }
 
   return (
-    <main className="app-page">
-      <header className="app-page-header">
+    <main className="app-page owner-dashboard-page">
+      <header className="owner-dashboard-heading">
         <div>
           <span className="page-kicker">Tableau de bord</span>
-          <h1>{activeOrganization.name}</h1>
-          <p>{summaryText}</p>
+          <h1>Vue d’ensemble</h1>
         </div>
         <span className={`status-chip${activeOrganization.is_active ? '' : ' is-inactive'}`}>
           {activeOrganization.is_active ? 'École active' : 'École suspendue'}
@@ -183,7 +188,72 @@ export function SchoolDashboardPage() {
         </div>
       )}
 
-      <div className="dashboard-section-heading">
+      <section className="owner-dashboard-overview">
+        <div className="owner-dashboard-main">
+          <article className="owner-dashboard-welcome">
+            <span className="section-label">Aujourd’hui</span>
+            <h2>Bonjour {firstName(user?.full_name)} 👋</h2>
+            <p>{summaryText}</p>
+            <strong className="owner-dashboard-school-name">{activeOrganization.name}</strong>
+
+            <div className="owner-dashboard-mini-stats">
+              <div><small>Étudiants actifs</small><strong>{displayCount(activeStudents)}</strong></div>
+              <div><small>{hasGuidedFormation || !hasOnlineFormation ? 'Sessions' : 'Cours'}</small><strong>{displayCount(hasGuidedFormation || !hasOnlineFormation ? sessionCount : courseCount)}</strong></div>
+              <div className={(commerce?.late_installments ?? 0) > 0 ? 'is-alert' : ''}><small>Paiements en retard</small><strong>{displayCount(commerce?.late_installments ?? null)}</strong></div>
+            </div>
+
+            <div className="owner-dashboard-quick-actions">
+              <Link className="primary-button" to="/app/manage/formations">Créer une formation <ArrowRight size={16} /></Link>
+              <Link className="owner-dashboard-action" to="/app/manage/teachers"><UserPlus size={16} /> Inviter un enseignant</Link>
+              <Link className="owner-dashboard-action" to="/app/manage/site-public"><Store size={16} /> Voir le site</Link>
+            </div>
+          </article>
+        </div>
+
+        <aside className="owner-dashboard-rail">
+          <section className="owner-dashboard-priority-card">
+            <div className="owner-dashboard-card-title">
+              <span>À surveiller</span>
+              <small>Priorités de l’école</small>
+            </div>
+            <Link to="/app/manage/commerce" className={(commerce?.late_installments ?? 0) > 0 ? 'is-alert' : ''}>
+              <span className="owner-dashboard-priority-icon"><Clock3 size={18} /></span>
+              <span><strong>{displayCount(commerce?.late_installments ?? null)} échéance(s)</strong><small>paiement(s) en retard</small></span>
+              <ArrowRight size={15} />
+            </Link>
+            <Link to="/app/manage/formations">
+              <span className="owner-dashboard-priority-icon"><CalendarDays size={18} /></span>
+              <span><strong>{displayCount(sessionCount)} session(s)</strong><small>dans vos formations</small></span>
+              <ArrowRight size={15} />
+            </Link>
+            <Link to="/app/manage/students">
+              <span className="owner-dashboard-priority-icon"><Users size={18} /></span>
+              <span><strong>{displayCount(activeStudents)} étudiant(s)</strong><small>actuellement actifs</small></span>
+              <ArrowRight size={15} />
+            </Link>
+          </section>
+
+          {(onboarding && !onboarding.is_complete) ? (
+            <section className="owner-dashboard-next-card">
+              <span className="section-label">Mise en route</span>
+              <h3>{onboarding.next_step?.label || 'Finalisez votre école'}</h3>
+              <p>{onboarding.next_step?.description || 'Terminez les étapes de configuration de votre école.'}</p>
+              <div className="owner-dashboard-progress"><span style={{ width: `${Math.min(100, Math.round((onboarding.completed_steps / Math.max(1, onboarding.total_steps)) * 100))}%` }} /></div>
+              <small>{onboarding.completed_steps}/{onboarding.total_steps} étapes terminées</small>
+              <Link to={onboarding.next_step?.path || '/app/manage/onboarding'}>Continuer <ArrowRight size={15} /></Link>
+            </section>
+          ) : nextAction ? (
+            <section className="owner-dashboard-next-card">
+              <span className="section-label">Prochaine étape</span>
+              <h3>{nextAction.title}</h3>
+              <p>{nextAction.description}</p>
+              <Link to={nextAction.to}>{nextAction.label} <ArrowRight size={15} /></Link>
+            </section>
+          ) : null}
+        </aside>
+      </section>
+
+      <div className="dashboard-section-heading owner-dashboard-stats-heading">
         <span className="section-label">Votre école en bref</span>
         <h2>Les chiffres à suivre</h2>
       </div>
@@ -231,30 +301,6 @@ export function SchoolDashboardPage() {
           <Link className="dashboard-stat-link" to="/app/manage/commerce">Suivre les paiements <ArrowRight size={15} /></Link>
         </article>
       </div>
-
-      {onboarding && !onboarding.is_complete ? (
-        <section className="dashboard-callout onboarding-dashboard-callout">
-          <div>
-            <span>Mise en route · {onboarding.completed_steps}/{onboarding.total_steps}</span>
-            <h2>{onboarding.next_step?.label || 'Finalisez votre école'}</h2>
-            <p>{onboarding.next_step?.description || 'Terminez les étapes de configuration de votre école.'}</p>
-          </div>
-          <Link className="primary-button" to={onboarding.next_step?.path || '/app/manage/onboarding'}>
-            Continuer la configuration <ArrowRight size={17} />
-          </Link>
-        </section>
-      ) : onboarding?.is_complete && nextAction ? (
-        <section className="dashboard-callout">
-          <div>
-            <span>Prochaine étape</span>
-            <h2>{nextAction.title}</h2>
-            <p>{nextAction.description}</p>
-          </div>
-          <Link className="primary-button" to={nextAction.to}>
-            {nextAction.label} <ArrowRight size={17} />
-          </Link>
-        </section>
-      ) : null}
     </main>
   )
 }
