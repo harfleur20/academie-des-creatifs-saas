@@ -172,10 +172,10 @@ export function PublicProgramEditorModal({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !saving) onClose()
     }
-    document.body.classList.add('public-program-modal-open')
+    window.document.body.classList.add('public-program-modal-open')
     window.addEventListener('keydown', onKeyDown)
     return () => {
-      document.body.classList.remove('public-program-modal-open')
+      window.document.body.classList.remove('public-program-modal-open')
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [open, onClose, saving])
