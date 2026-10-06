@@ -20,9 +20,12 @@ from app.models.teacher_onboarding import (
 from app.schemas.workspace_onboarding import (
     OrganizationCharterRead,
     OrganizationCharterUpdate,
+    PhoneCountryRead,
     TeacherProfessionalProfileRead,
     TeacherProfessionalProfileUpdate,
 )
+from app.services.phone_numbers import normalize_whatsapp_phone, supported_phone_countries
+from app.services.teacher_readiness import teacher_profile_complete
 from app.services.tenancy import TenantContext, require_organization_roles
 
 
@@ -102,16 +105,6 @@ def _ensure_teacher_record(db: Session, tenant: TenantContext) -> TeacherProfess
     return row
 
 
-def _teacher_profile_complete(row: TeacherProfessionalProfileRecord) -> bool:
-    return bool(
-        row.professional_title.strip()
-        and row.activity_domains
-        and len(row.bio.strip()) >= 40
-        and row.skills
-        and (row.portfolio_url or row.portfolio_file_key)
-    )
-
-
 def _teacher_profile_read(
     db: Session,
     tenant: TenantContext,
@@ -147,8 +140,12 @@ def _teacher_profile_read(
         city=row.city,
         country=row.country,
         languages=list(row.languages or []),
+        whatsapp_phone=row.whatsapp_phone,
+        whatsapp_country=row.whatsapp_country,
+        whatsapp_phone_legacy=row.whatsapp_phone_legacy,
+        whatsapp_phone_verified_at=row.whatsapp_phone_verified_at,
         profile_completed_at=row.profile_completed_at,
-        is_complete=_teacher_profile_complete(row),
+        is_complete=teacher_profile_complete(row),
     )
 
 
@@ -214,6 +211,14 @@ def _charter_read(
     )
 
 
+@router.get("/phone-countries", response_model=list[PhoneCountryRead])
+def get_phone_countries(
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    require_organization_roles(tenant, "teacher")
+    return supported_phone_countries()
+
+
 @router.get("/teacher-profile", response_model=TeacherProfessionalProfileRead)
 def get_teacher_professional_profile(
     db: Session = Depends(get_db),
@@ -233,6 +238,15 @@ def update_teacher_professional_profile(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     row = _ensure_teacher_record(db, tenant)
+    try:
+        whatsapp_phone, is_legacy = normalize_whatsapp_phone(
+            payload.whatsapp_phone,
+            payload.whatsapp_country,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    previous_whatsapp_phone = row.whatsapp_phone
     row.professional_title = payload.professional_title.strip()
     row.experience_years = payload.experience_years
     row.activity_domains = _clean_list(payload.activity_domains, limit=20)
@@ -246,7 +260,12 @@ def update_teacher_professional_profile(
     row.city = _clean_text(payload.city)
     row.country = _clean_text(payload.country)
     row.languages = _clean_list(payload.languages, limit=20)
-    row.profile_completed_at = datetime.now(UTC) if _teacher_profile_complete(row) else None
+    row.whatsapp_phone = whatsapp_phone
+    row.whatsapp_country = payload.whatsapp_country.strip().upper()
+    row.whatsapp_phone_legacy = is_legacy
+    if previous_whatsapp_phone != whatsapp_phone:
+        row.whatsapp_phone_verified_at = None
+    row.profile_completed_at = datetime.now(UTC) if teacher_profile_complete(row) else None
     db.commit()
     db.refresh(row)
     return _teacher_profile_read(db, tenant, row)
@@ -303,7 +322,7 @@ async def upload_teacher_professional_document(
     else:
         row.cv_file_key = key
         row.cv_file_name = original_name
-    row.profile_completed_at = datetime.now(UTC) if _teacher_profile_complete(row) else None
+    row.profile_completed_at = datetime.now(UTC) if teacher_profile_complete(row) else None
     db.commit()
     db.refresh(row)
     return _teacher_profile_read(db, tenant, row)
