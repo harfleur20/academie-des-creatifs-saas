@@ -538,11 +538,18 @@ def test_guided_badge_waits_for_course_day_report_and_finalized_attendance() -> 
     assert unmarked.value.status_code == 409
     for current_enrollment in (enrollment, classmate_enrollment):
         mark_attendance(db, teacher_tenant, day.id, AttendanceMarkPayload(enrollment_id=current_enrollment.id, status="present"))
-    planning = submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(delivery_status="held", summary="Cours terminé normalement"))
+    planning = submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(
+        delivery_status="held", summary="Cours terminé normalement",
+        difficulties="  Audio instable  ", homework="Projet suivant", attendance_notes="  ",
+    ))
     assert planning.course_days[0].report_submitted_at is not None
     assert planning.course_days[0].started_at == day.scheduled_at
     assert planning.course_days[0].report_summary == "Cours terminé normalement"
+    assert planning.course_days[0].report_difficulties == "Audio instable"
+    assert planning.course_days[0].report_homework == "Projet suivant"
+    assert planning.course_days[0].report_attendance_notes is None
     assert get_session_planning(db, student_tenant, session.id).course_days[0].report_summary is None
+    assert get_session_planning(db, student_tenant, session.id).course_days[0].report_difficulties is None
     assert student_progress(db, student_tenant)[0].badge.level == "professionnel"
     with pytest.raises(HTTPException) as closed:
         mark_attendance(db, teacher_tenant, day.id, AttendanceMarkPayload(enrollment_id=enrollment.id, status="absent"))

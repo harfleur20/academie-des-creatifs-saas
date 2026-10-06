@@ -57,6 +57,9 @@ class CourseDayRead(BaseModel):
     started_at: datetime | None
     delivery_status: str | None
     report_summary: str | None
+    report_difficulties: str | None
+    report_homework: str | None
+    report_attendance_notes: str | None
     report_submitted_at: datetime | None
     feedback_count: int
     average_rating: float | None
@@ -98,6 +101,9 @@ class LiveStartRead(BaseModel):
 class CourseDayReportSubmit(BaseModel):
     delivery_status: Literal["held", "partial", "not_held", "interrupted"]
     summary: str = Field(min_length=10, max_length=5000)
+    difficulties: str | None = Field(default=None, max_length=2500)
+    homework: str | None = Field(default=None, max_length=2500)
+    attendance_notes: str | None = Field(default=None, max_length=2500)
 
     @field_validator("summary")
     @classmethod
@@ -106,6 +112,11 @@ class CourseDayReportSubmit(BaseModel):
         if len(cleaned) < 10:
             raise ValueError("Le compte rendu doit contenir au moins 10 caractères.")
         return cleaned
+
+    @field_validator("difficulties", "homework", "attendance_notes")
+    @classmethod
+    def normalize_optional_report_text(cls, value: str | None) -> str | None:
+        return value.strip() or None if value is not None else None
 
 
 class CourseDayFeedbackSubmit(BaseModel):
@@ -142,6 +153,9 @@ class SchoolCourseDayReportRead(BaseModel):
     scheduled_at: datetime
     delivery_status: Literal["held", "partial", "not_held", "interrupted"]
     summary: str
+    difficulties: str | None
+    homework: str | None
+    attendance_notes: str | None
     submitted_at: datetime
     feedback_count: int
     average_rating: float | None

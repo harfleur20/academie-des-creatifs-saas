@@ -229,6 +229,9 @@ def _serialize_day(
         started_at=record.started_at,
         delivery_status=record.delivery_status,
         report_summary=record.report_summary if can_read_report else None,
+        report_difficulties=record.report_difficulties if can_read_report else None,
+        report_homework=record.report_homework if can_read_report else None,
+        report_attendance_notes=record.report_attendance_notes if can_read_report else None,
         report_submitted_at=record.report_submitted_at,
         feedback_count=feedback_count,
         average_rating=average_rating,
@@ -411,6 +414,8 @@ def list_school_course_day_reports(
         formation_title=formation_title, session_label=session_label,
         teacher_name=teacher_name, title=day.title, scheduled_at=day.scheduled_at,
         delivery_status=day.delivery_status, summary=day.report_summary or "",
+        difficulties=day.report_difficulties, homework=day.report_homework,
+        attendance_notes=day.report_attendance_notes,
         submitted_at=day.report_submitted_at,
         feedback_count=feedback_summary.get(day.id, (0, None))[0],
         average_rating=feedback_summary.get(day.id, (0, None))[1],
@@ -662,6 +667,9 @@ def submit_course_day_report(
             day.started_at = _aware(day.scheduled_at)
     day.delivery_status = payload.delivery_status
     day.report_summary = payload.summary
+    day.report_difficulties = payload.difficulties
+    day.report_homework = payload.homework
+    day.report_attendance_notes = payload.attendance_notes
     day.report_submitted_at = current
     db.commit()
     return get_session_planning(db, tenant, session.id)

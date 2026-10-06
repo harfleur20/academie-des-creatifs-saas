@@ -679,6 +679,9 @@ class SessionCourseDayRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     delivery_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
     report_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_difficulties: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_homework: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_attendance_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     report_submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     session: Mapped["FormationSessionRecord"] = relationship(back_populates="course_days")

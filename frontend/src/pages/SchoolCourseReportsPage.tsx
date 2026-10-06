@@ -79,6 +79,9 @@ export function SchoolCourseReportsPage() {
           <p>Prof. {selected.teacher_name || '—'} · {dateLabel(selected.scheduled_at)}</p>
           <p>Rapport remis le {dateLabel(selected.submitted_at)}</p>
           <h3>Compte rendu du professeur</h3><p className="course-report-summary">{selected.summary}</p>
+          {selected.difficulties && <p><strong>Difficultés :</strong> {selected.difficulties}</p>}
+          {selected.homework && <p><strong>Travail à faire :</strong> {selected.homework}</p>}
+          {selected.attendance_notes && <p><strong>Présences :</strong> {selected.attendance_notes}</p>}
           <h3>Avis étudiants</h3><p>{selected.feedback_count} avis{selected.average_rating !== null ? ` · ${selected.average_rating}/5` : ''}</p>
           {feedback.map((item) => <div className="course-report-feedback" key={item.id}><strong>{item.student_name} · {item.rating}/5</strong><span>{item.delivery_status === 'held' ? 'Séance tenue' : item.delivery_status === 'partial' ? 'Séance partielle' : 'Séance non tenue'}</span>{item.comment && <p>{item.comment}</p>}</div>)}
         </section>}

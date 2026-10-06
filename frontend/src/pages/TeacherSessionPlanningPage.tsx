@@ -37,6 +37,9 @@ export function TeacherSessionPlanningPage() {
   const [reportDayId, setReportDayId] = useState<number | null>(null)
   const [reportStatus, setReportStatus] = useState<'held' | 'partial' | 'not_held' | 'interrupted'>('held')
   const [reportSummary, setReportSummary] = useState('')
+  const [reportDifficulties, setReportDifficulties] = useState('')
+  const [reportHomework, setReportHomework] = useState('')
+  const [reportAttendanceNotes, setReportAttendanceNotes] = useState('')
   const [feedbackDayId, setFeedbackDayId] = useState<number | null>(null)
   const [feedbackRows, setFeedbackRows] = useState<CourseDayFeedbackReview[]>([])
   const [error, setError] = useState('')
@@ -100,9 +103,16 @@ export function TeacherSessionPlanningPage() {
     setWorking(true)
     setError('')
     try {
-      setPlanning(await submitCourseDayReport(reportDayId, { delivery_status: reportStatus, summary: reportSummary.trim() }))
+      setPlanning(await submitCourseDayReport(reportDayId, {
+        delivery_status: reportStatus, summary: reportSummary.trim(),
+        difficulties: reportDifficulties.trim(), homework: reportHomework.trim(),
+        attendance_notes: reportAttendanceNotes.trim(),
+      }))
       setReportDayId(null)
       setReportSummary('')
+      setReportDifficulties('')
+      setReportHomework('')
+      setReportAttendanceNotes('')
       setReportStatus('held')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Rapport impossible à enregistrer.')
@@ -231,12 +241,21 @@ export function TeacherSessionPlanningPage() {
                 )}
                 {day.report_submitted_at && <small>Rapport remis · {day.delivery_status === 'held' ? 'Séance tenue' : day.delivery_status === 'partial' ? 'Séance partielle' : day.delivery_status === 'not_held' ? 'Séance non tenue' : 'Séance interrompue'}</small>}
                 {day.report_submitted_at && day.report_summary && <p>{day.report_summary}</p>}
+                {day.report_submitted_at && day.report_difficulties && <p><strong>Difficultés :</strong> {day.report_difficulties}</p>}
+                {day.report_submitted_at && day.report_homework && <p><strong>Travail à faire :</strong> {day.report_homework}</p>}
+                {day.report_submitted_at && day.report_attendance_notes && <p><strong>Présences :</strong> {day.report_attendance_notes}</p>}
                 {day.feedback_count > 0 && <button className="secondary-button" type="button" onClick={() => void showFeedback(day.id)}>{day.feedback_count} avis · {day.average_rating}/5</button>}
                 {feedbackDayId === day.id && <div className="course-day-feedback-list">{feedbackRows.map((feedback) => <p key={feedback.id}><strong>{feedback.student_name}</strong> · {feedback.rating}/5 · {feedback.delivery_status === 'held' ? 'séance tenue' : feedback.delivery_status === 'partial' ? 'partielle' : 'non tenue'}{feedback.comment && <span> — {feedback.comment}</span>}</p>)}</div>}
-                {day.can_edit && day.status !== 'cancelled' && Date.now() >= new Date(day.scheduled_at).getTime() + day.duration_minutes * 60_000 && <button className="secondary-button" type="button" onClick={() => { setReportDayId(day.id); setReportStatus('held'); setReportSummary('') }}>Clôturer la séance</button>}
+                {day.can_edit && day.status !== 'cancelled' && Date.now() >= new Date(day.scheduled_at).getTime() + day.duration_minutes * 60_000 && <button className="secondary-button" type="button" onClick={() => {
+                  setReportDayId(day.id); setReportStatus('held'); setReportSummary('')
+                  setReportDifficulties(''); setReportHomework(''); setReportAttendanceNotes('')
+                }}>Clôturer la séance</button>}
                 {reportDayId === day.id && <form className="course-day-report-form" onSubmit={(event) => void submitReport(event)}>
                   <label>Déroulement<select value={reportStatus} onChange={(event) => setReportStatus(event.target.value as typeof reportStatus)}><option value="held">Séance tenue</option><option value="partial">Séance partielle</option><option value="not_held">Séance non tenue</option><option value="interrupted">Séance interrompue</option></select></label>
                   <label>Compte rendu<textarea minLength={10} maxLength={5000} required value={reportSummary} onChange={(event) => setReportSummary(event.target.value)} placeholder="Résumé de la séance et points à retenir" /></label>
+                  <label>Difficultés rencontrées<textarea maxLength={2500} value={reportDifficulties} onChange={(event) => setReportDifficulties(event.target.value)} /></label>
+                  <label>Travail à faire<textarea maxLength={2500} value={reportHomework} onChange={(event) => setReportHomework(event.target.value)} /></label>
+                  <label>Notes sur les présences<textarea maxLength={2500} value={reportAttendanceNotes} onChange={(event) => setReportAttendanceNotes(event.target.value)} /></label>
                   {(reportStatus === 'held' || reportStatus === 'partial') && <small>Marquez la présence de chaque étudiant dans « Présences » avant de remettre ce rapport.</small>}
                   <div><button className="primary-button" type="submit" disabled={working || reportSummary.trim().length < 10}>Remettre le rapport</button><button className="secondary-button" type="button" onClick={() => setReportDayId(null)}>Annuler</button></div>
                 </form>}

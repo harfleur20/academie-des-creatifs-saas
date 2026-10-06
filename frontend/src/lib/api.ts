@@ -1368,6 +1368,9 @@ export type CourseDay = {
   started_at: string | null
   delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted' | null
   report_summary: string | null
+  report_difficulties: string | null
+  report_homework: string | null
+  report_attendance_notes: string | null
   report_submitted_at: string | null
   feedback_count: number
   average_rating: number | null
@@ -1391,7 +1394,13 @@ export type SessionPlanning = {
 export const getSessionPlanning = (sessionId: number) =>
   request<SessionPlanning>(`/planning/sessions/${sessionId}/course-days`)
 
-export const submitCourseDayReport = (courseDayId: number, payload: { delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted'; summary: string }) =>
+export const submitCourseDayReport = (courseDayId: number, payload: {
+  delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted'
+  summary: string
+  difficulties?: string
+  homework?: string
+  attendance_notes?: string
+}) =>
   request<SessionPlanning>(`/planning/course-days/${courseDayId}/report`, { method: 'POST', body: JSON.stringify(payload) })
 
 export type CourseDayFeedback = {
@@ -1421,6 +1430,9 @@ export type SchoolCourseDayReport = {
   scheduled_at: string
   delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted'
   summary: string
+  difficulties: string | null
+  homework: string | null
+  attendance_notes: string | null
   submitted_at: string
   feedback_count: number
   average_rating: number | null
