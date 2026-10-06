@@ -18,6 +18,8 @@ import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
 import { TeamPage } from './pages/TeamPage'
 import { SchoolSettingsPage } from './pages/SchoolSettingsPage'
 import { BillingPage } from './pages/BillingPage'
+import { SchoolReportsPage } from './pages/SchoolReportsPage'
+import { SchoolConnectPage } from './pages/SchoolConnectPage'
 import { AdminLayout } from './admin/AdminLayout'
 import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminSchoolsPage } from './pages/AdminSchoolsPage'
@@ -224,6 +226,8 @@ export default function App() {
               element={<RequireSchoolUser><RequireWorkspace space="manage"><AppLayout /></RequireWorkspace></RequireSchoolUser>}
             >
               <Route index element={<SchoolDashboardPage />} />
+              <Route path="reports" element={<SchoolReportsPage />} />
+              <Route path="connect" element={<SchoolConnectPage />} />
               <Route path="notifications" element={<SchoolNotificationsPage space="manage" />} />
               <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="onboarding" element={<OnboardingPage />} />
