@@ -10,6 +10,7 @@ import { TenantProvider, useTenant } from './app/TenantContext'
 import { AppLayout } from './app/AppLayout'
 import { TeacherLayout } from './app/TeacherLayout'
 import { StudentLayout } from './app/StudentLayout'
+import { RequireStudentReady, RequireTeacherReady } from './app/WorkspaceReadinessGate'
 import LandingPage from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { InvitationAcceptPage } from './pages/InvitationAcceptPage'
@@ -74,6 +75,9 @@ import type { WorkspaceSpace } from './lib/api'
 import { SchoolNotificationsPage } from './pages/SchoolNotificationsPage'
 import { SchoolFavoritesPage } from './pages/SchoolFavoritesPage'
 import { SchoolMessagesPage } from './pages/SchoolMessagesPage'
+import { TeacherSetupPage } from './pages/TeacherSetupPage'
+import { StudentCharterPage } from './pages/StudentCharterPage'
+import { CharterSettingsPage } from './pages/CharterSettingsPage'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
   const { user, supportMode, loading } = useAuth()
@@ -205,24 +209,11 @@ export default function App() {
               <Route path="remboursement" element={<SchoolLegalPage />} />
             </Route>
 
-            <Route
-              path="/app"
-              element={
-                <RequireSchoolUser>
-                  <WorkspaceEntry />
-                </RequireSchoolUser>
-              }
-            />
+            <Route path="/app" element={<RequireSchoolUser><WorkspaceEntry /></RequireSchoolUser>} />
 
             <Route
               path="/app/manage"
-              element={
-                <RequireSchoolUser>
-                  <RequireWorkspace space="manage">
-                    <AppLayout />
-                  </RequireWorkspace>
-                </RequireSchoolUser>
-              }
+              element={<RequireSchoolUser><RequireWorkspace space="manage"><AppLayout /></RequireWorkspace></RequireSchoolUser>}
             >
               <Route index element={<SchoolDashboardPage />} />
               <Route path="notifications" element={<SchoolNotificationsPage space="manage" />} />
@@ -239,6 +230,7 @@ export default function App() {
               <Route path="performance" element={<SchoolPerformancePage />} />
               <Route path="site-public" element={<SchoolPublicSitePage />} />
               <Route path="team" element={<TeamPage />} />
+              <Route path="charters" element={<CharterSettingsPage />} />
               <Route path="billing" element={<BillingPage />} />
               <Route path="profile" element={<ManageProfilePage />} />
               <Route path="support" element={<SupportPage space="manage" />} />
@@ -246,14 +238,12 @@ export default function App() {
             </Route>
 
             <Route
+              path="/app/teacher/setup"
+              element={<RequireSchoolUser><RequireWorkspace space="teacher"><TeacherSetupPage /></RequireWorkspace></RequireSchoolUser>}
+            />
+            <Route
               path="/app/teacher"
-              element={
-                <RequireSchoolUser>
-                  <RequireWorkspace space="teacher">
-                    <TeacherLayout />
-                  </RequireWorkspace>
-                </RequireSchoolUser>
-              }
+              element={<RequireSchoolUser><RequireWorkspace space="teacher"><RequireTeacherReady><TeacherLayout /></RequireTeacherReady></RequireWorkspace></RequireSchoolUser>}
             >
               <Route index element={<TeacherDashboardPage />} />
               <Route path="notifications" element={<SchoolNotificationsPage space="teacher" />} />
@@ -273,14 +263,12 @@ export default function App() {
             </Route>
 
             <Route
+              path="/app/student/charter"
+              element={<RequireSchoolUser><RequireWorkspace space="student"><StudentCharterPage /></RequireWorkspace></RequireSchoolUser>}
+            />
+            <Route
               path="/app/student"
-              element={
-                <RequireSchoolUser>
-                  <RequireWorkspace space="student">
-                    <StudentLayout />
-                  </RequireWorkspace>
-                </RequireSchoolUser>
-              }
+              element={<RequireSchoolUser><RequireWorkspace space="student"><RequireStudentReady><StudentLayout /></RequireStudentReady></RequireWorkspace></RequireSchoolUser>}
             >
               <Route index element={<StudentDashboardPage />} />
               <Route path="notifications" element={<SchoolNotificationsPage space="student" />} />
@@ -314,14 +302,7 @@ export default function App() {
             <Route path="/app/support" element={<Navigate to="/app/manage/support" replace />} />
             <Route path="/app/settings" element={<Navigate to="/app/manage/settings" replace />} />
 
-            <Route
-              path="/admin"
-              element={
-                <RequireSuperAdmin>
-                  <AdminLayout />
-                </RequireSuperAdmin>
-              }
-            >
+            <Route path="/admin" element={<RequireSuperAdmin><AdminLayout /></RequireSuperAdmin>}>
               <Route index element={<AdminDashboardPage />} />
               <Route path="schools" element={<AdminSchoolsPage />} />
               <Route path="schools/:schoolId" element={<AdminSchoolDetailPage />} />

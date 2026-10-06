@@ -1,0 +1,497 @@
+/* Teacher professional onboarding and school charter flows. */
+.teacher-onboarding-page,
+.student-charter-page {
+  min-height: 100vh;
+  padding: clamp(24px, 4vw, 54px);
+  background: #f6f8fb;
+}
+
+.teacher-onboarding-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  max-width: 1180px;
+  margin: 0 auto 28px;
+}
+
+.teacher-onboarding-hero h1,
+.student-charter-card h1 {
+  margin: 8px 0 10px;
+  color: #10213d;
+  font-size: clamp(32px, 4vw, 50px);
+  line-height: 1.02;
+  letter-spacing: -.04em;
+}
+
+.teacher-onboarding-hero p,
+.student-charter-card > p {
+  margin: 0;
+  color: #68778d;
+  line-height: 1.65;
+}
+
+.teacher-onboarding-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.teacher-onboarding-progress span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #0d6b4b;
+  background: #dcf8ec;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.teacher-onboarding-progress i {
+  width: 38px;
+  height: 2px;
+  border-radius: 999px;
+  background: #dfe5ee;
+}
+
+.teacher-onboarding-form {
+  display: grid;
+  gap: 22px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.teacher-onboarding-error {
+  max-width: 1180px;
+  margin: 0 auto 20px;
+}
+
+.teacher-onboarding-card,
+.student-charter-card {
+  border: 0;
+  border-radius: 26px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, .05);
+}
+
+.teacher-onboarding-card {
+  padding: 28px;
+}
+
+.teacher-onboarding-section-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.teacher-onboarding-section-title h2 {
+  margin: 5px 0 0;
+  color: #10213d;
+  font-size: 22px;
+}
+
+.teacher-onboarding-section-title > svg {
+  color: #344867;
+}
+
+.teacher-identity-summary {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+  padding: 16px;
+  border-radius: 18px;
+  background: #f6f8fb;
+}
+
+.teacher-identity-avatar {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #fff;
+  background: #10233f;
+  font-weight: 800;
+}
+
+.teacher-identity-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.teacher-identity-summary strong,
+.teacher-identity-summary small {
+  display: block;
+}
+
+.teacher-identity-summary strong {
+  color: #172844;
+  font-size: 15px;
+}
+
+.teacher-identity-summary small {
+  margin-top: 4px;
+  color: #78869a;
+  font-size: 12px;
+}
+
+.teacher-code-chip {
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: #0d6b4b;
+  background: #e8faf2;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.teacher-onboarding-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.teacher-onboarding-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.teacher-onboarding-grid label,
+.charter-admin-card label {
+  display: grid;
+  gap: 8px;
+  color: #33435a;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.teacher-onboarding-grid input,
+.teacher-onboarding-grid textarea,
+.charter-admin-card input,
+.charter-admin-card textarea,
+.teacher-document-box input {
+  width: 100%;
+  border: 1px solid #e0e6ef;
+  border-radius: 12px;
+  padding: 12px 13px;
+  color: #1f3150;
+  background: #fbfcfe;
+  outline: none;
+  font: inherit;
+}
+
+.teacher-onboarding-grid input {
+  min-height: 44px;
+}
+
+.teacher-onboarding-grid input:read-only {
+  color: #758399;
+  background: #f3f5f8;
+}
+
+.teacher-onboarding-grid textarea,
+.charter-admin-card textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.teacher-onboarding-grid input:focus,
+.teacher-onboarding-grid textarea:focus,
+.charter-admin-card input:focus,
+.charter-admin-card textarea:focus,
+.teacher-document-box input:focus {
+  border-color: #63dfa8;
+  box-shadow: 0 0 0 3px rgba(99, 223, 168, .12);
+}
+
+.teacher-onboarding-grid small,
+.charter-admin-card label small {
+  color: #8794a6;
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.teacher-onboarding-grid .span-two {
+  grid-column: 1 / -1;
+}
+
+.teacher-documents-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.teacher-document-box {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #f7f9fc;
+}
+
+.teacher-document-box > svg {
+  color: #233b61;
+}
+
+.teacher-document-box strong,
+.teacher-document-box small {
+  display: block;
+}
+
+.teacher-document-box strong {
+  color: #172844;
+  font-size: 13px;
+}
+
+.teacher-document-box small {
+  margin-top: 3px;
+  color: #7c899c;
+  font-size: 10.5px;
+}
+
+.teacher-upload-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  color: #223754;
+  background: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px #e1e6ee inset;
+}
+
+.teacher-upload-button input {
+  display: none;
+}
+
+.professional-links-grid {
+  margin-top: 20px;
+}
+
+.professional-links-grid label {
+  position: relative;
+}
+
+.charter-scroll-box {
+  max-height: 310px;
+  overflow: auto;
+  padding: 20px;
+  border-radius: 18px;
+  color: #44546b;
+  background: #f7f9fc;
+  white-space: pre-line;
+  line-height: 1.75;
+  font-size: 12.5px;
+}
+
+.charter-accept-row {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 12px !important;
+  margin-top: 18px;
+  cursor: pointer;
+}
+
+.charter-accept-row input {
+  width: 18px !important;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #63dfa8;
+}
+
+.charter-accept-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.charter-accept-row strong {
+  color: #20334f;
+  font-size: 12px;
+}
+
+.charter-accept-row small {
+  color: #7c899c;
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.charter-disabled-note,
+.student-charter-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #157654;
+  font-size: 11.5px;
+}
+
+.charter-disabled-note {
+  padding: 14px;
+  border-radius: 12px;
+  background: #ecfbf4;
+}
+
+.teacher-onboarding-submit {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.student-charter-page {
+  display: grid;
+  place-items: center;
+}
+
+.student-charter-card {
+  width: min(720px, 100%);
+  padding: clamp(28px, 4vw, 46px);
+}
+
+.student-charter-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  color: #163357;
+  background: #eef4ff;
+}
+
+.student-charter-content {
+  margin: 26px 0 6px;
+}
+
+.student-charter-card form {
+  margin-top: 16px;
+}
+
+.student-charter-foot {
+  margin-top: 18px;
+  color: #7b8899;
+}
+
+.workspace-readiness-error > div {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.charter-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.charter-admin-card {
+  padding: 24px;
+}
+
+.charter-admin-card .settings-section-heading p {
+  margin: 5px 0 0;
+  color: #7b8899;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.charter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 0;
+  border-radius: 14px;
+  color: #536177;
+  background: #f4f6f9;
+  text-align: left;
+  cursor: pointer;
+}
+
+.charter-toggle.is-enabled {
+  color: #117553;
+  background: #eafaf3;
+}
+
+.charter-toggle span {
+  display: grid;
+  gap: 3px;
+}
+
+.charter-toggle strong {
+  color: inherit;
+  font-size: 12px;
+}
+
+.charter-toggle small {
+  color: #7c899c;
+  font-size: 10px;
+}
+
+.charter-admin-card > label {
+  margin-bottom: 18px;
+}
+
+.charter-admin-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.charter-admin-meta span {
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: #6d7a8e;
+  background: #f2f4f7;
+  font-size: 10.5px;
+}
+
+@media (max-width: 850px) {
+  .teacher-onboarding-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .teacher-onboarding-grid.two,
+  .teacher-documents-grid,
+  .charter-admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-onboarding-grid .span-two {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .teacher-onboarding-page,
+  .student-charter-page {
+    padding: 18px;
+  }
+
+  .teacher-onboarding-card,
+  .student-charter-card {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .teacher-identity-summary {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .teacher-code-chip {
+    grid-column: 1 / -1;
+    width: fit-content;
+  }
+}

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import academic, admin, assignments, auth, billing, commerce, formations, messages, notifications, onboarding, organizations, pdf_lessons, planning, public_school, sso, support, workspace
+from app.api.routes import academic, admin, assignments, auth, billing, commerce, formations, messages, notifications, onboarding, organizations, pdf_lessons, planning, public_school, sso, support, workspace, workspace_onboarding
 
 
 api_router = APIRouter()
@@ -13,6 +13,7 @@ api_router.include_router(notifications.router)
 api_router.include_router(messages.router)
 api_router.include_router(onboarding.router)
 api_router.include_router(workspace.router)
+api_router.include_router(workspace_onboarding.router)
 api_router.include_router(planning.router)
 api_router.include_router(assignments.router)
 api_router.include_router(academic.router)

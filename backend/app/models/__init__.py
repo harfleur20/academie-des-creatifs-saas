@@ -1,4 +1,9 @@
 from app.models.auth_handoff import AuthHandoffRecord
+from app.models.teacher_onboarding import (
+    OrganizationCharterAcceptanceRecord,
+    OrganizationCharterRecord,
+    TeacherProfessionalProfileRecord,
+)
 from app.models.entities import (
     SchoolNotificationRecord,
     OrganizationTeacherProfileRecord,
@@ -60,6 +65,9 @@ from app.models.entities import (
 
 __all__ = [
     "AuthHandoffRecord",
+    "OrganizationCharterAcceptanceRecord",
+    "OrganizationCharterRecord",
+    "TeacherProfessionalProfileRecord",
     "SchoolNotificationRecord",
     "OrganizationTeacherProfileRecord",
     "CommunicationOutboxRecord",

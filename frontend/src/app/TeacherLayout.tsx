@@ -1,6 +1,7 @@
 import {
   Activity,
   BookOpen,
+  BookOpenCheck,
   CalendarCheck2,
   CalendarDays,
   CheckCircle2,
@@ -66,6 +67,11 @@ export function TeacherLayout() {
           to: '/app/teacher/students',
           label: 'Étudiants',
           icon: <Users size={18} />,
+        },
+        {
+          to: '/app/teacher/setup',
+          label: 'Fiche professionnelle',
+          icon: <BookOpenCheck size={18} />,
         },
         {
           to: '/app/teacher/profile',

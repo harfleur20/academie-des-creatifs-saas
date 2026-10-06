@@ -1,6 +1,7 @@
 import {
   BadgePercent,
   BookOpen,
+  BookOpenCheck,
   ClipboardList,
   CreditCard,
   GraduationCap,
@@ -32,6 +33,7 @@ export function AppLayout() {
         { to: '/app/manage/course-reports', label: 'Comptes rendus', icon: <ClipboardList size={18} /> },
         { to: '/app/manage/performance', label: 'Performance', icon: <Activity size={18} /> },
         { to: '/app/manage/team', label: 'Équipe & accès', icon: <Users size={18} /> },
+        { to: '/app/manage/charters', label: 'Chartes & règles', icon: <BookOpenCheck size={18} /> },
         { to: '/app/manage/commerce', label: 'Commerce', icon: <ShoppingCart size={18} /> },
         { to: '/app/manage/promotions', label: 'Promotions', icon: <BadgePercent size={18} /> },
         { to: '/app/manage/site-public', label: 'Site public', icon: <Store size={18} /> },
