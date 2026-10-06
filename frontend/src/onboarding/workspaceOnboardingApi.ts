@@ -28,6 +28,10 @@ export type TeacherProfessionalProfile = {
   city: string | null
   country: string | null
   languages: string[]
+  whatsapp_phone: string | null
+  whatsapp_country: string | null
+  whatsapp_phone_legacy: boolean
+  whatsapp_phone_verified_at: string | null
   profile_completed_at: string | null
   is_complete: boolean
 }
@@ -46,6 +50,13 @@ export type TeacherProfessionalProfilePayload = {
   city?: string | null
   country?: string | null
   languages: string[]
+  whatsapp_phone: string
+  whatsapp_country: string
+}
+
+export type PhoneCountryOption = {
+  code: string
+  dial_code: string
 }
 
 export type SchoolCharter = {
@@ -99,6 +110,10 @@ async function request<T>(path: string, init: RequestInit = {}) {
 
 export function getTeacherProfessionalProfile() {
   return request<TeacherProfessionalProfile>('/workspace-onboarding/teacher-profile')
+}
+
+export function getPhoneCountries() {
+  return request<PhoneCountryOption[]>('/workspace-onboarding/phone-countries')
 }
 
 export function saveTeacherProfessionalProfile(payload: TeacherProfessionalProfilePayload) {
