@@ -15,7 +15,7 @@ import {
 const roleLabel: Record<InvitationPreview['role'], string> = {
   admin: 'Administrateur',
   manager: 'Manager',
-  teacher: 'Professeur',
+  teacher: 'Enseignant',
 }
 
 export function InvitationAcceptPage() {
