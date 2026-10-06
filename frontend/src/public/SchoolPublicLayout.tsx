@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
-import { Heart, Menu, ShoppingBag, UserRound, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { ChevronDown, Heart, LifeBuoy, LogOut, Menu, Settings, ShoppingBag, UserRound, X } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
 import { BrandLogo } from '../brand/BrandLogo'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { schoolFontFamily } from '../brand/schoolTypography'
-import { addSchoolFavorite, getPublicSchoolIdentity, listSchoolFavorites, removeSchoolFavorite, type PublicFormationCard, type PublicSchool } from '../lib/api'
+import { addSchoolFavorite, getPublicSchoolIdentity, listSchoolFavorites, removeSchoolFavorite, type PublicFormationCard, type PublicSchool, type WorkspaceSpace } from '../lib/api'
 import { clearSchoolCart, getSchoolCart, type SchoolCartItem } from './schoolCart'
 import { SchoolCartDrawer } from './SchoolCartDrawer'
 import { SchoolAnnouncementBanner } from './SchoolAnnouncementBanner'
+import './PublicSchoolAccountMenu.css'
 
 export type SchoolPublicOutlet = {
   school: PublicSchool
@@ -23,12 +24,18 @@ export function usePublicSchool() {
   return useOutletContext<SchoolPublicOutlet>()
 }
 
+function compactAccountName(name?: string | null) {
+  const value = (name || '').trim()
+  if (value.length <= 14) return value
+  return value.slice(0, 14).trimEnd() + '.'
+}
+
 export function SchoolPublicLayout() {
   const { schoolSlug = '' } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
-  const { organizations, selectOrganization } = useTenant()
+  const { organizations, activeOrganization, accessProfile, selectOrganization } = useTenant()
   const [school, setSchool] = useState<PublicSchool | null>(null)
   const [error, setError] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -37,6 +44,7 @@ export function SchoolPublicLayout() {
   const [cartItem, setCartItem] = useState<SchoolCartItem | null>(() => getSchoolCart(schoolSlug))
   const [favorites, setFavorites] = useState<PublicFormationCard[]>([])
   const [favoritesLoading, setFavoritesLoading] = useState(false)
+  const accountRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let active = true
@@ -143,6 +151,24 @@ export function SchoolPublicLayout() {
     setAccountOpen(false)
   }, [location.pathname])
 
+  useEffect(() => {
+    if (!user || !school) return
+    const membership = organizations.find((organization) => organization.id === school.organization_id)
+    if (membership && activeOrganization?.id !== school.organization_id) {
+      selectOrganization(school.organization_id)
+    }
+  }, [user?.id, school?.organization_id, organizations, activeOrganization?.id, selectOrganization])
+
+  useEffect(() => {
+    function closeAccountMenu(event: MouseEvent) {
+      if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
+        setAccountOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', closeAccountMenu)
+    return () => document.removeEventListener('mousedown', closeAccountMenu)
+  }, [])
+
   const closeCart = useCallback(() => {
     setCartOpen(false)
     if (location.pathname.endsWith('/panier')) navigate('/school/' + schoolSlug, { replace: true })
@@ -161,7 +187,22 @@ export function SchoolPublicLayout() {
   } as CSSProperties
   const validCartItem = cartItem?.organization_id === school.organization_id ? cartItem : null
   const schoolMembership = organizations.find((organization) => organization.id === school.organization_id)
+  const schoolAccessProfile = accessProfile?.organization_id === school.organization_id ? accessProfile : null
+  const accountSpace: WorkspaceSpace | null = schoolAccessProfile?.spaces.includes('manage')
+    ? 'manage'
+    : schoolAccessProfile?.default_space || schoolAccessProfile?.spaces[0] || null
+  const canManageSchool = schoolAccessProfile?.spaces.includes('manage') ?? false
   const hasFooterContact = Boolean(school.contact_address || school.contact_phone || school.contact_email)
+  const accountName = compactAccountName(user?.full_name)
+
+  function openAccountPage(path: string) {
+    if (schoolMembership) selectOrganization(schoolMembership.id)
+    setAccountOpen(false)
+    navigate(path)
+  }
+
+  const profilePath = accountSpace ? `/app/${accountSpace}/profile` : null
+  const supportPath = accountSpace ? `/app/${accountSpace}/support` : null
 
   return (
     <div className="public-school-shell" style={style}>
@@ -182,11 +223,30 @@ export function SchoolPublicLayout() {
         <div className="public-school-actions">
           {user && <Link className="public-school-favorites-link" to={'/school/' + schoolSlug + '/favoris'} aria-label="Mes formations favorites" title="Mes favoris"><Heart size={18}/>{favorites.length > 0 && <span>{favorites.length}</span>}</Link>}
           {user ? (
-            <div className="public-school-account">
-              <button type="button" className="public-school-login" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}><UserRound size={16} /><span>{user.full_name}</span></button>
+            <div className="public-school-account" ref={accountRef}>
+              <button
+                type="button"
+                className="public-school-login public-school-account-trigger"
+                aria-expanded={accountOpen}
+                aria-label="Ouvrir le menu du compte"
+                title={user.full_name}
+                onClick={() => setAccountOpen((value) => !value)}
+              >
+                <UserRound size={17} />
+                <span>{accountName}</span>
+                <ChevronDown size={14} className={accountOpen ? 'is-open' : ''} />
+              </button>
               {accountOpen && <div className="public-school-account-menu">
-                {schoolMembership && <button type="button" onClick={() => { selectOrganization(schoolMembership.id); navigate('/school/' + schoolSlug + '/espace') }}>Mon espace</button>}
-                <button type="button" onClick={() => { signOut(); setAccountOpen(false) }}>Déconnexion</button>
+                <div className="public-school-account-menu-head">
+                  <strong>{user.full_name}</strong>
+                  <small>{user.email}</small>
+                </div>
+                {profilePath && <button type="button" onClick={() => openAccountPage(profilePath)}><UserRound size={17} /><span>Profil</span></button>}
+                {canManageSchool && <button type="button" onClick={() => openAccountPage('/app/manage/settings')}><Settings size={17} /><span>Paramètres de l’école</span></button>}
+                {supportPath && <button type="button" onClick={() => openAccountPage(supportPath)}><LifeBuoy size={17} /><span>Support</span></button>}
+                {!profilePath && schoolMembership && <button type="button" onClick={() => openAccountPage('/school/' + schoolSlug + '/espace')}><UserRound size={17} /><span>Mon espace</span></button>}
+                <span className="public-school-account-menu-divider" aria-hidden="true" />
+                <button type="button" className="is-danger" onClick={() => { setAccountOpen(false); signOut(); navigate('/school/' + schoolSlug) }}><LogOut size={17} /><span>Se déconnecter</span></button>
               </div>}
             </div>
           ) : <Link className="public-school-login" to={'/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')}>Connexion</Link>}
