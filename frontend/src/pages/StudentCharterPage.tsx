@@ -11,7 +11,7 @@ import {
 
 export function StudentCharterPage() {
   const navigate = useNavigate()
-  const { activeOrganization } = useTenant()
+  const { activeOrganization, schoolBranding } = useTenant()
   const [charter, setCharter] = useState<SchoolCharter | null>(null)
   const [accepted, setAccepted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -56,14 +56,15 @@ export function StudentCharterPage() {
 
   if (loading) return <div className="app-loading">Préparation de votre espace étudiant…</div>
 
-  const schoolName = activeOrganization?.name || 'Votre école'
+  const schoolName = schoolBranding?.school_name || activeOrganization?.name || 'Votre école'
+  const schoolLogo = schoolBranding?.logo_url ?? activeOrganization?.logo_url
 
   return (
     <main className="student-charter-page">
       <section className="student-charter-card">
         <div className="student-charter-brand">
           <SchoolLogo
-            logoUrl={activeOrganization?.logo_url}
+            logoUrl={schoolLogo}
             alt={schoolName}
             className="student-charter-brand__logo"
           />
