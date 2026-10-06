@@ -44,10 +44,35 @@ function announceAuthChange() {
   )
 }
 
+function sameUser(current: AuthUser | null, next: AuthUser | null) {
+  return current?.id === next?.id
+    && current?.full_name === next?.full_name
+    && current?.email === next?.email
+    && current?.phone === next?.phone
+    && current?.avatar_url === next?.avatar_url
+    && current?.status === next?.status
+    && current?.platform_role === next?.platform_role
+}
+
+function sameSupportMode(current: SupportModeState | null, next: SupportModeState | null) {
+  return current?.session_id === next?.session_id
+    && current?.organization_id === next?.organization_id
+    && current?.organization_name === next?.organization_name
+    && current?.expires_at === next?.expires_at
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [supportMode, setSupportMode] = useState<SupportModeState | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const updateUser = useCallback((next: AuthUser | null) => {
+    setUser((current) => sameUser(current, next) ? current : next)
+  }, [])
+
+  const updateSupportMode = useCallback((next: SupportModeState | null) => {
+    setSupportMode((current) => sameSupportMode(current, next) ? current : next)
+  }, [])
 
   const syncFromServer = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true)
@@ -55,8 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const handoffUser = await consumeCustomDomainSsoHandoff()
       if (handoffUser) {
-        setSupportMode(null)
-        setUser(handoffUser)
+        updateSupportMode(null)
+        updateUser(handoffUser)
         announceAuthChange()
         return
       }
@@ -66,38 +91,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!isCurrentBrowserSession()) {
       clearSession()
-      setSupportMode(null)
+      updateSupportMode(null)
     }
 
     let token = getAccessToken()
-    setSupportMode(token ? getSupportMode() : null)
+    updateSupportMode(token ? getSupportMode() : null)
 
     try {
       const nextUser = await getMe()
-      setUser(nextUser)
+      updateUser(nextUser)
       token = getAccessToken()
-      setSupportMode(token ? getSupportMode() : null)
+      updateSupportMode(token ? getSupportMode() : null)
     } catch {
       // A stale tab-local bearer token must not hide a still-valid shared cookie.
       // Clear that local state once and retry the server session cookie.
       if (token) {
         clearSession()
-        setSupportMode(null)
+        updateSupportMode(null)
         try {
           const nextUser = await getMe()
-          setUser(nextUser)
+          updateUser(nextUser)
           return
         } catch {
           // No valid browser cookie either.
         }
       }
-      setSupportMode(null)
-      setUser(null)
+      updateSupportMode(null)
+      updateUser(null)
       await maybeStartCustomDomainSso()
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [updateSupportMode, updateUser])
 
   useEffect(() => {
     void syncFromServer(true)
@@ -131,43 +156,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     const nextUser = await getMe()
-    setUser(nextUser)
-  }, [])
+    updateUser(nextUser)
+  }, [updateUser])
 
   const signIn = useCallback(async (email: string, password: string) => {
     const response = await apiLogin(email, password)
     if (getAccessToken() !== response.access_token) throw new Error('Une autre connexion a remplacé cette session.')
-    setSupportMode(null)
-    setUser(response.user)
+    updateSupportMode(null)
+    updateUser(response.user)
     announceAuthChange()
-  }, [])
+  }, [updateSupportMode, updateUser])
 
   const signUp = useCallback(
     async (fullName: string, email: string, password: string) => {
       const response = await apiRegister(fullName, email, password)
       if (getAccessToken() !== response.access_token) throw new Error('Une autre connexion a remplacé cette session.')
-      setSupportMode(null)
-      setUser(response.user)
+      updateSupportMode(null)
+      updateUser(response.user)
       announceAuthChange()
     },
-    [],
+    [updateSupportMode, updateUser],
   )
 
   const signInWithGoogle = useCallback(async (credential: string) => {
     const response = await authenticateWithGoogle(credential)
     if (getAccessToken() !== response.access_token) throw new Error('Une autre connexion a remplacé cette session.')
-    setSupportMode(null)
-    setUser(response.user)
+    updateSupportMode(null)
+    updateUser(response.user)
     announceAuthChange()
-  }, [])
+  }, [updateSupportMode, updateUser])
 
   const signOut = useCallback(() => {
     const logout = logoutSession().catch(() => {})
     clearSession()
-    setSupportMode(null)
-    setUser(null)
+    updateSupportMode(null)
+    updateUser(null)
     void logout.finally(() => announceAuthChange())
-  }, [])
+  }, [updateSupportMode, updateUser])
 
   const value = useMemo(
     () => ({
