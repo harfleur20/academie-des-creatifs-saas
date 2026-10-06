@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import { Activity, AlertTriangle, Banknote, CalendarDays, GraduationCap, TrendingUp, Users } from 'lucide-react'
 import {
   ApiError,
@@ -7,13 +7,12 @@ import {
   type CommercialDashboard,
   type SchoolPedagogyOverview,
 } from '../lib/api'
+import { ChartCanvas } from '../components/ChartCanvas'
 import { formatSchoolMoney } from '../public/publicHelpers'
 import '../statistics.css'
 
 const pct = (value: number | null) => value === null ? '—' : value.toFixed(1) + '%'
 const errorMessage = (error: unknown) => error instanceof ApiError ? error.message : 'Chargement impossible.'
-const clampPercent = (value: number | null | undefined) => Math.max(0, Math.min(100, value ?? 0))
-const barStyle = (value: number | null | undefined) => ({ '--bar-value': `${clampPercent(value)}%` } as CSSProperties)
 
 export function SchoolPerformancePage() {
   const [pedagogy, setPedagogy] = useState<SchoolPedagogyOverview | null>(null)
@@ -41,19 +40,18 @@ export function SchoolPerformancePage() {
     return () => { active = false }
   }, [])
 
-  const paidOrderRate = commerce && commerce.order_count > 0
-    ? Math.round((commerce.paid_order_count / commerce.order_count) * 100)
-    : 0
-  const donutOffset = 314.16 * (1 - paidOrderRate / 100)
   const sessions = pedagogy?.sessions.slice(0, 8) ?? []
-  const teachers = pedagogy?.teachers.slice(0, 6) ?? []
+  const teachers = pedagogy?.teachers.slice(0, 8) ?? []
+  const paidOrders = commerce?.paid_order_count ?? 0
+  const totalOrders = commerce?.order_count ?? 0
+  const unpaidOrders = Math.max(0, totalOrders - paidOrders)
 
   return <main className="app-page school-statistics-page">
     <header className="app-page-header">
       <div>
         <span className="page-kicker">Pilotage</span>
         <h1>Statistiques</h1>
-        <p>Une vue visuelle des ventes, inscriptions, sessions et performances pédagogiques de l’école.</p>
+        <p>Suivez les ventes, les inscriptions et la performance pédagogique avec des graphiques interactifs.</p>
       </div>
     </header>
 
@@ -92,97 +90,96 @@ export function SchoolPerformancePage() {
               <div>
                 <span className="section-label">Pédagogie</span>
                 <h2>Progression par session</h2>
-                <p>Les sessions les plus actives et leur niveau d’avancement.</p>
+                <p>Comparez le niveau d’avancement des sessions les plus actives.</p>
               </div>
               <TrendingUp size={20}/>
             </div>
-            {sessions.length > 0 ? <div className="statistics-bar-list">
-              {sessions.map((row) => <div className="statistics-bar-row" key={row.session_id}>
-                <div className="statistics-bar-label">
-                  <strong>{row.formation_title}</strong>
-                  <small>{row.session_label}</small>
-                </div>
-                <div className="statistics-bar-track"><div className="statistics-bar-fill" style={barStyle(row.progress_pct)} /></div>
-                <span className="statistics-bar-value">{pct(row.progress_pct)}</span>
-              </div>)}
-            </div> : <div className="statistics-empty">Aucune session à afficher pour le moment.</div>}
+            {sessions.length > 0 ? <ChartCanvas
+              type="bar"
+              horizontal
+              max={100}
+              valueSuffix="%"
+              height={Math.max(280, sessions.length * 48)}
+              labels={sessions.map((row) => row.session_label || row.formation_title)}
+              datasets={[{ label: 'Progression', data: sessions.map((row) => row.progress_pct) }]}
+            /> : <div className="statistics-empty">Aucune session à afficher pour le moment.</div>}
           </article>
 
           <article className="statistics-chart-card">
             <div className="statistics-chart-heading">
               <div>
                 <span className="section-label">Sessions</span>
-                <h2>Présence et remplissage</h2>
-                <p>Comparez le remplissage de chaque session à son taux de présence.</p>
+                <h2>Remplissage et présence</h2>
+                <p>Deux indicateurs essentiels pour repérer les sessions à renforcer.</p>
               </div>
               <CalendarDays size={20}/>
             </div>
-            {sessions.length > 0 ? <div className="statistics-comparison-list">
-              {sessions.map((row) => <div className="statistics-comparison-row" key={row.session_id}>
-                <div><strong>{row.formation_title}</strong><small>{row.enrolled_count} inscrit(s)</small></div>
-                <div className="statistics-comparison-bars">
-                  <div className="statistics-bar-track" title={`Remplissage ${pct(row.fill_rate_pct)}`}><div className="statistics-bar-fill" style={barStyle(row.fill_rate_pct)} /></div>
-                  <div className="statistics-bar-track is-secondary" title={`Présence ${pct(row.attendance_rate_pct)}`}><div className="statistics-bar-fill" style={barStyle(row.attendance_rate_pct)} /></div>
-                </div>
-              </div>)}
-            </div> : <div className="statistics-empty">Les comparaisons apparaîtront dès qu’une session aura des données.</div>}
+            {sessions.length > 0 ? <ChartCanvas
+              type="bar"
+              max={100}
+              valueSuffix="%"
+              showLegend
+              height={320}
+              labels={sessions.map((row) => row.session_label || row.formation_title)}
+              datasets={[
+                { label: 'Remplissage', data: sessions.map((row) => row.fill_rate_pct) },
+                { label: 'Présence', data: sessions.map((row) => row.attendance_rate_pct ?? 0) },
+              ]}
+            /> : <div className="statistics-empty">Les comparaisons apparaîtront dès qu’une session aura des données.</div>}
           </article>
 
           {teachers.length > 0 && <article className="statistics-chart-card">
             <div className="statistics-chart-heading">
               <div>
                 <span className="section-label">Enseignants</span>
-                <h2>Progression des étudiants par enseignant</h2>
-                <p>Une lecture rapide des groupes suivis par l’équipe pédagogique.</p>
+                <h2>Progression des groupes</h2>
+                <p>La progression moyenne des étudiants suivis par chaque enseignant.</p>
               </div>
               <GraduationCap size={20}/>
             </div>
-            <div className="statistics-bar-list">
-              {teachers.map((row) => <div className="statistics-bar-row" key={row.teacher_id}>
-                <div className="statistics-bar-label"><strong>{row.teacher_name}</strong><small>{row.students_count} étudiant(s) · {row.sessions_count} session(s)</small></div>
-                <div className="statistics-bar-track"><div className="statistics-bar-fill" style={barStyle(row.progress_pct)} /></div>
-                <span className="statistics-bar-value">{pct(row.progress_pct)}</span>
-              </div>)}
-            </div>
+            <ChartCanvas
+              type="bar"
+              horizontal
+              max={100}
+              valueSuffix="%"
+              height={Math.max(260, teachers.length * 48)}
+              labels={teachers.map((row) => row.teacher_name)}
+              datasets={[{ label: 'Progression', data: teachers.map((row) => row.progress_pct) }]}
+            />
           </article>}
         </div>
 
         <aside className="statistics-stack">
           <article className="statistics-chart-card">
             <div className="statistics-chart-heading">
-              <div><span className="section-label">Commerce</span><h3>Commandes réglées</h3></div>
+              <div><span className="section-label">Commerce</span><h3>Commandes réglées</h3><p>Répartition des commandes payées et restantes.</p></div>
               <Banknote size={19}/>
             </div>
-            <div className="statistics-donut-wrap">
-              <svg className="statistics-donut" viewBox="0 0 120 120" aria-label={`${paidOrderRate}% des commandes réglées`}>
-                <circle className="track" cx="60" cy="60" r="50" />
-                <circle className="value" cx="60" cy="60" r="50" style={{ '--donut-offset': donutOffset } as CSSProperties} />
-              </svg>
-              <div className="statistics-donut-copy">
-                <strong>{paidOrderRate}%</strong>
-                <span>des commandes sont réglées</span>
-                <small>{commerce?.paid_order_count ?? 0} sur {commerce?.order_count ?? 0}</small>
-              </div>
-            </div>
+            {totalOrders > 0 ? <ChartCanvas
+              type="doughnut"
+              showLegend
+              height={250}
+              labels={['Réglées', 'À régler']}
+              datasets={[{ label: 'Commandes', data: [paidOrders, unpaidOrders] }]}
+            /> : <div className="statistics-empty">Les commandes apparaîtront ici après les premières ventes.</div>}
           </article>
 
           <article className="statistics-chart-card">
             <div className="statistics-chart-heading">
-              <div><span className="section-label">Santé pédagogique</span><h3>Vue d’ensemble</h3></div>
+              <div><span className="section-label">Santé pédagogique</span><h3>Vue d’ensemble</h3><p>Progression et présence moyennes de l’école.</p></div>
               <Activity size={19}/>
             </div>
-            <div className="statistics-bar-list">
-              <div className="statistics-bar-row">
-                <div className="statistics-bar-label"><strong>Progression</strong><small>Moyenne école</small></div>
-                <div className="statistics-bar-track"><div className="statistics-bar-fill" style={barStyle(pedagogy?.average_progress_pct)} /></div>
-                <span className="statistics-bar-value">{pedagogy ? pct(pedagogy.average_progress_pct) : '—'}</span>
-              </div>
-              <div className="statistics-bar-row">
-                <div className="statistics-bar-label"><strong>Présence</strong><small>Moyenne école</small></div>
-                <div className="statistics-bar-track"><div className="statistics-bar-fill" style={barStyle(pedagogy?.average_attendance_pct)} /></div>
-                <span className="statistics-bar-value">{pedagogy ? pct(pedagogy.average_attendance_pct) : '—'}</span>
-              </div>
-            </div>
+            {pedagogy ? <ChartCanvas
+              type="bar"
+              max={100}
+              valueSuffix="%"
+              height={240}
+              labels={['Progression', 'Présence']}
+              datasets={[{
+                label: 'Moyenne',
+                data: [pedagogy.average_progress_pct, pedagogy.average_attendance_pct ?? 0],
+              }]}
+            /> : <div className="statistics-empty">Données pédagogiques indisponibles.</div>}
           </article>
         </aside>
       </section>
