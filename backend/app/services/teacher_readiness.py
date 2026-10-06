@@ -21,6 +21,8 @@ def teacher_profile_complete(row: TeacherProfessionalProfileRecord) -> bool:
         and row.languages
         and row.whatsapp_phone
         and row.whatsapp_country
+        and row.city
+        and row.country
         and (row.portfolio_url or row.portfolio_file_key)
     )
 
