@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   Check,
+  ChevronDown,
   FileText,
   Globe2,
   GraduationCap,
@@ -26,6 +27,7 @@ import {
 import '../teacher-contact-fields.css'
 
 const OTHER_PROFESSION = '__other__'
+const DEFAULT_PHONE_COUNTRY = 'CM'
 
 const DIGITAL_PROFESSIONS = [
   'Graphiste / Designer graphique',
@@ -86,7 +88,7 @@ export function TeacherSetupPage() {
   const [teachesEnglish, setTeachesEnglish] = useState(false)
   const [teachesOther, setTeachesOther] = useState(false)
   const [otherLanguages, setOtherLanguages] = useState('')
-  const [whatsappCountry, setWhatsappCountry] = useState('')
+  const [whatsappCountry, setWhatsappCountry] = useState(DEFAULT_PHONE_COUNTRY)
   const [whatsappPhone, setWhatsappPhone] = useState('')
   const [portfolioUrl, setPortfolioUrl] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
@@ -110,6 +112,7 @@ export function TeacherSetupPage() {
   ), [phoneCountries, regionNames])
 
   const selectedPhoneCountry = phoneCountries.find((item) => item.code === whatsappCountry)
+    || phoneCountries.find((item) => item.code === DEFAULT_PHONE_COUNTRY)
 
   useEffect(() => {
     let active = true
@@ -153,10 +156,11 @@ export function TeacherSetupPage() {
         setTeachesOther(other.length > 0)
         setOtherLanguages(toText(other))
 
-        const phoneCountry = nextProfile.whatsapp_country || ''
+        const phoneCountry = nextProfile.whatsapp_country || DEFAULT_PHONE_COUNTRY
         const phoneCountryRow = countries.find((item) => item.code === phoneCountry)
-        setWhatsappCountry(phoneCountry)
-        setWhatsappPhone(localPhoneValue(nextProfile.whatsapp_phone, phoneCountryRow?.dial_code || ''))
+          || countries.find((item) => item.code === DEFAULT_PHONE_COUNTRY)
+        setWhatsappCountry(phoneCountryRow?.code || DEFAULT_PHONE_COUNTRY)
+        setWhatsappPhone(localPhoneValue(nextProfile.whatsapp_phone, phoneCountryRow?.dial_code || '+237'))
 
         setPortfolioUrl(nextProfile.portfolio_url || '')
         setLinkedinUrl(nextProfile.linkedin_url || '')
@@ -235,7 +239,7 @@ export function TeacherSetupPage() {
       return
     }
     if (!whatsappCountry || !whatsappPhone.trim()) {
-      setError('Choisissez le pays et renseignez votre numéro WhatsApp.')
+      setError('Renseignez votre numéro WhatsApp.')
       return
     }
     if (!portfolioUrl.trim() && !profile?.portfolio_file_name) {
@@ -318,38 +322,39 @@ export function TeacherSetupPage() {
 
             <div className="span-two teacher-whatsapp-field">
               <span className="teacher-input-label">Numéro WhatsApp *</span>
-              <div className="teacher-phone-row">
-                <label className="teacher-country-select-wrap" aria-label="Pays du numéro WhatsApp">
-                  <select value={whatsappCountry} onChange={(event) => {
-                    setWhatsappCountry(event.target.value)
-                    setWhatsappPhone('')
-                  }} required>
-                    <option value="">Choisir le pays</option>
+              <div className="teacher-phone-control">
+                <div className="teacher-country-picker" title={regionNames.of(whatsappCountry) || 'Pays du numéro WhatsApp'}>
+                  <span className="teacher-country-flag" aria-hidden="true">
+                    {flagForCountry(whatsappCountry || DEFAULT_PHONE_COUNTRY)}
+                  </span>
+                  <ChevronDown size={14} aria-hidden="true" />
+                  <select
+                    aria-label="Pays du numéro WhatsApp"
+                    value={whatsappCountry}
+                    onChange={(event) => setWhatsappCountry(event.target.value)}
+                    required
+                  >
                     {sortedPhoneCountries.map((item) => (
                       <option key={item.code} value={item.code}>
                         {flagForCountry(item.code)} {regionNames.of(item.code) || item.code} ({item.dial_code})
                       </option>
                     ))}
                   </select>
-                </label>
-                <label className="teacher-phone-input-wrap" aria-label="Numéro WhatsApp">
-                  <span className="teacher-phone-prefix">
-                    {whatsappCountry ? flagForCountry(whatsappCountry) : '🌐'}
-                    <strong>{selectedPhoneCountry?.dial_code || '+'}</strong>
-                  </span>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    value={whatsappPhone}
-                    onChange={(event) => setWhatsappPhone(event.target.value)}
-                    placeholder="6 12 34 56 78"
-                    required
-                  />
-                </label>
+                </div>
+                <span className="teacher-phone-dial-code">{selectedPhoneCountry?.dial_code || '+237'}</span>
+                <input
+                  aria-label="Numéro WhatsApp"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={whatsappPhone}
+                  onChange={(event) => setWhatsappPhone(event.target.value)}
+                  placeholder="6 77 12 34 56"
+                  required
+                />
               </div>
               <small className="teacher-field-help">
-                Le format international est contrôlé automatiquement. Certains anciens formats africains encore utilisés sur WhatsApp sont conservés pour une vérification WhatsApp ultérieure.
+                Cameroun (+237) est sélectionné par défaut. Cliquez sur le drapeau pour changer de pays. Le format international est contrôlé automatiquement.
               </small>
               {profile?.whatsapp_phone_legacy && (
                 <small className="teacher-legacy-phone-note">
