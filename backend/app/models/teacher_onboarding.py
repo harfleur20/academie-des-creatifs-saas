@@ -47,6 +47,10 @@ class TeacherProfessionalProfileRecord(OrganizationOwnedMixin, TimestampMixin, B
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
     country: Mapped[str | None] = mapped_column(String(120), nullable=True)
     languages: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    whatsapp_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    whatsapp_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    whatsapp_phone_legacy: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    whatsapp_phone_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     profile_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
