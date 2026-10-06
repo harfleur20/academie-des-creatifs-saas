@@ -1,14 +1,19 @@
 /* Owner dashboard: daily overview inspired by the mother-site admin hierarchy. */
 .owner-dashboard-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
+  display: grid;
+  gap: 7px;
   margin-bottom: 24px;
 }
 
-.owner-dashboard-heading h1 {
-  margin: 6px 0 0;
+.owner-dashboard-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.owner-dashboard-title-row h1 {
+  margin: 0;
 }
 
 .owner-dashboard-overview {
@@ -16,6 +21,12 @@
   grid-template-columns: minmax(0, 1fr) minmax(285px, 340px);
   gap: 24px;
   align-items: start;
+}
+
+.owner-dashboard-main {
+  display: grid;
+  gap: 26px;
+  min-width: 0;
 }
 
 .owner-dashboard-welcome,
@@ -265,7 +276,7 @@
 }
 
 .owner-dashboard-stats-heading {
-  margin-top: 50px;
+  margin-top: 10px;
 }
 
 /* Dashboard KPI cards: clean white folder silhouettes with subtle watermark icons. */
@@ -456,8 +467,10 @@
 }
 
 @media (max-width: 700px) {
-  .owner-dashboard-heading {
-    align-items: center;
+  .owner-dashboard-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .owner-dashboard-welcome {
@@ -486,7 +499,7 @@
   }
 
   .owner-dashboard-stats-heading {
-    margin-top: 42px;
+    margin-top: 4px;
   }
 
   .app-stat-grid {
