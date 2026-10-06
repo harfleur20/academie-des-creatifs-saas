@@ -9,11 +9,11 @@ import {
   GraduationCap,
   LayoutDashboard,
   Bell,
-  MessageCircle,
   CreditCard,
   UserRound,
   Users,
 } from 'lucide-react'
+import { MessageNavIcon } from './MessageNavIcon'
 import { SchoolWorkspaceLayout } from './SchoolWorkspaceLayout'
 
 export function StudentLayout() {
@@ -28,7 +28,7 @@ export function StudentLayout() {
           end: true,
         },
         { to: '/app/student/notifications', label: 'Notifications', icon: <Bell size={18} /> },
-        { to: '/app/student/messages', label: 'Messages', icon: <MessageCircle size={18} /> },
+        { to: '/app/student/messages', label: 'Messages', icon: <MessageNavIcon /> },
         {
           to: '/app/student/formations',
           label: 'Mes parcours',
