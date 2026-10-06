@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Activity, ArrowRight, BookOpen, Building2, CalendarDays, ClipboardList, Clock3, CreditCard, GraduationCap, HeartPulse, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
+import { ArrowRight, BookOpen, Building2, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
 import {
   createOrganization,
   getCommercialDashboard,
@@ -212,9 +212,23 @@ export function SchoolDashboardPage() {
   const hasOnlineFormation = formations?.some((formation) => formation.format_type === 'ligne') ?? false
   const courseCount = formations?.reduce((sum, formation) => sum + formation.course_count, 0) ?? null
   const displayCount = (count: number | null) => count === null ? '—' : count.toLocaleString('fr-FR')
-  const displayPercent = (value: number | null | undefined) => value === null || value === undefined ? '—' : `${Math.round(value)}%`
   const unpublishedCount = formations ? Math.max(0, formations.length - (publishedCount ?? 0)) : 0
   const unpaidOrderCount = commerce ? Math.max(0, commerce.order_count - commerce.paid_order_count) : 0
+  const sessionsToWatch = pedagogy
+    ? pedagogy.sessions.filter((row) =>
+        row.at_risk_count > 0
+        || row.pending_reviews_count > 0
+        || (row.attendance_rate_pct !== null && row.attendance_rate_pct < 75)
+      ).length
+    : null
+  const schoolAlerts = pedagogy || commerce
+    ? (pedagogy?.at_risk_students ?? 0) + (commerce?.late_installments ?? 0) + (sessionsToWatch ?? 0)
+    : null
+  const paidOrderRate = commerce
+    ? commerce.order_count > 0
+      ? Math.round((commerce.paid_order_count / commerce.order_count) * 100)
+      : 0
+    : null
 
   const publicPlans = plans.filter((plan) => plan.is_public).sort((a, b) => planSortPrice(a) - planSortPrice(b))
   const currentPlanPrice = subscription ? planSortPrice(subscription.plan) : null
@@ -273,7 +287,7 @@ export function SchoolDashboardPage() {
             ? { title: 'Invitez un enseignant', description: 'Confiez vos formations à un professeur pour animer vos cours.', to: '/app/manage/teachers', label: 'Gérer les enseignants' }
             : activeStudents === 0
               ? { title: 'Faites connaître vos formations', description: 'Votre école est prête à accueillir ses premiers étudiants.', to: '/app/manage/site-public', label: 'Voir le site public' }
-              : { title: 'Suivez la progression de l’école', description: 'Retrouvez les indicateurs pédagogiques et les résultats de vos programmes.', to: '/app/manage/performance', label: 'Voir les statistiques' }
+              : { title: 'Supervisez l’activité de l’école', description: 'Contrôlez les sessions, les alertes et l’activité commerciale depuis la vue de pilotage.', to: '/app/manage/performance', label: 'Voir les statistiques' }
     : null
 
   if (loading) {
@@ -481,10 +495,10 @@ export function SchoolDashboardPage() {
           ) : null}
 
           <div className="owner-dashboard-rail-metrics">
-            <Link to="/app/manage/performance"><Activity size={18} /><span><strong>{displayPercent(pedagogy?.average_progress_pct)}</strong><small>progression moyenne</small></span></Link>
-            <Link to="/app/manage/pedagogy"><CalendarDays size={18} /><span><strong>{displayPercent(pedagogy?.average_attendance_pct)}</strong><small>présence moyenne</small></span></Link>
-            <Link to="/app/manage/pedagogy" className={(pedagogy?.pending_reviews_count ?? 0) > 0 ? 'is-alert' : ''}><ClipboardList size={18} /><span><strong>{displayCount(pedagogy?.pending_reviews_count ?? null)}</strong><small>corrections à traiter</small></span></Link>
-            <Link to="/app/manage/pedagogy" className={(pedagogy?.at_risk_students ?? 0) > 0 ? 'is-alert' : ''}><HeartPulse size={18} /><span><strong>{displayCount(pedagogy?.at_risk_students ?? null)}</strong><small>étudiants à risque</small></span></Link>
+            <Link to="/app/manage/performance" className={(sessionsToWatch ?? 0) > 0 ? 'is-alert' : ''}><CalendarDays size={18} /><span><strong>{displayCount(sessionsToWatch)}</strong><small>sessions à surveiller</small></span></Link>
+            <Link to="/app/manage/formations" className={(draftCount ?? 0) > 0 ? 'is-alert' : ''}><GraduationCap size={18} /><span><strong>{displayCount(draftCount)}</strong><small>formations à finaliser</small></span></Link>
+            <Link to="/app/manage/performance" className={(schoolAlerts ?? 0) > 0 ? 'is-alert' : ''}><Clock3 size={18} /><span><strong>{displayCount(schoolAlerts)}</strong><small>alertes école</small></span></Link>
+            <Link to="/app/manage/commerce" className={(commerce?.late_installments ?? 0) > 0 ? 'is-alert' : ''}><ShoppingCart size={18} /><span><strong>{paidOrderRate === null ? '—' : `${paidOrderRate}%`}</strong><small>commandes réglées</small></span></Link>
           </div>
 
           {(onboarding && !onboarding.is_complete) ? (
