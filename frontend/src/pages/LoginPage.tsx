@@ -82,8 +82,8 @@ export function LoginPage() {
   }, [invitationToken])
 
   useEffect(() => {
-    if (user) navigate(returnPath || '/app', { replace: true })
-  }, [user, navigate, returnPath])
+    if (user && !submitting) navigate(returnPath || '/app', { replace: true })
+  }, [user, submitting, navigate, returnPath])
 
   useEffect(() => {
     if (resetToken) setMode('reset')
