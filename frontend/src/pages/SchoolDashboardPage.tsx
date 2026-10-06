@@ -172,13 +172,13 @@ export function SchoolDashboardPage() {
   return (
     <main className="app-page owner-dashboard-page">
       <header className="owner-dashboard-heading">
-        <div>
-          <span className="page-kicker">Tableau de bord</span>
+        <span className="page-kicker">Tableau de bord</span>
+        <div className="owner-dashboard-title-row">
           <h1>Vue d’ensemble</h1>
+          <span className={`status-chip${activeOrganization.is_active ? '' : ' is-inactive'}`}>
+            {activeOrganization.is_active ? 'École active' : 'École suspendue'}
+          </span>
         </div>
-        <span className={`status-chip${activeOrganization.is_active ? '' : ' is-inactive'}`}>
-          {activeOrganization.is_active ? 'École active' : 'École suspendue'}
-        </span>
       </header>
 
       {summaryError && (
@@ -208,6 +208,57 @@ export function SchoolDashboardPage() {
               <Link className="owner-dashboard-action" to="/app/manage/site-public"><Store size={16} /> Voir le site</Link>
             </div>
           </article>
+
+          <section className="owner-dashboard-stats-column">
+            <div className="dashboard-section-heading owner-dashboard-stats-heading">
+              <span className="section-label">Votre école en bref</span>
+              <h2>Les chiffres à suivre</h2>
+            </div>
+            <div className="app-stat-grid">
+              <article>
+                <span className="stat-icon"><GraduationCap size={20} /></span>
+                <small>Formations</small>
+                <strong>{displayCount(formations?.length ?? null)}</strong>
+                <p>{formations === null ? 'Données indisponibles.' : formations.length === 0 ? 'Créez votre premier programme.' : `${publishedCount} publiée(s) · ${draftCount} en préparation.`}</p>
+                <Link className="dashboard-stat-link" to="/app/manage/formations">Voir les formations <ArrowRight size={15} /></Link>
+              </article>
+              <article>
+                <span className="stat-icon"><Users size={20} /></span>
+                <small>Étudiants actifs</small>
+                <strong>{displayCount(activeStudents)}</strong>
+                <p>{commerce === null ? 'Données indisponibles.' : activeStudents === 0 ? 'Aucun étudiant n’a encore rejoint l’école.' : 'Étudiants dont le parcours est actif.'}</p>
+                <Link className="dashboard-stat-link" to="/app/manage/students">Voir les étudiants <ArrowRight size={15} /></Link>
+              </article>
+              <article>
+                <span className="stat-icon"><CalendarDays size={20} /></span>
+                <small>{hasGuidedFormation || !hasOnlineFormation ? 'Sessions' : 'Cours'}</small>
+                <strong>{displayCount(hasGuidedFormation || !hasOnlineFormation ? sessionCount : courseCount)}</strong>
+                <p>{formations === null ? 'Données indisponibles.' : hasGuidedFormation && sessionCount === 0 ? 'Ouvrez une session pour lancer les inscriptions guidées.' : hasOnlineFormation && !hasGuidedFormation ? 'Contenus de vos formations en ligne.' : `${displayCount(courseCount)} cours dans vos formations.`}</p>
+                <Link className="dashboard-stat-link" to="/app/manage/formations">Voir les formations <ArrowRight size={15} /></Link>
+              </article>
+              <article>
+                <span className="stat-icon"><BookOpen size={20} /></span>
+                <small>Enseignants actifs</small>
+                <strong>{displayCount(activeTeachers)}</strong>
+                <p>{members === null ? 'Données indisponibles.' : activeTeachers === 0 ? 'Invitez un professeur pour animer vos cours.' : `${displayCount(activeTeam)} membre(s) actif(s) dans l’équipe.`}</p>
+                <Link className="dashboard-stat-link" to="/app/manage/teachers">Voir les enseignants <ArrowRight size={15} /></Link>
+              </article>
+              <article>
+                <span className="stat-icon"><ShoppingCart size={20} /></span>
+                <small>Commandes</small>
+                <strong>{displayCount(commerce?.order_count ?? null)}</strong>
+                <p>{commerce === null ? 'Données indisponibles.' : commerce.order_count === 0 ? 'Les premières commandes apparaîtront ici.' : `${commerce.paid_order_count} commande(s) entièrement réglée(s).`}</p>
+                <Link className="dashboard-stat-link" to="/app/manage/commerce">Voir les ventes <ArrowRight size={15} /></Link>
+              </article>
+              <article>
+                <span className="stat-icon"><Clock3 size={20} /></span>
+                <small>Échéances en retard</small>
+                <strong>{displayCount(commerce?.late_installments ?? null)}</strong>
+                <p>{commerce === null ? 'Données indisponibles.' : commerce.late_installments === 0 ? 'Aucun paiement en retard actuellement.' : 'Paiements à suivre auprès des étudiants.'}</p>
+                <Link className="dashboard-stat-link" to="/app/manage/commerce">Suivre les paiements <ArrowRight size={15} /></Link>
+              </article>
+            </div>
+          </section>
         </div>
 
         <aside className="owner-dashboard-rail">
@@ -258,57 +309,6 @@ export function SchoolDashboardPage() {
             </section>
           ) : null}
         </aside>
-      </section>
-
-      <section className="owner-dashboard-stats-column">
-        <div className="dashboard-section-heading owner-dashboard-stats-heading">
-          <span className="section-label">Votre école en bref</span>
-          <h2>Les chiffres à suivre</h2>
-        </div>
-        <div className="app-stat-grid">
-          <article>
-            <span className="stat-icon"><GraduationCap size={20} /></span>
-            <small>Formations</small>
-            <strong>{displayCount(formations?.length ?? null)}</strong>
-            <p>{formations === null ? 'Données indisponibles.' : formations.length === 0 ? 'Créez votre premier programme.' : `${publishedCount} publiée(s) · ${draftCount} en préparation.`}</p>
-            <Link className="dashboard-stat-link" to="/app/manage/formations">Voir les formations <ArrowRight size={15} /></Link>
-          </article>
-          <article>
-            <span className="stat-icon"><Users size={20} /></span>
-            <small>Étudiants actifs</small>
-            <strong>{displayCount(activeStudents)}</strong>
-            <p>{commerce === null ? 'Données indisponibles.' : activeStudents === 0 ? 'Aucun étudiant n’a encore rejoint l’école.' : 'Étudiants dont le parcours est actif.'}</p>
-            <Link className="dashboard-stat-link" to="/app/manage/students">Voir les étudiants <ArrowRight size={15} /></Link>
-          </article>
-          <article>
-            <span className="stat-icon"><CalendarDays size={20} /></span>
-            <small>{hasGuidedFormation || !hasOnlineFormation ? 'Sessions' : 'Cours'}</small>
-            <strong>{displayCount(hasGuidedFormation || !hasOnlineFormation ? sessionCount : courseCount)}</strong>
-            <p>{formations === null ? 'Données indisponibles.' : hasGuidedFormation && sessionCount === 0 ? 'Ouvrez une session pour lancer les inscriptions guidées.' : hasOnlineFormation && !hasGuidedFormation ? 'Contenus de vos formations en ligne.' : `${displayCount(courseCount)} cours dans vos formations.`}</p>
-            <Link className="dashboard-stat-link" to="/app/manage/formations">Voir les formations <ArrowRight size={15} /></Link>
-          </article>
-          <article>
-            <span className="stat-icon"><BookOpen size={20} /></span>
-            <small>Enseignants actifs</small>
-            <strong>{displayCount(activeTeachers)}</strong>
-            <p>{members === null ? 'Données indisponibles.' : activeTeachers === 0 ? 'Invitez un professeur pour animer vos cours.' : `${displayCount(activeTeam)} membre(s) actif(s) dans l’équipe.`}</p>
-            <Link className="dashboard-stat-link" to="/app/manage/teachers">Voir les enseignants <ArrowRight size={15} /></Link>
-          </article>
-          <article>
-            <span className="stat-icon"><ShoppingCart size={20} /></span>
-            <small>Commandes</small>
-            <strong>{displayCount(commerce?.order_count ?? null)}</strong>
-            <p>{commerce === null ? 'Données indisponibles.' : commerce.order_count === 0 ? 'Les premières commandes apparaîtront ici.' : `${commerce.paid_order_count} commande(s) entièrement réglée(s).`}</p>
-            <Link className="dashboard-stat-link" to="/app/manage/commerce">Voir les ventes <ArrowRight size={15} /></Link>
-          </article>
-          <article>
-            <span className="stat-icon"><Clock3 size={20} /></span>
-            <small>Échéances en retard</small>
-            <strong>{displayCount(commerce?.late_installments ?? null)}</strong>
-            <p>{commerce === null ? 'Données indisponibles.' : commerce.late_installments === 0 ? 'Aucun paiement en retard actuellement.' : 'Paiements à suivre auprès des étudiants.'}</p>
-            <Link className="dashboard-stat-link" to="/app/manage/commerce">Suivre les paiements <ArrowRight size={15} /></Link>
-          </article>
-        </div>
       </section>
     </main>
   )
