@@ -1,12 +1,20 @@
 import { Bell, Check, ChevronRight, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from './TenantContext'
 import { useSchoolNotifications } from './useSchoolNotifications'
 import type { WorkspaceSpace } from '../lib/api'
 
-export function SchoolNotificationBell({ space }: { space: WorkspaceSpace }) {
+export function SchoolNotificationBell({
+  space,
+  variant = 'icon',
+  onNavigate,
+}: {
+  space: WorkspaceSpace
+  variant?: 'icon' | 'menu'
+  onNavigate?: () => void
+}) {
   const navigate = useNavigate()
   const { user, supportMode } = useAuth()
   const { activeOrganization } = useTenant()
@@ -40,6 +48,21 @@ export function SchoolNotificationBell({ space }: { space: WorkspaceSpace }) {
     }
     setOpen(false)
     if (path?.startsWith('/app/')) navigate(path)
+  }
+
+  if (variant === 'menu') {
+    return (
+      <Link
+        className="public-school-account-indicator"
+        to={allPath}
+        onClick={onNavigate}
+        aria-label={`Notifications${unreadCount ? ` : ${unreadCount} non lues` : ''}`}
+      >
+        <Bell size={17} />
+        <span className="public-school-account-indicator-label">Notifications</span>
+        {unreadCount > 0 && <span className="public-school-account-indicator-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+      </Link>
+    )
   }
 
   return <div className="school-notif-wrap" ref={container}>
