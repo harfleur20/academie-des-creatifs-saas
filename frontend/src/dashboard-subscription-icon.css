@@ -1,0 +1,8 @@
+/* Use the supplied card illustration for the compact subscription summary. */
+.owner-dashboard-subscription-card .owner-dashboard-subscription-icon {
+  background: transparent url('/billing-card-icon.png') center / contain no-repeat !important;
+}
+
+.owner-dashboard-subscription-card .owner-dashboard-subscription-icon svg {
+  display: none;
+}

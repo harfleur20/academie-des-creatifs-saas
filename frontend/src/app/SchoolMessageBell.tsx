@@ -1,6 +1,6 @@
-import { MessageCircle } from 'lucide-react'
+import { LayoutDashboard, MessageCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { listMessageThreads, subscribeSchoolMessages, type WorkspaceSpace } from '../lib/api'
 import { useTenant } from './TenantContext'
 
@@ -14,6 +14,7 @@ export function SchoolMessageBell({
   onNavigate?: () => void
 }) {
   const { activeOrganization } = useTenant()
+  const { schoolSlug = '' } = useParams()
   const [unread, setUnread] = useState(0)
 
   useEffect(() => {
@@ -44,20 +45,33 @@ export function SchoolMessageBell({
   }, [activeOrganization?.id])
 
   const target = '/app/' + space + '/messages'
+  const workspaceTarget = schoolSlug ? '/school/' + schoolSlug + '/espace' : '/app/' + space
   const displayUnread = unread > 99 ? '99+' : unread
 
   if (variant === 'menu') {
     return (
-      <Link
-        className="public-school-account-indicator"
-        to={target}
-        onClick={onNavigate}
-        aria-label={unread ? `${unread} message(s) non lu(s)` : 'Messages'}
-      >
-        <MessageCircle size={17} />
-        <span className="public-school-account-indicator-label">Messages</span>
-        {unread > 0 && <span className="public-school-account-indicator-badge">{displayUnread}</span>}
-      </Link>
+      <>
+        <Link
+          className="public-school-account-indicator"
+          to={target}
+          onClick={onNavigate}
+          aria-label={unread ? `${unread} message(s) non lu(s)` : 'Messages'}
+        >
+          <MessageCircle size={17} />
+          <span className="public-school-account-indicator-label">Messages</span>
+          {unread > 0 && <span className="public-school-account-indicator-badge">{displayUnread}</span>}
+        </Link>
+        <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />
+        <Link
+          className="public-school-account-indicator"
+          to={workspaceTarget}
+          onClick={onNavigate}
+          aria-label="Ouvrir mon espace"
+        >
+          <LayoutDashboard size={17} />
+          <span className="public-school-account-indicator-label">Mon espace</span>
+        </Link>
+      </>
     )
   }
 
