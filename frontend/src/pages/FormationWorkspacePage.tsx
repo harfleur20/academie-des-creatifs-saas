@@ -39,6 +39,9 @@ export function FormationWorkspacePage() {
   const [capacity, setCapacity] = useState('0')
   const [campus, setCampus] = useState('')
   const [description, setDescription] = useState('')
+  const [shortDescription, setShortDescription] = useState('')
+  const [objectives, setObjectives] = useState('')
+  const [prerequisites, setPrerequisites] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
   const [price, setPrice] = useState('')
   const [publicProgram, setPublicProgram] = useState('')
@@ -54,6 +57,9 @@ export function FormationWorkspacePage() {
       ])
       setFormation(detail)
       setDescription(detail.description)
+      setShortDescription(detail.short_description)
+      setObjectives(detail.objectives)
+      setPrerequisites(detail.prerequisites)
       setCoverUrl(detail.cover_image_url || '')
       setPrice(detail.price_cents ? String(detail.currency === 'XAF' ? detail.price_cents : detail.price_cents / 100) : '')
       setPublicProgram(detail.public_program)
@@ -122,12 +128,15 @@ export function FormationWorkspacePage() {
     try {
       await updateFormation(formation.id, {
         description: description.trim(),
+        short_description: shortDescription.trim(),
+        objectives: objectives.trim(),
+        prerequisites: prerequisites.trim(),
         cover_image_url: coverUrl || null,
         price_cents: price ? Math.round(Number(price) * (formation.currency === 'XAF' ? 1 : 100)) : 0,
         public_program: publicProgram.trim(),
       })
       setFormation(await getFormation(formation.id))
-      setMessage('Présentation enregistrée.')
+      setMessage('Page publique de la formation enregistrée.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.')
     } finally {
@@ -176,15 +185,18 @@ export function FormationWorkspacePage() {
       {formation.publication_issues.length > 0 && <section className="app-card formation-readiness"><strong>À compléter avant publication ou ouverture des inscriptions</strong>{formation.status === 'published' && <p>Les informations manquantes peuvent masquer la fiche publique ou bloquer les inscriptions.</p>}<ul>{formation.publication_issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></section>}
 
       <form className="app-card formation-presentation" onSubmit={(event) => void savePresentation(event)}>
-        <div className="settings-section-heading"><div><span className="section-label">Catalogue public</span><h2>Présentation et prix</h2></div><ImagePlus size={20} /></div>
+        <div className="settings-section-heading"><div><span className="section-label">Catalogue public</span><h2>Page de présentation de la formation</h2><p>Renseignez ici les contenus qui apparaissent sur la fiche publique de la formation.</p></div><ImagePlus size={20} /></div>
         <label className="formation-cover-picker">Photo de couverture
           {coverUrl && <img src={coverUrl} alt="Couverture de la formation" />}
           <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={(event) => void uploadCover(event)} disabled={working} />
         </label>
         <label>Prix ({formation.currency})<input type="number" min={formation.currency === 'XAF' ? '1' : '0.01'} step={formation.currency === 'XAF' ? '1' : '0.01'} value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formation.currency === 'XAF' ? 'Ex. 150000' : 'Ex. 250.00'} /></label>
-        <label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} /></label>
-        <label>Programme public<textarea value={publicProgram} onChange={(event) => setPublicProgram(event.target.value)} maxLength={30000} placeholder="Contenu et objectifs présentés aux futurs étudiants" /></label>
-        <button className="primary-button" type="submit" disabled={working}><Save size={15} /> Enregistrer la présentation</button>
+        <label>Description générale<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} rows={5} placeholder="Présentez la formation, sa promesse et son approche pédagogique." /></label>
+        <label>Résumé court<textarea value={shortDescription} onChange={(event) => setShortDescription(event.target.value)} maxLength={500} rows={3} placeholder="Texte court affiché dans l’introduction et sur les cartes du catalogue." /><small>{shortDescription.length}/500 caractères</small></label>
+        <label>À la fin de cette formation, l’apprenant sera capable de…<textarea value={objectives} onChange={(event) => setObjectives(event.target.value)} maxLength={10000} rows={6} placeholder={'Concevoir une application complète\nAutomatiser des tâches métier\nCréer une interface professionnelle'} /><small>Un acquis par ligne pour un affichage clair sur le site public.</small></label>
+        <label>À qui s’adresse cette formation ? / Prérequis<textarea value={prerequisites} onChange={(event) => setPrerequisites(event.target.value)} maxLength={10000} rows={5} placeholder="Décrivez le public cible, le niveau attendu et les éventuels prérequis." /></label>
+        <label>Programme public<textarea value={publicProgram} onChange={(event) => setPublicProgram(event.target.value)} maxLength={30000} rows={8} placeholder="Présentez les grandes étapes, semaines ou thèmes du parcours." /><small>Les modules détaillés sont aussi alimentés automatiquement par les cours et chapitres créés plus bas.</small></label>
+        <button className="primary-button" type="submit" disabled={working}><Save size={15} /> Enregistrer la page publique</button>
       </form>
 
       {formation.format_type !== 'ligne' && <section className="app-card session-create-card">
