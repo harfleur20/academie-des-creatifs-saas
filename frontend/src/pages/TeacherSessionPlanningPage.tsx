@@ -218,7 +218,7 @@ export function TeacherSessionPlanningPage() {
                 </div>
                 <div className="planning-day-main">
                   <div>
-                    <span className="section-label">{day.status === 'cancelled' ? 'Annulée' : 'Planifiée'}</span>
+                    <span className="section-label">{day.status === 'cancelled' ? 'Annulée' : day.report_submitted_at ? 'Clôturée' : day.started_at ? 'Démarrée' : 'Planifiée'}</span>
                     <h3>{day.title}</h3>
                   </div>
                   <div className="planning-day-meta">
@@ -240,7 +240,7 @@ export function TeacherSessionPlanningPage() {
                   {(reportStatus === 'held' || reportStatus === 'partial') && <small>Marquez la présence de chaque étudiant dans « Présences » avant de remettre ce rapport.</small>}
                   <div><button className="primary-button" type="submit" disabled={working || reportSummary.trim().length < 10}>Remettre le rapport</button><button className="secondary-button" type="button" onClick={() => setReportDayId(null)}>Annuler</button></div>
                 </form>}
-                {day.can_edit && day.status !== 'cancelled' && (
+                {day.can_edit && day.status !== 'cancelled' && !day.started_at && (
                   <button
                     className="planning-cancel-button"
                     type="button"

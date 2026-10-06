@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Video } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { ApiError, joinLiveClass, type LiveRoom } from '../lib/api'
+import { ApiError, joinLiveClass, startLiveClass, type LiveRoom } from '../lib/api'
+import { useTenant } from '../app/TenantContext'
 
 declare global {
   interface Window {
@@ -34,11 +35,33 @@ function loadJaasScript(src: string): Promise<void> {
 }
 
 export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
+  const { activeOrganization } = useTenant()
   const { courseDayId } = useParams()
   const container = useRef<HTMLDivElement>(null)
   const [room, setRoom] = useState<LiveRoom | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [starting, setStarting] = useState(false)
+  const [nowMs, setNowMs] = useState(Date.now())
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowMs(Date.now()), 10_000)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  async function startCourse() {
+    if (!room) return
+    setStarting(true)
+    setError('')
+    try {
+      const result = await startLiveClass(room.course_day_id)
+      setRoom((current) => current ? { ...current, started_at: result.started_at } : current)
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Démarrage du cours impossible.')
+    } finally {
+      setStarting(false)
+    }
+  }
 
   useEffect(() => {
     const id = Number(courseDayId)
@@ -47,6 +70,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     let meeting: { dispose: () => void } | null = null
     setLoading(true)
     setError('')
+    setRoom(null)
     void joinLiveClass(id).then(async (joined) => {
       if (cancelled) return
       setRoom(joined)
@@ -65,13 +89,19 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
       if (!cancelled) setError(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Impossible de rejoindre la classe live.')
     }).finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true; meeting?.dispose() }
-  }, [courseDayId])
+  }, [courseDayId, activeOrganization?.id])
 
   return <main className="app-page live-class-page">
     <Link className="planning-back-link" to={space === 'teacher' ? '/app/teacher/sessions' : '/app/student/formations'}><ArrowLeft size={15}/> Retour aux sessions</Link>
     <header className="app-page-header"><div><span className="page-kicker">Classe en direct</span><h1>{room?.title || 'Votre cours live'}</h1><p>{room ? new Date(room.starts_at).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' }) : 'Connexion à la salle sécurisée'}</p></div><Video size={22}/></header>
     {error && <div className="form-error">{error}</div>}
     {loading && <div className="page-state">Ouverture de la classe live…</div>}
+    {room && <div className="live-class-controls">
+      {room.started_at ? <p>Cours démarré à {new Date(room.started_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</p> : space === 'teacher' ? <>
+        <p>La salle est ouverte. Démarrez le cours à l'heure prévue lorsque vous êtes prêt.</p>
+        <button className="primary-button" type="button" disabled={starting || nowMs < new Date(room.starts_at).getTime()} onClick={() => void startCourse()}>Démarrer le cours</button>
+      </> : <p>La salle est ouverte. Le professeur n'a pas encore démarré le cours.</p>}
+    </div>}
     <div ref={container} className="live-class-stage" aria-label="Salle de classe en direct" />
   </main>
 }

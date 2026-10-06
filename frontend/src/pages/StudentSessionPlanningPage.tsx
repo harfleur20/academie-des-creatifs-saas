@@ -66,7 +66,7 @@ export function StudentSessionPlanningPage() {
                 </div>
                 <div className="planning-day-main">
                   <div>
-                    <span className="section-label">Cours</span>
+                    <span className="section-label">{day.report_submitted_at ? 'Séance clôturée' : day.started_at ? 'Cours démarré' : 'Cours'}</span>
                     <h3>{day.title}</h3>
                   </div>
                   <div className="planning-day-meta">
@@ -74,7 +74,7 @@ export function StudentSessionPlanningPage() {
                     <span><UserRound size={14} /> {day.teacher_name || 'Professeur'}</span>
                   </div>
                 </div>
-                {planning.format_type === 'live' && (
+                {planning.format_type === 'live' && !day.report_submitted_at && (
                   !planning.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link className="secondary-button" to={`/app/student/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>
                 )}
               </article>

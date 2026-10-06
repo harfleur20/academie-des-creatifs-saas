@@ -51,7 +51,7 @@ from app.schemas.academic import (
 )
 from app.schemas.assignments import AssignmentCreate, AssignmentSubmit
 from app.schemas.formations import CourseUpdate, LessonCreate
-from app.schemas.planning import CourseDayFeedbackSubmit, CourseDayReportSubmit
+from app.schemas.planning import CourseDayFeedbackSubmit, CourseDayReportSubmit, CourseDayUpdate
 from app.services.assignments import create_assignment, list_student_assignments, submit_assignment
 from app.services.class_certificates import (
     create_discussion_post,
@@ -71,8 +71,8 @@ from app.services.learning_progress import (
     sync_lesson_video_progress,
     teacher_performance,
 )
-from app.services.live_classes import join_live_class
-from app.services.planning import get_session_planning, list_course_day_feedback, list_school_course_day_reports, submit_course_day_feedback, submit_course_day_report
+from app.services.live_classes import join_live_class, start_live_class
+from app.services.planning import get_session_planning, list_course_day_feedback, list_school_course_day_reports, submit_course_day_feedback, submit_course_day_report, update_course_day
 from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
@@ -498,6 +498,29 @@ def test_live_class_join_requires_own_school_membership_and_course_window(monkey
     assert hidden.value.status_code == 404
 
 
+def test_live_class_start_is_teacher_owned_and_time_gated() -> None:
+    db = build_db()
+    org, teacher, student, _, session, _, _, _, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.commit()
+    teacher_tenant = ctx(db, org, teacher)
+    student_tenant = ctx(db, org, student)
+    start_time = datetime(2025, 1, 10, 9, 2, tzinfo=UTC)
+    with pytest.raises(HTTPException) as early:
+        start_live_class(db, teacher_tenant, day.id, now=datetime(2025, 1, 10, 8, 59, tzinfo=UTC))
+    assert early.value.status_code == 409
+    with pytest.raises(HTTPException) as forbidden:
+        start_live_class(db, student_tenant, day.id, now=start_time)
+    assert forbidden.value.status_code == 403
+    started = start_live_class(db, teacher_tenant, day.id, now=start_time)
+    assert started["started_at"] == start_time
+    assert start_live_class(db, teacher_tenant, day.id, now=datetime(2025, 1, 10, 9, 4, tzinfo=UTC))["started_at"] == start_time
+    assert get_session_planning(db, student_tenant, session.id).course_days[0].started_at == start_time
+    with pytest.raises(HTTPException) as locked:
+        update_course_day(db, teacher_tenant, day.id, CourseDayUpdate(title="Changed"))
+    assert locked.value.status_code == 409
+
+
 def test_guided_badge_waits_for_course_day_report_and_finalized_attendance() -> None:
     db = build_db()
     org, teacher, student, classmate, session, enrollment, classmate_enrollment, lesson, day = seed(db)
@@ -517,6 +540,7 @@ def test_guided_badge_waits_for_course_day_report_and_finalized_attendance() -> 
         mark_attendance(db, teacher_tenant, day.id, AttendanceMarkPayload(enrollment_id=current_enrollment.id, status="present"))
     planning = submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(delivery_status="held", summary="Cours terminé normalement"))
     assert planning.course_days[0].report_submitted_at is not None
+    assert planning.course_days[0].started_at == day.scheduled_at
     assert planning.course_days[0].report_summary == "Cours terminé normalement"
     assert get_session_planning(db, student_tenant, session.id).course_days[0].report_summary is None
     assert student_progress(db, student_tenant)[0].badge.level == "professionnel"

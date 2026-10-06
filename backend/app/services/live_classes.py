@@ -35,6 +35,39 @@ def live_provider_configured() -> bool:
     return bool(settings.jaas_enabled and settings.jaas_app_id and settings.jaas_kid and _private_key())
 
 
+def start_live_class(
+    db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None,
+) -> dict:
+    day = db.scalar(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.id == course_day_id,
+        SessionCourseDayRecord.organization_id == tenant.organization_id,
+    ))
+    if day is None:
+        raise HTTPException(404, "Séance introuvable.")
+    session = db.scalar(select(FormationSessionRecord).options(selectinload(FormationSessionRecord.formation)).where(
+        FormationSessionRecord.id == day.session_id,
+        FormationSessionRecord.organization_id == tenant.organization_id,
+    ))
+    if session is None or session.formation.format_type != "live":
+        raise HTTPException(404, "Classe live introuvable.")
+    assigned = tenant.has_role("teacher") and db.scalar(select(SessionTeacherRecord.id).where(
+        SessionTeacherRecord.organization_id == tenant.organization_id,
+        SessionTeacherRecord.session_id == session.id,
+        SessionTeacherRecord.teacher_id == tenant.user.id,
+    )) is not None
+    if not assigned or day.teacher_id != tenant.user.id or tenant.support_mode:
+        raise HTTPException(403, "Seul le professeur responsable peut démarrer cette classe live.")
+    if session.status == "cancelled" or day.status == "cancelled" or day.report_submitted_at is not None:
+        raise HTTPException(409, "Cette classe live est clôturée ou annulée.")
+    current = _aware(now or datetime.now(UTC))
+    if current < _aware(day.scheduled_at):
+        raise HTTPException(409, "Le cours ne peut démarrer qu'à l'heure prévue.")
+    if day.started_at is None:
+        day.started_at = current
+        db.commit()
+    return {"course_day_id": day.id, "started_at": day.started_at}
+
+
 def join_live_class(
     db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None,
 ) -> dict:
@@ -108,4 +141,5 @@ def join_live_class(
         "external_api_url": f"https://{settings.jaas_domain}/{settings.jaas_app_id}/external_api.js",
         "token": token,
         "moderator": moderator,
+        "started_at": day.started_at,
     }

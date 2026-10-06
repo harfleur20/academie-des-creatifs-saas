@@ -1365,6 +1365,7 @@ export type CourseDay = {
   scheduled_at: string
   duration_minutes: number
   status: 'planned' | 'cancelled'
+  started_at: string | null
   delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted' | null
   report_summary: string | null
   report_submitted_at: string | null
@@ -1437,10 +1438,14 @@ export type LiveRoom = {
   external_api_url: string
   token: string
   moderator: boolean
+  started_at: string | null
 }
 
 export const joinLiveClass = (courseDayId: number) =>
   request<LiveRoom>(`/planning/course-days/${courseDayId}/live/join`, { method: 'POST' })
+
+export const startLiveClass = (courseDayId: number) =>
+  request<{ course_day_id: number; started_at: string }>(`/planning/course-days/${courseDayId}/live/start`, { method: 'POST' })
 
 export const createSessionCourseDay = (
   sessionId: number,

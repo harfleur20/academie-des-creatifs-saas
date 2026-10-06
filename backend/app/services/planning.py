@@ -226,6 +226,7 @@ def _serialize_day(
         scheduled_at=record.scheduled_at,
         duration_minutes=record.duration_minutes,
         status=record.status,
+        started_at=record.started_at,
         delivery_status=record.delivery_status,
         report_summary=record.report_summary if can_read_report else None,
         report_submitted_at=record.report_submitted_at,
@@ -576,6 +577,8 @@ def update_course_day(
         )
     if record.report_submitted_at is not None:
         raise HTTPException(status_code=409, detail="Le rapport a clôturé cette séance.")
+    if record.started_at is not None:
+        raise HTTPException(status_code=409, detail="Une séance démarrée ne peut plus être modifiée.")
     if session.status in {"cancelled", "completed"}:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -655,6 +658,8 @@ def submit_course_day_report(
         )).all())
         if enrollment_ids - marked_ids:
             raise HTTPException(409, "Marquez la présence de tous les étudiants avant de clôturer.")
+        if day.started_at is None and session.formation.format_type == "live":
+            day.started_at = _aware(day.scheduled_at)
     day.delivery_status = payload.delivery_status
     day.report_summary = payload.summary
     day.report_submitted_at = current

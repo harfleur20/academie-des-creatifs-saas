@@ -13,8 +13,9 @@ from app.schemas.planning import (
     SchoolCourseDayReportRead,
     SessionPlanningRead,
     LiveRoomRead,
+    LiveStartRead,
 )
-from app.services.live_classes import join_live_class
+from app.services.live_classes import join_live_class, start_live_class
 from app.services.planning import (
     create_course_day,
     get_session_planning,
@@ -45,6 +46,14 @@ def join_course_day_live(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return join_live_class(db, tenant, course_day_id)
+
+
+@router.post("/course-days/{course_day_id}/live/start", response_model=LiveStartRead)
+def start_course_day_live(
+    course_day_id: int, db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return start_live_class(db, tenant, course_day_id)
 
 
 @router.get(

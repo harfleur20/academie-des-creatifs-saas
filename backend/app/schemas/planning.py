@@ -54,6 +54,7 @@ class CourseDayRead(BaseModel):
     scheduled_at: datetime
     duration_minutes: int
     status: str
+    started_at: datetime | None
     delivery_status: str | None
     report_summary: str | None
     report_submitted_at: datetime | None
@@ -86,6 +87,12 @@ class LiveRoomRead(BaseModel):
     external_api_url: str
     token: str
     moderator: bool
+    started_at: datetime | None
+
+
+class LiveStartRead(BaseModel):
+    course_day_id: int
+    started_at: datetime
 
 
 class CourseDayReportSubmit(BaseModel):

@@ -4883,6 +4883,8 @@
 .teacher-lesson-history > div + div { border-top: 1px solid #e3e8ef; padding-top: 6px; }
 .live-class-stage { width: 100%; min-height: min(72vh, 760px); overflow: hidden; border-radius: 14px; background: #101828; }
 .live-class-page .app-page-header { margin-bottom: 16px; }
+.live-class-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.live-class-controls p { margin: 0; }
 .course-day-report-form { display: grid; flex-basis: 100%; gap: 10px; width: 100%; padding: 14px; border: 1px solid #e3e8ef; border-radius: 10px; background: #f8fafc; }
 .course-day-report-form label { display: grid; gap: 5px; font-weight: 700; }
 .course-day-report-form textarea { min-height: 90px; resize: vertical; }

@@ -115,6 +115,7 @@ export function StudentGuidedWorkspacePage() {
                 : `${day.delivery_status === 'partial' ? 'Séance partielle · ' : ''}${presence?.status === 'present' ? 'Présent' : presence?.status === 'excused' ? 'Excusé' : 'Absent'}`
           return <div className="guided-list-row" key={day.id}>
             <strong>{day.title}</strong><span>{dateLabel(day.scheduled_at)} · {day.duration_minutes} min</span><small>{presenceLabel}</small>
+            {session.format_type === 'live' && day.started_at && !day.report_submitted_at && <small>Cours démarré</small>}
             {session.format_type === 'live' && !day.report_submitted_at && (!planning?.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link to={`/app/student/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>)}
             {day.feedback_count > 0 && <small>{day.feedback_count} avis · note moyenne {day.average_rating}/5</small>}
             {day.my_feedback && <small>Votre avis : {day.my_feedback.rating}/5 · {day.my_feedback.delivery_status === 'held' ? 'tenue' : day.my_feedback.delivery_status === 'partial' ? 'partielle' : 'non tenue'}</small>}
