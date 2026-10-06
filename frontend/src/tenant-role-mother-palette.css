@@ -1,0 +1,223 @@
+/* Teacher/student workspaces use the fixed Academy palette from the mother site.
+   Tenant identity remains visible through the school name and logo, but functional
+   workspace colors are intentionally consistent across schools. */
+.tenant-role-shell {
+  --school-primary: #1f2559 !important;
+  --school-secondary: #1c8480 !important;
+  --school-accent: #1a3a6b !important;
+  --blue: #1f2559 !important;
+  --green: #1c8480 !important;
+  --button-end: #1c8480 !important;
+  --tenant-accent: #1a3a6b !important;
+  color: #14192f;
+  background: #f3f7fb;
+}
+
+.tenant-role-sidebar {
+  background: #fff;
+  border-right-color: rgba(31, 37, 89, 0.12);
+}
+
+.tenant-role-brand,
+.tenant-role-topbar__title,
+.tenant-role-nav a,
+.role-calendar-card > header strong,
+.role-side-card > header strong {
+  color: #1f2559;
+}
+
+.tenant-role-brand small,
+.tenant-role-user-pill small,
+.tenant-role-profile-button small {
+  color: #6b7280;
+}
+
+.tenant-role-badge {
+  color: #1f2559;
+  background: #d7f3f0;
+}
+
+.tenant-role-nav {
+  border-top-color: rgba(31, 37, 89, 0.09);
+}
+
+.tenant-role-nav a > span {
+  color: #1f2559;
+}
+
+.tenant-role-nav a:hover {
+  color: #0f2d29;
+  background: rgba(28, 132, 128, 0.1);
+}
+
+.tenant-role-nav a.active {
+  color: #1f2559;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(25, 43, 72, 0.09);
+}
+
+.tenant-role-user-pill {
+  background: rgba(28, 132, 128, 0.08);
+}
+
+.tenant-role-avatar,
+.tenant-role-avatar--header {
+  background: linear-gradient(135deg, #1f2352, #1c8480);
+}
+
+.tenant-role-topbar {
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom-color: #e5e7eb;
+}
+
+.tenant-role-search input {
+  color: #29364c;
+  background: #f2f4f7;
+}
+
+.tenant-role-search input:focus {
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(28, 132, 128, 0.1);
+}
+
+.tenant-role-profile-button:hover,
+.tenant-role-profile-button[aria-expanded="true"],
+.tenant-role-shell .school-notif-bell:hover,
+.tenant-role-shell .school-notif-bell[aria-expanded="true"] {
+  background: #f3f4f6;
+}
+
+.role-hero {
+  background: linear-gradient(135deg, #1f2352 0%, #1a3a6b 45%, #1c8480 100%);
+}
+
+.role-hero__visual::before {
+  background: rgba(28, 132, 128, 0.08);
+}
+
+.role-hero__student-progress {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* Mother-site KPI palette: blue / yellow / green / purple. */
+.role-kpi--primary {
+  color: #0c4a6e;
+  background: #bae6fd;
+}
+
+.role-kpi--primary > small { color: #075985; }
+.role-kpi--primary > svg { color: #0c4a6e; opacity: 0.22; }
+
+.role-kpi--secondary {
+  color: #78350f;
+  background: #fde68a;
+}
+
+.role-kpi--secondary > small { color: #92400e; }
+.role-kpi--secondary > svg { color: #78350f; opacity: 0.22; }
+
+.role-kpi--mint {
+  color: #065f46;
+  background: #bbf7d0;
+}
+
+.role-kpi--mint > small { color: #047857; }
+.role-kpi--mint > svg { color: #065f46; opacity: 0.22; }
+
+.role-kpi--accent {
+  color: #4c1d95;
+  background: #ddd6fe;
+}
+
+.role-kpi--accent > small { color: #5b21b6; }
+.role-kpi--accent > svg { color: #4c1d95; opacity: 0.22; }
+
+/* On the mother-site student overview: blue / purple / green / yellow. */
+.tenant-role-shell--student .role-kpi:nth-child(2) {
+  color: #4c1d95;
+  background: #ddd6fe;
+}
+
+.tenant-role-shell--student .role-kpi:nth-child(2) > small { color: #5b21b6; }
+.tenant-role-shell--student .role-kpi:nth-child(2) > svg { color: #4c1d95; opacity: 0.22; }
+
+.tenant-role-shell--student .role-kpi:nth-child(4) {
+  color: #78350f;
+  background: #fde68a;
+}
+
+.tenant-role-shell--student .role-kpi:nth-child(4) > small { color: #92400e; }
+.tenant-role-shell--student .role-kpi:nth-child(4) > svg { color: #78350f; opacity: 0.22; }
+
+.role-calendar-card,
+.role-side-card {
+  border-color: rgba(17, 24, 39, 0.07);
+  background: #fff;
+}
+
+.role-calendar-card > header,
+.role-side-card > header {
+  border-bottom-color: rgba(17, 24, 39, 0.06);
+}
+
+.role-calendar-card > header a,
+.role-progress-summary a,
+.role-calendar-day > header span {
+  color: #1c8480;
+}
+
+.role-side-card > header > span {
+  color: #1c8480;
+  background: #d4f0e8;
+}
+
+.role-next-course {
+  background: linear-gradient(135deg, #edfaf9, #d7f3f0);
+}
+
+.role-next-course span {
+  color: #fff;
+  background: #1c8480;
+}
+
+.role-next-course > a {
+  color: #1f2559;
+  border-color: rgba(31, 37, 89, 0.12);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.role-mini-calendar > header button,
+.role-calendar-day > header span {
+  color: #1f2559;
+}
+
+.role-mini-calendar__grid button:hover,
+.role-mini-calendar__grid button.is-selected {
+  color: #0f2d29;
+  background: #d7f3f0;
+}
+
+.role-mini-calendar__grid button i,
+.role-side-list a > i {
+  background: #1c8480;
+}
+
+.role-side-list a > i {
+  border-color: #d7f3f0;
+}
+
+.role-side-list a b,
+.role-priority.is-ok,
+.role-recent-icon {
+  color: #0f766e;
+}
+
+.role-priority.is-ok,
+.role-recent-icon {
+  background: #ecfdf5;
+}
+
+.role-progress-summary i {
+  background: linear-gradient(90deg, #1f2352, #1c8480);
+}
