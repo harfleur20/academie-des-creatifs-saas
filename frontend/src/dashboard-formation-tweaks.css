@@ -17,6 +17,7 @@
   display: grid;
   gap: 16px;
   margin-top: 4px;
+  margin-bottom: 24px;
   padding: 22px;
   border-radius: 20px;
   background: #f7f9fc;
@@ -90,6 +91,7 @@
   }
 
   .formation-public-fields {
+    margin-bottom: 20px;
     padding: 18px;
     border-radius: 16px;
   }
