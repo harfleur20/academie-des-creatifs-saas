@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { MessageNavIcon } from './MessageNavIcon'
 import { SchoolWorkspaceLayout } from './SchoolWorkspaceLayout'
+import '../manage-nav-bottom.css'
 
 export function AppLayout() {
   return (
