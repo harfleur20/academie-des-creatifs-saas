@@ -72,7 +72,7 @@ from app.services.learning_progress import (
     teacher_performance,
 )
 from app.services.live_classes import join_live_class
-from app.services.planning import get_session_planning, list_course_day_feedback, submit_course_day_feedback, submit_course_day_report
+from app.services.planning import get_session_planning, list_course_day_feedback, list_school_course_day_reports, submit_course_day_feedback, submit_course_day_report
 from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
@@ -599,6 +599,30 @@ def test_student_course_day_feedback_is_private_and_school_scoped() -> None:
     with pytest.raises(HTTPException) as hidden_reviews:
         list_course_day_feedback(db, teacher_tenant, other_day.id)
     assert hidden_reviews.value.status_code == 404
+
+
+def test_school_manager_can_review_course_day_reports() -> None:
+    db = build_db()
+    org, teacher, student, _, _, _, _, _, day = seed(db)
+    manager = UserRecord(email="manager@test.dev", full_name="Manager", status="active")
+    db.add(manager)
+    db.flush()
+    member = OrganizationMemberRecord(organization_id=org.id, user_id=manager.id, role="manager", status="active")
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"manager"})
+    db.commit()
+    submit_course_day_report(db, ctx(db, org, teacher), day.id, CourseDayReportSubmit(
+        delivery_status="not_held", summary="Cours annulé sur place.",
+    ))
+    reports = list_school_course_day_reports(db, ctx(db, org, manager))
+    assert len(reports) == 1
+    assert reports[0].course_day_id == day.id
+    assert reports[0].teacher_name == "Teacher"
+    assert reports[0].summary == "Cours annulé sur place."
+    with pytest.raises(HTTPException) as forbidden:
+        list_school_course_day_reports(db, ctx(db, org, student))
+    assert forbidden.value.status_code == 403
 
 
 def test_course_publication_publishes_valid_lessons_together() -> None:

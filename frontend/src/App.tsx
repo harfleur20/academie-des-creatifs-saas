@@ -57,6 +57,7 @@ const CommerceDashboardPage = lazy(() => import('./pages/CommerceDashboardPage')
 import { PromotionsPage } from './pages/PromotionsPage'
 const PedagogicalMonitoringPage = lazy(() => import('./pages/PedagogicalMonitoringPage').then((module) => ({ default: module.PedagogicalMonitoringPage })))
 const SchoolPerformancePage = lazy(() => import('./pages/SchoolPerformancePage').then((module) => ({ default: module.SchoolPerformancePage })))
+const SchoolCourseReportsPage = lazy(() => import('./pages/SchoolCourseReportsPage').then((module) => ({ default: module.SchoolCourseReportsPage })))
 import { ManageProfilePage, StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
 import { SupportPage } from './pages/SupportPage'
 import { SchoolPublicLayout } from './public/SchoolPublicLayout'
@@ -234,6 +235,7 @@ export default function App() {
               <Route path="commerce" element={<CommerceDashboardPage />} />
               <Route path="promotions" element={<PromotionsPage />} />
               <Route path="pedagogy" element={<PedagogicalMonitoringPage />} />
+              <Route path="course-reports" element={<SchoolCourseReportsPage />} />
               <Route path="performance" element={<SchoolPerformancePage />} />
               <Route path="site-public" element={<SchoolPublicSitePage />} />
               <Route path="team" element={<TeamPage />} />

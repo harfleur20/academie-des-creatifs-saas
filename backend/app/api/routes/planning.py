@@ -10,6 +10,7 @@ from app.schemas.planning import (
     CourseDayReportSubmit,
     CourseDayFeedbackSubmit,
     CourseDayFeedbackReviewRead,
+    SchoolCourseDayReportRead,
     SessionPlanningRead,
     LiveRoomRead,
 )
@@ -22,11 +23,19 @@ from app.services.planning import (
     submit_course_day_report,
     submit_course_day_feedback,
     list_course_day_feedback,
+    list_school_course_day_reports,
 )
 from app.services.tenancy import TenantContext
 
 
 router = APIRouter(prefix="/planning", tags=["planning"])
+
+
+@router.get("/reports", response_model=list[SchoolCourseDayReportRead])
+def read_school_course_day_reports(
+    db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
+):
+    return list_school_course_day_reports(db, tenant)
 
 
 @router.post("/course-days/{course_day_id}/live/join", response_model=LiveRoomRead)

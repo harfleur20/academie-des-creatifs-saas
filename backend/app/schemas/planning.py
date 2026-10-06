@@ -123,3 +123,18 @@ class CourseDayFeedbackRead(BaseModel):
 
 class CourseDayFeedbackReviewRead(CourseDayFeedbackRead):
     student_name: str
+
+
+class SchoolCourseDayReportRead(BaseModel):
+    course_day_id: int
+    session_id: int
+    formation_title: str
+    session_label: str
+    teacher_name: str | None
+    title: str
+    scheduled_at: datetime
+    delivery_status: Literal["held", "partial", "not_held", "interrupted"]
+    summary: str
+    submitted_at: datetime
+    feedback_count: int
+    average_rating: float | None

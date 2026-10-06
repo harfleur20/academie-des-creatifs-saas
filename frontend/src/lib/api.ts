@@ -1410,6 +1410,23 @@ export const submitCourseDayFeedback = (courseDayId: number, payload: { rating: 
 export const listCourseDayFeedback = (courseDayId: number) =>
   request<CourseDayFeedbackReview[]>(`/planning/course-days/${courseDayId}/feedback`)
 
+export type SchoolCourseDayReport = {
+  course_day_id: number
+  session_id: number
+  formation_title: string
+  session_label: string
+  teacher_name: string | null
+  title: string
+  scheduled_at: string
+  delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted'
+  summary: string
+  submitted_at: string
+  feedback_count: number
+  average_rating: number | null
+}
+
+export const listSchoolCourseDayReports = () => request<SchoolCourseDayReport[]>('/planning/reports')
+
 export type LiveRoom = {
   course_day_id: number
   title: string

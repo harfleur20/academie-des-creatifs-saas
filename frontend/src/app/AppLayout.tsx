@@ -1,6 +1,7 @@
 import {
   BadgePercent,
   BookOpen,
+  ClipboardList,
   CreditCard,
   GraduationCap,
   Activity,
@@ -28,6 +29,7 @@ export function AppLayout() {
         { to: '/app/manage/students', label: 'Étudiants', icon: <GraduationCap size={18} /> },
         { to: '/app/manage/teachers', label: 'Enseignants', icon: <UserRoundCog size={18} /> },
         { to: '/app/manage/pedagogy', label: 'Suivi pédagogique', icon: <HeartPulse size={18} /> },
+        { to: '/app/manage/course-reports', label: 'Comptes rendus', icon: <ClipboardList size={18} /> },
         { to: '/app/manage/performance', label: 'Performance', icon: <Activity size={18} /> },
         { to: '/app/manage/team', label: 'Équipe & accès', icon: <Users size={18} /> },
         { to: '/app/manage/commerce', label: 'Commerce', icon: <ShoppingCart size={18} /> },
