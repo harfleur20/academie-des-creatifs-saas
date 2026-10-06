@@ -48,12 +48,42 @@ def postgres_engine(monkeypatch):
 def _seed(engine, *, capacity=1):
     suffix = uuid4().hex[:10]
     with Session(engine) as db:
-        org = OrganizationRecord(name="Concurrent school", slug=f"concurrent-{suffix}", status="active", is_active=True)
+        org = OrganizationRecord(
+            name="Concurrent school",
+            slug=f"concurrent-{suffix}",
+            subdomain=f"concurrent-{suffix}",
+            status="active",
+            is_active=True,
+            contact_email=f"contact-{suffix}@test.dev",
+        )
         users = [UserRecord(email=f"{suffix}-{i}@test.dev", full_name=f"Student {i}", status="active") for i in range(2)]
         db.add_all([org, *users])
         db.flush()
-        get_or_create_identity_records(db, org)
-        formation = FormationRecord(organization_id=org.id, slug="course", title="Course", description="Concurrent course", status="published", format_type="live", price_cents=1000, currency="XAF")
+
+        site, legal, *_ = get_or_create_identity_records(db, org)
+        site.student_code_prefix = "CS"
+        site.student_code_prefix_confirmed_at = datetime.now(UTC)
+        site.legal_notice = "Mentions légales de l'école de test"
+        site.sales_terms = "Conditions générales de vente de l'école de test"
+        site.privacy_policy = "Politique de confidentialité de l'école de test"
+        site.refund_policy = "Politique de remboursement de l'école de test"
+        site.is_published = True
+        legal.legal_name = "Concurrent School Test"
+        legal.legal_address = "1 rue des Tests"
+        legal.invoice_email = f"billing-{suffix}@test.dev"
+
+        formation = FormationRecord(
+            organization_id=org.id,
+            slug="course",
+            title="Course",
+            description="Concurrent course",
+            cover_image_url="https://example.test/course.jpg",
+            public_program="Programme de test",
+            status="published",
+            format_type="live",
+            price_cents=1000,
+            currency="XAF",
+        )
         db.add(formation)
         db.flush()
         session = FormationSessionRecord(organization_id=org.id, formation_id=formation.id, label="Future", start_date=(datetime.now(UTC) + timedelta(days=2)).date(), end_date=(datetime.now(UTC) + timedelta(days=60)).date(), seat_capacity=capacity, status="open")
