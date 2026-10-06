@@ -27,6 +27,7 @@ import {
   type FormationDetail,
   type Member,
 } from '../lib/api'
+import { PublicProgramField } from '../components/PublicProgramField'
 
 export function FormationWorkspacePage() {
   const params = useParams()
@@ -195,7 +196,16 @@ export function FormationWorkspacePage() {
         <label>Résumé court<textarea value={shortDescription} onChange={(event) => setShortDescription(event.target.value)} maxLength={500} rows={3} placeholder="Texte court affiché dans l’introduction et sur les cartes du catalogue." /><small>{shortDescription.length}/500 caractères</small></label>
         <label>À la fin de cette formation, l’apprenant sera capable de…<textarea value={objectives} onChange={(event) => setObjectives(event.target.value)} maxLength={10000} rows={6} placeholder={'Concevoir une application complète\nAutomatiser des tâches métier\nCréer une interface professionnelle'} /><small>Un acquis par ligne pour un affichage clair sur le site public.</small></label>
         <label>À qui s’adresse cette formation ? / Prérequis<textarea value={prerequisites} onChange={(event) => setPrerequisites(event.target.value)} maxLength={10000} rows={5} placeholder="Décrivez le public cible, le niveau attendu et les éventuels prérequis." /></label>
-        <label>Programme public<textarea value={publicProgram} onChange={(event) => setPublicProgram(event.target.value)} maxLength={30000} rows={8} placeholder="Présentez les grandes étapes, semaines ou thèmes du parcours." /><small>Les modules détaillés sont aussi alimentés automatiquement par les cours et chapitres créés plus bas.</small></label>
+        <PublicProgramField
+          formationId={formation.id}
+          value={publicProgram}
+          disabled={working}
+          onSaved={(detail) => {
+            setFormation(detail)
+            setPublicProgram(detail.public_program)
+            setMessage('Programme public enregistré. L’accordéon de la fiche publique est à jour.')
+          }}
+        />
         <button className="primary-button" type="submit" disabled={working}><Save size={15} /> Enregistrer la page publique</button>
       </form>
 
