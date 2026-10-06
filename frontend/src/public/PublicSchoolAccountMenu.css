@@ -24,20 +24,20 @@
   top: calc(100% + 12px);
   right: 0;
   z-index: 90;
-  width: min(320px, calc(100vw - 28px));
-  min-width: 280px;
-  padding: 10px;
+  width: min(276px, calc(100vw - 28px));
+  min-width: 250px;
+  padding: 9px;
   border: 1px solid #e2e8f0;
-  border-radius: 18px;
+  border-radius: 17px;
   background: #fff;
-  box-shadow: 0 22px 55px rgba(16, 35, 63, .16);
+  box-shadow: 0 20px 48px rgba(16, 35, 63, .15);
   animation: public-account-menu-in 150ms ease-out both;
 }
 
 .public-school-shell .public-school-account-menu-head {
   display: grid;
   gap: 4px;
-  padding: 14px 14px 16px;
+  padding: 13px 12px 15px;
   margin-bottom: 5px;
   border-bottom: 1px solid #e7ebf1;
   overflow: hidden;
@@ -61,18 +61,20 @@
   font-size: calc(11px * var(--school-font-scale, 1));
 }
 
-.public-school-shell .public-school-account-menu button {
-  min-height: 44px;
+.public-school-shell .public-school-account-menu button,
+.public-school-shell .public-school-account-indicator {
+  min-height: 42px;
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 9px 11px;
   border: 0;
   border-radius: 10px;
   background: transparent;
   color: #25344d;
   text-align: left;
+  text-decoration: none;
   font: inherit;
   font-size: calc(12px * var(--school-font-scale, 1));
   font-weight: 600;
@@ -80,14 +82,37 @@
   transition: background 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
-.public-school-shell .public-school-account-menu button:hover {
+.public-school-shell .public-school-account-menu button:hover,
+.public-school-shell .public-school-account-indicator:hover {
   background: #f3f6fa;
   transform: translateX(2px);
 }
 
-.public-school-shell .public-school-account-menu button svg {
+.public-school-shell .public-school-account-menu button svg,
+.public-school-shell .public-school-account-indicator svg {
   flex: none;
   color: #33445f;
+}
+
+.public-school-shell .public-school-account-indicator-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.public-school-shell .public-school-account-indicator-badge {
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--school-primary, #17245b);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .public-school-shell .public-school-account-menu-divider {
@@ -95,6 +120,11 @@
   height: 1px;
   margin: 8px 7px;
   background: #e7ebf1;
+}
+
+.public-school-shell .public-school-account-menu-divider.is-soft {
+  margin-top: 5px;
+  margin-bottom: 5px;
 }
 
 .public-school-shell .public-school-account-menu button.is-danger {
@@ -127,7 +157,8 @@
 
   .public-school-shell .public-school-account-menu {
     right: -46px;
-    min-width: min(300px, calc(100vw - 24px));
+    width: min(268px, calc(100vw - 24px));
+    min-width: min(248px, calc(100vw - 24px));
   }
 }
 
