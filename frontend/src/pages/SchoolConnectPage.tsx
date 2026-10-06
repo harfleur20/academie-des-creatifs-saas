@@ -1,14 +1,4 @@
-import {
-  BarChart3,
-  CalendarDays,
-  Mail,
-  MessageCircleMore,
-  Plug,
-  Search,
-  Share2,
-  Video,
-  Workflow,
-} from 'lucide-react'
+import { Plug } from 'lucide-react'
 import '../reports-connect.css'
 
 type Integration = {
@@ -16,7 +6,8 @@ type Integration = {
   category: string
   description: string
   benefit: string
-  icon: React.ReactNode
+  logoUrls: string[]
+  logoLabels: string[]
   priority: 'recommended' | 'planned'
 }
 
@@ -26,7 +17,8 @@ const integrations: Integration[] = [
     category: 'Analytics',
     description: 'Mesurer le trafic du site public, les pages consultées et les conversions.',
     benefit: 'Comprendre d’où viennent les visiteurs et quelles formations intéressent le plus.',
-    icon: <BarChart3 size={22} />,
+    logoUrls: ['https://cdn.simpleicons.org/googleanalytics/E37400'],
+    logoLabels: ['Google Analytics'],
     priority: 'recommended',
   },
   {
@@ -34,7 +26,8 @@ const integrations: Integration[] = [
     category: 'SEO',
     description: 'Suivre l’indexation du site, les recherches Google et les erreurs SEO.',
     benefit: 'Améliorer la visibilité naturelle de l’école et de ses formations.',
-    icon: <Search size={22} />,
+    logoUrls: ['https://cdn.simpleicons.org/googlesearchconsole/458CF5'],
+    logoLabels: ['Google Search Console'],
     priority: 'recommended',
   },
   {
@@ -42,7 +35,8 @@ const integrations: Integration[] = [
     category: 'Acquisition',
     description: 'Mesurer les visites et conversions issues de Facebook et Instagram.',
     benefit: 'Mieux piloter les campagnes publicitaires et le retargeting.',
-    icon: <Share2 size={22} />,
+    logoUrls: ['https://cdn.simpleicons.org/meta/0866FF'],
+    logoLabels: ['Meta'],
     priority: 'recommended',
   },
   {
@@ -50,15 +44,17 @@ const integrations: Integration[] = [
     category: 'Email',
     description: 'Synchroniser les contacts et automatiser les campagnes email.',
     benefit: 'Relancer les prospects, informer les apprenants et suivre les campagnes.',
-    icon: <Mail size={22} />,
+    logoUrls: ['https://cdn.simpleicons.org/brevo/0B996E'],
+    logoLabels: ['Brevo'],
     priority: 'recommended',
   },
   {
     name: 'WhatsApp / Wapino',
     category: 'Communication',
-    description: 'Envoyer des rappels, confirmations et notifications WhatsApp.',
+    description: 'Envoyer des rappels, confirmations et notifications WhatsApp via votre passerelle de communication.',
     benefit: 'Réduire les oublis et centraliser les communications importantes.',
-    icon: <MessageCircleMore size={22} />,
+    logoUrls: ['https://cdn.simpleicons.org/whatsapp/25D366'],
+    logoLabels: ['WhatsApp / Wapino'],
     priority: 'recommended',
   },
   {
@@ -66,7 +62,11 @@ const integrations: Integration[] = [
     category: 'Planning',
     description: 'Synchroniser les séances et faciliter l’accès aux rendez-vous en ligne.',
     benefit: 'Éviter les doubles saisies et garder les calendriers à jour.',
-    icon: <CalendarDays size={22} />,
+    logoUrls: [
+      'https://cdn.simpleicons.org/googlecalendar/4285F4',
+      'https://cdn.simpleicons.org/googlemeet/00897B',
+    ],
+    logoLabels: ['Google Calendar', 'Google Meet'],
     priority: 'planned',
   },
   {
@@ -74,7 +74,8 @@ const integrations: Integration[] = [
     category: 'Visioconférence',
     description: 'Créer ou associer des réunions Zoom aux séances live.',
     benefit: 'Piloter les sessions live depuis le même environnement.',
-    icon: <Video size={22} />,
+    logoUrls: ['https://cdn.simpleicons.org/zoom/0B5CFF'],
+    logoLabels: ['Zoom'],
     priority: 'planned',
   },
   {
@@ -82,7 +83,11 @@ const integrations: Integration[] = [
     category: 'Automatisation',
     description: 'Déclencher des automatisations vers d’autres outils métier.',
     benefit: 'Connecter CRM, formulaires, tableaux de suivi ou outils internes sans recoder chaque workflow.',
-    icon: <Workflow size={22} />,
+    logoUrls: [
+      'https://cdn.simpleicons.org/make/6D00CC',
+      'https://cdn.simpleicons.org/zapier/FF4F00',
+    ],
+    logoLabels: ['Make', 'Zapier'],
     priority: 'planned',
   },
 ]
@@ -115,7 +120,18 @@ export function SchoolConnectPage() {
         {integrations.map((integration) => (
           <article className="app-card connect-card" key={integration.name}>
             <div className="connect-card-head">
-              <span className="connect-card-icon">{integration.icon}</span>
+              <span className="connect-brand-logos" aria-label={integration.logoLabels.join(' et ')}>
+                {integration.logoUrls.map((logoUrl, index) => (
+                  <span className="connect-brand-logo" key={logoUrl} title={integration.logoLabels[index]}>
+                    <img
+                      src={logoUrl}
+                      alt={integration.logoLabels[index]}
+                      loading="lazy"
+                      onError={(event) => { event.currentTarget.style.display = 'none' }}
+                    />
+                  </span>
+                ))}
+              </span>
               <span className={`connect-status ${integration.priority}`}>
                 {integration.priority === 'recommended' ? 'Recommandé' : 'À venir'}
               </span>
