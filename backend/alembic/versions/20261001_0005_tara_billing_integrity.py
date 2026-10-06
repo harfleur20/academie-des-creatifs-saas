@@ -17,7 +17,18 @@ branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 
 TABLE = "billing_payment_attempts"
-ACTIVATED_FK = "fk_billing_payment_attempts_activated_subscription_id_subscriptions"
+ACTIVATED_FK = "fk_billing_attempts_activated_subscription"
+LEGACY_ACTIVATED_FK = (
+    "fk_billing_payment_attempts_activated_subscription_id_subscriptions"
+)
+LEGACY_TRUNCATED_ACTIVATED_FK = (
+    "fk_billing_payment_attempts_activated_subscription_id_subscript"
+)
+ACTIVATED_FK_NAMES = {
+    ACTIVATED_FK,
+    LEGACY_ACTIVATED_FK,
+    LEGACY_TRUNCATED_ACTIVATED_FK,
+}
 TX_INDEX = "ix_billing_payment_attempts_provider_transaction_id"
 SUBSCRIPTION_INDEX = "ix_billing_payment_attempts_activated_subscription_id"
 
@@ -78,10 +89,11 @@ def upgrade() -> None:
             sa.Column("failure_reason", sa.String(length=500), nullable=True),
         )
 
-    # The original migration could fail after adding
-    # activated_subscription_id but before creating its FK. Batch mode uses
-    # SQLite's copy-and-move strategy and also works on PostgreSQL.
-    if ACTIVATED_FK not in _foreign_key_names():
+    # The original migration used a 67-character FK name, which PostgreSQL
+    # rejects because identifiers are limited to 63 characters. Keep aliases
+    # for historical/partially-applied schemas, but create all new constraints
+    # with the short portable name.
+    if not ACTIVATED_FK_NAMES.intersection(_foreign_key_names()):
         with op.batch_alter_table(TABLE) as batch_op:
             batch_op.create_foreign_key(
                 ACTIVATED_FK,
@@ -116,12 +128,13 @@ def downgrade() -> None:
         op.drop_index(TX_INDEX, table_name=TABLE)
 
     # Use batch mode for the FK/column removal as well so downgrade remains
-    # SQLite-compatible.
+    # SQLite-compatible. Accept all historical FK names so a partially applied
+    # migration can still be rolled back safely.
     columns = _column_names()
+    foreign_keys = _foreign_key_names()
     with op.batch_alter_table(TABLE) as batch_op:
-        foreign_keys = _foreign_key_names()
-        if ACTIVATED_FK in foreign_keys:
-            batch_op.drop_constraint(ACTIVATED_FK, type_="foreignkey")
+        for foreign_key_name in ACTIVATED_FK_NAMES.intersection(foreign_keys):
+            batch_op.drop_constraint(foreign_key_name, type_="foreignkey")
         if "failure_reason" in columns:
             batch_op.drop_column("failure_reason")
         if "activated_subscription_id" in columns:
