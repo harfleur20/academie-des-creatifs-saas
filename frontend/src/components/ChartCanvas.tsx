@@ -60,9 +60,11 @@ export function ChartCanvas({
         labels,
         datasets: datasets.map((dataset, index) => ({
           ...dataset,
-          borderColor: palette[index % palette.length],
-          backgroundColor: palette[index % palette.length],
-          borderWidth: type === 'line' ? 3 : 0,
+          borderColor: type === 'doughnut' ? '#ffffff' : palette[index % palette.length],
+          backgroundColor: type === 'doughnut'
+            ? labels.map((_, labelIndex) => palette[labelIndex % palette.length])
+            : palette[index % palette.length],
+          borderWidth: type === 'doughnut' ? 3 : type === 'line' ? 3 : 0,
           borderRadius: type === 'bar' ? 8 : undefined,
           borderSkipped: false,
           fill: false,
@@ -81,11 +83,11 @@ export function ChartCanvas({
         },
         interaction: {
           intersect: false,
-          mode: 'index',
+          mode: type === 'doughnut' ? 'nearest' : 'index',
         },
         plugins: {
           legend: {
-            display: showLegend && datasets.length > 1,
+            display: showLegend && (type === 'doughnut' || datasets.length > 1),
             position: 'bottom',
             labels: {
               usePointStyle: true,
@@ -95,10 +97,11 @@ export function ChartCanvas({
           },
           tooltip: {
             enabled: !compact,
-            displayColors: datasets.length > 1,
+            displayColors: type === 'doughnut' || datasets.length > 1,
             callbacks: {
               label: (context: {
                 dataset: { label?: string }
+                label?: string
                 parsed: number | { x?: number; y?: number }
               }) => {
                 const numeric = typeof context.parsed === 'number'
@@ -106,7 +109,9 @@ export function ChartCanvas({
                   : horizontal
                     ? context.parsed.x
                     : context.parsed.y
-                const label = context.dataset.label ? `${context.dataset.label} : ` : ''
+                const label = type === 'doughnut'
+                  ? context.label ? `${context.label} : ` : ''
+                  : context.dataset.label ? `${context.dataset.label} : ` : ''
                 return `${label}${numeric ?? 0}${valueSuffix}`
               },
             },
