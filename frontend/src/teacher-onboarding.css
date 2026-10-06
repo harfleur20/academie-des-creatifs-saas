@@ -18,7 +18,7 @@
 .teacher-onboarding-hero h1,
 .student-charter-card h1 {
   margin: 8px 0 10px;
-  color: #10213d;
+  color: var(--school-primary, #10213d);
   font-size: clamp(32px, 4vw, 50px);
   line-height: 1.02;
   letter-spacing: -.04em;
@@ -43,8 +43,8 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  color: #0d6b4b;
-  background: #dcf8ec;
+  color: var(--school-secondary, #0d6b4b);
+  background: color-mix(in srgb, var(--school-secondary, #63dfa8) 15%, white);
   font-size: 12px;
   font-weight: 800;
 }
@@ -90,12 +90,12 @@
 
 .teacher-onboarding-section-title h2 {
   margin: 5px 0 0;
-  color: #10213d;
+  color: var(--school-primary, #10213d);
   font-size: 22px;
 }
 
 .teacher-onboarding-section-title > svg {
-  color: #344867;
+  color: var(--school-primary, #344867);
 }
 
 .teacher-identity-summary {
@@ -117,7 +117,7 @@
   overflow: hidden;
   border-radius: 50%;
   color: #fff;
-  background: #10233f;
+  background: linear-gradient(135deg, var(--school-primary, #10233f), var(--school-secondary, #18a7a3));
   font-weight: 800;
 }
 
@@ -146,8 +146,8 @@
 .teacher-code-chip {
   padding: 7px 10px;
   border-radius: 999px;
-  color: #0d6b4b;
-  background: #e8faf2;
+  color: var(--school-secondary, #0d6b4b);
+  background: color-mix(in srgb, var(--school-secondary, #63dfa8) 12%, white);
   font-size: 11px;
   font-weight: 800;
 }
@@ -205,8 +205,8 @@
 .charter-admin-card input:focus,
 .charter-admin-card textarea:focus,
 .teacher-document-box input:focus {
-  border-color: #63dfa8;
-  box-shadow: 0 0 0 3px rgba(99, 223, 168, .12);
+  border-color: var(--school-secondary, #63dfa8);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--school-secondary, #63dfa8) 14%, transparent);
 }
 
 .teacher-onboarding-grid small,
@@ -236,7 +236,7 @@
 }
 
 .teacher-document-box > svg {
-  color: #233b61;
+  color: var(--school-primary, #233b61);
 }
 
 .teacher-document-box strong,
@@ -263,7 +263,7 @@
   min-height: 42px;
   padding: 9px 12px;
   border-radius: 11px;
-  color: #223754;
+  color: var(--school-primary, #223754);
   background: #fff;
   font-size: 11.5px;
   font-weight: 800;
@@ -307,7 +307,7 @@
   width: 18px !important;
   height: 18px;
   margin-top: 2px;
-  accent-color: #63dfa8;
+  accent-color: var(--school-secondary, #63dfa8);
 }
 
 .charter-accept-row span {
@@ -316,7 +316,7 @@
 }
 
 .charter-accept-row strong {
-  color: #20334f;
+  color: var(--school-primary, #20334f);
   font-size: 12px;
 }
 
@@ -331,14 +331,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #157654;
+  color: var(--school-secondary, #157654);
   font-size: 11.5px;
 }
 
 .charter-disabled-note {
   padding: 14px;
   border-radius: 12px;
-  background: #ecfbf4;
+  background: color-mix(in srgb, var(--school-secondary, #63dfa8) 8%, white);
 }
 
 .teacher-onboarding-submit {
@@ -349,34 +349,76 @@
 .student-charter-page {
   display: grid;
   place-items: center;
+  padding: clamp(18px, 3vw, 34px);
 }
 
 .student-charter-card {
-  width: min(720px, 100%);
-  padding: clamp(28px, 4vw, 46px);
+  width: min(640px, 100%);
+  padding: clamp(24px, 3vw, 34px);
+  border-top: 4px solid var(--school-secondary, #63dfa8);
 }
 
-.student-charter-icon {
+.student-charter-card h1 {
+  font-size: clamp(29px, 3.2vw, 42px);
+}
+
+.student-charter-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.student-charter-brand__logo {
+  width: 54px;
+  height: 54px;
+  max-width: 54px;
+  max-height: 54px;
+  object-fit: contain;
+  border-radius: 13px;
+}
+
+.student-charter-brand .school-logo-placeholder {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  margin-bottom: 20px;
-  border-radius: 16px;
-  color: #163357;
-  background: #eef4ff;
+  color: var(--school-primary, #163357);
+  background: color-mix(in srgb, var(--school-secondary, #63dfa8) 10%, white);
+}
+
+.student-charter-brand > div {
+  display: grid;
+  gap: 3px;
+}
+
+.student-charter-brand strong {
+  color: var(--school-primary, #10213d);
+  font-size: 14px;
+}
+
+.student-charter-brand small {
+  color: #7b8899;
+  font-size: 10.5px;
+  font-weight: 650;
 }
 
 .student-charter-content {
-  margin: 26px 0 6px;
+  max-height: 240px;
+  margin: 20px 0 4px;
+  padding: 17px;
+  border-radius: 15px;
 }
 
 .student-charter-card form {
-  margin-top: 16px;
+  margin-top: 13px;
+}
+
+.student-charter-card .primary-button {
+  min-height: 46px;
+  background: linear-gradient(90deg, var(--school-primary, #1f2559), var(--school-secondary, #18a7a3));
 }
 
 .student-charter-foot {
-  margin-top: 18px;
+  margin-top: 14px;
   color: #7b8899;
 }
 
@@ -419,8 +461,8 @@
 }
 
 .charter-toggle.is-enabled {
-  color: #117553;
-  background: #eafaf3;
+  color: var(--school-secondary, #117553);
+  background: color-mix(in srgb, var(--school-secondary, #63dfa8) 9%, white);
 }
 
 .charter-toggle span {
@@ -484,6 +526,17 @@
   .student-charter-card {
     padding: 20px;
     border-radius: 20px;
+  }
+
+  .student-charter-card h1 {
+    font-size: 30px;
+  }
+
+  .student-charter-brand__logo {
+    width: 48px;
+    height: 48px;
+    max-width: 48px;
+    max-height: 48px;
   }
 
   .teacher-identity-summary {
