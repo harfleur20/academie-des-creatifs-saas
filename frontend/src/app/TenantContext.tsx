@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   getCurrentOrganization,
   getOrganizationAccessProfile,
@@ -17,17 +18,20 @@ import {
   type Organization,
   type OrganizationAccessProfile,
 } from '../lib/api'
+import { DEFAULT_PLATFORM_LOGO_URL } from '../brand/branding'
 import { getCurrentSchoolBranding, type CurrentSchoolBranding } from '../brand/schoolBrandingApi'
 import { useAuth } from '../auth/AuthContext'
 
 type TenantContextValue = {
   organizations: Organization[]
   activeOrganization: Organization | null
+  schoolBranding: CurrentSchoolBranding | null
   accessProfile: OrganizationAccessProfile | null
   loading: boolean
   profileLoading: boolean
   profileError: string
   refreshOrganizations: () => Promise<void>
+  refreshBranding: () => Promise<void>
   refreshAccessProfile: () => Promise<void>
   selectOrganization: (id: number) => void
 }
@@ -45,10 +49,22 @@ function withBranding(organization: Organization, branding: CurrentSchoolBrandin
   }
 }
 
+function setDocumentIcon(url: string) {
+  let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']")
+  if (!link) {
+    link = document.createElement('link')
+    link.rel = 'icon'
+    document.head.appendChild(link)
+  }
+  link.href = url
+}
+
 export function TenantProvider({ children }: { children: ReactNode }) {
+  const location = useLocation()
   const { user, supportMode } = useAuth()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [activeOrganization, setActiveOrganization] = useState<Organization | null>(null)
+  const [schoolBranding, setSchoolBranding] = useState<CurrentSchoolBranding | null>(null)
   const [accessProfile, setAccessProfile] = useState<OrganizationAccessProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [profileLoading, setProfileLoading] = useState(false)
@@ -61,9 +77,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const applyCurrentBranding = useCallback(async (organization: Organization) => {
     const requestId = ++brandingRequest.current
     try {
-      const branding = await getCurrentSchoolBranding()
+      // Pass the target organization explicitly: the visual identity must never
+      // depend on a stale organization id left in browser storage.
+      const branding = await getCurrentSchoolBranding(organization.id)
       if (brandingRequest.current !== requestId || branding.organization_id !== organization.id) return organization
       const branded = withBranding(organization, branding)
+      setSchoolBranding(branding)
       setOrganizations((current) => current.map((item) => item.id === branded.id ? { ...item, ...branded } : item))
       setActiveOrganization((current) => current?.id === branded.id ? { ...current, ...branded } : current)
       return branded
@@ -78,6 +97,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       organizationsReady.current = false
       setOrganizations([])
       setActiveOrganization(null)
+      setSchoolBranding(null)
       setAccessProfile(null)
       setLoading(false)
       return
@@ -109,6 +129,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         null
 
       setActiveOrganization(selected)
+      setSchoolBranding(null)
       setStoredOrganizationId(selected?.id ?? null)
       organizationsReady.current = true
       if (selected) await applyCurrentBranding(selected)
@@ -116,6 +137,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       if (organizationsRequest.current === requestId && shouldBlockWorkspace) setLoading(false)
     }
   }, [user?.id, supportMode?.organization_id, applyCurrentBranding])
+
+  const refreshBranding = useCallback(async () => {
+    if (!activeOrganization) {
+      setSchoolBranding(null)
+      return
+    }
+    await applyCurrentBranding(activeOrganization)
+  }, [activeOrganization, applyCurrentBranding])
 
   const refreshAccessProfile = useCallback(async () => {
     const requestId = ++profileRequest.current
@@ -161,14 +190,17 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement
-    const variables = activeOrganization ? {
-      '--school-primary': activeOrganization.primary_color,
-      '--school-secondary': activeOrganization.secondary_color,
-      '--school-accent': activeOrganization.accent_color,
-      '--blue': activeOrganization.primary_color,
-      '--green': activeOrganization.secondary_color,
-      '--tenant-accent': activeOrganization.accent_color,
-      '--button-end': `color-mix(in srgb, ${activeOrganization.primary_color} 80%, white)`,
+    const primary = schoolBranding?.primary_color || activeOrganization?.primary_color
+    const secondary = schoolBranding?.secondary_color || activeOrganization?.secondary_color
+    const accent = schoolBranding?.accent_color || activeOrganization?.accent_color
+    const variables = primary && secondary && accent ? {
+      '--school-primary': primary,
+      '--school-secondary': secondary,
+      '--school-accent': accent,
+      '--blue': primary,
+      '--green': secondary,
+      '--tenant-accent': accent,
+      '--button-end': `color-mix(in srgb, ${primary} 80%, white)`,
     } : null
 
     const names = [
@@ -192,6 +224,47 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     activeOrganization?.primary_color,
     activeOrganization?.secondary_color,
     activeOrganization?.accent_color,
+    schoolBranding?.primary_color,
+    schoolBranding?.secondary_color,
+    schoolBranding?.accent_color,
+  ])
+
+  useEffect(() => {
+    const pathname = location.pathname
+
+    // Public school pages manage their own title/favicon because they can be
+    // opened without an authenticated tenant session.
+    if (pathname.startsWith('/school/')) return
+
+    if (pathname.startsWith('/app') && activeOrganization) {
+      const schoolName = schoolBranding?.school_name || activeOrganization.name
+      const section = pathname.startsWith('/app/teacher')
+        ? 'Enseignant'
+        : pathname.startsWith('/app/student')
+          ? 'Étudiant'
+          : 'Gestion'
+      document.title = `${schoolName} — ${section}`
+      setDocumentIcon(
+        schoolBranding?.favicon_url
+        || schoolBranding?.logo_url
+        || activeOrganization.logo_url
+        || DEFAULT_PLATFORM_LOGO_URL,
+      )
+      return
+    }
+
+    if (pathname.startsWith('/login') || pathname.startsWith('/invite') || pathname.startsWith('/admin')) {
+      document.title = 'Académie des Créatifs SaaS'
+      setDocumentIcon(DEFAULT_PLATFORM_LOGO_URL)
+    }
+  }, [
+    location.pathname,
+    activeOrganization?.id,
+    activeOrganization?.name,
+    activeOrganization?.logo_url,
+    schoolBranding?.school_name,
+    schoolBranding?.logo_url,
+    schoolBranding?.favicon_url,
   ])
 
   const selectOrganization = useCallback(
@@ -208,6 +281,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       brandingRequest.current += 1
       setAccessProfile(null)
       setProfileError('')
+      setSchoolBranding(null)
       setActiveOrganization(selected)
       setStoredOrganizationId(selected.id)
     },
@@ -226,22 +300,26 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     () => ({
       organizations,
       activeOrganization,
+      schoolBranding,
       accessProfile,
       loading,
       profileLoading,
       profileError,
       refreshOrganizations,
+      refreshBranding,
       refreshAccessProfile,
       selectOrganization,
     }),
     [
       organizations,
       activeOrganization,
+      schoolBranding,
       accessProfile,
       loading,
       profileLoading,
       profileError,
       refreshOrganizations,
+      refreshBranding,
       refreshAccessProfile,
       selectOrganization,
     ],
