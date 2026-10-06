@@ -8,11 +8,9 @@ import {
   ClipboardCheck,
   FileText,
   LayoutDashboard,
-  Bell,
   UserRound,
   Users,
 } from 'lucide-react'
-import { MessageNavIcon } from './MessageNavIcon'
 import { SchoolWorkspaceLayout } from './SchoolWorkspaceLayout'
 
 export function TeacherLayout() {
@@ -26,8 +24,6 @@ export function TeacherLayout() {
           icon: <LayoutDashboard size={18} />,
           end: true,
         },
-        { to: '/app/teacher/notifications', label: 'Notifications', icon: <Bell size={18} /> },
-        { to: '/app/teacher/messages', label: 'Messages', icon: <MessageNavIcon /> },
         {
           to: '/app/teacher/performance',
           label: 'Performance',
