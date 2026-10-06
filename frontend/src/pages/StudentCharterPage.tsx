@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, Check, GraduationCap } from 'lucide-react'
+import { ArrowRight, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
+import { SchoolLogo } from '../brand/SchoolLogo'
 import {
   acceptSchoolCharter,
   getSchoolCharter,
@@ -55,11 +56,23 @@ export function StudentCharterPage() {
 
   if (loading) return <div className="app-loading">Préparation de votre espace étudiant…</div>
 
+  const schoolName = activeOrganization?.name || 'Votre école'
+
   return (
     <main className="student-charter-page">
       <section className="student-charter-card">
-        <div className="student-charter-icon"><GraduationCap size={25} /></div>
-        <span className="page-kicker">Bienvenue dans {activeOrganization?.name}</span>
+        <div className="student-charter-brand">
+          <SchoolLogo
+            logoUrl={activeOrganization?.logo_url}
+            alt={schoolName}
+            className="student-charter-brand__logo"
+          />
+          <div>
+            <strong>{schoolName}</strong>
+            <small>Espace étudiant</small>
+          </div>
+        </div>
+        <span className="page-kicker">Bienvenue dans {schoolName}</span>
         <h1>{charter?.title || 'Charte de l’étudiant'}</h1>
         <p>Avant d’accéder à vos cours, prenez connaissance des règles de votre école.</p>
 
