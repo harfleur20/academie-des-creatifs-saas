@@ -17,11 +17,13 @@ def complete_profile() -> TeacherProfessionalProfileRecord:
         languages=["Français"],
         whatsapp_phone="+237677123456",
         whatsapp_country="CM",
+        city="Douala",
+        country="Cameroun",
         portfolio_url="https://portfolio.example.com",
     )
 
 
-def test_teacher_profile_requires_whatsapp_and_teaching_language() -> None:
+def test_teacher_profile_requires_whatsapp_teaching_language_and_location() -> None:
     profile = complete_profile()
     assert teacher_profile_complete(profile) is True
 
@@ -30,6 +32,14 @@ def test_teacher_profile_requires_whatsapp_and_teaching_language() -> None:
 
     profile.whatsapp_phone = "+237677123456"
     profile.languages = []
+    assert teacher_profile_complete(profile) is False
+
+    profile.languages = ["Français"]
+    profile.city = None
+    assert teacher_profile_complete(profile) is False
+
+    profile.city = "Douala"
+    profile.country = None
     assert teacher_profile_complete(profile) is False
 
 
