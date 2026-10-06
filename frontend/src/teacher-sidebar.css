@@ -10,13 +10,15 @@
   flex-shrink: 0;
 }
 
+/* Give the navigation a little breathing room below the workspace badge/divider. */
 .tenant-role-shell--teacher .tenant-role-nav {
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-bottom: 8px;
+  padding-top: 18px;
+  padding-bottom: 12px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -25,4 +27,69 @@
   display: none;
   width: 0;
   height: 0;
+}
+
+/* Typography closer to the mother-site workspace: readable without making the menu bulky. */
+.tenant-role-shell--teacher .tenant-role-brand strong {
+  font-size: 15px;
+  line-height: 1.18;
+}
+
+.tenant-role-shell--teacher .tenant-role-brand small {
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.tenant-role-shell--teacher .tenant-role-badge {
+  font-size: 9.5px;
+  line-height: 1.2;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.tenant-role-shell--teacher .tenant-role-nav a {
+  min-height: 46px;
+  gap: 11px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 750;
+}
+
+.tenant-role-shell--teacher .tenant-role-nav a > span {
+  width: 22px;
+}
+
+.tenant-role-shell--teacher .tenant-role-nav a > span svg {
+  width: 21px;
+  height: 21px;
+  stroke-width: 1.9;
+}
+
+.tenant-role-shell--teacher .tenant-role-user-pill {
+  padding: 11px;
+}
+
+.tenant-role-shell--teacher .tenant-role-user-pill strong {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.tenant-role-shell--teacher .tenant-role-user-pill small {
+  font-size: 9.5px;
+  line-height: 1.2;
+}
+
+.tenant-role-shell--teacher .tenant-role-powered > small {
+  font-size: 7px;
+}
+
+.tenant-role-shell--teacher .tenant-role-powered > span {
+  font-size: 8px;
+}
+
+@media (max-width: 900px) {
+  .tenant-role-shell--teacher .tenant-role-nav {
+    padding-top: 15px;
+  }
 }
