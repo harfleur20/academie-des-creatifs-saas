@@ -70,6 +70,10 @@ export function FormationsManagementPage() {
   const [formatType, setFormatType] = useState<'live' | 'ligne' | 'presentiel'>('ligne')
   const [trainingHours, setTrainingHours] = useState('')
   const [description, setDescription] = useState('')
+  const [shortDescription, setShortDescription] = useState('')
+  const [objectives, setObjectives] = useState('')
+  const [prerequisites, setPrerequisites] = useState('')
+  const [publicProgram, setPublicProgram] = useState('')
   const [creating, setCreating] = useState(false)
   const [publishingId, setPublishingId] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -105,6 +109,10 @@ export function FormationsManagementPage() {
         format_type: formatType,
         training_hours: trainingHours ? Number(trainingHours) : null,
         description: description.trim(),
+        short_description: shortDescription.trim(),
+        objectives: objectives.trim(),
+        prerequisites: prerequisites.trim(),
+        public_program: publicProgram.trim(),
       })
       setTitle('')
       setCategory('')
@@ -112,6 +120,10 @@ export function FormationsManagementPage() {
       setLevel('')
       setTrainingHours('')
       setDescription('')
+      setShortDescription('')
+      setObjectives('')
+      setPrerequisites('')
+      setPublicProgram('')
       await refresh()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Création impossible.')
@@ -248,9 +260,40 @@ export function FormationsManagementPage() {
           </div>
 
           <label>
-            Description
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={5000} />
+            Description générale
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={5000} placeholder="Présentez la formation, sa promesse et son approche pédagogique." />
           </label>
+
+          <section className="formation-public-fields">
+            <div className="formation-public-fields-heading">
+              <span className="section-label">Page publique</span>
+              <h3>Contenu de la fiche de formation</h3>
+              <p>Ces informations alimentent directement la page que verront les futurs apprenants.</p>
+            </div>
+
+            <label>
+              Résumé court
+              <textarea value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} maxLength={500} rows={3} placeholder="Ex. En 6 semaines, apprenez à créer des applications web sans écrire une seule ligne de code." />
+              <small>{shortDescription.length}/500 · utilisé dans l’introduction et les cartes du catalogue.</small>
+            </label>
+
+            <label>
+              À la fin de cette formation, l’apprenant sera capable de…
+              <textarea value={objectives} onChange={(e) => setObjectives(e.target.value)} maxLength={10000} rows={5} placeholder={'Concevoir une application complète\nAutomatiser des tâches métier\nCréer une interface professionnelle'} />
+              <small>Un acquis par ligne pour obtenir une lecture claire sur la page publique.</small>
+            </label>
+
+            <label>
+              À qui s’adresse cette formation ? / Prérequis
+              <textarea value={prerequisites} onChange={(e) => setPrerequisites(e.target.value)} maxLength={10000} rows={4} placeholder="Décrivez le public cible, le niveau attendu et les éventuels prérequis." />
+            </label>
+
+            <label>
+              Programme public
+              <textarea value={publicProgram} onChange={(e) => setPublicProgram(e.target.value)} maxLength={30000} rows={7} placeholder="Présentez ici les grandes étapes, semaines ou thèmes du parcours." />
+              <small>Les modules détaillés seront aussi construits automatiquement à partir des cours et chapitres ajoutés dans la formation.</small>
+            </label>
+          </section>
 
           <button className="primary-button" disabled={creating || !setup || Boolean(setupBlockingStep)}>
             <Plus size={16} />
