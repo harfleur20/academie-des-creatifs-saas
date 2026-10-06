@@ -4,6 +4,7 @@ import {
   BriefcaseBusiness,
   Check,
   ChevronDown,
+  Eye,
   FileText,
   Globe2,
   GraduationCap,
@@ -18,10 +19,12 @@ import {
   getPhoneCountries,
   getSchoolCharter,
   getTeacherProfessionalProfile,
+  previewTeacherProfessionalDocument,
   saveTeacherProfessionalProfile,
   uploadTeacherProfessionalDocument,
   type PhoneCountryOption,
   type SchoolCharter,
+  type TeacherDocumentKind,
   type TeacherProfessionalProfile,
 } from '../onboarding/workspaceOnboardingApi'
 import '../teacher-contact-fields.css'
@@ -71,6 +74,14 @@ function normalizeLanguageName(value: string) {
   return value.trim().toLocaleLowerCase('fr-FR')
 }
 
+function normalizeCountryLabel(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('fr-FR')
+}
+
 export function TeacherSetupPage() {
   const navigate = useNavigate()
   const { activeOrganization } = useTenant()
@@ -96,6 +107,7 @@ export function TeacherSetupPage() {
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [city, setCity] = useState('')
   const [country, setCountry] = useState('')
+  const [countryCode, setCountryCode] = useState(DEFAULT_PHONE_COUNTRY)
   const [charterAccepted, setCharterAccepted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
@@ -112,6 +124,8 @@ export function TeacherSetupPage() {
 
   const selectedPhoneCountry = phoneCountries.find((item) => item.code === whatsappCountry)
     || phoneCountries.find((item) => item.code === DEFAULT_PHONE_COUNTRY)
+
+  const selectedCountryName = country || regionNames.of(countryCode) || 'Cameroun'
 
   useEffect(() => {
     let active = true
@@ -161,13 +175,21 @@ export function TeacherSetupPage() {
         setWhatsappCountry(phoneCountryRow?.code || DEFAULT_PHONE_COUNTRY)
         setWhatsappPhone(localPhoneValue(nextProfile.whatsapp_phone, phoneCountryRow?.dial_code || '+237'))
 
+        const savedCountry = nextProfile.country?.trim() || ''
+        const savedCountryRow = countries.find((item) => (
+          normalizeCountryLabel(regionNames.of(item.code) || item.code) === normalizeCountryLabel(savedCountry)
+        )) || countries.find((item) => item.code === DEFAULT_PHONE_COUNTRY)
+        const resolvedCountryCode = savedCountryRow?.code || DEFAULT_PHONE_COUNTRY
+        const resolvedCountryName = savedCountry || regionNames.of(resolvedCountryCode) || 'Cameroun'
+
         setPortfolioUrl(nextProfile.portfolio_url || '')
         setLinkedinUrl(nextProfile.linkedin_url || '')
         setBehanceUrl(nextProfile.behance_url || '')
         setGithubUrl(nextProfile.github_url || '')
         setWebsiteUrl(nextProfile.website_url || '')
         setCity(nextProfile.city || '')
-        setCountry(nextProfile.country || '')
+        setCountryCode(resolvedCountryCode)
+        setCountry(resolvedCountryName)
         setCharterAccepted(nextCharter.accepted_current_version)
       })
       .catch((cause) => {
@@ -177,7 +199,7 @@ export function TeacherSetupPage() {
         if (active) setLoading(false)
       })
     return () => { active = false }
-  }, [activeOrganization?.id])
+  }, [activeOrganization?.id, regionNames])
 
   const identityInitials = useMemo(() => (
     (profile?.full_name || '?')
@@ -201,6 +223,16 @@ export function TeacherSetupPage() {
       setError(cause instanceof Error ? cause.message : 'Téléversement impossible.')
     } finally {
       setUploading(null)
+    }
+  }
+
+  async function previewDocument(kind: TeacherDocumentKind) {
+    if (!profile) return
+    setError('')
+    try {
+      await previewTeacherProfessionalDocument(profile.user_id, kind)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Aperçu du document impossible.')
     }
   }
 
@@ -241,6 +273,10 @@ export function TeacherSetupPage() {
       setError('Renseignez votre numéro WhatsApp.')
       return
     }
+    if (!city.trim() || !country.trim()) {
+      setError('Renseignez votre ville et votre pays.')
+      return
+    }
     if (!portfolioUrl.trim() && !profile?.portfolio_file_name) {
       setError('Ajoutez votre portfolio avec une URL ou un fichier PDF.')
       return
@@ -266,8 +302,8 @@ export function TeacherSetupPage() {
         behance_url: behanceUrl.trim() || null,
         github_url: githubUrl.trim() || null,
         website_url: websiteUrl.trim() || null,
-        city: city.trim() || null,
-        country: country.trim() || null,
+        city: city.trim(),
+        country: country.trim(),
       })
       setProfile(saved)
       if (!saved.is_complete) {
@@ -324,12 +360,7 @@ export function TeacherSetupPage() {
               <div className="teacher-phone-control">
                 <details className="teacher-country-picker">
                   <summary aria-label={`Pays du numéro WhatsApp : ${regionNames.of(whatsappCountry) || whatsappCountry}`}>
-                    <img
-                      src={flagImageUrl(whatsappCountry)}
-                      alt=""
-                      className="teacher-country-flag"
-                      aria-hidden="true"
-                    />
+                    <img src={flagImageUrl(whatsappCountry)} alt="" className="teacher-country-flag" aria-hidden="true" />
                     <ChevronDown size={14} aria-hidden="true" />
                   </summary>
                   <div className="teacher-country-menu" role="listbox" aria-label="Choisir le pays du numéro WhatsApp">
@@ -417,11 +448,42 @@ export function TeacherSetupPage() {
                 />
               </label>
             )}
-            <label className="span-two">Domaines d’activité *<input value={domains} onChange={(e) => setDomains(e.target.value)} placeholder="Motion design, Design graphique, 3D" /><small>Séparez les domaines par des virgules.</small></label>
-            <label className="span-two">Compétences / spécialités *<input value={skills} onChange={(e) => setSkills(e.target.value)} placeholder="After Effects, Blender, Figma" /><small>Séparez les compétences par des virgules.</small></label>
-            <label className="span-two">Bio professionnelle *<textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={5} maxLength={2000} placeholder="Présentez votre parcours, votre manière d’enseigner et votre expertise…" /><small>{bio.length}/2000 · minimum 40 caractères</small></label>
-            <label>Ville<input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Douala" /></label>
-            <label>Pays<input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Cameroun" /></label>
+            <label className="span-two">Domaines d’activité *<input value={domains} onChange={(e) => setDomains(e.target.value)} placeholder="Motion design, Design graphique, 3D" required /><small>Séparez les domaines par des virgules.</small></label>
+            <label className="span-two">Compétences / spécialités *<input value={skills} onChange={(e) => setSkills(e.target.value)} placeholder="After Effects, Blender, Figma" required /><small>Séparez les compétences par des virgules.</small></label>
+            <label className="span-two">Bio professionnelle *<textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={5} maxLength={2000} minLength={40} placeholder="Présentez votre parcours, votre manière d’enseigner et votre expertise…" required /><small>{bio.length}/2000 · minimum 40 caractères</small></label>
+            <label>Ville *<input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Douala" required /></label>
+            <div className="teacher-location-country-field">
+              <span className="teacher-input-label">Pays *</span>
+              <details className="teacher-residence-country-picker">
+                <summary aria-label={`Pays de résidence : ${selectedCountryName}`}>
+                  <img src={flagImageUrl(countryCode)} alt="" className="teacher-country-flag" aria-hidden="true" />
+                  <span>{selectedCountryName}</span>
+                  <ChevronDown size={15} aria-hidden="true" />
+                </summary>
+                <div className="teacher-country-menu teacher-residence-country-menu" role="listbox" aria-label="Choisir votre pays">
+                  {sortedPhoneCountries.map((item) => {
+                    const countryName = regionNames.of(item.code) || item.code
+                    return (
+                      <button
+                        key={item.code}
+                        type="button"
+                        className={item.code === countryCode ? 'is-selected' : ''}
+                        role="option"
+                        aria-selected={item.code === countryCode}
+                        onClick={(event) => {
+                          setCountryCode(item.code)
+                          setCountry(countryName)
+                          event.currentTarget.closest('details')?.removeAttribute('open')
+                        }}
+                      >
+                        <img src={flagImageUrl(item.code)} alt="" aria-hidden="true" />
+                        <span>{countryName}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </details>
+            </div>
 
             <fieldset className="span-two teacher-language-fieldset">
               <legend>Langues d’enseignement *</legend>
@@ -455,11 +517,16 @@ export function TeacherSetupPage() {
               <div><strong>Portfolio *</strong><small>Ajoutez une URL ou un PDF.</small></div>
               <input type="url" value={portfolioUrl} onChange={(e) => setPortfolioUrl(e.target.value)} placeholder="https://monportfolio.com" />
               <label className="teacher-upload-button"><Upload size={15} /> {uploading === 'portfolio' ? 'Téléversement…' : profile?.portfolio_file_name || 'Importer un PDF'}<input type="file" accept="application/pdf" onChange={(e) => void upload('portfolio', e)} disabled={Boolean(uploading)} /></label>
+              <div className="teacher-document-actions">
+                {profile?.portfolio_file_name && <button type="button" className="teacher-preview-button" onClick={() => void previewDocument('portfolio')}><Eye size={15} /> Aperçu du PDF</button>}
+                {portfolioUrl && <a className="teacher-preview-button" href={portfolioUrl} target="_blank" rel="noopener noreferrer"><Eye size={15} /> Voir le lien</a>}
+              </div>
             </div>
             <div className="teacher-document-box">
               <FileText size={20} />
               <div><strong>CV</strong><small>Facultatif · PDF · 10 Mo max.</small></div>
               <label className="teacher-upload-button"><Upload size={15} /> {uploading === 'cv' ? 'Téléversement…' : profile?.cv_file_name || 'Importer mon CV'}<input type="file" accept="application/pdf" onChange={(e) => void upload('cv', e)} disabled={Boolean(uploading)} /></label>
+              {profile?.cv_file_name && <div className="teacher-document-actions"><button type="button" className="teacher-preview-button" onClick={() => void previewDocument('cv')}><Eye size={15} /> Aperçu du CV</button></div>}
             </div>
           </div>
 
