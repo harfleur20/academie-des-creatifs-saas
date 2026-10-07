@@ -18,6 +18,7 @@ import './toast.css'
 import './tenant-role-mother-palette.css'
 import './role-dashboard-polish.css'
 import './student-mother-parity.css'
+import './student-course-parity.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 
