@@ -3,6 +3,7 @@ import {
   CalendarDays,
   GraduationCap,
   NotebookPen,
+  Video,
 } from 'lucide-react'
 import { SchoolLogo } from '../brand/SchoolLogo'
 
@@ -52,7 +53,7 @@ export function RoleSchoolVisual({
         <GraduationCap size={26} />
       </span>
       <span className="role-school-visual__bubble role-school-visual__bubble--book">
-        <BookOpen size={21} />
+        <Video size={21} />
       </span>
       <span className="role-school-visual__bubble role-school-visual__bubble--calendar">
         <CalendarDays size={20} />
