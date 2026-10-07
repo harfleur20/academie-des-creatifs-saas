@@ -110,9 +110,23 @@ export type AiAssignmentDraftPayload = AiGenerationBasePayload & {
   assignment_type?: string | null
 }
 
+export type AiAssignmentBrief = {
+  context: string
+  objective: string
+  deliverables: string[]
+  steps: string[]
+  evaluation_criteria: Array<{
+    label: string
+    points: number
+    description: string
+  }>
+  submission_method: string
+  tips: string[]
+}
+
 export type AiAssignmentDraft = {
   title: string
-  brief: Record<string, unknown>
+  brief: AiAssignmentBrief
   instructions: string
   is_final_project: boolean
   duration_days: number
