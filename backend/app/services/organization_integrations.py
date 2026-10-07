@@ -64,23 +64,23 @@ def _openai_headers(api_key: str) -> dict[str, str]:
     }
 
 
-def _connection_error(response: httpx.Response) -> str:
+def _connection_error(response: httpx.Response, *, model: str | None = None) -> str:
     if response.status_code == 401:
         return "Clé API OpenAI invalide ou révoquée."
     if response.status_code == 403:
         return "Cette clé OpenAI n’autorise pas cet accès."
+    if response.status_code == 404 and model:
+        return f"Le modèle OpenAI « {model} » n’est pas disponible pour cette clé."
     if response.status_code == 429:
         return "OpenAI refuse temporairement la requête (quota ou limite atteinte)."
     return f"OpenAI a répondu avec le statut {response.status_code}."
 
 
-def test_openai_key(api_key: str) -> None:
+def test_openai_key(api_key: str, model: str | None = None) -> None:
+    endpoint = f"{OPENAI_API_BASE_URL}/models/{model}" if model else f"{OPENAI_API_BASE_URL}/models"
     try:
         with httpx.Client(timeout=15.0) as client:
-            response = client.get(
-                f"{OPENAI_API_BASE_URL}/models",
-                headers=_openai_headers(api_key),
-            )
+            response = client.get(endpoint, headers=_openai_headers(api_key))
     except httpx.HTTPError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -89,7 +89,7 @@ def test_openai_key(api_key: str) -> None:
     if response.status_code >= 400:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_connection_error(response),
+            detail=_connection_error(response, model=model),
         )
 
 
@@ -102,7 +102,7 @@ def save_openai_integration(
 ) -> OrganizationIntegrationRecord:
     normalized_key = api_key.strip()
     normalized_model = model.strip() or DEFAULT_OPENAI_MODEL
-    test_openai_key(normalized_key)
+    test_openai_key(normalized_key, normalized_model)
     now = datetime.now(UTC)
     record = get_integration(db, tenant, OPENAI_PROVIDER)
     if record is None:
@@ -140,7 +140,7 @@ def test_saved_openai_integration(
             detail="OpenAI n’est pas connecté pour cette école.",
         )
     try:
-        test_openai_key(decrypt_secret(record.secret_ciphertext))
+        test_openai_key(decrypt_secret(record.secret_ciphertext), record.model)
     except HTTPException as exc:
         record.status = "error"
         record.last_tested_at = datetime.now(UTC)
