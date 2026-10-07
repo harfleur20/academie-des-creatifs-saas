@@ -245,7 +245,7 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
   }
 
   function selectSession(id: number) {
-    setSelectedEnrollmentId(id)
+    setSelectedEnrollmentId(id > 0 ? id : null)
     setActiveLesson(null)
     setOpenCourses(new Set())
     setOpenChapters(new Set())
