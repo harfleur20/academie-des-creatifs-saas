@@ -181,8 +181,13 @@ export function SchoolWorkspaceLayout({
   }
 
   function handleSignOut() {
+    const schoolSlug = activeOrganization?.slug
     signOut()
-    navigate('/login')
+    if (schoolSlug) {
+      window.location.assign(`/school/${encodeURIComponent(schoolSlug)}`)
+      return
+    }
+    navigate('/')
   }
 
   function toggleNavGroup(key: string) {
