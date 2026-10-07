@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react'
 import { GraduationCap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
-import { ApiError, getStudentWorkspace, type StudentWorkspace } from '../lib/api'
+import {
+  ApiError,
+  getStudentWorkspace,
+  listPublicSchoolFormations,
+  type StudentWorkspace,
+} from '../lib/api'
 
 type Filter = 'all' | 'classic' | 'guided'
 
@@ -24,7 +29,24 @@ export function StudentParcoursPage() {
     setWorkspace(null)
     setError('')
     getStudentWorkspace()
-      .then((next) => { if (!cancelled) setWorkspace(next) })
+      .then(async (next) => {
+        if (next.sessions.some((session) => !session.formation_image)) {
+          try {
+            const catalogue = await listPublicSchoolFormations(activeOrganization.slug)
+            const images = new Map(catalogue.map((formation) => [formation.id, formation.cover_image_url]))
+            next = {
+              ...next,
+              sessions: next.sessions.map((session) => ({
+                ...session,
+                formation_image: session.formation_image || images.get(session.formation_id) || null,
+              })),
+            }
+          } catch {
+            // The student workspace remains available if the public catalogue cannot load.
+          }
+        }
+        if (!cancelled) setWorkspace(next)
+      })
       .catch((err) => { if (!cancelled) setError(err instanceof ApiError ? err.message : 'Chargement impossible.') })
     return () => { cancelled = true }
   }, [activeOrganization?.id])
