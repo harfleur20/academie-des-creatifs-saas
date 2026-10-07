@@ -4,9 +4,13 @@ import {
   Clock3,
   ExternalLink,
   FileUp,
+  LoaderCircle,
   MessageSquare,
   Plus,
+  Sparkles,
   Users,
+  WandSparkles,
+  X,
 } from 'lucide-react'
 import {
   ApiError,
@@ -25,6 +29,10 @@ import {
   type CourseDay,
   type TeacherWorkspace,
 } from '../lib/api'
+import {
+  generateTeacherAssignmentDraft,
+  getTeacherAIStatus,
+} from '../lib/tenantIntegrationApi'
 
 function dateTime(value: string) {
   return new Date(value).toLocaleString('fr-FR', {
@@ -35,6 +43,30 @@ function dateTime(value: string) {
     minute: '2-digit',
   })
 }
+
+function toDateTimeLocal(date: Date) {
+  const adjusted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return adjusted.toISOString().slice(0, 16)
+}
+
+function assignmentBriefToText(brief: Record<string, unknown>, fallback: string) {
+  const lines: string[] = []
+  if (typeof brief.context === 'string' && brief.context.trim()) {
+    lines.push('Contexte', brief.context.trim(), '')
+  }
+  const deliverables = Array.isArray(brief.deliverables) ? brief.deliverables.filter((item): item is string => typeof item === 'string') : []
+  if (deliverables.length) {
+    lines.push('Livrables attendus', ...deliverables.map((item) => `- ${item}`), '')
+  }
+  const criteria = Array.isArray(brief.success_criteria) ? brief.success_criteria.filter((item): item is string => typeof item === 'string') : []
+  if (criteria.length) {
+    lines.push('Critères de réussite', ...criteria.map((item) => `- ${item}`), '')
+  }
+  if (fallback.trim()) lines.push('Consignes', fallback.trim())
+  return lines.join('\n').trim() || fallback
+}
+
+type CreationMode = 'manual' | 'ai'
 
 export function TeacherAssignmentsPage() {
   const [workspace, setWorkspace] = useState<TeacherWorkspace | null>(null)
@@ -54,16 +86,28 @@ export function TeacherAssignmentsPage() {
   const [comment, setComment] = useState('')
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [creationMode, setCreationMode] = useState<CreationMode>('manual')
+
+  const [aiConnected, setAiConnected] = useState<boolean | null>(null)
+  const [aiTopic, setAiTopic] = useState('')
+  const [aiLevel, setAiLevel] = useState('')
+  const [aiObjectives, setAiObjectives] = useState('')
+  const [aiDurationDays, setAiDurationDays] = useState(7)
+  const [aiAssignmentType, setAiAssignmentType] = useState('auto')
+  const [aiGenerating, setAiGenerating] = useState(false)
 
   useEffect(() => {
-    getTeacherWorkspace()
-      .then((data) => {
-        setWorkspace(data)
-        setSessionId(data.sessions[0]?.session_id ?? null)
-      })
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : 'Chargement impossible.'),
-      )
+    Promise.all([
+      getTeacherWorkspace(),
+      getTeacherAIStatus().catch(() => null),
+    ]).then(([data, aiStatus]) => {
+      setWorkspace(data)
+      setSessionId(data.sessions[0]?.session_id ?? null)
+      setAiConnected(aiStatus?.connected ?? false)
+    }).catch((err) =>
+      setError(err instanceof ApiError ? err.message : 'Chargement impossible.'),
+    )
   }, [])
 
   async function refreshSession(id: number) {
@@ -87,9 +131,52 @@ export function TeacherAssignmentsPage() {
     [workspace, sessionId],
   )
 
+  function resetForm() {
+    setTitle('')
+    setInstructions('')
+    setDueDate('')
+    setCourseDayId('')
+    setFinalProject(false)
+    setCreationMode('manual')
+    setAiTopic('')
+    setAiLevel('')
+    setAiObjectives('')
+    setAiDurationDays(7)
+    setAiAssignmentType('auto')
+  }
+
+  async function generateWithAI() {
+    if (!sessionId || !aiTopic.trim()) return
+    setAiGenerating(true)
+    setError('')
+    try {
+      const draft = await generateTeacherAssignmentDraft({
+        session_id: sessionId,
+        topic: aiTopic.trim(),
+        level: aiLevel.trim() || null,
+        objectives: aiObjectives.trim() || null,
+        course_day_id: courseDayId ? Number(courseDayId) : null,
+        duration_days: aiDurationDays,
+        is_final_project: finalProject,
+        assignment_type: finalProject ? 'final_project' : aiAssignmentType,
+      })
+      setTitle(draft.title)
+      setInstructions(assignmentBriefToText(draft.brief, draft.instructions))
+      setFinalProject(draft.is_final_project)
+      const deadline = new Date()
+      deadline.setDate(deadline.getDate() + draft.duration_days)
+      deadline.setHours(23, 59, 0, 0)
+      setDueDate(toDateTimeLocal(deadline))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de générer le devoir.')
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
   async function createAssignment(event: FormEvent) {
     event.preventDefault()
-    if (!sessionId || !dueDate) return
+    if (!sessionId || !dueDate || title.trim().length < 2) return
 
     setWorking(true)
     setError('')
@@ -101,11 +188,8 @@ export function TeacherAssignmentsPage() {
         course_day_id: courseDayId ? Number(courseDayId) : null,
         is_final_project: finalProject,
       })
-      setTitle('')
-      setInstructions('')
-      setDueDate('')
-      setCourseDayId('')
-      setFinalProject(false)
+      resetForm()
+      setShowForm(false)
       await refreshSession(sessionId)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Création impossible.')
@@ -121,14 +205,7 @@ export function TeacherAssignmentsPage() {
     try {
       const rows = await listAssignmentSubmissions(assignment.id)
       setSubmissions(rows)
-      setScores(
-        Object.fromEntries(
-          rows.map((submission) => [
-            submission.id,
-            String(submission.review_score ?? ''),
-          ]),
-        ),
-      )
+      setScores(Object.fromEntries(rows.map((submission) => [submission.id, String(submission.review_score ?? '')])))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Soumissions indisponibles.')
     }
@@ -137,17 +214,13 @@ export function TeacherAssignmentsPage() {
   async function saveScore(submission: AssignmentSubmission) {
     if (!selected) return
     const score = Number(scores[submission.id])
-    if (Number.isNaN(score)) return
-
+    if (Number.isNaN(score) || score < 0 || score > 20) {
+      setError('La note doit être comprise entre 0 et 20.')
+      return
+    }
     try {
-      const updated = await reviewAssignmentSubmission(
-        selected.id,
-        submission.id,
-        score,
-      )
-      setSubmissions((rows) =>
-        rows.map((row) => (row.id === updated.id ? updated : row)),
-      )
+      const updated = await reviewAssignmentSubmission(selected.id, submission.id, score)
+      setSubmissions((rows) => rows.map((row) => (row.id === updated.id ? updated : row)))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Correction impossible.')
     }
@@ -156,247 +229,148 @@ export function TeacherAssignmentsPage() {
   async function openThread(submission: AssignmentSubmission) {
     if (!selected) return
     setThreadSubmission(submission)
-    setComments(
-      await listAssignmentComments(selected.id, submission.enrollment_id),
-    )
+    try {
+      setComments(await listAssignmentComments(selected.id, submission.enrollment_id))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Échanges indisponibles.')
+    }
   }
 
   async function sendComment() {
     if (!selected || !threadSubmission || !comment.trim()) return
-    const created = await createAssignmentComment(
-      selected.id,
-      threadSubmission.enrollment_id,
-      { body: comment.trim() },
-    )
-    setComments((rows) => [...rows, created])
-    setComment('')
+    try {
+      const created = await createAssignmentComment(selected.id, threadSubmission.enrollment_id, { body: comment.trim() })
+      setComments((rows) => [...rows, created])
+      setComment('')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Message non envoyé.')
+    }
   }
 
   return (
-    <main className="app-page assignments-page">
-      <header className="app-page-header">
-        <div>
-          <span className="page-kicker">Espace professeur</span>
-          <h1>Devoirs</h1>
-          <p>Créez les travaux de vos sessions et corrigez les remises de vos étudiants.</p>
+    <main className="app-page teacher-mother-page">
+      <div className="dsh-page teacher-dsh-page">
+        <div className="teacher-page-head">
+          <div>
+            <h1>Devoirs</h1>
+            <p>Créez les travaux de vos sessions et corrigez les remises de vos étudiants.</p>
+          </div>
+          <button className="dsh-btn dsh-btn--primary" type="button" disabled={!currentSession} onClick={() => setShowForm(true)}>
+            <Plus size={14} /> Nouveau devoir
+          </button>
         </div>
-      </header>
 
-      {error && <div className="form-error">{error}</div>}
+        {error && <div className="dsh-error">{error}</div>}
 
-      <div className="assignment-session-picker">
-        <label>
-          Session
-          <select
-            value={sessionId ?? ''}
-            onChange={(event) => setSessionId(Number(event.target.value))}
-          >
+        <label className="teacher-session-select">
+          <span>Session</span>
+          <select value={sessionId ?? ''} onChange={(event) => setSessionId(Number(event.target.value))}>
             {workspace?.sessions.map((session) => (
-              <option key={session.session_id} value={session.session_id}>
-                {session.formation_title} · {session.session_label}
-              </option>
+              <option key={session.session_id} value={session.session_id}>{session.formation_title} · {session.session_label}</option>
             ))}
           </select>
         </label>
+
+        <div className="teacher-assignment-list dsh-list">
+          {assignments.map((assignment) => (
+            <article className="dsh-list-item teacher-assignment-row" key={assignment.id}>
+              <div className="dsh-list-item__main">
+                <div className="teacher-assignment-title-row">
+                  <strong>{assignment.title}</strong>
+                  {assignment.is_final_project && <span className="dsh-badge dsh-badge--yellow">Projet final</span>}
+                </div>
+                <span className="dsh-list-item__meta"><Clock3 size={12} /> Date limite : {dateTime(assignment.due_date)}</span>
+                <span className="dsh-list-item__meta"><Users size={12} /> {assignment.submissions_count} soumission(s){assignment.teacher_name ? ` · Prof. ${assignment.teacher_name}` : ''}</span>
+              </div>
+              <div className="dsh-list-item__actions">
+                <button className="dsh-btn dsh-btn--outline dsh-btn--sm" type="button" onClick={() => void openSubmissions(assignment)}>
+                  <Users size={13} /> Voir les soumissions
+                </button>
+              </div>
+            </article>
+          ))}
+          {assignments.length === 0 && (
+            <div className="dsh-empty"><FileUp size={28} /><strong>Aucun devoir</strong><p>Créez le premier devoir de cette session.</p></div>
+          )}
+        </div>
       </div>
 
-      {currentSession && (
-        <section className="assignment-layout">
-          <form className="app-card assignment-create-card" onSubmit={createAssignment}>
-            <span className="section-label">Nouveau devoir</span>
-            <h2>{currentSession.session_label}</h2>
+      {showForm && currentSession && (
+        <div className="dsh-modal-overlay" onClick={() => !working && !aiGenerating && setShowForm(false)}>
+          <form className="dsh-modal dsh-modal--large teacher-create-modal" onSubmit={createAssignment} onClick={(event) => event.stopPropagation()}>
+            <div className="dsh-modal__header">
+              <div><span className="section-label">{currentSession.session_label}</span><h3>Nouveau devoir</h3></div>
+              <button className="dsh-icon-btn" type="button" disabled={working || aiGenerating} onClick={() => setShowForm(false)}><X size={16} /></button>
+            </div>
 
-            <label>
-              Titre
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                required
-                minLength={2}
-              />
-            </label>
+            <div className="teacher-create-tabs">
+              <button type="button" className={creationMode === 'manual' ? 'is-active' : ''} onClick={() => setCreationMode('manual')}>Manuel</button>
+              <button type="button" className={creationMode === 'ai' ? 'is-active' : ''} onClick={() => setCreationMode('ai')}><WandSparkles size={14} /> Avec IA</button>
+            </div>
 
-            <label>
-              Créneau de cours
-              <select
-                value={courseDayId}
-                onChange={(event) => setCourseDayId(event.target.value)}
-              >
-                <option value="">Sans créneau</option>
-                {courseDays
-                  .filter((day) => day.can_edit)
-                  .map((day) => (
-                    <option key={day.id} value={day.id}>
-                      {dateTime(day.scheduled_at)} · {day.title}
-                    </option>
-                  ))}
-              </select>
-            </label>
-
-            <label>
-              Date limite
-              <input
-                type="datetime-local"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-                required
-              />
-            </label>
-
-            <label>
-              Consignes
-              <textarea
-                value={instructions}
-                onChange={(event) => setInstructions(event.target.value)}
-              />
-            </label>
-
-            <label className="assignment-check">
-              <input
-                type="checkbox"
-                checked={finalProject}
-                onChange={(event) => setFinalProject(event.target.checked)}
-              />
-              Projet final
-            </label>
-
-            <button className="primary-button" disabled={working}>
-              <Plus size={15} />
-              {working ? 'Création…' : 'Créer le devoir'}
-            </button>
-          </form>
-
-          <section className="assignment-list">
-            {assignments.map((assignment) => (
-              <article className="app-card assignment-card" key={assignment.id}>
-                <div>
-                  <span className="section-label">
-                    {assignment.is_final_project ? 'Projet final' : 'Devoir'}
-                  </span>
-                  <h3>{assignment.title}</h3>
-                  <p>{assignment.instructions}</p>
-                </div>
-                <div className="assignment-meta">
-                  <span>
-                    <Clock3 size={14} />
-                    Limite : {dateTime(assignment.due_date)}
-                  </span>
-                  <span>
-                    <Users size={14} />
-                    {assignment.submissions_count} soumission(s)
-                  </span>
-                  {assignment.teacher_name && (
-                    <span>Prof. {assignment.teacher_name}</span>
+            <div className="teacher-create-body">
+              {creationMode === 'ai' && (
+                <section className="teacher-ai-panel">
+                  <div className="teacher-ai-title"><Sparkles size={17} /><div><strong>Générer un brouillon de devoir</strong><span>Le résultat reste modifiable avant création.</span></div></div>
+                  {aiConnected === false ? (
+                    <div className="teacher-ai-unavailable">OpenAI n’est pas connecté pour cette école. Demandez à un administrateur de l’activer dans Connect.</div>
+                  ) : (
+                    <>
+                      <label>Sujet / brief<textarea value={aiTopic} onChange={(event) => setAiTopic(event.target.value)} placeholder="Ex. Concevoir une identité visuelle complète pour une marque locale" /></label>
+                      <div className="teacher-form-grid two-columns">
+                        <label>Niveau<input value={aiLevel} onChange={(event) => setAiLevel(event.target.value)} placeholder="Débutant, intermédiaire…" /></label>
+                        <label>Type<select value={aiAssignmentType} onChange={(event) => setAiAssignmentType(event.target.value)}><option value="auto">Automatique</option><option value="creative">Créatif / design</option><option value="marketing">Marketing / stratégie</option><option value="technical">Technique / développement</option><option value="case_study">Étude de cas</option></select></label>
+                      </div>
+                      <label>Objectifs<textarea value={aiObjectives} onChange={(event) => setAiObjectives(event.target.value)} placeholder="Compétences à mobiliser ou résultats attendus" /></label>
+                      <label>Durée prévue<select value={aiDurationDays} onChange={(event) => setAiDurationDays(Number(event.target.value))}><option value={3}>3 jours</option><option value={7}>7 jours</option><option value={14}>14 jours</option><option value={21}>21 jours</option><option value={30}>30 jours</option></select></label>
+                      <button className="dsh-btn dsh-btn--ai" type="button" disabled={aiGenerating || !aiTopic.trim()} onClick={() => void generateWithAI()}>
+                        {aiGenerating ? <LoaderCircle className="openai-spin" size={14} /> : <WandSparkles size={14} />} {aiGenerating ? 'Génération…' : 'Générer le brouillon'}
+                      </button>
+                    </>
                   )}
-                </div>
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => void openSubmissions(assignment)}
-                >
-                  <Users size={14} />
-                  Voir les soumissions
-                </button>
-              </article>
-            ))}
+                </section>
+              )}
 
-            {assignments.length === 0 && (
-              <div className="app-card formation-empty">
-                <FileUp size={28} />
-                <strong>Aucun devoir</strong>
-                <p>Créez le premier devoir de cette session.</p>
-              </div>
-            )}
-          </section>
-        </section>
+              <section className="teacher-manual-fields">
+                <label>Titre<input value={title} onChange={(event) => setTitle(event.target.value)} required minLength={2} /></label>
+                <div className="teacher-form-grid two-columns">
+                  <label>Créneau de cours<select value={courseDayId} onChange={(event) => setCourseDayId(event.target.value)}><option value="">Sans créneau</option>{courseDays.filter((day) => day.can_edit).map((day) => <option key={day.id} value={day.id}>{dateTime(day.scheduled_at)} · {day.title}</option>)}</select></label>
+                  <label>Date limite<input type="datetime-local" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required /></label>
+                </div>
+                <label>Consignes<textarea className="teacher-long-textarea" value={instructions} onChange={(event) => setInstructions(event.target.value)} /></label>
+                <label className="teacher-check-row"><input type="checkbox" checked={finalProject} onChange={(event) => setFinalProject(event.target.checked)} /> Projet final</label>
+              </section>
+            </div>
+
+            <div className="dsh-modal__footer">
+              <button className="dsh-btn dsh-btn--ghost" type="button" disabled={working} onClick={() => setShowForm(false)}>Annuler</button>
+              <button className="dsh-btn dsh-btn--primary" disabled={working || title.trim().length < 2 || !dueDate}>{working ? 'Création…' : 'Créer en brouillon'}</button>
+            </div>
+          </form>
+        </div>
       )}
 
       {selected && (
-        <div className="assignment-modal-overlay" onClick={() => setSelected(null)}>
-          <div className="assignment-modal" onClick={(event) => event.stopPropagation()}>
-            <header>
-              <div>
-                <span className="section-label">Soumissions</span>
-                <h2>{selected.title}</h2>
-              </div>
-              <button type="button" onClick={() => setSelected(null)}>×</button>
-            </header>
-
-            <div className="submission-list">
+        <div className="dsh-modal-overlay" onClick={() => setSelected(null)}>
+          <div className="dsh-modal dsh-modal--large teacher-submissions-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="dsh-modal__header"><div><span className="section-label">Soumissions</span><h3>{selected.title}</h3></div><button className="dsh-icon-btn" type="button" onClick={() => setSelected(null)}><X size={16} /></button></div>
+            <div className="teacher-submission-list">
               {submissions.map((submission) => (
-                <article className="submission-row" key={submission.id}>
-                  <div>
-                    <strong>{submission.student_name}</strong>
-                    <small>{dateTime(submission.submitted_at)}</small>
-                  </div>
-                  <button type="button" onClick={() => void openAssignmentSubmission(submission.file_url).catch((cause) => setError(cause instanceof Error ? cause.message : 'Téléchargement impossible.'))}>
-                    <ExternalLink size={14} /> Travail
-                  </button>
-                  <div className="submission-score">
-                    <input
-                      type="number"
-                      min="0"
-                      max="20"
-                      step=".5"
-                      value={scores[submission.id] ?? ''}
-                      onChange={(event) =>
-                        setScores((current) => ({
-                          ...current,
-                          [submission.id]: event.target.value,
-                        }))
-                      }
-                    />
-                    <span>/20</span>
-                    <button type="button" onClick={() => void saveScore(submission)}>
-                      {submission.is_reviewed && <CheckCircle2 size={15} />}
-                      Enregistrer
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    className="secondary-button compact-action"
-                    onClick={() => void openThread(submission)}
-                  >
-                    <MessageSquare size={14} />
-                    Échanges {submission.comment_count > 0 ? '(' + submission.comment_count + ')' : ''}
-                  </button>
+                <article className="teacher-submission-row" key={submission.id}>
+                  <div><strong>{submission.student_name}</strong><small>{dateTime(submission.submitted_at)}</small></div>
+                  <button className="dsh-btn dsh-btn--ghost dsh-btn--sm" type="button" onClick={() => void openAssignmentSubmission(submission.file_url).catch((cause) => setError(cause instanceof Error ? cause.message : 'Téléchargement impossible.'))}><ExternalLink size={13} /> Travail</button>
+                  <div className="teacher-score-control"><input type="number" min="0" max="20" step=".5" value={scores[submission.id] ?? ''} onChange={(event) => setScores((current) => ({ ...current, [submission.id]: event.target.value }))} /><span>/20</span><button className="dsh-btn dsh-btn--outline dsh-btn--sm" type="button" onClick={() => void saveScore(submission)}>{submission.is_reviewed && <CheckCircle2 size={13} />} Enregistrer</button></div>
+                  <button className="dsh-btn dsh-btn--outline dsh-btn--sm" type="button" onClick={() => void openThread(submission)}><MessageSquare size={13} /> Échanges {submission.comment_count > 0 ? `(${submission.comment_count})` : ''}</button>
                 </article>
               ))}
-              {submissions.length === 0 && (
-                <div className="empty-row">Aucune soumission reçue.</div>
-              )}
+              {submissions.length === 0 && <div className="dsh-empty">Aucune soumission reçue.</div>}
             </div>
 
             {threadSubmission && (
-              <section className="assignment-thread">
-                <h3>Échanges avec {threadSubmission.student_name}</h3>
-                <div className="assignment-thread-stream">
-                  {comments.map((entry) => (
-                    <div
-                      className={'assignment-message ' + entry.author_role}
-                      key={entry.id}
-                    >
-                      <strong>{entry.author_name}</strong>
-                      <p>{entry.body}</p>
-                      <small>{dateTime(entry.created_at)}</small>
-                    </div>
-                  ))}
-                </div>
-                <div className="assignment-thread-compose">
-                  <textarea
-                    value={comment}
-                    onChange={(event) => setComment(event.target.value)}
-                    placeholder="Votre retour…"
-                  />
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={() => void sendComment()}
-                    disabled={!comment.trim()}
-                  >
-                    Envoyer
-                  </button>
-                </div>
+              <section className="teacher-assignment-thread">
+                <h4>Échanges avec {threadSubmission.student_name}</h4>
+                <div className="assignment-thread-stream">{comments.map((entry) => <div className={`assignment-message ${entry.author_role}`} key={entry.id}><strong>{entry.author_name}</strong><p>{entry.body}</p><small>{dateTime(entry.created_at)}</small></div>)}</div>
+                <div className="assignment-thread-compose"><textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Votre retour…" /><button className="dsh-btn dsh-btn--primary" type="button" onClick={() => void sendComment()} disabled={!comment.trim()}>Envoyer</button></div>
               </section>
             )}
           </div>
