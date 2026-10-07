@@ -1,0 +1,106 @@
+/* Student progression badges use the prepared LEVEL UP artwork as rewards.
+   The first artwork is previewed while the student is still Aventurier/Démarrage. */
+.student-level-badge {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  line-height: 0;
+}
+
+.student-level-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(16, 35, 63, .16));
+  transition: transform .2s ease, filter .2s ease, opacity .2s ease;
+}
+
+.student-level-badge.is-earned img {
+  opacity: 1;
+}
+
+.student-level-badge.is-earned:hover img {
+  transform: translateY(-2px) scale(1.025);
+}
+
+.student-level-badge.is-locked img {
+  opacity: .45;
+  filter: grayscale(.72) saturate(.55) drop-shadow(0 5px 9px rgba(16, 35, 63, .08));
+}
+
+.role-student-progress-card__head {
+  grid-template-columns: 58px minmax(0, 1fr);
+}
+
+.role-student-progress-card__badge {
+  width: 54px;
+  height: 62px;
+}
+
+.badge-orb {
+  min-width: 136px;
+  max-width: 150px;
+  gap: 4px;
+  padding: 10px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--school-primary) 10%, #e6ebf2);
+  background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--school-secondary) 7%, #fff));
+}
+
+.badge-orb__visual {
+  width: 78px;
+  height: 94px;
+  margin-bottom: 2px;
+}
+
+.badge-orb span {
+  color: #77869a;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.badge-orb strong {
+  color: var(--school-primary);
+  font-size: 16px;
+}
+
+.badge-orb small {
+  color: #7a8798;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.progress-next {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 0;
+  color: #6f7c8f;
+  font-size: 12px;
+}
+
+.progress-next__badge {
+  width: 34px;
+  height: 42px;
+}
+
+.progress-next p {
+  margin: 0;
+}
+
+.progress-next strong {
+  color: var(--school-primary);
+}
+
+@media (max-width: 700px) {
+  .badge-orb {
+    min-width: 124px;
+  }
+
+  .badge-orb__visual {
+    width: 68px;
+    height: 82px;
+  }
+}
