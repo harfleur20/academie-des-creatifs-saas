@@ -947,6 +947,70 @@ def test_badge_weights_standard_assignments_and_final_project_separately() -> No
     assert progress.badge.score_pct == 23.3
 
 
+def test_badge_quiz_mastery_requires_eighty_percent() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, lesson, day = seed(db)
+    day.status = "cancelled"
+    db.commit()
+    tenant = ctx(db, org, student)
+    mark_lesson_complete(db, tenant, lesson.id)
+    quiz = QuizRecord(
+        organization_id=org.id, session_id=session.id, teacher_id=teacher.id,
+        title="Quiz PDF", status="active", pass_pct=70,
+    )
+    db.add(quiz)
+    db.flush()
+    db.add(QuizAttemptRecord(
+        organization_id=org.id, quiz_id=quiz.id, enrollment_id=enrollment.id,
+        attempt_number=1, answers=[], score_pct=75, submitted_at=datetime.now(UTC),
+    ))
+    db.commit()
+
+    progress = student_progress(db, tenant)[0]
+    assert progress.badge.quiz_progress_pct == 20
+    assert progress.badge.level != "professionnel"
+
+    db.add(QuizAttemptRecord(
+        organization_id=org.id, quiz_id=quiz.id, enrollment_id=enrollment.id,
+        attempt_number=2, answers=[], score_pct=80, submitted_at=datetime.now(UTC),
+    ))
+    db.commit()
+    assert student_progress(db, tenant)[0].badge.level == "professionnel"
+
+
+def test_guided_assignment_lesson_requires_a_real_submission() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, lesson, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    day.status = "cancelled"
+    assignment = AssignmentRecord(
+        organization_id=org.id, session_id=session.id, teacher_id=teacher.id,
+        title="Travail pratique", due_date=datetime(2025, 1, 20, tzinfo=UTC),
+    )
+    db.add(assignment)
+    db.flush()
+    lesson.lesson_type = "assignment"
+    lesson.assignment_id = assignment.id
+    db.add(LessonProgressRecord(
+        organization_id=org.id, enrollment_id=enrollment.id,
+        lesson_id=lesson.id, completed_at=datetime.now(UTC),
+    ))
+    db.commit()
+    tenant = ctx(db, org, student)
+
+    before = student_progress(db, tenant)[0]
+    assert before.completed_lessons == 0
+    assert list_student_learning(db, tenant)[0].courses[0].chapters[0].lessons[0].completed is False
+
+    db.add(AssignmentSubmissionRecord(
+        organization_id=org.id, assignment_id=assignment.id, enrollment_id=enrollment.id,
+        file_url="https://example.org/travail.pdf", submitted_at=datetime.now(UTC),
+    ))
+    db.commit()
+    assert student_progress(db, tenant)[0].completed_lessons == 1
+    assert list_student_learning(db, tenant)[0].courses[0].chapters[0].lessons[0].completed is True
+
+
 def test_draft_course_is_invisible_and_cannot_be_completed_by_student() -> None:
     db = build_db()
     org, teacher, student, _, _, enrollment, _, lesson, _ = seed(db)

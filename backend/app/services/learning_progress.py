@@ -57,6 +57,7 @@ VIDEO_COMPLETION_PCT = 80.0
 VIDEO_HEARTBEAT_SEEK_TOLERANCE_SECONDS = 2.5
 VIDEO_HEARTBEAT_MAX_GAP_SECONDS = 15.0
 VIDEO_MAX_PLAYBACK_RATE = 2.0
+BADGE_PASSING_QUIZ_PCT = 80.0
 
 
 BADGE_LABELS = {
@@ -99,8 +100,10 @@ def _completion_set(
     db: Session,
     tenant: TenantContext,
     enrollment_id: int,
+    *,
+    guided: bool = False,
 ) -> set[int]:
-    return set(
+    completed = set(
         db.scalars(
             select(LessonProgressRecord.lesson_id).where(
                 LessonProgressRecord.organization_id == tenant.organization_id,
@@ -108,6 +111,26 @@ def _completion_set(
             )
         ).all()
     )
+    if not guided or not completed:
+        return completed
+    assignment_lessons = db.execute(
+        select(LessonRecord.id, LessonRecord.assignment_id).where(
+            LessonRecord.organization_id == tenant.organization_id,
+            LessonRecord.id.in_(completed),
+            LessonRecord.lesson_type == "assignment",
+        )
+    ).all()
+    assignment_ids = {assignment_id for _, assignment_id in assignment_lessons if assignment_id is not None}
+    submitted_ids = set(db.scalars(select(AssignmentSubmissionRecord.assignment_id).where(
+        AssignmentSubmissionRecord.organization_id == tenant.organization_id,
+        AssignmentSubmissionRecord.enrollment_id == enrollment_id,
+        AssignmentSubmissionRecord.assignment_id.in_(assignment_ids),
+    )).all()) if assignment_ids else set()
+    completed.difference_update(
+        lesson_id for lesson_id, assignment_id in assignment_lessons
+        if assignment_id not in submitted_ids
+    )
+    return completed
 
 
 def _lesson_progress(
@@ -120,7 +143,7 @@ def _lesson_progress(
     formation = formation_for_session(db, tenant, enrollment.session_id)
     if not learning_is_open(formation, session):
         return len(lesson_ids), 0, 0.0
-    completed = _completion_set(db, tenant, enrollment.id)
+    completed = _completion_set(db, tenant, enrollment.id, guided=dashboard_type(formation) == "guided")
     completed_count = sum(1 for lesson_id in lesson_ids if lesson_id in completed)
     total = len(lesson_ids)
     pct = round((completed_count / total) * 100, 1) if total else 0.0
@@ -148,7 +171,7 @@ def list_student_learning(
         session = get_session(db, tenant, enrollment.session_id)
         formation = formation_for_session(db, tenant, enrollment.session_id)
         is_locked = not learning_is_open(formation, session)
-        completed = _completion_set(db, tenant, enrollment.id)
+        completed = _completion_set(db, tenant, enrollment.id, guided=dashboard_type(formation) == "guided")
         video_progress = {
             row.lesson_id: row.watched_pct
             for row in db.scalars(
@@ -694,7 +717,7 @@ def _quiz_stats(
             attempted += 1
             best = max(item.score_pct for item in attempts)
             best_scores.append(best)
-            if best >= quiz.pass_pct:
+            if best >= BADGE_PASSING_QUIZ_PCT:
                 passed += 1
     average = round(sum(best_scores) / len(best_scores), 1) if best_scores else None
     return len(quizzes), attempted, passed, average
