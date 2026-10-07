@@ -208,9 +208,18 @@ class PromotionCreate(BaseModel):
         return self
 
 
-class PromotionRead(PromotionCreate):
+class PromotionRead(BaseModel):
     id: int
+    name: str
+    formation_id: int | None
+    session_id: int | None
+    discount_type: DiscountType
+    discount_value: int
+    starts_at: datetime | None
+    ends_at: datetime | None
+    max_uses: int | None
     uses_count: int
+    is_active: bool
     created_at: datetime
 
 
