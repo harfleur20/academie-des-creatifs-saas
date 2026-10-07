@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Award,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -29,6 +28,7 @@ import {
   type RoleScheduleItem,
 } from '../components/RoleDashboardCalendar'
 import { RoleSchoolVisual } from '../components/RoleSchoolVisual'
+import { StudentLevelBadge } from '../components/StudentLevelBadge'
 
 function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Étudiant'
@@ -137,6 +137,7 @@ export function StudentDashboardPage() {
   }
 
   const progressPercent = focusProgress?.badge.score_pct || 0
+  const badgeIsPreview = !focusProgress || focusProgress.badge.level === 'aventurier'
 
   return (
     <div className="role-overview">
@@ -241,12 +242,17 @@ export function StudentDashboardPage() {
               </header>
               <div className="role-student-progress-card">
                 <div className="role-student-progress-card__head">
-                  <span className="role-student-progress-card__icon">
-                    <Award size={20} />
-                  </span>
+                  <StudentLevelBadge
+                    level={focusProgress?.badge.level}
+                    className="role-student-progress-card__badge"
+                  />
                   <span>
-                    <small>Niveau actuel</small>
-                    <strong>{focusProgress?.badge.label || 'Démarrage'}</strong>
+                    <small>{badgeIsPreview ? 'Prochain badge' : 'Niveau actuel'}</small>
+                    <strong>
+                      {badgeIsPreview
+                        ? 'Débutant · Niveau 1'
+                        : focusProgress?.badge.label}
+                    </strong>
                   </span>
                 </div>
                 <div className="role-student-progress-card__bar">
