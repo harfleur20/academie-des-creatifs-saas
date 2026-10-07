@@ -1,0 +1,37 @@
+/* Keep public favorites and school-auth accents aligned with the active tenant identity. */
+.public-school-shell .school-favorite-button:hover,
+.public-school-shell .school-favorite-button:focus-visible,
+.public-school-shell .school-favorite-button.is-active {
+  color: var(--school-secondary, var(--school-primary));
+  border-color: color-mix(in srgb, var(--school-secondary, var(--school-primary)) 42%, #e4e9ef);
+}
+
+.public-school-shell .school-favorite-button.is-active {
+  background: color-mix(in srgb, var(--school-secondary, var(--school-primary)) 9%, white);
+}
+
+.public-school-shell .public-school-favorites-link span {
+  background: var(--school-secondary, var(--school-primary));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--school-secondary, var(--school-primary)) 25%, transparent);
+}
+
+/* Legacy auth mint literals must yield to the school's configured secondary color. */
+.login-school .auth-kicker,
+.login-school .auth-visual-caption svg {
+  color: var(--green);
+}
+
+/* Keep the client school logo a touch more compact on the auth screen. */
+.login-school .auth-logo .platform-brand-logo {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+}
+
+@media (max-width: 720px) {
+  .login-school .auth-logo .platform-brand-logo {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+}
