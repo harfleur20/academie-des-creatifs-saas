@@ -49,23 +49,6 @@
   filter: drop-shadow(0 3px 5px rgba(16, 35, 63, .1));
 }
 
-/* Only the student progression block receives the school-color wash:
-   20% school primary at the start, fading progressively to white by 80%. */
-.role-side-card:has(> .role-student-progress-card) {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--school-primary) 20%, #fff) 0%,
-    #fff 80%
-  );
-  border-color: color-mix(in srgb, var(--school-primary) 14%, #e6ebf2);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--school-primary) 6%, transparent);
-}
-
-.role-side-card:has(> .role-student-progress-card) > header,
-.role-side-card:has(> .role-student-progress-card) > .role-student-progress-card {
-  background: transparent;
-}
-
 .role-student-progress-card__head {
   grid-template-columns: 28px minmax(0, 1fr);
 }
