@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   BadgePercent,
   CalendarDays,
-  CheckCircle2,
   Clock3,
   Infinity as InfinityIcon,
   Plus,
@@ -204,11 +203,12 @@ export function PromotionsPage() {
     setWorking(true)
     setError('')
     try {
+      const rawCouponValue = Number(couponValue)
       await createCoupon({
         code: code.toUpperCase(),
         name: `Code ${code.toUpperCase()}`,
         discount_type: couponType,
-        discount_value: Number(couponValue),
+        discount_value: couponType === 'fixed' ? Math.round(rawCouponValue * 100) : Math.round(rawCouponValue),
         valid_from: null,
         valid_until: null,
         max_uses: null,
@@ -343,7 +343,7 @@ export function PromotionsPage() {
               </div>
             )}
             <div className="promo-preview-meta">
-              <span><CalendarDays size={14} /> {formatDate(startOfDayIso(promoStartsOn))} → {formatDate(endOfDayIso(promoEndsOn))}</span>
+              <span><CalendarDays size={14} /> {promoStartsOn ? formatDate(startOfDayIso(promoStartsOn)) : '—'} → {promoEndsOn ? formatDate(endOfDayIso(promoEndsOn)) : '—'}</span>
               <span>{promoMaxUses ? <UsersRound size={14} /> : <InfinityIcon size={14} />} {promoMaxUses ? `${promoMaxUses} utilisations maximum` : 'Utilisations illimitées'}</span>
             </div>
           </div>
@@ -378,14 +378,21 @@ export function PromotionsPage() {
           <div className="academic-form-row">
             <label>
               Type
-              <select value={couponType} onChange={(event) => setCouponType(event.target.value as typeof couponType)}>
+              <select
+                value={couponType}
+                onChange={(event) => {
+                  const next = event.target.value as typeof couponType
+                  setCouponType(next)
+                  setCouponValue(next === 'percentage' ? '10' : '5000')
+                }}
+              >
                 <option value="percentage">Pourcentage</option>
                 <option value="fixed">Montant fixe</option>
               </select>
             </label>
             <label>
               Valeur
-              <input type="number" min="1" value={couponValue} onChange={(event) => setCouponValue(event.target.value)} />
+              <input type="number" min="1" max={couponType === 'percentage' ? '100' : undefined} value={couponValue} onChange={(event) => setCouponValue(event.target.value)} />
             </label>
           </div>
           <div className="promo-policy-strip is-muted">
