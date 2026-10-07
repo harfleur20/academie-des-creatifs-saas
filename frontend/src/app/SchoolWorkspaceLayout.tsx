@@ -94,7 +94,9 @@ export function SchoolWorkspaceLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [openNavGroups, setOpenNavGroups] = useState<string[]>([])
+  const [openNavGroups, setOpenNavGroups] = useState<string[]>(
+    () => space === 'student' && navGroups[0] ? [navGroups[0].key] : [],
+  )
   const profileRef = useRef<HTMLDivElement>(null)
 
   const isRoleSpace = space === 'teacher' || space === 'student'
@@ -135,6 +137,8 @@ export function SchoolWorkspaceLayout({
 
   const currentLabel =
     allNavItems.find((item) => navItemMatches(location.pathname, item))?.label
+    || (location.pathname === `/app/${space}/messages` ? 'Messages' : '')
+    || (location.pathname === `/app/${space}/notifications` ? 'Notifications' : '')
     || workspaceLabels[space]
 
   const searchResults = useMemo(() => {
@@ -149,7 +153,13 @@ export function SchoolWorkspaceLayout({
     setSidebarOpen(false)
     setProfileOpen(false)
     setSearch('')
-    if (!isRoleSpace) setOpenNavGroups(activeNavGroup ? [activeNavGroup] : [])
+    if (!isRoleSpace) {
+      setOpenNavGroups(activeNavGroup ? [activeNavGroup] : [])
+    } else if (activeNavGroup) {
+      setOpenNavGroups((current) => current.includes(activeNavGroup)
+        ? current
+        : [...current, activeNavGroup])
+    }
   }, [location.pathname, activeNavGroup, isRoleSpace])
 
   useEffect(() => {
@@ -445,6 +455,40 @@ export function SchoolWorkspaceLayout({
               {item.label}
             </NavLink>
           ))}
+          {navGroups.map((group) => {
+            const isOpen = openNavGroups.includes(group.key)
+            const isActive = group.items.some((item) => navItemMatches(location.pathname, item))
+            return (
+              <div
+                key={group.key}
+                className={`tenant-role-nav-group${isOpen ? ' is-open' : ''}${isActive ? ' is-active' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="tenant-role-nav-group__trigger"
+                  onClick={() => toggleNavGroup(group.key)}
+                  aria-expanded={isOpen}
+                  aria-controls={`role-nav-${group.key}`}
+                >
+                  <span className="tenant-role-nav-group__icon">{group.icon}</span>
+                  <span className="tenant-role-nav-group__label">{group.label}</span>
+                  <ChevronDown className="tenant-role-nav-group__chevron" size={15} />
+                </button>
+                <div
+                  id={`role-nav-${group.key}`}
+                  className="tenant-role-nav-subnav"
+                  hidden={!isOpen}
+                >
+                  {group.items.map((item) => (
+                    <NavLink key={item.to} to={item.to} end={item.end}>
+                      <span>{item.icon}</span>
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </nav>
 
         <div className="tenant-role-sidebar__bottom">
