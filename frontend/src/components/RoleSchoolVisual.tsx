@@ -18,6 +18,8 @@ export function RoleSchoolVisual({
   logoUrl,
 }: RoleSchoolVisualProps) {
   const isTeacher = role === 'teacher'
+  const spaceLabel = isTeacher ? 'Espace pédagogique' : 'Espace étudiant'
+  const thirdTopic = isTeacher ? 'Évaluations' : 'Résultats'
 
   return (
     <div
@@ -33,9 +35,7 @@ export function RoleSchoolVisual({
           />
           <span>
             <small>{schoolName}</small>
-            <strong>
-              {isTeacher ? 'Espace pédagogique' : 'Espace d’apprentissage'}
-            </strong>
+            <strong>{spaceLabel}</strong>
           </span>
         </div>
 
@@ -44,7 +44,7 @@ export function RoleSchoolVisual({
         <div className="role-school-visual__topics">
           <span><BookOpen size={16} /> Cours</span>
           <span><CalendarDays size={16} /> Planning</span>
-          <span><NotebookPen size={16} /> {isTeacher ? 'Évaluations' : 'Travaux'}</span>
+          <span><NotebookPen size={16} /> {thirdTopic}</span>
         </div>
       </div>
 
