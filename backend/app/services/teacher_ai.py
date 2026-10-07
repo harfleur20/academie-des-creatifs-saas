@@ -222,8 +222,9 @@ def generate_assignment_draft(
 ) -> dict[str, Any]:
     session, formation = require_teacher_session(db, tenant, payload.session_id)
     instructions = (
-        "Tu es un formateur francophone. Génère uniquement du JSON valide, sans Markdown. "
-        "Le devoir doit être réaliste, mesurable, orienté pratique et comporter des critères de réussite clairs."
+        "Tu es un formateur et ingénieur pédagogique francophone. Génère uniquement du JSON valide, sans Markdown. "
+        "Le devoir doit être réaliste, orienté pratique, progressif et directement exploitable. "
+        "Le barème evaluation_criteria doit totaliser exactement 20 points."
     )
     prompt = f"""{_context_line(session, formation)}
 Sujet / brief : {payload.topic}
@@ -237,12 +238,19 @@ Retourne exactement :
 {{
   "title": "Titre du devoir",
   "brief": {{
-    "context": "Contexte",
-    "deliverables": ["Livrable 1"],
-    "success_criteria": ["Critère 1"]
+    "context": "Contexte professionnel ou pédagogique clair",
+    "objective": "Objectif principal mesurable",
+    "deliverables": ["Livrable 1", "Livrable 2"],
+    "steps": ["Étape 1", "Étape 2", "Étape 3"],
+    "evaluation_criteria": [
+      {{"label": "Critère", "points": 5, "description": "Ce qui est évalué"}}
+    ],
+    "submission_method": "Format et modalité de rendu",
+    "tips": ["Conseil utile 1", "Conseil utile 2"]
   }},
-  "instructions": "Consignes complètes et structurées",
+  "instructions": "Consignes complémentaires complètes et structurées",
   "is_final_project": {str(payload.is_final_project).lower()},
   "duration_days": {payload.duration_days}
-}}"""
-    return _generate_json(db, tenant, instructions=instructions, prompt=prompt, max_output_tokens=6500)
+}}
+Le tableau evaluation_criteria doit contenir un barème dont la somme des points vaut exactement 20."""
+    return _generate_json(db, tenant, instructions=instructions, prompt=prompt, max_output_tokens=8000)
