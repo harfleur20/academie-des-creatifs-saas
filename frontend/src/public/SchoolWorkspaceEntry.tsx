@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
-import type { WorkspaceSpace } from '../lib/api'
+import { setStoredOrganizationId, type WorkspaceSpace } from '../lib/api'
 import { usePublicSchool } from './SchoolPublicLayout'
 
 const labels: Record<WorkspaceSpace, string> = {
@@ -27,24 +27,43 @@ export function SchoolWorkspaceEntry() {
   } = useTenant()
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
+  const [attempt, setAttempt] = useState(0)
   const membership = organizations.find((item) => item.id === school.organization_id)
+  const profileReady = Boolean(
+    accessProfile?.organization_id === school.organization_id && !profileLoading,
+  )
 
   useEffect(() => {
     if (!user) return
     let active = true
+    setStoredOrganizationId(school.organization_id)
     setReady(false)
     setError('')
     refreshOrganizations()
       .then(() => { if (active) setReady(true) })
-      .catch(() => { if (active) setError('Impossible de charger vos écoles.') })
+      .catch(() => { if (active) setError('Impossible de charger votre espace. Réessayez.') })
     return () => { active = false }
-  }, [user?.id, refreshOrganizations])
+  }, [user?.id, school.organization_id, refreshOrganizations, attempt])
 
   useEffect(() => {
     if (ready && membership && activeOrganization?.id !== school.organization_id) {
       selectOrganization(school.organization_id)
     }
   }, [ready, membership?.id, activeOrganization?.id, school.organization_id, selectOrganization])
+
+  useEffect(() => {
+    if (!user || profileReady || error) return
+    const timer = window.setTimeout(() => {
+      setError('L’ouverture de votre espace prend trop de temps. Réessayez.')
+    }, 10000)
+    return () => window.clearTimeout(timer)
+  }, [user?.id, profileReady, error, attempt])
+
+  function retryWorkspace() {
+    setError('')
+    setReady(false)
+    setAttempt((value) => value + 1)
+  }
 
   if (authLoading) return <main className="school-section"><div className="school-empty">Chargement de votre compte…</div></main>
   if (!user) {
@@ -53,7 +72,7 @@ export function SchoolWorkspaceEntry() {
   }
   if (user.platform_role === 'super_admin') return <Navigate replace to="/admin" />
   if (error) {
-    return <main className="school-section"><div className="school-empty">{error} <button type="button" onClick={() => { setError(''); void refreshOrganizations().then(() => setReady(true)).catch(() => setError('Impossible de charger vos écoles.')) }}>Réessayer</button></div></main>
+    return <main className="school-section"><div className="school-empty">{error} <button type="button" onClick={retryWorkspace}>Réessayer</button></div></main>
   }
   if (!ready || loading) return <main className="school-section"><div className="school-empty">Recherche de votre espace…</div></main>
   if (!membership) return <Navigate replace to={'/school/' + school.slug} />
