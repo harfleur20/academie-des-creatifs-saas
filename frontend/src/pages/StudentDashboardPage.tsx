@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  Award,
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
   ClipboardCheck,
   Clock3,
+  CreditCard,
   GraduationCap,
+  HelpCircle,
+  Layers,
+  Star,
+  Users,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -33,6 +40,15 @@ import { StudentLevelBadge } from '../components/StudentLevelBadge'
 function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Étudiant'
 }
+
+const quickAccessLinks = [
+  { to: '/app/student/formations?filter=classic', label: 'Formations en ligne', icon: BookOpen, tone: 'indigo' },
+  { to: '/app/student/formations?filter=guided', label: 'Parcours guidés', icon: Users, tone: 'sky' },
+  { to: '/app/student/quizzes', label: 'Mes quiz', icon: HelpCircle, tone: 'emerald' },
+  { to: '/app/student/results', label: 'Mes résultats', icon: Award, tone: 'amber' },
+  { to: '/app/student/payments', label: 'Mes paiements', icon: CreditCard, tone: 'pink' },
+  { to: '/app/student/assignments', label: 'Mes devoirs', icon: Layers, tone: 'violet' },
+] as const
 
 export function StudentDashboardPage() {
   const { user } = useAuth()
@@ -142,7 +158,7 @@ export function StudentDashboardPage() {
   return (
     <div className="role-overview">
       {error && <div className="form-error">{error}</div>}
-      {workspace && (
+      {workspace && (<>
         <div className="role-overview-grid">
           <section className="role-overview-main">
             <section className="role-hero role-hero--student">
@@ -351,7 +367,24 @@ export function StudentDashboardPage() {
             </section>
           </aside>
         </div>
-      )}
+        <section className="student-quick-access" aria-labelledby="student-quick-access-title">
+          <header className="student-quick-access__header">
+            <Star size={18} aria-hidden="true" />
+            <h2 id="student-quick-access-title">Accès rapide</h2>
+          </header>
+          <div className="student-quick-access__grid">
+            {quickAccessLinks.map((shortcut) => (
+              <Link className="student-quick-access__card" to={shortcut.to} key={shortcut.to}>
+                <span className={`student-quick-access__icon student-quick-access__icon--${shortcut.tone}`}>
+                  <shortcut.icon size={18} aria-hidden="true" />
+                </span>
+                <span>{shortcut.label}</span>
+                <ChevronRight className="student-quick-access__arrow" size={16} aria-hidden="true" />
+              </Link>
+            ))}
+          </div>
+        </section>
+      </>)}
     </div>
   )
 }

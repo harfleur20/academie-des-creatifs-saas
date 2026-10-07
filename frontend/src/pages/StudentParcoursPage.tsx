@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { GraduationCap } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import {
   ApiError,
@@ -20,7 +20,7 @@ const formatLabels = {
 export function StudentParcoursPage() {
   const { activeOrganization } = useTenant()
   const [workspace, setWorkspace] = useState<StudentWorkspace | null>(null)
-  const [filter, setFilter] = useState<Filter>('all')
+  const [searchParams, setSearchParams] = useSearchParams()
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -51,6 +51,10 @@ export function StudentParcoursPage() {
     return () => { cancelled = true }
   }, [activeOrganization?.id])
 
+  const requestedFilter = searchParams.get('filter')
+  const filter: Filter = requestedFilter === 'classic' || requestedFilter === 'guided'
+    ? requestedFilter
+    : 'all'
   const sessions = workspace?.sessions ?? []
   const visible = sessions.filter((item) => filter === 'all' || item.dashboard_type === filter)
   const classicCount = sessions.filter((item) => item.dashboard_type === 'classic').length
@@ -70,7 +74,7 @@ export function StudentParcoursPage() {
             ['classic', `En ligne (${classicCount})`],
             ['guided', `Guidés (${guidedCount})`],
           ] as const).map(([value, label]) => (
-            <button key={value} type="button" className={filter === value ? 'is-active' : ''} onClick={() => setFilter(value)} aria-pressed={filter === value}>{label}</button>
+            <button key={value} type="button" className={filter === value ? 'is-active' : ''} onClick={() => setSearchParams(value === 'all' ? {} : { filter: value })} aria-pressed={filter === value}>{label}</button>
           ))}
         </div>
         {visible.length === 0 ? <div className="app-card">Aucun parcours dans cette catégorie.</div> : (
