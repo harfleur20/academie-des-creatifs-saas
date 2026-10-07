@@ -22,6 +22,7 @@ import './student-course-parity.css'
 import './teacher-mother-parity.css'
 import './school-identity-polish.css'
 import './student-hero-visual-fix.css'
+import './promotions-polish.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 
