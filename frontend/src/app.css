@@ -3655,6 +3655,24 @@
   text-transform: uppercase;
 }
 
+.enrollment-complete-button {
+  display: block;
+  margin-top: 8px;
+  padding: 5px 7px;
+  border: 1px solid var(--school-primary);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--school-primary);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.enrollment-complete-button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
 .session-course-section {
   margin-top: 22px;
   padding-top: 20px;

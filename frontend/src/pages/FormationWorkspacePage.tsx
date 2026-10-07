@@ -22,6 +22,7 @@ import {
   getFormation,
   listMembers,
   updateFormation,
+  updateFormationEnrollment,
   updateFormationSession,
   uploadSchoolAsset,
   type FormationDetail,
@@ -368,13 +369,21 @@ function SessionWorkspace({
         <section>
           <h3>Étudiants</h3>
           <p className="muted-note">
-            {formation.format_type === 'ligne' ? 'Les étudiants accèdent automatiquement à la formation après leur achat sur le site public.' : 'Les étudiants sont inscrits automatiquement dans cette session après leur achat sur le site public.'}
+            {formation.format_type === 'ligne' ? 'Les étudiants accèdent automatiquement à la formation après leur achat sur le site public.' : 'Les étudiants sont inscrits après leur achat. Validez leur parcours à la fin de la session pour ouvrir le certificat si les acquis sont remplis.'}
           </p>
           <div className="compact-person-list">
             {session.enrollments.filter((item) => item.status !== 'cancelled').map((item) => (
               <span key={item.id}>
                 <strong>{item.student_name}</strong>
-                <small>{item.status}</small>
+                <small>{item.status === 'completed' ? 'Parcours validé' : item.status === 'active' ? 'En cours' : item.status}</small>
+                {formation.format_type !== 'ligne' && item.status === 'active' && (
+                  <button
+                    className="enrollment-complete-button"
+                    type="button"
+                    disabled={working || session.status === 'cancelled'}
+                    onClick={() => void run(() => updateFormationEnrollment(formation.id, session.id, item.id, 'completed'))}
+                  >Valider le parcours</button>
+                )}
               </span>
             ))}
             {session.enrollments.length === 0 && <small>{formation.format_type === 'ligne' ? 'Aucun achat confirmé pour cette formation.' : 'Aucun achat confirmé pour cette session.'}</small>}

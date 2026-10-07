@@ -377,6 +377,8 @@ def _certificate_reason(
         return None
     if current_utc() < session_ends_at(session):
         return "Le certificat sera disponible après la fin de la session."
+    if enrollment.status != "completed":
+        return "L'inscription doit être validée par l'école."
     if progress.total_lessons <= 0:
         return "Le parcours ne contient encore aucune leçon validable."
     if progress.lesson_progress_pct < 100:

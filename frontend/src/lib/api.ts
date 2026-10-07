@@ -1185,6 +1185,17 @@ export const updateFormationSession = (
     body: JSON.stringify(payload),
   })
 
+export const updateFormationEnrollment = (
+  formationId: number,
+  sessionId: number,
+  enrollmentId: number,
+  status: Enrollment['status'],
+) =>
+  request<FormationDetail>(`/formations/${formationId}/sessions/${sessionId}/enrollments/${enrollmentId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+
 export const assignSessionTeacher = (
   formationId: number,
   sessionId: number,

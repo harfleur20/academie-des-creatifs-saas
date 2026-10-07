@@ -50,7 +50,7 @@ from app.schemas.academic import (
     ResourceCreate,
 )
 from app.schemas.assignments import AssignmentCreate, AssignmentSubmit
-from app.schemas.formations import CourseUpdate, LessonCreate
+from app.schemas.formations import CourseUpdate, EnrollmentUpdate, LessonCreate
 from app.schemas.planning import CourseDayFeedbackSubmit, CourseDayReportSubmit, CourseDayUpdate
 from app.services.assignments import create_assignment, list_student_assignments, submit_assignment
 from app.services.class_certificates import (
@@ -74,7 +74,7 @@ from app.services.learning_progress import (
 )
 from app.services.live_classes import join_live_class, start_live_class
 from app.services.planning import get_session_planning, list_course_day_feedback, list_school_course_day_reports, submit_course_day_feedback, submit_course_day_report, update_course_day
-from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_lesson
+from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_enrollment, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
 from app.services.pedagogy_access import session_ends_at
@@ -898,6 +898,28 @@ def test_guided_certificate_waits_until_paris_session_end() -> None:
     assert eligibility.eligible is False
     assert "fin de la session" in eligibility.reason
     assert session_ends_at(session) == datetime(2099, 1, 1, 23, 0, tzinfo=UTC)
+
+
+def test_guided_certificate_requires_school_validation() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, lesson, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    day.status = "cancelled"
+    db.commit()
+    student_tenant = ctx(db, org, student)
+    mark_lesson_complete(db, student_tenant, lesson.id)
+    assert student_progress(db, student_tenant)[0].badge.level == "professionnel"
+
+    before = certificate_eligibility(db, student_tenant, enrollment.id)
+    assert before.eligible is False
+    assert "validée par l'école" in before.reason
+
+    update_enrollment(
+        db, ctx(db, org, teacher), session.formation_id, session.id,
+        enrollment.id, EnrollmentUpdate(status="completed"),
+    )
+    assert certificate_eligibility(db, student_tenant, enrollment.id).eligible is True
+    assert issue_certificate(db, student_tenant, enrollment.id).enrollment_id == enrollment.id
 
 
 def test_badge_weights_standard_assignments_and_final_project_separately() -> None:
