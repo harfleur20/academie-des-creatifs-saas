@@ -13,7 +13,7 @@
   height: 100%;
   object-fit: contain;
   opacity: 1;
-  filter: drop-shadow(0 6px 10px rgba(16, 35, 63, .14));
+  filter: drop-shadow(0 4px 7px rgba(16, 35, 63, .14));
   transition: transform .2s ease, filter .2s ease;
 }
 
@@ -22,21 +22,21 @@
 }
 
 .student-level-badge.is-earned:hover img {
-  transform: translateY(-2px) scale(1.025);
+  transform: translateY(-1px) scale(1.025);
 }
 
 .student-level-badge.is-locked img {
   opacity: 1;
-  filter: drop-shadow(0 5px 9px rgba(16, 35, 63, .1));
+  filter: drop-shadow(0 3px 5px rgba(16, 35, 63, .1));
 }
 
 .role-student-progress-card__head {
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
 }
 
 .role-student-progress-card__badge {
-  width: 42px;
-  height: 48px;
+  width: 21px;
+  height: 24px;
 }
 
 .badge-orb {
@@ -49,8 +49,8 @@
 }
 
 .badge-orb__visual {
-  width: 60px;
-  height: 72px;
+  width: 30px;
+  height: 36px;
   margin-bottom: 2px;
 }
 
@@ -76,15 +76,15 @@
 .progress-next {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   margin: 14px 0 0;
   color: #6f7c8f;
   font-size: 12px;
 }
 
 .progress-next__badge {
-  width: 28px;
-  height: 34px;
+  width: 14px;
+  height: 17px;
 }
 
 .progress-next p {
@@ -101,7 +101,7 @@
   }
 
   .badge-orb__visual {
-    width: 52px;
-    height: 62px;
+    width: 26px;
+    height: 31px;
   }
 }
