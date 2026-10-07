@@ -16,6 +16,7 @@ import './teacher-onboarding.css'
 import './teacher-sidebar.css'
 import './toast.css'
 import './tenant-role-mother-palette.css'
+import './role-dashboard-polish.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 
