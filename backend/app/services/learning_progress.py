@@ -813,7 +813,7 @@ def badge_for_enrollment(
     session = get_session(db, tenant, enrollment.session_id)
     guided = dashboard_type(formation) == "guided"
     current = datetime.now(UTC)
-    session_end = session_ends_at(session)
+    session_end = session_ends_at(session) if guided else None
     unresolved_days = db.scalar(select(SessionCourseDayRecord.id).where(
         SessionCourseDayRecord.organization_id == tenant.organization_id,
         SessionCourseDayRecord.session_id == session.id,

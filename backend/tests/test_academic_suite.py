@@ -87,6 +87,7 @@ from app.services.resources_quizzes import (
     submit_quiz_attempt,
     teacher_quiz_results,
 )
+from app.services.school_pedagogy import school_pedagogy_overview
 from app.services.tenancy import resolve_tenant_context
 from app.services.workspace import get_student_workspace, get_teacher_workspace
 
@@ -1059,6 +1060,22 @@ def test_guided_course_waits_for_session_start_but_classic_is_immediate() -> Non
     session.end_date = date(2025, 2, 1)
     db.commit()
     assert list_student_learning(db, tenant)[0].is_locked is False
+
+
+def test_online_content_session_with_max_date_loads_pedagogical_tabs() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, lesson, _ = seed(db)
+    session.end_date = date.max
+    db.commit()
+    student_tenant = ctx(db, org, student)
+
+    assert session_ends_at(session) == datetime.max.replace(tzinfo=UTC)
+    assert student_progress(db, student_tenant)[0].enrollment_id == enrollment.id
+    assert get_student_workspace(db, student_tenant).sessions[0].enrollment_id == enrollment.id
+    assert school_pedagogy_overview(db, ctx(db, org, teacher)).students[0].enrollment_id == enrollment.id
+    assert certificate_eligibility(db, student_tenant, enrollment.id).eligible is False
+    mark_lesson_complete(db, student_tenant, lesson.id)
+    assert certificate_eligibility(db, student_tenant, enrollment.id).eligible is True
 
 
 def test_video_requires_eighty_percent_watched_without_counting_seeks() -> None:

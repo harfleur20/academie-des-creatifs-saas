@@ -1,6 +1,6 @@
 """School-scoped equivalents of the mother site's course availability rules."""
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
@@ -30,6 +30,8 @@ def session_starts_at(session: FormationSessionRecord) -> datetime:
 
 
 def session_ends_at(session: FormationSessionRecord) -> datetime:
+    if session.end_date == date.max:
+        return datetime.max.replace(tzinfo=UTC)
     return datetime.combine(session.end_date + timedelta(days=1), time.min, tzinfo=PARIS).astimezone(UTC)
 
 
