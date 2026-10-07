@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -74,9 +74,25 @@ class AiAssignmentDraftPayload(AiGenerationBasePayload):
     assignment_type: str | None = Field(default=None, max_length=80)
 
 
+class AiAssignmentRubricCriterion(BaseModel):
+    label: str
+    points: float = Field(ge=0, le=20)
+    description: str
+
+
+class AiAssignmentBrief(BaseModel):
+    context: str
+    objective: str
+    deliverables: list[str]
+    steps: list[str]
+    evaluation_criteria: list[AiAssignmentRubricCriterion]
+    submission_method: str
+    tips: list[str]
+
+
 class AiAssignmentDraft(BaseModel):
     title: str
-    brief: dict[str, Any] = Field(default_factory=dict)
+    brief: AiAssignmentBrief
     instructions: str
     is_final_project: bool
     duration_days: int
