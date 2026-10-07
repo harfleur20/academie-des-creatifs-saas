@@ -1,5 +1,6 @@
 from app.models.auth_handoff import AuthHandoffRecord
 from app.models.integrations import OrganizationIntegrationRecord
+from app.models.organization_slug_alias import OrganizationSlugAliasRecord
 from app.models.teacher_onboarding import (
     OrganizationCharterAcceptanceRecord,
     OrganizationCharterRecord,
@@ -67,6 +68,7 @@ from app.models.entities import (
 __all__ = [
     "AuthHandoffRecord",
     "OrganizationIntegrationRecord",
+    "OrganizationSlugAliasRecord",
     "OrganizationCharterAcceptanceRecord",
     "OrganizationCharterRecord",
     "TeacherProfessionalProfileRecord",
