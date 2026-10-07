@@ -1,0 +1,239 @@
+.openai-connect-success {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.openai-connect-card {
+  border-color: color-mix(in srgb, var(--school-primary, #1f2559) 22%, #e4e8ef);
+}
+
+.openai-brand-logo {
+  background: #f7f7f7;
+}
+
+.openai-live-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.openai-live-status.is-connected {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.openai-live-status.is-error {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.openai-connect-button {
+  width: 100%;
+  justify-content: center;
+  margin-top: auto;
+}
+
+.openai-connected-details {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.openai-connected-details > div:first-child {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e4e8ef;
+  border-radius: 11px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+}
+
+.openai-connected-details > div:first-child strong {
+  color: #111827;
+}
+
+.openai-connected-details small {
+  color: #7b8798;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.openai-connected-details .openai-last-error {
+  color: #b45309;
+}
+
+.openai-connect-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.openai-connect-actions button {
+  justify-content: center;
+}
+
+.openai-disconnect-button {
+  color: #b42318 !important;
+}
+
+.openai-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(15, 23, 42, .54);
+  backdrop-filter: blur(5px);
+}
+
+.openai-modal {
+  width: min(620px, 100%);
+  max-height: min(760px, calc(100vh - 44px));
+  overflow: auto;
+  border-radius: 19px;
+  background: #fff;
+  box-shadow: 0 24px 75px rgba(15, 23, 42, .23);
+}
+
+.openai-modal header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid #e8ecf2;
+}
+
+.openai-modal header h2 {
+  margin: 5px 0 4px;
+}
+
+.openai-modal header p {
+  margin: 0;
+  color: #718096;
+  font-size: 13px;
+}
+
+.openai-modal header > button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+}
+
+.openai-modal > label {
+  display: grid;
+  gap: 7px;
+  margin: 18px 24px 0;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.openai-modal > label input {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  font-weight: 500;
+}
+
+.openai-modal > label input:focus {
+  outline: 2px solid color-mix(in srgb, var(--school-primary, #1f2559) 24%, transparent);
+  border-color: var(--school-primary, #1f2559);
+}
+
+.openai-modal > label small {
+  color: #8792a2;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.openai-modal-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 24px 0;
+  padding: 12px 13px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--school-primary, #1f2559) 6%, white);
+  color: #566176;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.openai-modal-note svg {
+  flex: 0 0 auto;
+  color: var(--school-secondary, #18a7a3);
+}
+
+.openai-modal footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 22px;
+  padding: 16px 24px 22px;
+  border-top: 1px solid #edf0f5;
+}
+
+.openai-spin {
+  animation: openai-spin .8s linear infinite;
+}
+
+@keyframes openai-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 620px) {
+  .openai-connect-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .openai-modal-overlay {
+    padding: 12px;
+  }
+
+  .openai-modal header,
+  .openai-modal footer {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .openai-modal > label,
+  .openai-modal-note {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+}
