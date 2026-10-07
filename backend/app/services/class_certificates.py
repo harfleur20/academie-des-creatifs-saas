@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -12,10 +12,15 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.entities import (
     CertificateRecord,
+    ChapterRecord,
     ClassDiscussionPostRecord,
     ClassDiscussionReplyRecord,
+    CourseRecord,
     EnrollmentRecord,
+    LessonRecord,
     OrganizationStudentProfileRecord,
+    QuizAttemptRecord,
+    QuizRecord,
     UserRecord,
 )
 from app.schemas.academic import (
@@ -35,6 +40,7 @@ from app.services.academic_access import (
     require_student_enrollment,
 )
 from app.services.learning_progress import badge_for_enrollment, progress_for_enrollment
+from app.services.pedagogy_access import current_utc, dashboard_type, session_ends_at
 from app.services.school_branding import branding_snapshot
 from app.services.school_communications import queue_school_event
 from app.services.school_notifications import notify_session_students
@@ -333,11 +339,43 @@ def _certificate_reason(
     enrollment: EnrollmentRecord,
 ) -> str | None:
     session = get_session(db, tenant, enrollment.session_id)
+    formation = formation_for_session(db, tenant, enrollment.session_id)
     progress = progress_for_enrollment(db, tenant, enrollment)
 
     if session.status == "cancelled":
         return "La session a été annulée."
-    if date.today() <= session.end_date and session.status != "completed":
+    if dashboard_type(formation) == "classic":
+        if progress.total_lessons <= 0:
+            return "Le parcours ne contient encore aucune leçon validable."
+        if progress.lesson_progress_pct < 100:
+            return "Toutes les leçons doivent être terminées."
+        linked_quizzes = db.execute(
+            select(QuizRecord.id, QuizRecord.pass_pct)
+            .join(LessonRecord, LessonRecord.quiz_id == QuizRecord.id)
+            .join(ChapterRecord, ChapterRecord.id == LessonRecord.chapter_id)
+            .join(CourseRecord, CourseRecord.id == ChapterRecord.course_id)
+            .where(
+                CourseRecord.organization_id == tenant.organization_id,
+                CourseRecord.session_id == session.id,
+                CourseRecord.status == "published",
+                LessonRecord.organization_id == tenant.organization_id,
+                LessonRecord.publication_status == "published",
+                QuizRecord.organization_id == tenant.organization_id,
+            )
+        ).all()
+        for quiz_id, pass_pct in linked_quizzes:
+            passed = db.scalar(
+                select(QuizAttemptRecord.id).where(
+                    QuizAttemptRecord.organization_id == tenant.organization_id,
+                    QuizAttemptRecord.enrollment_id == enrollment.id,
+                    QuizAttemptRecord.quiz_id == quiz_id,
+                    QuizAttemptRecord.score_pct >= pass_pct,
+                ).limit(1)
+            )
+            if passed is None:
+                return "Tous les quiz liés aux leçons doivent être réussis."
+        return None
+    if current_utc() < session_ends_at(session):
         return "Le certificat sera disponible après la fin de la session."
     if progress.total_lessons <= 0:
         return "Le parcours ne contient encore aucune leçon validable."

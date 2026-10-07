@@ -54,6 +54,7 @@ from app.schemas.formations import CourseUpdate, LessonCreate
 from app.schemas.planning import CourseDayFeedbackSubmit, CourseDayReportSubmit, CourseDayUpdate
 from app.services.assignments import create_assignment, list_student_assignments, submit_assignment
 from app.services.class_certificates import (
+    certificate_eligibility,
     create_discussion_post,
     discussion_posts,
     issue_certificate,
@@ -76,6 +77,7 @@ from app.services.planning import get_session_planning, list_course_day_feedback
 from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
 from app.services.membership_roles import replace_effective_roles
+from app.services.pedagogy_access import session_ends_at
 from app.services.resources_quizzes import (
     create_quiz,
     create_resource,
@@ -827,6 +829,75 @@ def test_lesson_progress_badge_and_certificate_are_real() -> None:
     filename, pdf = build_certificate_pdf(certificate_row)
     assert filename.endswith(".pdf")
     assert pdf.startswith(b"%PDF")
+
+
+def test_classic_certificate_ignores_technical_session_end_and_unlinked_assignment() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, lesson, _ = seed(db)
+    tenant = ctx(db, org, student)
+    session.end_date = date(2099, 1, 1)
+    db.add(AssignmentRecord(
+        organization_id=org.id,
+        session_id=session.id,
+        teacher_id=teacher.id,
+        title="Devoir hors parcours",
+        due_date=datetime(2099, 1, 1, tzinfo=UTC),
+    ))
+    db.commit()
+
+    mark_lesson_complete(db, tenant, lesson.id)
+    eligibility = certificate_eligibility(db, tenant, enrollment.id)
+    assert eligibility.eligible is True
+    assert issue_certificate(db, tenant, enrollment.id).enrollment_id == enrollment.id
+
+
+def test_classic_certificate_requires_success_on_linked_quiz() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, lesson, _ = seed(db)
+    tenant = ctx(db, org, student)
+    mark_lesson_complete(db, tenant, lesson.id)
+    quiz = QuizRecord(
+        organization_id=org.id,
+        session_id=session.id,
+        teacher_id=teacher.id,
+        title="Évaluation de la leçon",
+        status="active",
+        pass_pct=80,
+    )
+    db.add(quiz)
+    db.flush()
+    lesson.quiz_id = quiz.id
+    lesson.lesson_type = "quiz"
+    db.commit()
+
+    eligibility = certificate_eligibility(db, tenant, enrollment.id)
+    assert eligibility.eligible is False
+    assert "quiz" in eligibility.reason
+
+    db.add(QuizAttemptRecord(
+        organization_id=org.id,
+        quiz_id=quiz.id,
+        enrollment_id=enrollment.id,
+        attempt_number=1,
+        answers=[],
+        score_pct=80,
+        submitted_at=datetime.now(UTC),
+    ))
+    db.commit()
+    assert certificate_eligibility(db, tenant, enrollment.id).eligible is True
+
+
+def test_guided_certificate_waits_until_paris_session_end() -> None:
+    db = build_db()
+    org, _, student, _, session, enrollment, _, _, _ = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    session.end_date = date(2099, 1, 1)
+    db.commit()
+
+    eligibility = certificate_eligibility(db, ctx(db, org, student), enrollment.id)
+    assert eligibility.eligible is False
+    assert "fin de la session" in eligibility.reason
+    assert session_ends_at(session) == datetime(2099, 1, 1, 23, 0, tzinfo=UTC)
 
 
 def test_badge_weights_standard_assignments_and_final_project_separately() -> None:

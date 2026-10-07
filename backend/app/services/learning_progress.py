@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -49,7 +49,7 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.grades import grade_average_pct
-from app.services.pedagogy_access import PARIS, dashboard_type, learning_is_open, lesson_access, require_learning_open, session_starts_at
+from app.services.pedagogy_access import dashboard_type, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
 from app.services.tenancy import TenantContext
 
 
@@ -790,7 +790,7 @@ def badge_for_enrollment(
     session = get_session(db, tenant, enrollment.session_id)
     guided = dashboard_type(formation) == "guided"
     current = datetime.now(UTC)
-    session_end = datetime.combine(session.end_date + timedelta(days=1), datetime.min.time(), tzinfo=PARIS).astimezone(UTC)
+    session_end = session_ends_at(session)
     unresolved_days = db.scalar(select(SessionCourseDayRecord.id).where(
         SessionCourseDayRecord.organization_id == tenant.organization_id,
         SessionCourseDayRecord.session_id == session.id,

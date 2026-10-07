@@ -1,6 +1,6 @@
 """School-scoped equivalents of the mother site's course availability rules."""
 
-from datetime import UTC, datetime, time
+from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
@@ -27,6 +27,10 @@ def current_utc(value: datetime | None = None) -> datetime:
 
 def session_starts_at(session: FormationSessionRecord) -> datetime:
     return datetime.combine(session.start_date, time.min, tzinfo=PARIS).astimezone(UTC)
+
+
+def session_ends_at(session: FormationSessionRecord) -> datetime:
+    return datetime.combine(session.end_date + timedelta(days=1), time.min, tzinfo=PARIS).astimezone(UTC)
 
 
 def learning_is_open(
