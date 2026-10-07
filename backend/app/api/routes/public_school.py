@@ -16,7 +16,10 @@ from app.services.public_catalog import (
     public_home,
     public_school_read,
 )
-from app.services.public_school_slug import resolve_public_organization
+from app.services.public_school_slug import (
+    ensure_canonical_public_slug,
+    resolve_public_organization,
+)
 from app.services.school_branding import get_or_create_identity_records
 from app.services.school_favorites import add_school_favorite, list_school_favorites, remove_school_favorite
 
@@ -28,6 +31,21 @@ def _public_org(db: Session, school_key: str):
     org = resolve_public_organization(db, school_key)
     if org is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "École introuvable.")
+
+    # Repair older schools whose public name was changed without updating the
+    # canonical public slug. The previous slug is preserved as an alias by
+    # ensure_canonical_public_slug(), so already-shared links keep working.
+    site, _legal, _communications, _certification = get_or_create_identity_records(db, org)
+    previous_slug = org.slug
+    canonical_slug = ensure_canonical_public_slug(
+        db,
+        org,
+        site.site_name or org.name,
+    )
+    if canonical_slug != previous_slug:
+        db.commit()
+        db.refresh(org)
+
     return org
 
 
