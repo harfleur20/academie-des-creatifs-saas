@@ -186,23 +186,24 @@ class PublicHomeRead(BaseModel):
 
 
 class PromotionCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=180)
+    name: str = Field(default="%Promo", min_length=2, max_length=180)
     formation_id: int | None = Field(default=None, gt=0)
     session_id: int | None = Field(default=None, gt=0)
     discount_type: DiscountType
     discount_value: int = Field(gt=0)
-    starts_at: datetime | None = None
-    ends_at: datetime | None = None
+    starts_at: datetime
+    ends_at: datetime
     max_uses: int | None = Field(default=None, gt=0)
     is_active: bool = True
 
     @model_validator(mode="after")
     def validate_discount(self):
+        self.name = "%Promo"
         if self.discount_type == "percentage" and self.discount_value > 100:
             raise ValueError("Une remise en pourcentage ne peut pas dépasser 100%.")
-        if self.formation_id is None and self.session_id is None:
-            raise ValueError("La promotion doit cibler une formation ou une session.")
-        if self.starts_at and self.ends_at and self.ends_at < self.starts_at:
+        if (self.formation_id is None) == (self.session_id is None):
+            raise ValueError("La promotion doit cibler soit une formation, soit une session, mais pas les deux.")
+        if self.ends_at <= self.starts_at:
             raise ValueError("La fin de la promotion doit suivre son début.")
         return self
 
