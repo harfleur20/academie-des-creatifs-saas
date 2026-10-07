@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  RefreshCw,
   ShieldCheck,
 } from 'lucide-react'
 import {
@@ -23,26 +24,29 @@ export function StudentCertificatesPage() {
     Record<number, CertificateEligibility>
   >({})
   const [error, setError] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => {
-    listStudentProgress()
-      .then(async (rows) => {
-        setProgress(rows)
-        const pairs = await Promise.all(
-          rows.map(
-            async (row) =>
-              [
-                row.enrollment_id,
-                await getCertificateEligibility(row.enrollment_id),
-              ] as const,
-          ),
-        )
-        setEligibility(Object.fromEntries(pairs))
-      })
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : 'Chargement impossible.'),
+  async function refresh() {
+    setRefreshing(true)
+    setError('')
+    try {
+      const rows = await listStudentProgress()
+      const pairs = await Promise.all(
+        rows.map(async (row) => [
+          row.enrollment_id,
+          await getCertificateEligibility(row.enrollment_id),
+        ] as const),
       )
-  }, [])
+      setProgress(rows)
+      setEligibility(Object.fromEntries(pairs))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Chargement impossible.')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => { void refresh() }, [])
 
   async function issue(enrollmentId: number) {
     try {
@@ -81,6 +85,9 @@ export function StudentCertificatesPage() {
             uniquement après validation du parcours.
           </p>
         </div>
+        <button className="secondary-button" type="button" disabled={refreshing} onClick={() => void refresh()}>
+          <RefreshCw size={15} /> {refreshing ? 'Actualisation…' : 'Actualiser mes certificats'}
+        </button>
       </header>
 
       {error && <div className="form-error">{error}</div>}
