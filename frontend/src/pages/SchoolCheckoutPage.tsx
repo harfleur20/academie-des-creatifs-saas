@@ -5,7 +5,7 @@ import {
   LockKeyhole,
   Tag,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
@@ -56,6 +56,39 @@ export function SchoolCheckoutPage() {
   const orderId = Number(params.get('order') || 0)
   const [loadingOrder, setLoadingOrder] = useState(Boolean(orderId))
   const [retry, setRetry] = useState(0)
+  const redirectStartedRef = useRef(false)
+
+  const accessReady = Boolean(
+    order?.access_status === 'active'
+    && (order.status === 'paid' || order.status === 'partially_paid'),
+  )
+
+  const openStudentSpace = useCallback(async () => {
+    if (redirectStartedRef.current) return
+    redirectStartedRef.current = true
+    setStoredOrganizationId(school.organization_id)
+    clearSchoolCart(schoolSlug)
+    setError('')
+
+    try {
+      await Promise.race([
+        refreshOrganizations(),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 2500)),
+      ])
+    } catch {
+      // The full reload below performs a fresh tenant/access lookup anyway.
+    }
+
+    window.location.replace('/app/student')
+  }, [refreshOrganizations, school.organization_id, schoolSlug])
+
+  useEffect(() => {
+    if (!user || !accessReady || loadingOrder || redirectStartedRef.current) return
+    const timer = window.setTimeout(() => {
+      void openStudentSpace()
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [user?.id, accessReady, loadingOrder, openStudentSpace])
 
   useEffect(() => {
     if (!user || !orderId) return
@@ -66,28 +99,34 @@ export function SchoolCheckoutPage() {
         setOrderInstallments(value.installments)
         const paymentRef = params.get('payment_ref')
         if (params.get('demo') === '1' && value.status !== 'paid') {
-          const next = await confirmPublicDemoCheckout(schoolSlug, orderId, paymentRef)
-          setOrder(next)
+          await confirmPublicDemoCheckout(schoolSlug, orderId, paymentRef)
           const refreshed = await getPublicOrder(schoolSlug, orderId)
+          setOrder(refreshed)
           setOrderInstallments(refreshed.installments)
-          setSuccess(Boolean(paymentRef && refreshed.installments.some((row) => row.provider_reference === paymentRef && row.status === 'paid')))
+          setSuccess(
+            refreshed.access_status === 'active'
+            && (refreshed.status === 'paid' || refreshed.status === 'partially_paid'),
+          )
         } else if (
           params.get('payment') === 'return' &&
           (paymentRef || value.provider_reference)
         ) {
-          const next = await reconcilePublicTaraCheckout(
+          await reconcilePublicTaraCheckout(
             schoolSlug,
             paymentRef || value.provider_reference!,
           )
-          setOrder(next)
           const refreshed = await getPublicOrder(schoolSlug, orderId)
+          setOrder(refreshed)
           setOrderInstallments(refreshed.installments)
-          setSuccess(refreshed.installments.some((row) => row.provider_reference === (paymentRef || value.provider_reference) && row.status === 'paid'))
+          setSuccess(
+            refreshed.access_status === 'active'
+            && (refreshed.status === 'paid' || refreshed.status === 'partially_paid'),
+          )
         }
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Commande introuvable.'))
       .finally(() => setLoadingOrder(false))
-  }, [user, schoolSlug, params])
+  }, [user, schoolSlug, params, orderId])
 
   useEffect(() => {
     if (!user || !item || orderId) return
@@ -212,25 +251,18 @@ export function SchoolCheckoutPage() {
   }
 
   async function enterSpace() {
-    setStoredOrganizationId(school.organization_id)
-    clearSchoolCart(schoolSlug)
-    setError('')
-    try {
-      await refreshOrganizations()
-      navigate('/app/student')
-    } catch {
-      setError('Impossible d’ouvrir votre espace pour le moment. Réessayez.')
-    }
+    redirectStartedRef.current = false
+    await openStudentSpace()
   }
 
-  if (success || (order?.status === 'paid' && !params.get('payment') && !params.get('demo'))) {
+  if (success || accessReady) {
     return (
       <main className="school-section school-checkout-page">
         <section className="school-payment-success">
           <CheckCircle2 size={42} />
           <span className="school-kicker">Paiement confirmé</span>
           <h1>Votre inscription est ouverte</h1>
-          <p>Votre matricule et votre accès étudiant ont été créés automatiquement.</p>
+          <p>Votre accès étudiant est prêt. Ouverture automatique de votre espace…</p>
           {error && <div className="school-checkout-error">{error}</div>}
           {invoices.length > 0 && (
             <div className="school-receipt-list">
