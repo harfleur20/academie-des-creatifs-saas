@@ -6031,11 +6031,13 @@
 }
 
 .tenant-role-powered {
-  display: grid;
-  justify-items: center;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   padding: 8px 0 2px;
   opacity: .58;
+  white-space: nowrap;
 }
 
 .tenant-role-powered > small {
@@ -6047,7 +6049,7 @@
 .tenant-role-powered > span {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 7px;
 }
 

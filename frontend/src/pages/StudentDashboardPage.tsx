@@ -5,14 +5,12 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   ClipboardCheck,
   Clock3,
   CreditCard,
   GraduationCap,
   HelpCircle,
   Layers,
-  Star,
   Users,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
@@ -35,6 +33,7 @@ import {
   type RoleScheduleItem,
 } from '../components/RoleDashboardCalendar'
 import { RoleSchoolVisual } from '../components/RoleSchoolVisual'
+import { RoleQuickAccess } from '../components/RoleQuickAccess'
 import { StudentLevelBadge } from '../components/StudentLevelBadge'
 
 function firstName(name?: string | null) {
@@ -222,23 +221,7 @@ export function StudentDashboardPage() {
               <RoleDashboardCalendar items={scheduleItems} />
             </section>
 
-            <section className="student-quick-access" aria-labelledby="student-quick-access-title">
-              <header className="student-quick-access__header">
-                <Star size={18} aria-hidden="true" />
-                <h2 id="student-quick-access-title">Accès rapide</h2>
-              </header>
-              <div className="student-quick-access__grid">
-                {quickAccessLinks.map((shortcut) => (
-                  <Link className="student-quick-access__card" to={shortcut.to} key={shortcut.to}>
-                    <span className={`student-quick-access__icon student-quick-access__icon--${shortcut.tone}`}>
-                      <shortcut.icon size={18} aria-hidden="true" />
-                    </span>
-                    <span>{shortcut.label}</span>
-                    <ChevronRight className="student-quick-access__arrow" size={16} aria-hidden="true" />
-                  </Link>
-                ))}
-              </div>
-            </section>
+            <RoleQuickAccess links={quickAccessLinks} />
           </section>
 
           <aside className="role-overview-side">

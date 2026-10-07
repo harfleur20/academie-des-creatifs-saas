@@ -5,9 +5,14 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ClipboardList,
   Clock3,
+  FileText,
   GraduationCap,
+  HelpCircle,
+  TrendingUp,
   Users,
+  Video,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -25,10 +30,20 @@ import {
   type RoleScheduleItem,
 } from '../components/RoleDashboardCalendar'
 import { RoleSchoolVisual } from '../components/RoleSchoolVisual'
+import { RoleQuickAccess } from '../components/RoleQuickAccess'
 
 function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Enseignant'
 }
+
+const quickAccessLinks = [
+  { to: '/app/teacher/courses', label: 'Mes cours', icon: BookOpen, tone: 'indigo' },
+  { to: '/app/teacher/quizzes', label: 'Quiz & examens', icon: HelpCircle, tone: 'emerald' },
+  { to: '/app/teacher/assignments', label: 'Devoirs', icon: ClipboardList, tone: 'violet' },
+  { to: '/app/teacher/resources', label: 'Ressources', icon: FileText, tone: 'sky' },
+  { to: '/app/teacher/sessions', label: 'Mes sessions', icon: Video, tone: 'amber' },
+  { to: '/app/teacher/performance', label: 'Performance', icon: TrendingUp, tone: 'pink' },
+] as const
 
 export function TeacherDashboardPage() {
   const { user } = useAuth()
@@ -193,6 +208,8 @@ export function TeacherDashboardPage() {
 
               <RoleDashboardCalendar items={scheduleItems} />
             </section>
+
+            <RoleQuickAccess links={quickAccessLinks} />
           </section>
 
           <aside className="role-overview-side">

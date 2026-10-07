@@ -202,6 +202,7 @@
 
 .public-school-shell .public-school-powered {
   gap: 4px;
+  white-space: nowrap;
 }
 
 /* The public footer follows the same typography scale configured by the school owner. */
