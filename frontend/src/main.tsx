@@ -20,6 +20,7 @@ import './role-dashboard-polish.css'
 import './student-mother-parity.css'
 import './student-course-parity.css'
 import './school-identity-polish.css'
+import './student-hero-visual-fix.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 
