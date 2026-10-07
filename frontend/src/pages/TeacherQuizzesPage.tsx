@@ -1,5 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { BarChart3, CheckCircle2, Plus, Timer, Users, X } from 'lucide-react'
+import {
+  BarChart3,
+  CheckCircle2,
+  LoaderCircle,
+  Plus,
+  Sparkles,
+  Timer,
+  WandSparkles,
+  X,
+} from 'lucide-react'
 import {
   ApiError,
   createTeacherQuiz,
@@ -11,6 +20,10 @@ import {
   type TeacherQuizResults,
   type TeacherWorkspace,
 } from '../lib/api'
+import {
+  generateTeacherQuizDraft,
+  getTeacherAIStatus,
+} from '../lib/tenantIntegrationApi'
 
 type DraftQuestion = {
   text: string
@@ -18,11 +31,17 @@ type DraftQuestion = {
   correct_index: number
 }
 
+type CreationMode = 'manual' | 'ai'
+
 const emptyQuestion = (): DraftQuestion => ({
   text: '',
   options: ['', '', '', ''],
   correct_index: 0,
 })
+
+function fourOptions(options: string[]): [string, string, string, string] {
+  return [options[0] || '', options[1] || '', options[2] || '', options[3] || '']
+}
 
 export function TeacherQuizzesPage() {
   const [workspace, setWorkspace] = useState<TeacherWorkspace | null>(null)
@@ -35,11 +54,24 @@ export function TeacherQuizzesPage() {
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
   const [results, setResults] = useState<TeacherQuizResults | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [creationMode, setCreationMode] = useState<CreationMode>('manual')
+
+  const [aiConnected, setAiConnected] = useState<boolean | null>(null)
+  const [aiTopic, setAiTopic] = useState('')
+  const [aiLevel, setAiLevel] = useState('')
+  const [aiObjectives, setAiObjectives] = useState('')
+  const [aiQuestionCount, setAiQuestionCount] = useState(20)
+  const [aiGenerating, setAiGenerating] = useState(false)
 
   useEffect(() => {
-    getTeacherWorkspace().then((data) => {
+    Promise.all([
+      getTeacherWorkspace(),
+      getTeacherAIStatus().catch(() => null),
+    ]).then(([data, aiStatus]) => {
       setWorkspace(data)
       setSessionId(data.sessions[0]?.session_id ?? null)
+      setAiConnected(aiStatus?.connected ?? false)
     }).catch((err) => setError(err instanceof ApiError ? err.message : 'Chargement impossible.'))
   }, [])
 
@@ -50,6 +82,18 @@ export function TeacherQuizzesPage() {
   useEffect(() => {
     if (sessionId) void refresh(sessionId).catch((err) => setError(err instanceof ApiError ? err.message : 'Chargement impossible.'))
   }, [sessionId])
+
+  function resetForm() {
+    setTitle('')
+    setAssessmentType('quiz')
+    setDuration('30')
+    setQuestions([emptyQuestion()])
+    setCreationMode('manual')
+    setAiTopic('')
+    setAiLevel('')
+    setAiObjectives('')
+    setAiQuestionCount(20)
+  }
 
   function changeQuestion(index: number, patch: Partial<DraftQuestion>) {
     setQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item))
@@ -64,6 +108,33 @@ export function TeacherQuizzesPage() {
     }))
   }
 
+  async function generateWithAI() {
+    if (!sessionId || !aiTopic.trim()) return
+    setAiGenerating(true)
+    setError('')
+    try {
+      const draft = await generateTeacherQuizDraft({
+        session_id: sessionId,
+        topic: aiTopic.trim(),
+        level: aiLevel.trim() || null,
+        objectives: aiObjectives.trim() || null,
+        questions_count: aiQuestionCount,
+        options_per_question: 4,
+      })
+      setTitle(draft.title)
+      setDuration(String(draft.duration_minutes || 30))
+      setQuestions(draft.questions.map((question) => ({
+        text: question.text,
+        options: fourOptions(question.options),
+        correct_index: Math.max(0, Math.min(3, question.correct_index)),
+      })))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de générer le quiz.')
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
   async function create(event: FormEvent) {
     event.preventDefault()
     if (!sessionId) return
@@ -72,8 +143,8 @@ export function TeacherQuizzesPage() {
       options: question.options.map((option) => option.trim()).filter(Boolean),
       correct_index: question.correct_index,
     }))
-    if (normalized.some((question) => question.text.length < 2 || question.options.length < 2 || question.correct_index >= question.options.length)) {
-      setError('Chaque question doit avoir au moins deux réponses et une bonne réponse valide.')
+    if (normalized.some((question) => question.text.length < 2 || question.options.length < 4 || question.correct_index >= question.options.length)) {
+      setError('Chaque question doit avoir au moins quatre réponses et une bonne réponse valide.')
       return
     }
 
@@ -87,8 +158,8 @@ export function TeacherQuizzesPage() {
         pass_pct: 80,
         questions: normalized,
       })
-      setTitle('')
-      setQuestions([emptyQuestion()])
+      resetForm()
+      setShowForm(false)
       await refresh(sessionId)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Création impossible.')
@@ -115,102 +186,90 @@ export function TeacherQuizzesPage() {
   }
 
   return (
-    <main className="app-page academic-page">
-      <header className="app-page-header">
-        <div>
-          <span className="page-kicker">Espace professeur</span>
-          <h1>Quiz & examens</h1>
-          <p>Créez vos évaluations et consultez les résultats de la cohorte.</p>
+    <main className="app-page teacher-mother-page">
+      <div className="dsh-page teacher-dsh-page">
+        <div className="teacher-page-head">
+          <div><h1>Quiz & examens</h1><p>Créez vos évaluations et consultez les résultats de la cohorte.</p></div>
+          <button className="dsh-btn dsh-btn--primary" type="button" disabled={!sessionId} onClick={() => setShowForm(true)}><Plus size={14} /> Nouvelle évaluation</button>
         </div>
-      </header>
 
-      {error && <div className="form-error">{error}</div>}
+        {error && <div className="dsh-error">{error}</div>}
 
-      <label className="academic-session-select">
-        Session
-        <select value={sessionId ?? ''} onChange={(event) => setSessionId(Number(event.target.value))}>
-          {workspace?.sessions.map((session) => (
-            <option key={session.session_id} value={session.session_id}>
-              {session.formation_title} · {session.session_label}
-            </option>
-          ))}
-        </select>
-      </label>
+        <label className="teacher-session-select">
+          <span>Session</span>
+          <select value={sessionId ?? ''} onChange={(event) => setSessionId(Number(event.target.value))}>
+            {workspace?.sessions.map((session) => <option key={session.session_id} value={session.session_id}>{session.formation_title} · {session.session_label}</option>)}
+          </select>
+        </label>
 
-      <section className="quiz-teacher-layout">
-        <form className="app-card academic-form-card quiz-builder" onSubmit={create}>
-          <span className="section-label">Nouvelle évaluation</span>
-          <h2>Créer un quiz ou un examen</h2>
-          <label>Titre<input value={title} onChange={(event) => setTitle(event.target.value)} required minLength={2}/></label>
-          <div className="academic-form-row">
-            <label>Type<select value={assessmentType} onChange={(event) => setAssessmentType(event.target.value as 'quiz' | 'exam')}><option value="quiz">Quiz</option><option value="exam">Examen</option></select></label>
-            <label>Durée<select value={duration} onChange={(event) => setDuration(event.target.value)}><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 h</option><option value="90">1 h 30</option><option value="120">2 h</option></select></label>
-          </div>
-
-          <div className="quiz-question-builder">
-            {questions.map((question, questionIndex) => (
-              <article key={questionIndex}>
-                <div className="quiz-question-builder-head">
-                  <strong>Question {questionIndex + 1}</strong>
-                  {questions.length > 1 && <button type="button" onClick={() => setQuestions((current) => current.filter((_, index) => index !== questionIndex))}><X size={13}/></button>}
-                </div>
-                <input value={question.text} onChange={(event) => changeQuestion(questionIndex, { text: event.target.value })} placeholder="Votre question" />
-                {question.options.map((option, optionIndex) => (
-                  <label className="quiz-option-builder" key={optionIndex}>
-                    <input type="radio" name={'correct-' + questionIndex} checked={question.correct_index === optionIndex} onChange={() => changeQuestion(questionIndex, { correct_index: optionIndex })} />
-                    <input value={option} onChange={(event) => changeOption(questionIndex, optionIndex, event.target.value)} placeholder={'Réponse ' + (optionIndex + 1)} />
-                  </label>
-                ))}
-              </article>
-            ))}
-          </div>
-
-          <button type="button" className="secondary-button" onClick={() => setQuestions((current) => [...current, emptyQuestion()])}><Plus size={13}/> Ajouter une question</button>
-          <button className="primary-button" disabled={working}><Plus size={14}/>{working ? 'Création…' : 'Créer en brouillon'}</button>
-        </form>
-
-        <section className="academic-card-list">
+        <div className="dsh-list teacher-quiz-list">
           {items.map((quiz) => (
-            <article className="app-card quiz-summary-card" key={quiz.id}>
-              <div>
-                <span className="section-label">{quiz.assessment_type === 'exam' ? 'Examen' : 'Quiz'} · {quiz.status}</span>
-                <h3>{quiz.title}</h3>
-                <small>Prof. {quiz.teacher_name || '—'}</small>
+            <article className="dsh-list-item teacher-quiz-row" key={quiz.id}>
+              <div className="dsh-list-item__main">
+                <div className="teacher-assignment-title-row"><strong>{quiz.title}</strong><span className={`dsh-badge ${quiz.status === 'active' ? 'dsh-badge--green' : quiz.status === 'closed' ? 'dsh-badge--gray' : 'dsh-badge--yellow'}`}>{quiz.status === 'active' ? 'Actif' : quiz.status === 'closed' ? 'Fermé' : 'Brouillon'}</span></div>
+                <span className="dsh-list-item__meta">{quiz.assessment_type === 'exam' ? 'Examen' : 'Quiz'} · Prof. {quiz.teacher_name || '—'}</span>
+                <span className="dsh-list-item__meta"><Timer size={12} /> {quiz.duration_minutes || '—'} min · {quiz.questions.length} question(s) · {quiz.attempts_count} tentative(s)</span>
               </div>
-              <div className="quiz-summary-meta">
-                <span><Timer size={13}/>{quiz.duration_minutes || '—'} min</span>
-                <span>{quiz.questions.length} question(s)</span>
-                <span>{quiz.attempts_count} tentative(s)</span>
-              </div>
-              <div className="quiz-summary-actions">
-                <select value={quiz.status} disabled={quiz.teacher_id !== null && quiz.teacher_name !== null && quiz.teacher_id !== items.find((item)=>item.id===quiz.id)?.teacher_id} onChange={(event) => void changeStatus(quiz, event.target.value as TeacherQuiz['status'])}>
-                  <option value="draft">Brouillon</option>
-                  <option value="active">Actif</option>
-                  <option value="closed">Fermé</option>
-                </select>
-                <button type="button" className="secondary-button compact-action" onClick={() => void openResults(quiz)}><BarChart3 size={13}/> Résultats</button>
+              <div className="dsh-list-item__actions teacher-quiz-actions">
+                <select value={quiz.status} onChange={(event) => void changeStatus(quiz, event.target.value as TeacherQuiz['status'])}><option value="draft">Brouillon</option><option value="active">Actif</option><option value="closed">Fermé</option></select>
+                <button className="dsh-btn dsh-btn--outline dsh-btn--sm" type="button" onClick={() => void openResults(quiz)}><BarChart3 size={13} /> Résultats</button>
               </div>
             </article>
           ))}
-          {items.length === 0 && <div className="app-card formation-empty"><CheckCircle2 size={26}/><strong>Aucune évaluation</strong><p>Créez votre premier quiz ou examen.</p></div>}
-        </section>
-      </section>
+          {items.length === 0 && <div className="dsh-empty"><CheckCircle2 size={26} /><strong>Aucune évaluation</strong><p>Créez votre premier quiz ou examen.</p></div>}
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="dsh-modal-overlay" onClick={() => !working && !aiGenerating && setShowForm(false)}>
+          <form className="dsh-modal dsh-modal--xlarge teacher-create-modal teacher-quiz-builder-modal" onSubmit={create} onClick={(event) => event.stopPropagation()}>
+            <div className="dsh-modal__header"><div><span className="section-label">Évaluation</span><h3>Créer un quiz ou un examen</h3></div><button className="dsh-icon-btn" type="button" disabled={working || aiGenerating} onClick={() => setShowForm(false)}><X size={16} /></button></div>
+
+            <div className="teacher-create-tabs">
+              <button type="button" className={creationMode === 'manual' ? 'is-active' : ''} onClick={() => setCreationMode('manual')}>Manuel</button>
+              <button type="button" className={creationMode === 'ai' ? 'is-active' : ''} onClick={() => setCreationMode('ai')}><WandSparkles size={14} /> Avec IA</button>
+            </div>
+
+            <div className="teacher-create-body">
+              {creationMode === 'ai' && (
+                <section className="teacher-ai-panel">
+                  <div className="teacher-ai-title"><Sparkles size={17} /><div><strong>Générer les questions avec l’IA</strong><span>Le professeur relit toutes les réponses avant publication.</span></div></div>
+                  {aiConnected === false ? <div className="teacher-ai-unavailable">OpenAI n’est pas connecté pour cette école. Demandez à un administrateur de l’activer dans Connect.</div> : <>
+                    <label>Sujet / contenu à évaluer<textarea value={aiTopic} onChange={(event) => setAiTopic(event.target.value)} placeholder="Ex. Fondamentaux de Docker, images, conteneurs et volumes" /></label>
+                    <div className="teacher-form-grid two-columns"><label>Niveau<input value={aiLevel} onChange={(event) => setAiLevel(event.target.value)} placeholder="Intermédiaire" /></label><label>Nombre de questions<select value={aiQuestionCount} onChange={(event) => setAiQuestionCount(Number(event.target.value))}><option value={10}>10</option><option value={20}>20</option><option value={40}>40</option></select></label></div>
+                    <label>Objectifs évalués<textarea value={aiObjectives} onChange={(event) => setAiObjectives(event.target.value)} placeholder="Ex. Comprendre le cycle de vie d’un conteneur…" /></label>
+                    <button className="dsh-btn dsh-btn--ai" type="button" disabled={aiGenerating || !aiTopic.trim()} onClick={() => void generateWithAI()}>{aiGenerating ? <LoaderCircle className="openai-spin" size={14} /> : <WandSparkles size={14} />} {aiGenerating ? 'Génération…' : 'Générer les questions'}</button>
+                  </>}
+                </section>
+              )}
+
+              <section className="teacher-manual-fields">
+                <label>Titre<input value={title} onChange={(event) => setTitle(event.target.value)} required minLength={2} /></label>
+                <div className="teacher-form-grid two-columns"><label>Type<select value={assessmentType} onChange={(event) => setAssessmentType(event.target.value as 'quiz' | 'exam')}><option value="quiz">Quiz</option><option value="exam">Examen</option></select></label><label>Durée<select value={duration} onChange={(event) => setDuration(event.target.value)}><option value="15">15 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 h</option><option value="90">1 h 30</option><option value="120">2 h</option></select></label></div>
+
+                <div className="teacher-question-builder">
+                  {questions.map((question, questionIndex) => (
+                    <article key={questionIndex}>
+                      <div className="teacher-question-head"><strong>Question {questionIndex + 1}</strong>{questions.length > 1 && <button className="dsh-icon-btn" type="button" onClick={() => setQuestions((current) => current.filter((_, index) => index !== questionIndex))}><X size={13} /></button>}</div>
+                      <input value={question.text} onChange={(event) => changeQuestion(questionIndex, { text: event.target.value })} placeholder="Votre question" />
+                      <div className="teacher-question-options">{question.options.map((option, optionIndex) => <label className={question.correct_index === optionIndex ? 'is-correct' : ''} key={optionIndex}><input type="radio" name={`correct-${questionIndex}`} checked={question.correct_index === optionIndex} onChange={() => changeQuestion(questionIndex, { correct_index: optionIndex })} /><input value={option} onChange={(event) => changeOption(questionIndex, optionIndex, event.target.value)} placeholder={`Réponse ${optionIndex + 1}`} /></label>)}</div>
+                    </article>
+                  ))}
+                </div>
+                <button type="button" className="dsh-btn dsh-btn--outline" onClick={() => setQuestions((current) => [...current, emptyQuestion()])}><Plus size={13} /> Ajouter une question</button>
+              </section>
+            </div>
+
+            <div className="dsh-modal__footer"><button className="dsh-btn dsh-btn--ghost" type="button" disabled={working} onClick={() => setShowForm(false)}>Annuler</button><button className="dsh-btn dsh-btn--primary" disabled={working || !title.trim()}><Plus size={14} /> {working ? 'Création…' : 'Créer en brouillon'}</button></div>
+          </form>
+        </div>
+      )}
 
       {results && (
-        <div className="assignment-modal-overlay" onClick={() => setResults(null)}>
-          <div className="assignment-modal" onClick={(event) => event.stopPropagation()}>
-            <header><div><span className="section-label">Résultats</span><h2>{results.title}</h2><p>{results.total_students} étudiant(s) inscrits</p></div><button type="button" onClick={() => setResults(null)}>×</button></header>
-            <div className="submission-list">
-              {results.attempts.map((attempt, index) => (
-                <article className="submission-row quiz-result-row" key={index}>
-                  <strong>{attempt.student_name}</strong>
-                  <span>Tentative {attempt.attempt_number}</span>
-                  <strong>{attempt.score_pct}%</strong>
-                  <small>{new Date(attempt.submitted_at).toLocaleString('fr-FR')}</small>
-                </article>
-              ))}
-              {results.attempts.length === 0 && <div className="empty-row">Aucune tentative.</div>}
-            </div>
+        <div className="dsh-modal-overlay" onClick={() => setResults(null)}>
+          <div className="dsh-modal dsh-modal--large teacher-results-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="dsh-modal__header"><div><span className="section-label">Résultats</span><h3>{results.title}</h3><p>{results.total_students} étudiant(s) inscrits</p></div><button className="dsh-icon-btn" type="button" onClick={() => setResults(null)}><X size={16} /></button></div>
+            <div className="teacher-results-list">{results.attempts.map((attempt, index) => <article key={index}><strong>{attempt.student_name}</strong><span>Tentative {attempt.attempt_number}</span><strong>{attempt.score_pct}%</strong><small>{new Date(attempt.submitted_at).toLocaleString('fr-FR')}</small></article>)}{results.attempts.length === 0 && <div className="dsh-empty">Aucune tentative.</div>}</div>
           </div>
         </div>
       )}
