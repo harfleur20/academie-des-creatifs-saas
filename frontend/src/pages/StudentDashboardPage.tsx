@@ -158,7 +158,7 @@ export function StudentDashboardPage() {
   return (
     <div className="role-overview">
       {error && <div className="form-error">{error}</div>}
-      {workspace && (<>
+      {workspace && (
         <div className="role-overview-grid">
           <section className="role-overview-main">
             <section className="role-hero role-hero--student">
@@ -220,6 +220,24 @@ export function StudentDashboardPage() {
               )}
 
               <RoleDashboardCalendar items={scheduleItems} />
+            </section>
+
+            <section className="student-quick-access" aria-labelledby="student-quick-access-title">
+              <header className="student-quick-access__header">
+                <Star size={18} aria-hidden="true" />
+                <h2 id="student-quick-access-title">Accès rapide</h2>
+              </header>
+              <div className="student-quick-access__grid">
+                {quickAccessLinks.map((shortcut) => (
+                  <Link className="student-quick-access__card" to={shortcut.to} key={shortcut.to}>
+                    <span className={`student-quick-access__icon student-quick-access__icon--${shortcut.tone}`}>
+                      <shortcut.icon size={18} aria-hidden="true" />
+                    </span>
+                    <span>{shortcut.label}</span>
+                    <ChevronRight className="student-quick-access__arrow" size={16} aria-hidden="true" />
+                  </Link>
+                ))}
+              </div>
             </section>
           </section>
 
@@ -367,24 +385,7 @@ export function StudentDashboardPage() {
             </section>
           </aside>
         </div>
-        <section className="student-quick-access" aria-labelledby="student-quick-access-title">
-          <header className="student-quick-access__header">
-            <Star size={18} aria-hidden="true" />
-            <h2 id="student-quick-access-title">Accès rapide</h2>
-          </header>
-          <div className="student-quick-access__grid">
-            {quickAccessLinks.map((shortcut) => (
-              <Link className="student-quick-access__card" to={shortcut.to} key={shortcut.to}>
-                <span className={`student-quick-access__icon student-quick-access__icon--${shortcut.tone}`}>
-                  <shortcut.icon size={18} aria-hidden="true" />
-                </span>
-                <span>{shortcut.label}</span>
-                <ChevronRight className="student-quick-access__arrow" size={16} aria-hidden="true" />
-              </Link>
-            ))}
-          </div>
-        </section>
-      </>)}
+      )}
     </div>
   )
 }

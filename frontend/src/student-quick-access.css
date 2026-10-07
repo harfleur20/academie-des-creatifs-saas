@@ -1,5 +1,4 @@
 .tenant-role-shell--student .student-quick-access {
-  margin-top: 18px;
   overflow: hidden;
   border: 1px solid rgba(17, 24, 39, .07);
   border-radius: 17px;
@@ -27,7 +26,7 @@
 
 .tenant-role-shell--student .student-quick-access__grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   padding: 16px 18px 18px;
 }
@@ -88,12 +87,6 @@
 
 .tenant-role-shell--student .student-quick-access__card:hover .student-quick-access__arrow {
   color: #919aa8;
-}
-
-@media (max-width: 1150px) {
-  .tenant-role-shell--student .student-quick-access__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 680px) {
