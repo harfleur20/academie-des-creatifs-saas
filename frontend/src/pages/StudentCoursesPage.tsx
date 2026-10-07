@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { CheckCircle2, ChevronDown, ChevronRight, ExternalLink, PlayCircle } from 'lucide-react'
+import { BookOpen, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, LockKeyhole, PlayCircle } from 'lucide-react'
 import { useTenant } from '../app/TenantContext'
 import { PdfLessonReader } from '../components/PdfLessonReader'
 import { loadBunnyPlayerApi, loadVimeoApi, loadYouTubeApi, parseVideoEmbed } from '../lib/videoEmbed'
@@ -32,10 +32,6 @@ function findLesson(session: LearningSession, lessonId: number): LearningLesson 
     }
   }
   return null
-}
-
-function firstLesson(session: LearningSession): LearningLesson | null {
-  return session.courses.flatMap((course) => course.chapters.flatMap((chapter) => chapter.lessons)).find((lesson) => !lesson.is_locked) ?? null
 }
 
 function TrackedLessonVideo({ lesson, onUpdated, onError }: {
@@ -194,6 +190,7 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
   const [sessions, setSessions] = useState<LearningSession[]>([])
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null)
   const [activeLesson, setActiveLesson] = useState<LearningLesson | null>(null)
+  const [openCourses, setOpenCourses] = useState<Set<number>>(new Set())
   const [openChapters, setOpenChapters] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -206,16 +203,15 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
     setSessions([])
     setSelectedEnrollmentId(null)
     setActiveLesson(null)
+    setOpenCourses(new Set())
+    setOpenChapters(new Set())
     listStudentLearning().then((rows) => {
       if (cancelled) return
       setSessions(rows)
       const selected = mode
         ? rows.find((item) => item.enrollment_id === Number(enrollmentId) && item.dashboard_type === mode)
-        : rows[0]
+        : rows.length === 1 ? rows[0] : undefined
       setSelectedEnrollmentId(selected?.enrollment_id ?? null)
-      setActiveLesson(selected && !selected.is_locked ? firstLesson(selected) : null)
-      const chapterId = selected?.courses[0]?.chapters[0]?.id
-      setOpenChapters(chapterId ? new Set([chapterId]) : new Set())
     }).catch((err) => {
       if (!cancelled) setError(err instanceof ApiError ? err.message : 'Chargement impossible.')
     }).finally(() => { if (!cancelled) setLoading(false) })
@@ -226,6 +222,16 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
     () => sessions.find((item) => item.enrollment_id === selectedEnrollmentId) ?? null,
     [sessions, selectedEnrollmentId],
   )
+
+  const accessibleLessons = useMemo(
+    () => session
+      ? session.courses.flatMap((course) => course.chapters.flatMap((chapter) => chapter.lessons)).filter((lesson) => !lesson.is_locked)
+      : [],
+    [session],
+  )
+  const activeIndex = activeLesson ? accessibleLessons.findIndex((lesson) => lesson.id === activeLesson.id) : -1
+  const previousLesson = activeIndex > 0 ? accessibleLessons[activeIndex - 1] : null
+  const nextLesson = activeIndex >= 0 && activeIndex < accessibleLessons.length - 1 ? accessibleLessons[activeIndex + 1] : null
 
   const onUpdated = useCallback((updated: LearningSession) => {
     setSessions((current) => current.map((item) => item.enrollment_id === updated.enrollment_id ? updated : item))
@@ -240,23 +246,45 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
 
   function selectSession(id: number) {
     setSelectedEnrollmentId(id)
-    const selected = sessions.find((item) => item.enrollment_id === id)
-    setActiveLesson(selected && !selected.is_locked ? firstLesson(selected) : null)
-    const chapterId = selected?.courses[0]?.chapters[0]?.id
-    setOpenChapters(chapterId ? new Set([chapterId]) : new Set())
+    setActiveLesson(null)
+    setOpenCourses(new Set())
+    setOpenChapters(new Set())
+  }
+
+  function selectLesson(lesson: LearningLesson, courseId: number, chapterId: number) {
+    if (lesson.is_locked) return
+    setActiveLesson(lesson)
+    setOpenCourses((current) => new Set(current).add(courseId))
+    setOpenChapters((current) => new Set(current).add(chapterId))
+  }
+
+  function navigateToLesson(lesson: LearningLesson | null) {
+    if (!lesson || !session) return
+    for (const course of session.courses) {
+      for (const chapter of course.chapters) {
+        if (chapter.lessons.some((candidate) => candidate.id === lesson.id)) {
+          selectLesson(lesson, course.id, chapter.id)
+          return
+        }
+      }
+    }
   }
 
   function renderLesson(lesson: LearningLesson) {
-    if (lesson.lesson_type === 'video' && lesson.video_url) return <TrackedLessonVideo key={lesson.id} lesson={lesson} onUpdated={onUpdated} onError={setError} />
-    if (lesson.lesson_type === 'pdf' && lesson.quiz_id) return <PdfLessonReader key={lesson.id} lesson={lesson} onCompleted={() => {
-      void listStudentLearning().then((rows) => {
-        const updated = rows.find((item) => item.enrollment_id === selectedEnrollmentId)
-        if (updated) onUpdated(updated)
-      }).catch((caught) => setError(caught instanceof ApiError ? caught.message : 'Actualisation impossible.'))
-    }} />
+    if (lesson.lesson_type === 'video' && lesson.video_url) {
+      return <TrackedLessonVideo key={lesson.id} lesson={lesson} onUpdated={onUpdated} onError={setError} />
+    }
+    if (lesson.lesson_type === 'pdf' && lesson.quiz_id) {
+      return <PdfLessonReader key={lesson.id} lesson={lesson} onCompleted={() => {
+        void listStudentLearning().then((rows) => {
+          const updated = rows.find((item) => item.enrollment_id === selectedEnrollmentId)
+          if (updated) onUpdated(updated)
+        }).catch((caught) => setError(caught instanceof ApiError ? caught.message : 'Actualisation impossible.'))
+      }} />
+    }
     return <>
       {lesson.content && <div className="student-reader-text">{lesson.content}</div>}
-      {lesson.file_url && <a className="primary-button" href={lesson.file_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Ouvrir le document</a>}
+      {lesson.file_url && <a className="dsh-btn dsh-btn--primary" href={lesson.file_url} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Ouvrir le document</a>}
       {lesson.quiz_id && <p>Réussissez le quiz pour valider cette leçon. <Link to={`/app/student/quizzes#quiz-${lesson.quiz_id}`}>Ouvrir le quiz lié</Link></p>}
       {lesson.assignment_id && <p>Déposez votre travail pour valider cette leçon. <Link to={`/app/student/assignments#assignment-${lesson.assignment_id}`}>Ouvrir le devoir lié</Link></p>}
       {!lesson.content && !lesson.file_url && !lesson.quiz_id && !lesson.assignment_id && <div className="student-reader-text">Aucun contenu textuel.</div>}
@@ -266,49 +294,163 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
   const title = mode === 'classic' ? 'Parcours classique' : mode === 'guided' ? 'Parcours guidé' : 'Mes cours'
   const canMarkComplete = activeLesson && !activeLesson.completed && !activeLesson.quiz_id && !activeLesson.assignment_id && !['video', 'quiz', 'assignment'].includes(activeLesson.lesson_type)
 
+  if (loading) return <main className="app-page"><div className="dsh-empty">Chargement des cours…</div></main>
+
+  if (!mode && sessions.length > 1 && selectedEnrollmentId === null) {
+    return <main className="app-page student-reader-page">
+      <div className="dsh-page">
+        <div className="dsh-page__header">
+          <h1>Mes cours</h1>
+          <p className="dsh-page__subtitle">Choisissez une formation pour accéder à son contenu.</p>
+        </div>
+        {error && <div className="dsh-error">{error}</div>}
+        <div className="cv-picker-grid">
+          {sessions.map((item) => {
+            const lessons = item.courses.flatMap((course) => course.chapters.flatMap((chapter) => chapter.lessons))
+            const completed = lessons.filter((lesson) => lesson.completed).length
+            const pct = lessons.length ? Math.round((completed / lessons.length) * 100) : 0
+            return <button className="cv-picker-card" type="button" key={item.enrollment_id} onClick={() => selectSession(item.enrollment_id)}>
+              <div className="cv-picker-card__header">
+                <span className="cv-picker-card__session">{item.session_label}</span>
+                <h2 className="cv-picker-card__title">{item.formation_title}</h2>
+                <span className="cv-picker-card__meta">{item.courses.length} module{item.courses.length > 1 ? 's' : ''} · {lessons.length} leçon{lessons.length > 1 ? 's' : ''}</span>
+              </div>
+              <div className="cv-picker-card__progress">
+                <div className="cv-picker-card__progress-label"><span>{completed}/{lessons.length} terminées</span><strong>{pct}%</strong></div>
+                <div className="cv-progress-bar"><span className="cv-progress-bar__fill" style={{ width: `${pct}%` }} /></div>
+              </div>
+              <span className="cv-picker-card__cta">Ouvrir le lecteur →</span>
+            </button>
+          })}
+        </div>
+      </div>
+    </main>
+  }
+
+  if (!session) {
+    return <main className="app-page student-reader-page">
+      <div className="dsh-page">
+        <div className="dsh-page__header"><h1>{title}</h1></div>
+        {error && <div className="dsh-error">{error}</div>}
+        <div className="dsh-empty">{mode ? 'Parcours introuvable dans votre école.' : 'Aucune formation disponible.'}</div>
+      </div>
+    </main>
+  }
+
   return <main className="app-page student-reader-page">
-    <header className="app-page-header">
-      <div><span className="page-kicker">Espace étudiant</span><h1>{title}</h1><p>{mode === 'guided' ? 'Suivez les cours de votre session à mesure qu’ils deviennent disponibles.' : 'Avancez module par module dans votre formation.'}</p></div>
-      {mode && <Link to="/app/student/formations">Tous mes parcours</Link>}
-    </header>
-    {error && <div className="form-error">{error}</div>}
-    {loading && <div className="page-state">Chargement des cours…</div>}
-    {!loading && !mode && sessions.length > 0 && <label className="academic-session-select">Formation
-      <select value={selectedEnrollmentId ?? ''} onChange={(event) => selectSession(Number(event.target.value))}>
-        {sessions.map((item) => <option key={item.enrollment_id} value={item.enrollment_id}>{item.formation_title} · {item.session_label} · {item.dashboard_type === 'classic' ? 'Classique' : 'Guidé'}</option>)}
-      </select>
-    </label>}
-    {!loading && !session && <div className="app-card">{mode ? 'Parcours introuvable dans votre école.' : 'Aucune formation disponible.'}</div>}
-    {session && <>
-      <p>{session.formation_title} · {session.session_label} · {session.dashboard_type === 'classic' ? 'En ligne' : 'Guidé'}</p>
-      {session.is_locked && <div className="student-reader-lock">Ce parcours ouvrira au début de la session{session.available_at ? `, le ${new Date(session.available_at).toLocaleDateString('fr-FR')}` : ''}.</div>}
-      <section className="student-reader-layout">
-        <aside className="app-card student-reader-nav">
-          {session.courses.map((course) => <div key={course.id}>
-            <h3>{course.title}</h3>
-            {course.chapters.map((chapter) => {
-              const open = openChapters.has(chapter.id)
-              return <div className="student-reader-chapter" key={chapter.id}>
-                <button type="button" onClick={() => setOpenChapters((current) => {
-                  const next = new Set(current)
-                  if (next.has(chapter.id)) next.delete(chapter.id)
-                  else next.add(chapter.id)
-                  return next
-                })}>{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />} Module {chapter.order_index + 1} · {chapter.title}</button>
-                {open && <div>{chapter.lessons.map((lesson) => <button type="button" disabled={lesson.is_locked} className={activeLesson?.id === lesson.id ? 'is-active' : ''} key={lesson.id} onClick={() => setActiveLesson(lesson)} title={lesson.is_locked ? `Disponible ${lesson.available_at ? `le ${new Date(lesson.available_at).toLocaleString('fr-FR')}` : 'après publication de l’activité'}` : undefined}>{lesson.completed ? <CheckCircle2 size={13} /> : <PlayCircle size={13} />}<span>{lesson.title}{lesson.is_locked && ' · À venir'}</span></button>)}</div>}
+    {error && <div className="dsh-error">{error}</div>}
+    {session.is_locked && <div className="student-reader-lock">Ce parcours ouvrira au début de la session{session.available_at ? `, le ${new Date(session.available_at).toLocaleDateString('fr-FR')}` : ''}.</div>}
+
+    <div className="dsh-page cv-layout">
+      <aside className="cv-sidebar">
+        {!mode && sessions.length > 1 && (
+          <button type="button" className="cv-back-btn" onClick={() => selectSession(0)}>
+            <ChevronLeft size={14} /> Changer de formation
+          </button>
+        )}
+        {mode && <Link className="cv-back-btn" to="/app/student/formations"><ChevronLeft size={14} /> Tous mes parcours</Link>}
+
+        <div className="cv-formation-head">
+          <span className="cv-formation-head__label">{session.session_label} · {session.dashboard_type === 'classic' ? 'En ligne' : 'Guidé'}</span>
+          <strong>{session.formation_title}</strong>
+        </div>
+
+        {session.courses.map((course, courseIndex) => {
+          const courseOpen = openCourses.has(course.id)
+          const courseLessons = course.chapters.flatMap((chapter) => chapter.lessons)
+          const completed = courseLessons.filter((lesson) => lesson.completed).length
+          const pct = courseLessons.length ? Math.round((completed / courseLessons.length) * 100) : 0
+          return <div className="cv-course-block" key={course.id}>
+            <button
+              type="button"
+              className="cv-progress-row"
+              onClick={() => setOpenCourses((current) => {
+                const next = new Set(current)
+                if (next.has(course.id)) next.delete(course.id)
+                else next.add(course.id)
+                return next
+              })}
+            >
+              <span className="cv-progress-row__caret">{courseOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
+              <span className="cv-progress-row__info">
+                <strong>Module {courseIndex + 1} : {course.title}</strong>
+                <span className="cv-progress-bar"><span className="cv-progress-bar__fill" style={{ width: `${pct}%` }} /></span>
+                <span className="cv-progress-row__pct">{completed}/{courseLessons.length} leçons · {pct}%</span>
+              </span>
+            </button>
+
+            {courseOpen && course.chapters.map((chapter, chapterIndex) => {
+              const chapterOpen = openChapters.has(chapter.id)
+              const allDone = chapter.lessons.length > 0 && chapter.lessons.every((lesson) => lesson.completed)
+              return <div className="cv-chapter-block" key={chapter.id}>
+                <button
+                  type="button"
+                  className="cv-chapter-header"
+                  onClick={() => setOpenChapters((current) => {
+                    const next = new Set(current)
+                    if (next.has(chapter.id)) next.delete(chapter.id)
+                    else next.add(chapter.id)
+                    return next
+                  })}
+                >
+                  <span className="cv-chapter-header__caret">{chapterOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</span>
+                  <span className={`cv-chapter-header__title${allDone ? ' is-done' : ''}`}>Chapitre {chapterIndex + 1} : {chapter.title}</span>
+                  {allDone && <CheckCircle2 size={12} />}
+                </button>
+
+                {chapterOpen && chapter.lessons.map((lesson, lessonIndex) => (
+                  <button
+                    type="button"
+                    className={`cv-lesson-item${activeLesson?.id === lesson.id ? ' is-active' : ''}${lesson.completed ? ' is-done' : ''}${lesson.is_locked ? ' is-locked' : ''}`}
+                    key={lesson.id}
+                    onClick={() => selectLesson(lesson, course.id, chapter.id)}
+                    title={lesson.is_locked ? `Disponible ${lesson.available_at ? `le ${new Date(lesson.available_at).toLocaleString('fr-FR')}` : 'plus tard'}` : undefined}
+                  >
+                    <span className="cv-lesson-item__check">{lesson.completed ? <CheckCircle2 size={13} /> : <PlayCircle size={12} />}</span>
+                    <span className="cv-lesson-item__label">Leçon {lessonIndex + 1} : {lesson.title}</span>
+                    <span className="cv-lesson-item__type">{lesson.is_locked ? <LockKeyhole size={13} /> : lesson.lesson_type}</span>
+                  </button>
+                ))}
               </div>
             })}
-          </div>)}
-          {session.courses.length === 0 && <p>Cours en préparation.</p>}
-        </aside>
-        <article className="app-card student-reader-content">
-          {activeLesson && !session.is_locked ? <>
-            <div className="student-reader-heading"><div><span className="section-label">{activeLesson.lesson_type}</span><h2>{activeLesson.title}</h2></div>{activeLesson.completed && <span className="assignment-status reviewed"><CheckCircle2 size={13} />Terminée</span>}</div>
+          </div>
+        })}
+
+        {session.courses.length === 0 && <p className="cv-sidebar-empty">Cours en préparation.</p>}
+      </aside>
+
+      <section className="cv-content">
+        {!activeLesson || session.is_locked ? (
+          <div className="cv-welcome">
+            <BookOpen size={40} />
+            <p>{session.is_locked ? 'Les leçons seront accessibles au début de la session.' : 'Sélectionnez une leçon dans le menu pour commencer.'}</p>
+          </div>
+        ) : (
+          <>
+            <div className="student-reader-heading">
+              <div><span className="section-label">{activeLesson.lesson_type}</span><h2>{activeLesson.title}</h2></div>
+              {activeLesson.completed && <span className="dsh-badge dsh-badge--green"><CheckCircle2 size={12} /> Terminée</span>}
+            </div>
+
             {renderLesson(activeLesson)}
-            {canMarkComplete && <button type="button" className="primary-button student-complete-button" onClick={() => void complete()}><CheckCircle2 size={14} /> Marquer comme terminée</button>}
-          </> : <div className="formation-empty">{session.is_locked ? 'Les leçons seront accessibles au début de la session.' : 'Sélectionnez une leçon.'}</div>}
-        </article>
+
+            {canMarkComplete && (
+              <button type="button" className="dsh-btn dsh-btn--primary student-complete-button" onClick={() => void complete()}>
+                <CheckCircle2 size={14} /> Marquer comme terminée
+              </button>
+            )}
+
+            <div className="cv-lesson-nav">
+              <button className="dsh-btn dsh-btn--ghost" type="button" disabled={!previousLesson} onClick={() => navigateToLesson(previousLesson)}>
+                <ChevronLeft size={14} /> Précédent
+              </button>
+              <button className="dsh-btn dsh-btn--primary" type="button" disabled={!nextLesson} onClick={() => navigateToLesson(nextLesson)}>
+                Suivant <ChevronRight size={14} />
+              </button>
+            </div>
+          </>
+        )}
       </section>
-    </>}
+    </div>
   </main>
 }
