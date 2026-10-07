@@ -28,6 +28,7 @@ import {
   RoleDashboardCalendar,
   type RoleScheduleItem,
 } from '../components/RoleDashboardCalendar'
+import { RoleSchoolVisual } from '../components/RoleSchoolVisual'
 
 function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Étudiant'
@@ -135,6 +136,8 @@ export function StudentDashboardPage() {
     return <div className="page-state">Chargement de votre espace étudiant…</div>
   }
 
+  const progressPercent = focusProgress?.badge.score_pct || 0
+
   return (
     <div className="role-overview">
       {error && <div className="form-error">{error}</div>}
@@ -155,11 +158,11 @@ export function StudentDashboardPage() {
                   Retrouvez vos cours, devoirs, résultats et votre progression.
                 </small>
               </div>
-              <div className="role-hero__student-progress">
-                <Award size={24} />
-                <span>{focusProgress?.badge.label || 'Parcours'}</span>
-                <strong>{focusProgress?.badge.score_pct || 0}%</strong>
-              </div>
+              <RoleSchoolVisual
+                role="student"
+                schoolName={activeOrganization?.name || 'Votre école'}
+                logoUrl={activeOrganization?.logo_url}
+              />
             </section>
 
             <section className="role-calendar-card">
@@ -214,7 +217,7 @@ export function StudentDashboardPage() {
               <article className="role-kpi role-kpi--secondary">
                 <span>COURS DISPONIBLES</span>
                 <strong>{workspace.total_courses}</strong>
-                <small>Dans mes parcours</small>
+                <small>Dans mes formations</small>
                 <BookOpen size={29} />
               </article>
               <article className="role-kpi role-kpi--mint">
@@ -233,7 +236,34 @@ export function StudentDashboardPage() {
 
             <section className="role-side-card">
               <header>
-                <strong>MES PARCOURS ACTIFS</strong>
+                <strong>MA PROGRESSION</strong>
+                <span>{progressPercent}%</span>
+              </header>
+              <div className="role-student-progress-card">
+                <div className="role-student-progress-card__head">
+                  <span className="role-student-progress-card__icon">
+                    <Award size={20} />
+                  </span>
+                  <span>
+                    <small>Niveau actuel</small>
+                    <strong>{focusProgress?.badge.label || 'Démarrage'}</strong>
+                  </span>
+                </div>
+                <div className="role-student-progress-card__bar">
+                  <i style={{ width: `${progressPercent}%` }} />
+                </div>
+                <p>
+                  {focusProgress
+                    ? `${focusProgress.completed_lessons}/${focusProgress.total_lessons} leçons terminées dans votre formation active.`
+                    : 'Votre progression apparaîtra dès que vous commencerez vos cours.'}
+                </p>
+                <Link to="/app/student/progress">Voir ma progression</Link>
+              </div>
+            </section>
+
+            <section className="role-side-card">
+              <header>
+                <strong>MES FORMATIONS ACTIVES</strong>
                 <span>{workspace.sessions.length}</span>
               </header>
               <div className="role-side-list">
@@ -291,30 +321,6 @@ export function StudentDashboardPage() {
                   )}
                 </div>
               )}
-            </section>
-
-            <section className="role-side-card">
-              <header>
-                <strong>MA PROGRESSION</strong>
-                <span>{focusProgress?.badge.score_pct || 0}%</span>
-              </header>
-              <div className="role-progress-summary">
-                <div>
-                  <span>
-                    <i style={{
-                      width: `${focusProgress?.badge.score_pct || 0}%`,
-                    }} />
-                  </span>
-                </div>
-                <p>
-                  {focusProgress
-                    ? `${focusProgress.completed_lessons}/${focusProgress.total_lessons} leçons · ${focusProgress.badge.label}`
-                    : 'Commencez votre parcours pour voir votre progression.'}
-                </p>
-                <Link to="/app/student/progress">
-                  Voir ma progression
-                </Link>
-              </div>
             </section>
 
             <section className="role-side-card">
