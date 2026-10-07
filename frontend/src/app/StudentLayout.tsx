@@ -27,6 +27,12 @@ const navItems: WorkspaceNavItem[] = [
   },
 ]
 
+const trailingNavItems: WorkspaceNavItem[] = [
+  { to: '/app/student/certificates', label: 'Certificats', icon: <Award size={18} /> },
+  { to: '/app/student/payments', label: 'Mes paiements', icon: <CreditCard size={18} /> },
+  { to: '/app/student/profile', label: 'Mon profil', icon: <UserRound size={18} /> },
+]
+
 const navGroups: WorkspaceNavGroup[] = [
   {
     key: 'formation',
@@ -49,16 +55,6 @@ const navGroups: WorkspaceNavGroup[] = [
       { to: '/app/student/quizzes', label: 'Quiz & Examens', icon: <CheckCircle2 size={18} /> },
       { to: '/app/student/results', label: 'Mes résultats', icon: <BarChart3 size={18} /> },
       { to: '/app/student/progress', label: 'Progression', icon: <Award size={18} /> },
-      { to: '/app/student/certificates', label: 'Certificats', icon: <Award size={18} /> },
-    ],
-  },
-  {
-    key: 'account',
-    label: 'Mon compte',
-    icon: <UserRound size={18} />,
-    items: [
-      { to: '/app/student/payments', label: 'Mes paiements', icon: <CreditCard size={18} /> },
-      { to: '/app/student/profile', label: 'Mon profil', icon: <UserRound size={18} /> },
     ],
   },
 ]
@@ -69,6 +65,7 @@ export function StudentLayout() {
       space="student"
       navItems={navItems}
       navGroups={navGroups}
+      trailingNavItems={trailingNavItems}
     />
   )
 }

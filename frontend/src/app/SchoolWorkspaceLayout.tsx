@@ -76,10 +76,12 @@ export function SchoolWorkspaceLayout({
   space,
   navItems,
   navGroups = [],
+  trailingNavItems = [],
 }: {
   space: WorkspaceSpace
   navItems: WorkspaceNavItem[]
   navGroups?: WorkspaceNavGroup[]
+  trailingNavItems?: WorkspaceNavItem[]
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -128,8 +130,8 @@ export function SchoolWorkspaceLayout({
   } as CSSProperties
 
   const allNavItems = useMemo(
-    () => [...navItems, ...navGroups.flatMap((group) => group.items)],
-    [navItems, navGroups],
+    () => [...navItems, ...navGroups.flatMap((group) => group.items), ...trailingNavItems],
+    [navItems, navGroups, trailingNavItems],
   )
   const activeNavGroup = navGroups.find((group) =>
     group.items.some((item) => navItemMatches(location.pathname, item)),
@@ -489,6 +491,12 @@ export function SchoolWorkspaceLayout({
               </div>
             )
           })}
+          {trailingNavItems.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.end}>
+              <span>{item.icon}</span>
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
 
         <div className="tenant-role-sidebar__bottom">
