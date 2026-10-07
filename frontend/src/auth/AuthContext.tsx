@@ -20,6 +20,7 @@ import {
   type AuthUser,
   type SupportModeState,
 } from '../lib/api'
+import { formatPersonName } from '../lib/personName'
 import { consumeCustomDomainSsoHandoff, maybeStartCustomDomainSso } from './customDomainSso'
 import { authenticateWithGoogle } from './googleApi'
 
@@ -67,7 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const updateUser = useCallback((next: AuthUser | null) => {
-    setUser((current) => sameUser(current, next) ? current : next)
+    const normalized = next
+      ? { ...next, full_name: formatPersonName(next.full_name) }
+      : null
+    setUser((current) => sameUser(current, normalized) ? current : normalized)
   }, [])
 
   const updateSupportMode = useCallback((next: SupportModeState | null) => {
