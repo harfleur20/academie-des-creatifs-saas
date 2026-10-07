@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
@@ -11,12 +11,12 @@ from app.schemas.commerce import (
     PublicSchoolRead,
 )
 from app.services.public_catalog import (
-    get_public_organization,
     list_public_formations,
     public_formation_detail,
     public_home,
     public_school_read,
 )
+from app.services.public_school_slug import resolve_public_organization
 from app.services.school_branding import get_or_create_identity_records
 from app.services.school_favorites import add_school_favorite, list_school_favorites, remove_school_favorite
 
@@ -24,12 +24,20 @@ from app.services.school_favorites import add_school_favorite, list_school_favor
 router = APIRouter(prefix="/public/schools", tags=["public-school"])
 
 
+def _public_org(db: Session, school_key: str):
+    org = resolve_public_organization(db, school_key)
+    if org is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "École introuvable.")
+    return org
+
+
 @router.get("/{school_key}", response_model=PublicHomeRead)
 def get_school_home(
     school_key: str,
     db: Session = Depends(get_db),
 ):
-    return public_home(db, school_key)
+    org = _public_org(db, school_key)
+    return public_home(db, org.slug)
 
 
 @router.get("/{school_key}/identity", response_model=PublicSchoolRead)
@@ -37,7 +45,7 @@ def get_school_identity_public(
     school_key: str,
     db: Session = Depends(get_db),
 ):
-    org = get_public_organization(db, school_key)
+    org = _public_org(db, school_key)
     return public_school_read(db, org)
 
 
@@ -46,7 +54,7 @@ def get_school_contact_channels(
     school_key: str,
     db: Session = Depends(get_db),
 ):
-    org = get_public_organization(db, school_key)
+    org = _public_org(db, school_key)
     public_school_read(db, org)
     _site, _legal, communications, _certification = get_or_create_identity_records(db, org)
     return {"whatsapp_phone": communications.whatsapp_phone}
@@ -57,7 +65,7 @@ def get_school_formations(
     school_key: str,
     db: Session = Depends(get_db),
 ):
-    org = get_public_organization(db, school_key)
+    org = _public_org(db, school_key)
     public_school_read(db, org)
     return list_public_formations(db, org)
 
@@ -71,7 +79,8 @@ def get_school_formation(
     formation_slug: str,
     db: Session = Depends(get_db),
 ):
-    return public_formation_detail(db, school_key, formation_slug)
+    org = _public_org(db, school_key)
+    return public_formation_detail(db, org.slug, formation_slug)
 
 
 @router.get("/{school_key}/favorites", response_model=list[PublicFormationCardRead])
@@ -80,7 +89,7 @@ def get_school_favorites(
     db: Session = Depends(get_db),
     user: UserRecord = Depends(get_current_user),
 ):
-    org = get_public_organization(db, school_key)
+    org = _public_org(db, school_key)
     public_school_read(db, org)
     return list_school_favorites(db, org, user)
 
@@ -92,7 +101,7 @@ def add_favorite(
     db: Session = Depends(get_db),
     user: UserRecord = Depends(get_current_user),
 ):
-    org = get_public_organization(db, school_key)
+    org = _public_org(db, school_key)
     public_school_read(db, org)
     return add_school_favorite(db, org, user, formation_slug)
 
@@ -104,6 +113,6 @@ def remove_favorite(
     db: Session = Depends(get_db),
     user: UserRecord = Depends(get_current_user),
 ):
-    org = get_public_organization(db, school_key)
+    org = _public_org(db, school_key)
     public_school_read(db, org)
     return remove_school_favorite(db, org, user, formation_slug)
