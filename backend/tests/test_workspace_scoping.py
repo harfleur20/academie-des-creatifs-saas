@@ -60,6 +60,7 @@ def seed(db: Session):
         organization_id=org.id,
         slug="motion",
         title="Motion Design",
+        cover_image_url="https://example.test/motion.jpg",
     )
     db.add(formation)
     db.flush()
@@ -126,6 +127,7 @@ def test_student_workspace_only_contains_own_enrollments() -> None:
     assert workspace.total_sessions == 1
     assert workspace.total_courses == 1
     assert workspace.sessions[0].session_label == "Cohorte Octobre"
+    assert workspace.sessions[0].formation_image == "https://example.test/motion.jpg"
 
 
 def test_owner_without_student_role_cannot_open_student_workspace() -> None:

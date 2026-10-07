@@ -1343,6 +1343,7 @@ export type StudentWorkspaceSession = {
   enrollment_id: number
   formation_id: number
   formation_title: string
+  formation_image: string | null
   format_type: 'ligne' | 'live' | 'presentiel'
   dashboard_type: 'classic' | 'guided'
   session_id: number

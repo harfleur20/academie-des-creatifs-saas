@@ -1,0 +1,258 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+
+/* Match the mother site's calendar reading scale in the student overview. */
+.tenant-role-shell--student .role-calendar-card {
+  font-family: 'Manrope', sans-serif;
+}
+
+.tenant-role-shell--student .role-calendar-card > header strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.tenant-role-shell--student .role-calendar-card > header a {
+  font-size: 13px;
+}
+
+.tenant-role-shell--student .role-next-course {
+  padding: 18px 20px;
+}
+
+.tenant-role-shell--student .role-next-course span {
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+
+.tenant-role-shell--student .role-next-course strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.tenant-role-shell--student .role-next-course p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tenant-role-shell--student .role-mini-calendar > header strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+}
+
+.tenant-role-shell--student .role-mini-calendar > header button {
+  width: 32px;
+  height: 32px;
+}
+
+.tenant-role-shell--student .role-mini-calendar__weekday {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tenant-role-shell--student .role-mini-calendar__grid button {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.tenant-role-shell--student .role-mini-calendar__grid button.has-event {
+  color: color-mix(in srgb, var(--school-secondary) 65%, #0c5b4f);
+  font-weight: 700;
+}
+
+.tenant-role-shell--student .role-mini-calendar__grid button i {
+  width: 4px;
+  height: 4px;
+}
+
+.tenant-role-shell--student .role-calendar-day {
+  min-height: 250px;
+}
+
+.tenant-role-shell--student .role-calendar-day > header strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+}
+
+.tenant-role-shell--student .role-calendar-day > header span,
+.tenant-role-shell--student .role-calendar-events article p {
+  font-size: 12px;
+}
+
+.tenant-role-shell--student .role-calendar-events article strong,
+.tenant-role-shell--student .role-calendar-events article a {
+  font-size: 13px;
+}
+
+.tenant-role-shell--student .role-calendar-empty {
+  min-height: 190px;
+  align-content: center;
+  gap: 9px;
+  color: #c8cfd8;
+}
+
+.tenant-role-shell--student .role-calendar-empty p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* Mother-site enrollment cards: cover on the left, badges and action on the right. */
+.tenant-role-shell--student .student-parcours-page {
+  font-family: 'Manrope', sans-serif;
+}
+
+.tenant-role-shell--student .student-parcours-page .app-page-header h1 {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.tenant-role-shell--student .student-parcours-filters button {
+  border: 1.5px solid #e5e7eb;
+  background: #f8fafc;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tenant-role-shell--student .student-parcours-filters button.is-active {
+  border-color: var(--school-secondary);
+  color: var(--school-primary);
+  background: color-mix(in srgb, var(--school-secondary) 9%, white);
+}
+
+.tenant-role-shell--student .student-parcours-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.tenant-role-shell--student .student-parcours-card {
+  min-width: 0;
+  min-height: 150px;
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--school-primary) 10%, #e5e7eb);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(16, 21, 45, .08);
+}
+
+.tenant-role-shell--student .student-parcours-card__media {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  color: var(--school-primary);
+  background: color-mix(in srgb, var(--school-secondary) 14%, #edf5f8);
+}
+
+.tenant-role-shell--student .student-parcours-card__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 150px;
+  object-fit: cover;
+}
+
+.tenant-role-shell--student .student-parcours-card__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 15px 17px;
+}
+
+.tenant-role-shell--student .student-parcours-tags {
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.tenant-role-shell--student .student-parcours-tags span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tenant-role-shell--student .student-parcours-tags__format--ligne {
+  color: #08764f;
+  background: #e8f8f1;
+}
+
+.tenant-role-shell--student .student-parcours-tags__format--live {
+  color: #1d5a91;
+  background: #e9f3ff;
+}
+
+.tenant-role-shell--student .student-parcours-tags__format--presentiel {
+  color: #90620a;
+  background: #fff6da;
+}
+
+.tenant-role-shell--student .student-parcours-tags__mode {
+  color: #657286;
+  background: #eef2f6;
+}
+
+.tenant-role-shell--student .student-parcours-card h2 {
+  margin: 0;
+  color: var(--school-primary);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.tenant-role-shell--student .student-parcours-card p {
+  margin: 0;
+  color: #677387;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.tenant-role-shell--student .student-parcours-card__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 31px;
+  margin-top: auto;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--school-primary) 18%, #e5e7eb);
+  border-radius: 8px;
+  color: var(--school-primary);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.tenant-role-shell--student .student-parcours-card__link:hover {
+  border-color: var(--school-secondary);
+  background: color-mix(in srgb, var(--school-secondary) 8%, white);
+}
+
+@media (max-width: 1160px) {
+  .tenant-role-shell--student .student-parcours-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 730px) {
+  .tenant-role-shell--student .student-parcours-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .tenant-role-shell--student .student-parcours-card {
+    grid-template-columns: 100px minmax(0, 1fr);
+  }
+
+  .tenant-role-shell--student .student-parcours-card__body {
+    padding: 12px;
+  }
+}

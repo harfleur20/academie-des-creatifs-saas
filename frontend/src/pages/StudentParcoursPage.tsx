@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { GraduationCap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { ApiError, getStudentWorkspace, type StudentWorkspace } from '../lib/api'
@@ -52,14 +53,25 @@ export function StudentParcoursPage() {
         </div>
         {visible.length === 0 ? <div className="app-card">Aucun parcours dans cette catégorie.</div> : (
           <div className="student-parcours-grid">
-            {visible.map((session) => <article className="app-card student-parcours-card" key={session.enrollment_id}>
-              <div className="student-parcours-tags"><span>{formatLabels[session.format_type]}</span><span>{session.dashboard_type === 'classic' ? 'Autonome' : 'Guidé'}</span></div>
-              <h2>{session.formation_title}</h2>
-              <p>{session.session_label}</p>
-              <small>{session.course_count} cours publié{session.course_count > 1 ? 's' : ''}</small>
-              <Link className="primary-button" to={`/app/student/${session.dashboard_type}/${session.enrollment_id}`}>
-                {session.dashboard_type === 'classic' ? 'Accéder au parcours' : session.format_type === 'presentiel' ? 'Ouvrir le suivi scolaire' : 'Accéder au parcours guidé'}
-              </Link>
+            {visible.map((session) => <article className="student-parcours-card" key={session.enrollment_id}>
+              <div className="student-parcours-card__media">
+                {session.formation_image ? (
+                  <img src={session.formation_image} alt="" loading="lazy" decoding="async" />
+                ) : (
+                  <GraduationCap size={36} aria-hidden="true" />
+                )}
+              </div>
+              <div className="student-parcours-card__body">
+                <div className="student-parcours-tags">
+                  <span className={`student-parcours-tags__format student-parcours-tags__format--${session.format_type}`}>{formatLabels[session.format_type]}</span>
+                  <span className="student-parcours-tags__mode">{session.dashboard_type === 'classic' ? 'Autonome' : 'Guidé'}</span>
+                </div>
+                <h2>{session.formation_title}</h2>
+                <p>{session.session_label || 'Session à venir'}</p>
+                <Link className="student-parcours-card__link" to={`/app/student/${session.dashboard_type}/${session.enrollment_id}`}>
+                  {session.dashboard_type === 'classic' ? 'Accéder au parcours' : session.format_type === 'presentiel' ? 'Ouvrir le suivi scolaire' : 'Accéder au parcours guidé'}
+                </Link>
+              </div>
             </article>)}
           </div>
         )}

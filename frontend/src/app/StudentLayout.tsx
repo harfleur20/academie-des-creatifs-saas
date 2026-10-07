@@ -25,6 +25,8 @@ const navItems: WorkspaceNavItem[] = [
     icon: <LayoutDashboard size={18} />,
     end: true,
   },
+  { to: '/app/student/formations', label: 'Mes parcours', icon: <GraduationCap size={18} /> },
+  { to: '/app/student/planning', label: 'Planning', icon: <CalendarDays size={18} /> },
 ]
 
 const trailingNavItems: WorkspaceNavItem[] = [
@@ -39,9 +41,7 @@ const navGroups: WorkspaceNavGroup[] = [
     label: 'Ma formation',
     icon: <BookOpen size={18} />,
     items: [
-      { to: '/app/student/formations', label: 'Mes parcours', icon: <GraduationCap size={18} /> },
       { to: '/app/student/courses', label: 'Mes cours', icon: <BookOpen size={18} /> },
-      { to: '/app/student/planning', label: 'Planning', icon: <CalendarDays size={18} /> },
       { to: '/app/student/class', label: 'Ma classe', icon: <Users size={18} /> },
       { to: '/app/student/resources', label: 'Ressources', icon: <FileText size={18} /> },
     ],

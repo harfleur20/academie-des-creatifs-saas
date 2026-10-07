@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export type RoleScheduleItem = {
@@ -144,7 +144,7 @@ export function RoleDashboardCalendar({
               year: 'numeric',
             })}
           </strong>
-          <span>{dayItems.length} rendez-vous</span>
+          {dayItems.length > 0 && <span>{dayItems.length} cours</span>}
         </header>
 
         <div className="role-calendar-events">
@@ -180,7 +180,8 @@ export function RoleDashboardCalendar({
           })}
           {dayItems.length === 0 && (
             <div className="role-calendar-empty">
-              Aucune séance programmée ce jour.
+              <CalendarOff size={46} strokeWidth={1.3} aria-hidden="true" />
+              <p>Pas de cours {selected === dateKey(today) ? 'aujourd’hui' : 'ce jour'}.</p>
             </div>
           )}
         </div>

@@ -170,7 +170,7 @@ export function StudentDashboardPage() {
               <header>
                 <div>
                   <CalendarDays size={17} />
-                  <strong>Mon calendrier</strong>
+                  <strong>Calendrier des cours</strong>
                 </div>
                 <Link to="/app/student/planning">Voir tout le planning</Link>
               </header>

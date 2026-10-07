@@ -32,6 +32,7 @@ class StudentSessionWorkspaceRead(BaseModel):
     enrollment_id: int
     formation_id: int
     formation_title: str
+    formation_image: str | None
     format_type: str
     dashboard_type: str
     session_id: int

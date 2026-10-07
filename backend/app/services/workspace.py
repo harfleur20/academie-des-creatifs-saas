@@ -117,6 +117,7 @@ def get_student_workspace(
             enrollment_id=item.id,
             formation_id=item.session.formation_id,
             formation_title=item.session.formation.title,
+            formation_image=item.session.formation.cover_image_url,
             format_type=item.session.formation.format_type,
             dashboard_type=dashboard_type(item.session.formation),
             session_id=item.session.id,
