@@ -124,6 +124,16 @@ export function SchoolPublicLayout() {
   }, [schoolSlug])
 
   useEffect(() => {
+    if (!school?.slug || !schoolSlug || school.slug.toLowerCase() === schoolSlug.toLowerCase()) return
+    const currentPrefix = '/school/' + schoolSlug
+    const canonicalPrefix = '/school/' + school.slug
+    const nextPath = location.pathname.startsWith(currentPrefix)
+      ? canonicalPrefix + location.pathname.slice(currentPrefix.length)
+      : canonicalPrefix
+    navigate(nextPath + location.search + location.hash, { replace: true })
+  }, [school?.slug, schoolSlug, location.pathname, location.search, location.hash, navigate])
+
+  useEffect(() => {
     if (!school) return
     let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
     const previous = canonical?.href
