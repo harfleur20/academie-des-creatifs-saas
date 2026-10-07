@@ -1,0 +1,41 @@
+/* Student dashboard uses the exact same school-card structure as the teacher hero. */
+.role-school-visual--student .role-school-visual__board {
+  transform: rotate(-2deg);
+}
+
+.role-school-visual--student .role-school-visual__brand {
+  display: grid !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.role-school-visual--student .role-school-visual__brand span {
+  display: grid !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.role-school-visual--student .role-school-visual__logo,
+.role-school-visual--student .role-school-visual__brand small,
+.role-school-visual--student .role-school-visual__brand strong {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.role-school-visual--student .role-school-visual__rule {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.role-school-visual--student .role-school-visual__topics {
+  display: grid !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.role-school-visual--student .role-school-visual__topics > span {
+  display: grid !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
