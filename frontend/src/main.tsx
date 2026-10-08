@@ -27,6 +27,7 @@ import './promotions-polish.css'
 import './role-interface.css'
 import './student-calendar-parcours.css'
 import './role-quick-access.css'
+import './live-recordings.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 

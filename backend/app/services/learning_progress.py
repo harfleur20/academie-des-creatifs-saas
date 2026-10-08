@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from math import ceil
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -860,7 +861,7 @@ def badge_for_enrollment(
         and (not guided or (session.status != "cancelled" and current >= session_end and not unresolved_days))
         and (not total_lessons or lesson_pct >= 100)
         and (not total_assignments or submitted_assignments >= total_assignments)
-        and (not total_quizzes or passed_quizzes >= max(1, round(total_quizzes * 0.8)))
+        and (not total_quizzes or passed_quizzes >= max(1, ceil(total_quizzes * 0.8)))
         and (not attendance_total or attendance_pct is not None and attendance_pct >= 80)
         and (not has_final or final_valid)
         and (grade_pct is None or grade_pct >= 80)

@@ -8,6 +8,7 @@ import {
   type AttendanceCourseDay,
   type TeacherWorkspace,
 } from '../lib/api'
+import { initialTeacherSessionId } from '../lib/teacherSession'
 
 export function TeacherAttendancePage() {
   const [workspace, setWorkspace] = useState<TeacherWorkspace | null>(null)
@@ -18,7 +19,7 @@ export function TeacherAttendancePage() {
   useEffect(() => {
     getTeacherWorkspace().then((data) => {
       setWorkspace(data)
-      setSessionId(data.sessions[0]?.session_id ?? null)
+      setSessionId(initialTeacherSessionId(data.sessions))
     }).catch((err) => setError(err instanceof ApiError ? err.message : 'Chargement impossible.'))
   }, [])
 

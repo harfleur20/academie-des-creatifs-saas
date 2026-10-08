@@ -1407,6 +1407,38 @@ export type SessionPlanning = {
 export const getSessionPlanning = (sessionId: number) =>
   request<SessionPlanning>(`/planning/sessions/${sessionId}/course-days`)
 
+export type LiveRecording = {
+  id: number
+  session_id: number
+  course_day_id: number
+  title: string
+  description: string | null
+  status: 'processing' | 'ready' | 'failed' | 'archived'
+  duration_seconds: number | null
+  uploaded_at: string | null
+  is_published: boolean
+  download_allowed: boolean
+  content_url: string | null
+}
+
+export const listLiveRecordings = (sessionId: number) =>
+  request<LiveRecording[]>(`/live-recordings/sessions/${sessionId}`)
+
+export const updateLiveRecording = (recordingId: number, payload: {
+  title?: string
+  description?: string
+  is_published?: boolean
+  download_allowed?: boolean
+}) => request<LiveRecording>(`/live-recordings/${recordingId}`, {
+  method: 'PATCH', body: JSON.stringify(payload),
+})
+
+export const retryLiveRecording = (recordingId: number) =>
+  request<{ status: string }>(`/live-recordings/${recordingId}/retry`, { method: 'POST' })
+
+export const archiveLiveRecording = (recordingId: number) =>
+  request<void>(`/live-recordings/${recordingId}`, { method: 'DELETE' })
+
 export const submitCourseDayReport = (courseDayId: number, payload: {
   delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted'
   summary: string

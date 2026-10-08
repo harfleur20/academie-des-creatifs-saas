@@ -1,0 +1,33 @@
+.live-recordings-panel {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.live-recordings-panel > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--school-primary, #1f2559);
+}
+
+.live-recordings-panel h2,
+.live-recordings-panel p { margin: 0; }
+.live-recordings-panel > header p { margin-top: 4px; color: #667085; font-size: 13px; }
+.live-recordings-list { display: grid; gap: 14px; }
+.live-recording-card { display: grid; gap: 12px; padding: 16px; border: 1px solid #e5eaf0; border-radius: 12px; }
+.live-recording-card > div:first-child { display: grid; gap: 3px; }
+.live-recording-card small { color: #667085; }
+.live-recording-card video { width: 100%; max-width: 720px; border-radius: 10px; background: #101828; }
+.live-recording-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.live-recording-actions a { text-decoration: none; }
+.live-recording-actions label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.live-recording-details { max-width: 720px; }
+.live-recording-details summary { cursor: pointer; color: var(--school-primary, #1f2559); font-weight: 600; }
+.live-recording-details form { display: grid; gap: 10px; margin-top: 12px; }
+.live-recording-details label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+.live-recording-details input,
+.live-recording-details textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 9px 11px; border: 1px solid #ccd5df; border-radius: 8px; font: inherit; }
+.live-recording-details textarea { resize: vertical; }
+.live-recording-details button { justify-self: start; }

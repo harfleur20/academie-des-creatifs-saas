@@ -11,6 +11,7 @@ from app.api.dependencies import (
     get_support_session,
 )
 from app.core.config import settings
+from app.core.auth_cookies import auth_cookie_secure_for_request
 from app.core.security import create_access_token, create_password_reset_token
 from app.db.session import get_db
 from app.models.entities import UserRecord
@@ -78,7 +79,7 @@ def _set_auth_cookie(response: Response, token: str, request: Request) -> None:
         max_age=60 * 60,
         path="/",
         domain=_cookie_domain_for_request(request),
-        secure=settings.auth_cookie_secure,
+        secure=auth_cookie_secure_for_request(request),
         httponly=True,
         samesite=settings.auth_cookie_samesite,
     )
@@ -90,7 +91,7 @@ def _clear_auth_cookie(response: Response, request: Request) -> None:
         key=settings.auth_cookie_name,
         path="/",
         domain=domain,
-        secure=settings.auth_cookie_secure,
+        secure=auth_cookie_secure_for_request(request),
         httponly=True,
         samesite=settings.auth_cookie_samesite,
     )
@@ -99,7 +100,7 @@ def _clear_auth_cookie(response: Response, request: Request) -> None:
         response.delete_cookie(
             key=settings.auth_cookie_name,
             path="/",
-            secure=settings.auth_cookie_secure,
+            secure=auth_cookie_secure_for_request(request),
             httponly=True,
             samesite=settings.auth_cookie_samesite,
         )

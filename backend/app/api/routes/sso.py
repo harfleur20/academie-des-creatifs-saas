@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.auth_cookies import auth_cookie_secure_for_request
 from app.core.security import create_access_token, decode_access_token
 from app.db.session import get_db
 from app.models.entities import OrganizationDomainRecord, UserRecord
@@ -140,7 +141,7 @@ def exchange_custom_domain_sso(
         value=token,
         max_age=60 * 60,
         path="/",
-        secure=settings.auth_cookie_secure,
+        secure=auth_cookie_secure_for_request(request),
         httponly=True,
         samesite=settings.auth_cookie_samesite,
     )

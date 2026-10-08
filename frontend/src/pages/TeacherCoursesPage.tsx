@@ -41,6 +41,7 @@ import {
   getTeacherAIStatus,
   type AiCourseDraft,
 } from '../lib/tenantIntegrationApi'
+import { initialTeacherSessionId } from '../lib/teacherSession'
 
 type LessonDraft = {
   title: string
@@ -117,7 +118,7 @@ export function TeacherCoursesPage() {
       getTeacherAIStatus().catch(() => null),
     ]).then(([data, aiStatus]) => {
       setWorkspace(data)
-      setSessionId(data.sessions[0]?.session_id ?? null)
+      setSessionId(initialTeacherSessionId(data.sessions))
       setAiConnected(aiStatus?.connected ?? false)
     }).catch((err) => setError(err instanceof ApiError ? err.message : 'Chargement impossible.'))
   }, [])

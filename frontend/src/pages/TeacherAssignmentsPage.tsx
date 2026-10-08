@@ -33,6 +33,7 @@ import {
   generateTeacherAssignmentDraft,
   getTeacherAIStatus,
 } from '../lib/tenantIntegrationApi'
+import { initialTeacherSessionId } from '../lib/teacherSession'
 
 function dateTime(value: string) {
   return new Date(value).toLocaleString('fr-FR', {
@@ -103,7 +104,7 @@ export function TeacherAssignmentsPage() {
       getTeacherAIStatus().catch(() => null),
     ]).then(([data, aiStatus]) => {
       setWorkspace(data)
-      setSessionId(data.sessions[0]?.session_id ?? null)
+      setSessionId(initialTeacherSessionId(data.sessions))
       setAiConnected(aiStatus?.connected ?? false)
     }).catch((err) =>
       setError(err instanceof ApiError ? err.message : 'Chargement impossible.'),

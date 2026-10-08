@@ -4014,6 +4014,35 @@
   font-weight: 700;
 }
 
+.teacher-session-tools {
+  display: grid;
+  gap: 12px;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+}
+
+.teacher-session-tools > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teacher-session-tools a {
+  padding: 8px 11px;
+  border: 1px solid #e2e7ed;
+  border-radius: 8px;
+  color: var(--school-primary, #1f2559);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.teacher-session-tools a:hover,
+.teacher-session-tools a:focus-visible {
+  background: #f1f5f9;
+}
+
 .planning-layout {
   display: grid;
   grid-template-columns: minmax(280px, .7fr) minmax(0, 1.3fr);

@@ -122,7 +122,7 @@ def join_live_class(
         "nbf": int((current - timedelta(seconds=30)).timestamp()),
         "exp": int((current + timedelta(minutes=10)).timestamp()),
         "context": {
-            "features": {"recording": moderator, "livestreaming": False, "transcription": False},
+            "features": {"recording": moderator and settings.jaas_recording_enabled, "livestreaming": False, "transcription": False},
             "user": {
                 "id": f"school-{tenant.organization_id}-user-{tenant.user.id}",
                 "name": tenant.user.full_name,

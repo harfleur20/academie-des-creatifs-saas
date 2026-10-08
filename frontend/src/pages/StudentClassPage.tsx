@@ -1,5 +1,6 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { ImagePlus, MessageCircle, Send, Users } from 'lucide-react'
+import { LiveRecordingsPanel } from '../components/LiveRecordingsPanel'
 import {
   ApiError,
   createClassDiscussionPost,
@@ -40,5 +41,6 @@ export function StudentClassPage() {
         <div className="class-post-list">{posts.map((post)=><article className="app-card class-post" key={post.id}><header><div className="roster-avatar">{post.author.full_name.split(' ').slice(0,2).map((part)=>part[0]).join('').toUpperCase()}</div><div><strong>{post.author.full_name}</strong><small>{post.author.role} · {new Date(post.created_at).toLocaleString('fr-FR')}</small></div></header>{post.body&&<p>{post.body}</p>}{post.image_url&&<img src={post.image_url} alt="Publication"/>}<div className="class-replies">{post.replies.map((reply)=><div key={reply.id}><strong>{reply.author.full_name}</strong><span>{reply.body}</span><small>{new Date(reply.created_at).toLocaleString('fr-FR')}</small></div>)}</div><div className="class-reply-box"><input value={replyDrafts[post.id]||''} onChange={(event)=>setReplyDrafts((x)=>({...x,[post.id]:event.target.value}))} placeholder="Répondre…"/><button type="button" onClick={()=>void reply(post.id)}><MessageCircle size={13}/></button></div></article>)}</div>
       </section>
     </section>}
+    {current && <LiveRecordingsPanel sessionId={current.session_id} />}
   </main>
 }

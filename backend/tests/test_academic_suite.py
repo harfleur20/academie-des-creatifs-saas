@@ -979,6 +979,34 @@ def test_badge_quiz_mastery_requires_eighty_percent() -> None:
     assert student_progress(db, tenant)[0].badge.level == "professionnel"
 
 
+def test_professional_badge_rounds_required_quizzes_up() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, lesson, day = seed(db)
+    day.status = "cancelled"
+    db.commit()
+    tenant = ctx(db, org, student)
+    mark_lesson_complete(db, tenant, lesson.id)
+    db.add(GradeRecord(
+        organization_id=org.id, session_id=session.id, enrollment_id=enrollment.id,
+        label="Évaluation", score=20, max_score=20,
+    ))
+    for index, score in enumerate((90, 90, 0), start=1):
+        quiz = QuizRecord(
+            organization_id=org.id, session_id=session.id, teacher_id=teacher.id,
+            title=f"Quiz {index}", status="active", pass_pct=80,
+        )
+        db.add(quiz)
+        db.flush()
+        db.add(QuizAttemptRecord(
+            organization_id=org.id, quiz_id=quiz.id, enrollment_id=enrollment.id,
+            attempt_number=1, answers=[], score_pct=score, submitted_at=datetime.now(UTC),
+        ))
+    db.commit()
+    progress = student_progress(db, tenant)[0]
+    assert progress.badge.score_pct >= 90
+    assert progress.badge.level != "professionnel"
+
+
 def test_guided_assignment_lesson_requires_a_real_submission() -> None:
     db = build_db()
     org, teacher, student, _, session, enrollment, _, lesson, day = seed(db)

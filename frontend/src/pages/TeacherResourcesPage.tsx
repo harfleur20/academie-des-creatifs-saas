@@ -10,6 +10,7 @@ import {
   type AcademicResource,
   type TeacherWorkspace,
 } from '../lib/api'
+import { initialTeacherSessionId } from '../lib/teacherSession'
 
 export function TeacherResourcesPage() {
   const [workspace, setWorkspace] = useState<TeacherWorkspace | null>(null)
@@ -25,7 +26,7 @@ export function TeacherResourcesPage() {
     getTeacherWorkspace()
       .then((data) => {
         setWorkspace(data)
-        setSessionId(data.sessions[0]?.session_id ?? null)
+        setSessionId(initialTeacherSessionId(data.sessions))
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Chargement impossible.'))
   }, [])

@@ -19,6 +19,7 @@ import {
   type CourseDayFeedbackReview,
 } from '../lib/api'
 import { liveClassIsOpen } from '../lib/liveWindow'
+import { LiveRecordingsPanel } from '../components/LiveRecordingsPanel'
 
 function toLocalInput(value: string) {
   const date = new Date(value)
@@ -159,6 +160,18 @@ export function TeacherSessionPlanningPage() {
 
       {error && <div className="form-error">{error}</div>}
 
+      {planning && <nav className="teacher-session-tools app-card" aria-label="Outils de la session">
+        <strong>Outils de la session</strong>
+        <div>
+          <Link to={`/app/teacher/courses?session=${id}`}>Cours</Link>
+          <Link to={`/app/teacher/students?session=${id}`}>Étudiants</Link>
+          <Link to={`/app/teacher/attendance?session=${id}`}>Présences</Link>
+          <Link to={`/app/teacher/assignments?session=${id}`}>Devoirs</Link>
+          <Link to={`/app/teacher/quizzes?session=${id}`}>Quiz</Link>
+          <Link to={`/app/teacher/resources?session=${id}`}>Ressources</Link>
+        </div>
+      </nav>}
+
       {planning && (
         <section className="planning-layout">
           <form className="app-card planning-create-card" onSubmit={create}>
@@ -282,6 +295,13 @@ export function TeacherSessionPlanningPage() {
             )}
           </section>
         </section>
+      )}
+      {planning?.format_type === 'live' && (
+        <LiveRecordingsPanel
+          sessionId={planning.session_id}
+          canManage
+          finishedDayIds={new Set(planning.course_days.filter((day) => Boolean(day.report_submitted_at)).map((day) => day.id))}
+        />
       )}
     </main>
   )

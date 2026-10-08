@@ -7,13 +7,14 @@ import {
   type FormationDetail,
   type TeacherWorkspace,
 } from '../lib/api'
+import { initialTeacherSessionId } from '../lib/teacherSession'
 
 export function TeacherStudentsPage() {
   const [workspace,setWorkspace]=useState<TeacherWorkspace|null>(null)
   const [sessionId,setSessionId]=useState<number|null>(null)
   const [formation,setFormation]=useState<FormationDetail|null>(null)
   const [error,setError]=useState('')
-  useEffect(()=>{getTeacherWorkspace().then((data)=>{setWorkspace(data);setSessionId(data.sessions[0]?.session_id??null)}).catch((err)=>setError(err instanceof ApiError?err.message:'Chargement impossible.'))},[])
+  useEffect(()=>{getTeacherWorkspace().then((data)=>{setWorkspace(data);setSessionId(initialTeacherSessionId(data.sessions))}).catch((err)=>setError(err instanceof ApiError?err.message:'Chargement impossible.'))},[])
   const selected=useMemo(()=>workspace?.sessions.find((item)=>item.session_id===sessionId)??null,[workspace,sessionId])
   useEffect(()=>{if(selected)getFormation(selected.formation_id).then(setFormation).catch((err)=>setError(err instanceof ApiError?err.message:'Chargement impossible.'))},[selected?.formation_id,selected?.session_id])
   const session=formation?.sessions.find((item)=>item.id===sessionId)

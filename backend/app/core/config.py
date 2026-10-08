@@ -172,6 +172,9 @@ class Settings:
     jaas_kid: str = os.getenv("JAAS_KID", "").strip()
     jaas_private_key: str = os.getenv("JAAS_PRIVATE_KEY", "").replace("\\n", "\n").strip()
     jaas_private_key_file: str = os.getenv("JAAS_PRIVATE_KEY_FILE", "").strip()
+    jaas_webhook_secret: str = os.getenv("JAAS_WEBHOOK_SECRET", "").strip()
+    jaas_recording_enabled: bool = _env_bool("JAAS_RECORDING_ENABLED", False)
+    live_replay_download_enabled: bool = _env_bool("LIVE_REPLAY_DOWNLOAD_ENABLED", True)
 
     @property
     def r2_configured(self) -> bool:
@@ -206,6 +209,20 @@ class Settings:
             raise RuntimeError("JWT_SECRET_KEY doit être un secret unique d'au moins 32 caractères en production.")
         if self.auth_cookie_samesite not in {"lax", "strict", "none"}:
             raise RuntimeError("AUTH_COOKIE_SAMESITE doit valoir lax, strict ou none.")
+        if self.environment == "production" and self.jaas_recording_enabled:
+            if not all((
+                self.jaas_enabled, self.jaas_app_id, self.jaas_kid,
+                self.jaas_private_key or self.jaas_private_key_file,
+                self.jaas_webhook_secret,
+            )):
+                raise RuntimeError("Les replays JaaS exigent une configuration JaaS complète et JAAS_WEBHOOK_SECRET en production.")
+            if (
+                self.storage_provider != "r2"
+                or not self.r2_configured
+                or not self.r2_private_bucket_name
+                or self.r2_private_bucket_name == self.r2_bucket_name
+            ):
+                raise RuntimeError("Les replays JaaS exigent un bucket R2 privé distinct en production.")
 
 
 settings = Settings()

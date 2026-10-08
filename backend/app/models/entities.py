@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Float,
@@ -686,6 +687,30 @@ class SessionCourseDayRecord(OrganizationOwnedMixin, TimestampMixin, Base):
 
     session: Mapped["FormationSessionRecord"] = relationship(back_populates="course_days")
     teacher: Mapped["UserRecord | None"] = relationship()
+
+
+class LiveRecordingRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    __tablename__ = "live_recordings"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "provider_recording_id", name="uq_live_recording_org_provider_id"),
+        Index("ix_live_recordings_org_session", "organization_id", "session_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False)
+    course_day_id: Mapped[int] = mapped_column(ForeignKey("session_course_days.id", ondelete="CASCADE"), nullable=False)
+    provider_recording_id: Mapped[str] = mapped_column(String(180), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="processing")
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    storage_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    content_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    file_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    download_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class CourseDayFeedbackRecord(OrganizationOwnedMixin, TimestampMixin, Base):
