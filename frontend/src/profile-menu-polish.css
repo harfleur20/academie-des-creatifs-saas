@@ -1,0 +1,45 @@
+.tenant-role-profile-menu {
+  width: 280px;
+  padding: 9px;
+}
+
+.tenant-role-profile-menu__head {
+  gap: 11px;
+  padding: 11px;
+  margin-bottom: 7px;
+}
+
+.tenant-role-profile-menu__head .tenant-role-avatar {
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+}
+
+.tenant-role-profile-menu__head strong {
+  font-size: 13px;
+}
+
+.tenant-role-profile-menu__head small {
+  font-size: 10px;
+}
+
+.tenant-role-profile-menu > button {
+  min-height: 43px;
+  gap: 11px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.tenant-role-profile-menu > button > svg {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+}
+
+.tenant-role-profile-menu .account-menu-divider {
+  display: block;
+  height: 1px;
+  margin: 7px 5px;
+  background: #edf1f4;
+}
