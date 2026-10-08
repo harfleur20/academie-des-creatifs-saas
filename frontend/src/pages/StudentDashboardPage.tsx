@@ -203,36 +203,6 @@ export function StudentDashboardPage() {
               />
             </section>
 
-            <section className="role-kpi-grid student-dashboard-kpis" aria-label="Mon suivi en un coup d’œil">
-              <article className="role-kpi role-kpi--primary">
-                <span>MA PROGRESSION</span>
-                <strong>{Math.round(lessonPercent)}%</strong>
-                <small>{focusProgress?.completed_lessons ?? 0}/{focusProgress?.total_lessons ?? 0} leçons terminées</small>
-                <div className="student-dashboard-kpis__track" role="progressbar" aria-label="Leçons terminées" aria-valuenow={Math.round(lessonPercent)} aria-valuemin={0} aria-valuemax={100}>
-                  <i style={{ width: `${Math.min(100, Math.max(0, lessonPercent))}%` }} />
-                </div>
-                <TrendingUp size={84} aria-hidden="true" />
-              </article>
-              <article className="role-kpi role-kpi--secondary">
-                <span>TRAVAIL À FAIRE</span>
-                <strong>{taskCount}</strong>
-                <small>{pendingAssignments} devoir{pendingAssignments > 1 ? 's' : ''} · {availableQuizzes} quiz</small>
-                <HelpCircle size={84} aria-hidden="true" />
-              </article>
-              <article className="role-kpi role-kpi--mint">
-                <span>ASSIDUITÉ</span>
-                <strong>{attendancePercent === null ? '—' : `${attendancePercent}%`}</strong>
-                <small>{attendancePresent}/{attendanceTotal} présence{attendancePresent > 1 ? 's' : ''} validée{attendancePresent > 1 ? 's' : ''}</small>
-                <Users size={84} aria-hidden="true" />
-              </article>
-              <article className="role-kpi role-kpi--accent">
-                <span>MOYENNE</span>
-                <strong>{averageLabel}</strong>
-                <small>{focusGrades.length ? `${focusGrades.length} note${focusGrades.length > 1 ? 's' : ''} publiée${focusGrades.length > 1 ? 's' : ''}` : 'Aucune note publiée'}</small>
-                <GraduationCap size={84} aria-hidden="true" />
-              </article>
-            </section>
-
             <section className="role-calendar-card">
               <header>
                 <div>
@@ -277,6 +247,36 @@ export function StudentDashboardPage() {
           </section>
 
           <aside className="role-overview-side">
+            <section className="role-kpi-grid student-dashboard-kpis" aria-label="Mon suivi en un coup d’œil">
+              <article className="role-kpi role-kpi--primary">
+                <span>MA PROGRESSION</span>
+                <strong>{Math.round(lessonPercent)}%</strong>
+                <small>{focusProgress?.completed_lessons ?? 0}/{focusProgress?.total_lessons ?? 0} leçons terminées</small>
+                <div className="student-dashboard-kpis__track" role="progressbar" aria-label="Leçons terminées" aria-valuenow={Math.round(lessonPercent)} aria-valuemin={0} aria-valuemax={100}>
+                  <i style={{ width: `${Math.min(100, Math.max(0, lessonPercent))}%` }} />
+                </div>
+                <TrendingUp size={84} aria-hidden="true" />
+              </article>
+              <article className="role-kpi role-kpi--secondary">
+                <span>TRAVAIL À FAIRE</span>
+                <strong>{taskCount}</strong>
+                <small>{pendingAssignments} devoir{pendingAssignments > 1 ? 's' : ''} · {availableQuizzes} quiz</small>
+                <HelpCircle size={84} aria-hidden="true" />
+              </article>
+              <article className="role-kpi role-kpi--mint">
+                <span>ASSIDUITÉ</span>
+                <strong>{attendancePercent === null ? '—' : `${attendancePercent}%`}</strong>
+                <small>{attendancePresent}/{attendanceTotal} présence{attendancePresent > 1 ? 's' : ''} validée{attendancePresent > 1 ? 's' : ''}</small>
+                <Users size={84} aria-hidden="true" />
+              </article>
+              <article className="role-kpi role-kpi--accent">
+                <span>MOYENNE</span>
+                <strong>{averageLabel}</strong>
+                <small>{focusGrades.length ? `${focusGrades.length} note${focusGrades.length > 1 ? 's' : ''} publiée${focusGrades.length > 1 ? 's' : ''}` : 'Aucune note publiée'}</small>
+                <GraduationCap size={84} aria-hidden="true" />
+              </article>
+            </section>
+
             <section className="role-side-card">
               <header>
                 <strong>MA PROGRESSION</strong>

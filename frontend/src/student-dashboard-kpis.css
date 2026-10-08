@@ -98,7 +98,32 @@
 @container (max-width: 580px) {
   .tenant-role-shell--student .student-dashboard-kpis .role-kpi {
     aspect-ratio: auto;
-    min-height: 200px;
+    min-height: 170px;
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > span {
+    font-size: 11px;
+  }
+
+  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > strong {
+    font-size: 30px;
+  }
+
+  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > small {
+    font-size: 12px;
+  }
+
+  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > svg {
+    width: 58px;
+    height: 58px;
+    right: -13px;
+    bottom: -13px;
+  }
+
+  .student-dashboard-kpis__track {
+    height: 10px;
   }
 }
 
@@ -110,5 +135,24 @@
   .tenant-role-shell--student .student-dashboard-kpis .role-kpi {
     min-height: 220px;
     padding: 26px;
+  }
+
+  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > span {
+    font-size: 18px;
+  }
+
+  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > strong {
+    font-size: 48px;
+  }
+
+  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > small {
+    font-size: 19px;
+  }
+
+  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > svg {
+    width: 84px;
+    height: 84px;
+    right: -18px;
+    bottom: -18px;
   }
 }
