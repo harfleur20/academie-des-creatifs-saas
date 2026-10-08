@@ -1,11 +1,10 @@
 .student-overview-session__content p > svg:first-child {
   box-sizing: content-box;
-  width: 16px;
-  height: 16px;
-  padding: 7px;
+  width: 15px;
+  height: 15px;
+  padding: 5px;
   flex: 0 0 auto;
   border-radius: 999px;
   color: #6f7f93;
   background: #f3f6f9;
-  border: 1px solid #e3e9ef;
 }
