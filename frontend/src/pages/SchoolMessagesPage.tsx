@@ -1,5 +1,5 @@
-import { MessageCircle, Plus, Send, ShieldCheck, UserRound, X } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { MessageCircle, Plus, Search, Send, UserRound, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { useAuth } from '../auth/AuthContext'
@@ -18,15 +18,17 @@ import './school-messages.css'
 
 const institutionRoles = new Set(['owner', 'admin', 'manager'])
 const isInstitutionRole = (role?: string | null) => Boolean(role && institutionRoles.has(role))
-const roleLabel = (role: string) => isInstitutionRole(role)
-  ? 'Administration'
-  : role === 'teacher'
-    ? 'Enseignant'
-    : 'Étudiant'
+
+const roleLabel = (role: string) => {
+  if (isInstitutionRole(role)) return 'Admin'
+  if (role === 'teacher') return 'Enseignant'
+  if (role === 'student') return 'Étudiant'
+  return role
+}
 
 const messageDate = (value: string | null) => value
   ? new Date(value).toLocaleString('fr-FR', {
-      day: '2-digit',
+      day: 'numeric',
       month: 'short',
       hour: '2-digit',
       minute: '2-digit',
@@ -43,50 +45,74 @@ function initials(value?: string | null) {
     .join('') || '?'
 }
 
-function MessageAvatar({
-  person,
-  institutionLogo,
-  className = '',
-}: {
-  person?: SchoolMessageRecipient | null
-  institutionLogo?: string | null
-  className?: string
-}) {
-  const institution = isInstitutionRole(person?.role)
-  const avatarUrl = person?.avatar_url || (institution ? institutionLogo : null)
-  return (
-    <span className={`school-message-avatar${institution ? ' is-institution' : ''}${className ? ` ${className}` : ''}`}>
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" />
-      ) : institution ? (
-        <ShieldCheck size={19} aria-hidden="true" />
-      ) : person ? (
-        <span>{initials(person.full_name)}</span>
-      ) : (
-        <UserRound size={18} aria-hidden="true" />
-      )}
-    </span>
-  )
-}
-
 export function SchoolMessagesPage() {
   const location = useLocation()
   const requestedRecipient = Number(new URLSearchParams(location.search).get('recipient'))
   const { activeOrganization } = useTenant()
   const { user } = useAuth()
+
   const [threads, setThreads] = useState<SchoolMessageThread[]>([])
   const [recipients, setRecipients] = useState<SchoolMessageRecipient[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [detail, setDetail] = useState<SchoolMessageThreadDetail | null>(null)
   const [composing, setComposing] = useState(false)
-  const [recipientIds, setRecipientIds] = useState<number[]>([])
+  const [selectedRecipientId, setSelectedRecipientId] = useState<number | null>(null)
+  const [recipientSearch, setRecipientSearch] = useState('')
+  const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false)
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [reply, setReply] = useState('')
   const [working, setWorking] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const recipientBoxRef = useRef<HTMLDivElement>(null)
+
+  const selectedThread = useMemo(
+    () => threads.find((thread) => thread.id === selectedId) ?? null,
+    [threads, selectedId],
+  )
+
+  const selectedRecipient = useMemo(
+    () => recipients.find((person) => person.id === selectedRecipientId) ?? null,
+    [recipients, selectedRecipientId],
+  )
+
+  const personName = (person?: SchoolMessageRecipient | null) => {
+    if (!person) return ''
+    return isInstitutionRole(person.role)
+      ? (activeOrganization?.name || person.full_name)
+      : person.full_name
+  }
+
+  const personAvatar = (person?: SchoolMessageRecipient | null) => {
+    if (!person) return null
+    if (isInstitutionRole(person.role)) return activeOrganization?.logo_url || null
+    return person.avatar_url
+  }
+
+  const filteredRecipients = useMemo(() => {
+    const query = recipientSearch.trim().toLowerCase()
+    if (!query) return recipients
+    return recipients.filter((person) => {
+      const displayName = isInstitutionRole(person.role)
+        ? (activeOrganization?.name || person.full_name)
+        : person.full_name
+      return displayName.toLowerCase().includes(query)
+        || roleLabel(person.role).toLowerCase().includes(query)
+    })
+  }, [recipients, recipientSearch, activeOrganization?.name])
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (recipientBoxRef.current && !recipientBoxRef.current.contains(event.target as Node)) {
+        setRecipientDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -95,9 +121,11 @@ export function SchoolMessagesPage() {
     setSelectedId(null)
     setDetail(null)
     setComposing(false)
-    setRecipientIds([])
+    setSelectedRecipientId(null)
+    setRecipientSearch('')
     setLoading(true)
     setError('')
+
     Promise.all([listMessageThreads(), listMessageRecipients()])
       .then(([items, people]) => {
         if (!active) return
@@ -105,7 +133,7 @@ export function SchoolMessagesPage() {
         setRecipients(people)
         setSelectedId(items[0]?.id ?? null)
         if (people.some((person) => person.id === requestedRecipient)) {
-          setRecipientIds([requestedRecipient])
+          setSelectedRecipientId(requestedRecipient)
           setComposing(true)
         }
       })
@@ -115,6 +143,7 @@ export function SchoolMessagesPage() {
       .finally(() => {
         if (active) setLoading(false)
       })
+
     return () => { active = false }
   }, [activeOrganization?.id, requestedRecipient])
 
@@ -123,19 +152,20 @@ export function SchoolMessagesPage() {
       setDetail(null)
       return
     }
+
     let active = true
     getMessageThread(selectedId)
       .then((value) => {
-        if (active) {
-          setDetail(value)
-          setThreads((items) => items.map((item) => (
-            item.id === selectedId ? { ...item, unread_count: 0 } : item
-          )))
-        }
+        if (!active) return
+        setDetail(value)
+        setThreads((items) => items.map((item) => (
+          item.id === selectedId ? { ...item, unread_count: 0 } : item
+        )))
       })
       .catch((cause) => {
         if (active) setError(cause instanceof Error ? cause.message : 'Conversation inaccessible.')
       })
+
     return () => { active = false }
   }, [selectedId, activeOrganization?.id])
 
@@ -145,9 +175,9 @@ export function SchoolMessagesPage() {
 
   useEffect(() => {
     if (!activeOrganization) return
+
     let active = true
-    const unsubscribe = subscribeSchoolMessages((event) => {
-      if (!active || event.type !== 'messages.changed') return
+    const refresh = () => {
       void listMessageThreads()
         .then((items) => { if (active) setThreads(items) })
         .catch(() => {})
@@ -156,17 +186,14 @@ export function SchoolMessagesPage() {
           .then((value) => { if (active) setDetail(value) })
           .catch(() => {})
       }
+    }
+
+    const unsubscribe = subscribeSchoolMessages((event) => {
+      if (!active || event.type !== 'messages.changed') return
+      refresh()
     })
-    const timer = window.setInterval(() => {
-      listMessageThreads()
-        .then((items) => { if (active) setThreads(items) })
-        .catch(() => {})
-      if (selectedId !== null) {
-        getMessageThread(selectedId)
-          .then((value) => { if (active) setDetail(value) })
-          .catch(() => {})
-      }
-    }, 15000)
+    const timer = window.setInterval(refresh, 15000)
+
     return () => {
       active = false
       unsubscribe()
@@ -174,21 +201,23 @@ export function SchoolMessagesPage() {
     }
   }, [activeOrganization?.id, selectedId])
 
-  async function create(event: FormEvent) {
+  async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (recipientIds.length === 0 || !body.trim()) return
+    if (!selectedRecipientId || !body.trim()) return
+
     setWorking(true)
     setError('')
     try {
       const created = await createMessageThread({
-        participant_ids: recipientIds,
-        subject,
-        body,
+        participant_ids: [selectedRecipientId],
+        subject: subject.trim(),
+        body: body.trim(),
       })
       setDetail(created)
       setSelectedId(created.id)
       setComposing(false)
-      setRecipientIds([])
+      setSelectedRecipientId(null)
+      setRecipientSearch('')
       setSubject('')
       setBody('')
       setThreads(await listMessageThreads())
@@ -199,218 +228,257 @@ export function SchoolMessagesPage() {
     }
   }
 
-  async function answer(event: FormEvent) {
+  async function answer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!detail || !reply.trim()) return
+
+    const nextMessage = reply.trim()
     setWorking(true)
     setError('')
     try {
-      await sendSchoolMessage(detail.id, reply)
       setReply('')
+      await sendSchoolMessage(detail.id, nextMessage)
       setDetail(await getMessageThread(detail.id))
       setThreads(await listMessageThreads())
     } catch (cause) {
+      setReply(nextMessage)
       setError(cause instanceof Error ? cause.message : 'Envoi impossible.')
     } finally {
       setWorking(false)
     }
   }
 
-  const institutionLogo = activeOrganization?.logo_url
-  const selectedOthers = detail?.participants.filter((person) => person.id !== user?.id) ?? []
-  const selectedPrimary = selectedOthers[0] ?? null
+  function avatar(person: SchoolMessageRecipient | null | undefined, className: string, iconFallback = false) {
+    const image = personAvatar(person)
+    const institution = isInstitutionRole(person?.role)
+    const name = personName(person)
+    return (
+      <span className={`${className}${institution ? ' is-institution' : ''}`}>
+        {image ? (
+          <img src={image} alt="" />
+        ) : iconFallback ? (
+          <UserRound size={18} />
+        ) : (
+          initials(name)
+        )}
+      </span>
+    )
+  }
+
+  if (loading) {
+    return <div className="app-page messages-page school-messages-page"><div className="messages-empty">Chargement…</div></div>
+  }
 
   return (
-    <main className="app-page school-messages-page">
-      <header className="app-page-header school-messages-page__header">
+    <main className="app-page messages-page school-messages-page">
+      <div className="messages-header">
         <div>
-          <span className="page-kicker">Échanges</span>
-          <h1>Messagerie</h1>
-          <p>Échangez avec les membres autorisés de votre école.</p>
+          <p className="eyebrow">Messagerie</p>
+          <h1>Messages</h1>
         </div>
         <button
-          className="primary-button school-messages-new-button"
           type="button"
+          className="messages-new-btn"
           onClick={() => setComposing(true)}
         >
-          <Plus size={17} /> Nouveau message
+          <Plus size={16} />
+          Nouveau
         </button>
-      </header>
+      </div>
 
       {error && <p className="form-error" role="alert">{error}</p>}
 
-      <div className="school-messages-layout">
-        <aside className="school-messages-threads" aria-label="Conversations">
-          {loading && <p>Chargement…</p>}
-          {!loading && threads.length === 0 && <p>Aucune conversation pour le moment.</p>}
-          {threads.map((thread) => {
-            const others = thread.participants.filter((person) => person.id !== user?.id)
-            const primary = others[0] ?? null
-            const participantLine = others
-              .map((person) => `${person.full_name} · ${roleLabel(person.role)}`)
-              .join(', ')
-            return (
-              <button
-                type="button"
-                key={thread.id}
-                className={`school-messages-thread${selectedId === thread.id && !composing ? ' is-selected' : ''}`}
-                onClick={() => {
-                  setComposing(false)
-                  setSelectedId(thread.id)
-                }}
-              >
-                <MessageAvatar person={primary} institutionLogo={institutionLogo} />
-                <span className="school-messages-thread__body">
-                  <strong>{thread.subject || primary?.full_name || 'Conversation'}</strong>
-                  <small className="school-messages-thread__participant">{participantLine}</small>
-                  <small className="school-messages-thread__preview">{thread.last_message?.body || 'Conversation ouverte'}</small>
-                </span>
-                <span className="school-messages-thread__meta">
-                  <time>{messageDate(thread.last_message_at)}</time>
-                  {thread.unread_count > 0 && <i>{thread.unread_count}</i>}
-                </span>
-              </button>
-            )
-          })}
+      <div className="messages-shell">
+        <aside className="messages-list" aria-label="Conversations">
+          {threads.length === 0 ? (
+            <div className="messages-empty">
+              <MessageCircle size={28} />
+              <p>Aucune conversation pour le moment.</p>
+            </div>
+          ) : (
+            threads.map((thread) => {
+              const others = thread.participants.filter((person) => person.id !== user?.id)
+              const first = others[0] ?? null
+              const title = thread.subject || others.map((person) => personName(person)).join(', ')
+              return (
+                <button
+                  key={thread.id}
+                  type="button"
+                  className={`messages-thread${thread.id === selectedId ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setComposing(false)
+                    setSelectedId(thread.id)
+                  }}
+                >
+                  {avatar(first, 'messages-thread__avatar', true)}
+                  <span className="messages-thread__body">
+                    <strong>{title}</strong>
+                    <small>{thread.last_message?.body ?? 'Conversation ouverte'}</small>
+                  </span>
+                  <span className="messages-thread__meta">
+                    {messageDate(thread.last_message_at)}
+                    {thread.unread_count > 0 && <b>{thread.unread_count}</b>}
+                  </span>
+                </button>
+              )
+            })
+          )}
         </aside>
 
-        <section className="school-messages-detail">
-          {detail && !composing ? (
+        <article className="messages-detail">
+          {!selectedThread || !detail ? (
+            <div className="messages-empty messages-empty--detail">
+              <MessageCircle size={34} />
+              <p>Sélectionnez une conversation.</p>
+            </div>
+          ) : (
             <>
-              <header className="school-messages-detail__header">
-                <MessageAvatar
-                  person={selectedPrimary}
-                  institutionLogo={institutionLogo}
-                  className="school-message-avatar--header"
-                />
-                <div className="school-messages-detail__identity">
-                  <h2>{detail.subject || selectedPrimary?.full_name || 'Conversation'}</h2>
-                  <p>
-                    {selectedOthers.map((person) => (
-                      `${person.full_name} · ${roleLabel(person.role)}`
-                    )).join(', ')}
-                  </p>
-                </div>
+              <header className="messages-detail__header">
+                {(() => {
+                  const others = detail.participants.filter((person) => person.id !== user?.id)
+                  const first = others[0] ?? null
+                  return (
+                    <>
+                      {avatar(first, 'messages-detail__header-avatar', true)}
+                      <div className="messages-detail__header-info">
+                        <h2>{detail.subject || others.map((person) => personName(person)).join(', ')}</h2>
+                        <p>
+                          {others.map((person) => `${personName(person)} · ${roleLabel(person.role)}`).join(', ')}
+                        </p>
+                      </div>
+                    </>
+                  )
+                })()}
               </header>
 
-              <div className="school-messages-feed">
+              <div className="messages-feed">
                 {detail.messages.map((message) => {
                   const isMine = message.sender_user_id === user?.id
-                  const sender = detail.participants.find(
-                    (person) => person.id === message.sender_user_id,
-                  ) ?? null
-                  const institution = !isMine && isInstitutionRole(sender?.role)
+                  const sender = detail.participants.find((person) => person.id === message.sender_user_id)
+                  const author = sender && isInstitutionRole(sender.role)
+                    ? (activeOrganization?.name || message.sender_name)
+                    : message.sender_name
+
                   return (
-                    <div
-                      key={message.id}
-                      className={`school-message-row${isMine ? ' is-mine' : ''}${institution ? ' is-institution' : ''}`}
-                    >
-                      {!isMine && (
-                        <MessageAvatar
-                          person={sender}
-                          institutionLogo={institutionLogo}
-                          className="school-message-avatar--bubble"
-                        />
-                      )}
-                      <article className="school-message-bubble">
-                        <span className="school-message-bubble__meta">
-                          <strong>{isMine ? 'Vous' : message.sender_name}</strong>
-                          {!isMine && sender && (
-                            <small className="school-message-role">{roleLabel(sender.role)}</small>
-                          )}
+                    <div key={message.id} className={`messages-bubble-row${isMine ? ' is-mine' : ''}`}>
+                      <div className="messages-bubble">
+                        <span className="messages-bubble__author">
+                          {author}
                           <time>{messageDate(message.created_at)}</time>
                         </span>
                         <p>{message.body}</p>
-                      </article>
+                      </div>
                     </div>
                   )
                 })}
                 <div ref={messagesEndRef} />
               </div>
 
-              <form
-                className="school-messages-reply"
-                onSubmit={(event) => void answer(event)}
-              >
+              <form className="messages-reply" onSubmit={(event) => void answer(event)}>
                 <textarea
-                  id="school-message-reply"
                   value={reply}
-                  maxLength={5000}
                   onChange={(event) => setReply(event.target.value)}
+                  rows={2}
+                  maxLength={5000}
                   placeholder="Écrire un message…"
-                  aria-label="Répondre à la conversation"
-                  required
                 />
-                <button
-                  className="school-messages-send-button"
-                  type="submit"
-                  disabled={working || !reply.trim()}
-                  aria-label="Envoyer le message"
-                >
-                  <Send size={17} />
+                <button type="submit" disabled={working || !reply.trim()} aria-label="Envoyer">
+                  <Send size={16} />
                 </button>
               </form>
             </>
-          ) : (
-            <div className="school-messages-placeholder">
-              <MessageCircle size={34} />
-              <p>Sélectionnez une conversation ou écrivez un nouveau message.</p>
-            </div>
           )}
-        </section>
+        </article>
       </div>
 
       {composing && (
         <div
-          className="school-messages-modal-backdrop"
-          role="presentation"
+          className="messages-modal-backdrop"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setComposing(false)
           }}
         >
-          <div className="school-messages-modal" role="dialog" aria-modal="true" aria-labelledby="school-new-message-title">
-            <header>
-              <div>
-                <span>Nouveau message</span>
-                <h2 id="school-new-message-title">Nouvelle conversation</h2>
-              </div>
+          <div className="messages-modal" role="dialog" aria-modal="true" aria-labelledby="school-new-message-title">
+            <div className="messages-modal__header">
+              <h2 id="school-new-message-title">Nouveau message</h2>
               <button
                 type="button"
+                className="messages-modal__close"
                 onClick={() => setComposing(false)}
                 aria-label="Fermer"
               >
-                <X size={19} />
+                <X size={18} />
               </button>
-            </header>
-            <form onSubmit={(event) => void create(event)}>
-              <fieldset>
-                <legend>Destinataires <small>{recipientIds.length}/8</small></legend>
-                {recipients.length === 0 && <p>Aucun destinataire disponible.</p>}
-                <div className="school-messages-recipient-grid">
-                  {recipients.map((person) => {
-                    const selected = recipientIds.includes(person.id)
-                    return (
-                      <label key={person.id} className={selected ? 'is-selected' : ''}>
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          disabled={!selected && recipientIds.length >= 8}
-                          onChange={(event) => setRecipientIds((ids) => (
-                            event.target.checked
-                              ? [...ids, person.id]
-                              : ids.filter((id) => id !== person.id)
-                          ))}
-                        />
-                        <MessageAvatar person={person} institutionLogo={institutionLogo} />
-                        <span>
-                          <strong>{person.full_name}</strong>
-                          <small>{roleLabel(person.role)}</small>
-                        </span>
-                      </label>
-                    )
-                  })}
+            </div>
+
+            <form className="messages-compose" onSubmit={(event) => void create(event)}>
+              <div className="messages-recipient-field">
+                <span>Destinataire</span>
+                <div className="messages-recipient-box" ref={recipientBoxRef}>
+                  {selectedRecipient ? (
+                    <div className="messages-recipient-selected">
+                      {avatar(selectedRecipient, 'messages-recipient-selected__avatar')}
+                      <span className="messages-recipient-selected__name">
+                        {personName(selectedRecipient)}
+                        <small>{roleLabel(selectedRecipient.role)}</small>
+                      </span>
+                      <button
+                        type="button"
+                        className="messages-recipient-selected__clear"
+                        onClick={() => {
+                          setSelectedRecipientId(null)
+                          setRecipientSearch('')
+                        }}
+                        aria-label="Effacer"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="messages-recipient-search">
+                      <Search size={15} className="messages-recipient-search__icon" />
+                      <input
+                        type="text"
+                        placeholder="Rechercher un contact…"
+                        value={recipientSearch}
+                        onChange={(event) => {
+                          setRecipientSearch(event.target.value)
+                          setRecipientDropdownOpen(true)
+                        }}
+                        onFocus={() => setRecipientDropdownOpen(true)}
+                        autoComplete="off"
+                      />
+                    </div>
+                  )}
+
+                  {recipientDropdownOpen && !selectedRecipient && (
+                    <div className="messages-recipient-dropdown">
+                      {filteredRecipients.length === 0 ? (
+                        <div className="messages-recipient-dropdown__empty">Aucun contact trouvé</div>
+                      ) : (
+                        filteredRecipients.map((person) => (
+                          <button
+                            key={person.id}
+                            type="button"
+                            className="messages-recipient-option"
+                            onClick={() => {
+                              setSelectedRecipientId(person.id)
+                              setRecipientDropdownOpen(false)
+                              setRecipientSearch('')
+                            }}
+                          >
+                            {avatar(person, 'messages-recipient-option__avatar')}
+                            <span className="messages-recipient-option__info">
+                              <strong>{personName(person)}</strong>
+                              <small>{roleLabel(person.role)}</small>
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
-              </fieldset>
+              </div>
 
               <label>
                 <span>Sujet</span>
@@ -421,32 +489,22 @@ export function SchoolMessagesPage() {
                   placeholder="Sujet de la conversation"
                 />
               </label>
-              <label>
+
+              <label className="messages-compose__body">
                 <span>Message</span>
                 <textarea
                   value={body}
                   maxLength={5000}
                   onChange={(event) => setBody(event.target.value)}
-                  placeholder="Écrivez votre message…"
+                  rows={5}
                   required
                 />
               </label>
-              <div className="school-messages-actions">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setComposing(false)}
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="primary-button"
-                  disabled={working || recipientIds.length === 0 || !body.trim()}
-                >
-                  <Send size={16} /> Envoyer
-                </button>
-              </div>
+
+              <button type="submit" disabled={working || !selectedRecipientId || !body.trim()}>
+                <Send size={15} />
+                Envoyer
+              </button>
             </form>
           </div>
         </div>
