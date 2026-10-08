@@ -1,0 +1,10 @@
+.tenant-role-sidebar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tenant-role-sidebar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
