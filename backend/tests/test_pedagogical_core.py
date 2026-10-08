@@ -1,11 +1,12 @@
 from datetime import UTC, date, datetime
 
+import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.models.entities import OrganizationLegalProfileRecord, OrganizationMemberRecord, OrganizationPublicSiteRecord, OrganizationRecord, UserRecord
+from app.models.entities import OrganizationLegalProfileRecord, OrganizationMemberRecord, OrganizationPublicSiteRecord, OrganizationRecord, SchoolNotificationRecord, SessionCourseDayRecord, UserRecord
 from app.schemas.formations import (
     ChapterCreate,
     CourseCreate,
@@ -24,6 +25,7 @@ from app.services.formations import (
     create_session,
     enroll_student,
     get_formation_detail,
+    remove_teacher,
 )
 from app.services.tenancy import resolve_tenant_context
 
@@ -57,6 +59,60 @@ def seed(db: Session):
     db.commit()
     tenant = resolve_tenant_context(db, user=owner, organization_id=org.id)
     return tenant, teacher, student, outsider
+
+
+def test_removing_teacher_preserves_a_teacher_for_enrolled_students_and_notifies() -> None:
+    db = build_db()
+    tenant, teacher, student, _ = seed(db)
+    formation = create_formation(db, tenant, FormationCreate(
+        slug="cours", title="Cours", category="Design", level="Débutant",
+        format_type="live", training_hours=10,
+    ))
+    detail = create_session(db, tenant, formation.id, SessionCreate(
+        label="Cohorte", start_date=date(2026, 10, 1), end_date=date(2026, 11, 1),
+        seat_capacity=10,
+    ))
+    session_id = detail.sessions[0].id
+    assign_teacher(db, tenant, formation.id, session_id, TeacherAssignmentCreate(
+        user_id=teacher.id, role="principal",
+    ))
+    enroll_student(db, tenant, formation.id, session_id, EnrollmentCreate(user_id=student.id))
+
+    with pytest.raises(HTTPException) as error:
+        remove_teacher(db, tenant, formation.id, session_id, teacher.id)
+    assert error.value.status_code == 409
+
+    replacement = UserRecord(email="replacement@test.dev", full_name="Replacement", status="active")
+    db.add(replacement)
+    db.flush()
+    db.add(OrganizationMemberRecord(
+        organization_id=tenant.organization_id, user_id=replacement.id,
+        role="teacher", status="active",
+    ))
+    db.commit()
+    assign_teacher(db, tenant, formation.id, session_id, TeacherAssignmentCreate(
+        user_id=replacement.id, role="principal",
+    ))
+    day = SessionCourseDayRecord(
+        organization_id=tenant.organization_id, session_id=session_id,
+        teacher_id=teacher.id, title="Séance assignée",
+        scheduled_at=datetime(2026, 10, 15, 10, tzinfo=UTC), duration_minutes=90,
+    )
+    db.add(day)
+    db.commit()
+    with pytest.raises(HTTPException) as error:
+        remove_teacher(db, tenant, formation.id, session_id, teacher.id)
+    assert error.value.status_code == 409
+
+    day.teacher_id = replacement.id
+    db.commit()
+    detail = remove_teacher(db, tenant, formation.id, session_id, teacher.id)
+    assert [item.teacher_id for item in detail.sessions[0].teachers] == [replacement.id]
+    assert db.scalar(select(SchoolNotificationRecord).where(
+        SchoolNotificationRecord.organization_id == tenant.organization_id,
+        SchoolNotificationRecord.user_id == teacher.id,
+        SchoolNotificationRecord.event_key.like("teacher.removed:%"),
+    )) is not None
 
 
 def test_full_pedagogical_core_flow_is_tenant_scoped() -> None:

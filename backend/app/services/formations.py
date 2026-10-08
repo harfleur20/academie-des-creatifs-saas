@@ -24,6 +24,7 @@ from app.models.entities import (
     QuizRecord,
     QuizAttemptRecord,
     ResourceRecord,
+    SessionCourseDayRecord,
     SessionTeacherRecord,
     StudentOrderRecord,
     UserRecord,
@@ -393,6 +394,7 @@ def get_formation_detail(
             .selectinload(ChapterRecord.lessons),
         )
         .where(FormationRecord.id == formation_id)
+        .execution_options(populate_existing=True)
     )
     if formation is None:
         return None
@@ -659,7 +661,40 @@ def remove_teacher(
     )
     if assignment is None:
         raise HTTPException(status_code=404, detail="Affectation professeur introuvable.")
+    remaining_teacher = db.scalar(select(SessionTeacherRecord.id).where(
+        SessionTeacherRecord.organization_id == tenant.organization_id,
+        SessionTeacherRecord.session_id == session.id,
+        SessionTeacherRecord.teacher_id != teacher_id,
+    ))
+    active_enrollment = db.scalar(select(EnrollmentRecord.id).where(
+        EnrollmentRecord.organization_id == tenant.organization_id,
+        EnrollmentRecord.session_id == session.id,
+        EnrollmentRecord.status.in_(["active", "completed"]),
+    ))
+    if remaining_teacher is None and active_enrollment is not None:
+        raise HTTPException(409, "Affectez un autre professeur avant de retirer le dernier enseignant de cette session.")
+    if active_enrollment is not None and (
+        db.scalar(select(SessionCourseDayRecord.id).where(
+            SessionCourseDayRecord.organization_id == tenant.organization_id,
+            SessionCourseDayRecord.session_id == session.id,
+            SessionCourseDayRecord.teacher_id == teacher_id,
+        )) is not None
+        or db.scalar(select(CourseRecord.id).where(
+            CourseRecord.organization_id == tenant.organization_id,
+            CourseRecord.session_id == session.id,
+            CourseRecord.teacher_id == teacher_id,
+        )) is not None
+    ):
+        raise HTTPException(409, "Réattribuez les cours et séances de ce professeur avant son retrait.")
     db.delete(assignment)
+    notify_user(
+        db, organization_id=tenant.organization_id, user_id=teacher_id,
+        event_key=f"teacher.removed:{session.id}:{assignment.id}",
+        audience="teacher", title="Affectation retirée",
+        message=f"Vous n'intervenez plus dans {get_formation_record(db, tenant, formation_id).title} ({session.label}).",
+        category="session", tone="warning", action_label="Mes sessions",
+        action_path="/app/teacher/sessions",
+    )
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 

@@ -50,7 +50,7 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.grades import grade_average_pct
-from app.services.pedagogy_access import dashboard_type, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
+from app.services.pedagogy_access import dashboard_type, guided_activity_available, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
 from app.services.tenancy import TenantContext
 
 
@@ -659,6 +659,18 @@ def _assignment_stats(
         ).all()
     )
     assignments = [item for item in assignments if _linked_activity_is_published(db, tenant, "assignment", item.id)]
+    if standard_only:
+        session = get_session(db, tenant, enrollment.session_id)
+        formation = formation_for_session(db, tenant, enrollment.session_id)
+        if dashboard_type(formation) == "guided":
+            assignments = [
+                item for item in assignments
+                if item.is_final_project or guided_activity_available(
+                    formation,
+                    session,
+                    day=db.get(SessionCourseDayRecord, item.course_day_id) if item.course_day_id else None,
+                )
+            ]
     submitted = 0
     has_final = False
     final_valid = False

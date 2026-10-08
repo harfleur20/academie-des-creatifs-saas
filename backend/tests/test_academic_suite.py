@@ -1082,6 +1082,31 @@ def test_guided_badge_waits_for_session_start() -> None:
     assert badge.grade_average_pct is None
 
 
+def test_guided_badge_counts_assignment_after_its_course_day_opens() -> None:
+    db = build_db()
+    org, teacher, student, _, session, enrollment, _, _, day = seed(db)
+    session.formation.format_type = "live"
+    session.end_date = date(2099, 1, 1)
+    day.scheduled_at = datetime.now(UTC) + timedelta(days=2)
+    assignment = AssignmentRecord(
+        organization_id=org.id,
+        session_id=session.id,
+        course_day_id=day.id,
+        teacher_id=teacher.id,
+        title="Travail de la séance",
+        due_date=datetime.now(UTC) + timedelta(days=3),
+    )
+    db.add(assignment)
+    db.commit()
+
+    student_tenant = ctx(db, org, student)
+    assert badge_for_enrollment(db, student_tenant, enrollment).assignment_progress_pct is None
+
+    day.scheduled_at = datetime.now(UTC) - timedelta(days=1)
+    db.commit()
+    assert badge_for_enrollment(db, student_tenant, enrollment).assignment_progress_pct == 0
+
+
 def test_guided_course_waits_for_session_start_but_classic_is_immediate() -> None:
     db = build_db()
     org, _, student, _, session, _, _, lesson, _ = seed(db)
