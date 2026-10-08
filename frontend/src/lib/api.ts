@@ -1350,6 +1350,8 @@ export type StudentWorkspaceSession = {
   session_label: string
   start_date: string
   end_date: string
+  teacher_name: string | null
+  campus_label: string | null
   session_status: string
   enrollment_status: string
   course_count: number

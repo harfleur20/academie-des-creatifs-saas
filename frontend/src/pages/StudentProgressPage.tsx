@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Award, BookOpen, CheckCircle2, ClipboardCheck } from 'lucide-react'
+import { useTenant } from '../app/TenantContext'
 import {
   badgeLevelFromValue,
   badgeLevelNumber,
@@ -16,10 +17,11 @@ function levelLabel(value: string) {
   if (value === 'intermediaire') return 'Intermédiaire'
   if (value === 'semi_pro') return 'Semi-pro'
   if (value === 'professionnel') return 'Professionnel'
-  return 'Démarrage'
+  return 'Aventurier'
 }
 
 export function StudentProgressPage() {
+  const { activeOrganization } = useTenant()
   const [items, setItems] = useState<StudentProgress[]>([])
   const [error, setError] = useState('')
 
@@ -45,7 +47,6 @@ export function StudentProgressPage() {
 
       <section className="progress-card-list">
         {items.map((item) => {
-          const isStarting = item.badge.level === 'aventurier'
           const nextLevel = badgeLevelFromValue(item.badge.next_level)
 
           return (
@@ -58,14 +59,11 @@ export function StudentProgressPage() {
                 <div className="badge-orb">
                   <StudentLevelBadge
                     level={item.badge.level}
+                    schoolName={activeOrganization?.name}
                     className="badge-orb__visual"
                   />
-                  <span>
-                    {isStarting
-                      ? 'Prochain badge'
-                      : `Niveau ${badgeLevelNumber(item.badge.level)}`}
-                  </span>
-                  <strong>{isStarting ? 'Débutant' : item.badge.label}</strong>
+                  <span>Niveau {badgeLevelNumber(item.badge.level)}</span>
+                  <strong>{item.badge.label}</strong>
                   <small>{item.badge.score_pct}% de progression</small>
                 </div>
               </header>
@@ -101,10 +99,11 @@ export function StudentProgressPage() {
                 </div>
               </div>
 
-              {nextLevel && !isStarting && (
+              {nextLevel && (
                 <div className="progress-next">
                   <StudentLevelBadge
                     level={nextLevel}
+                    schoolName={activeOrganization?.name}
                     className="progress-next__badge"
                     locked
                   />

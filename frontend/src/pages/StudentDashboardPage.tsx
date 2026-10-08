@@ -13,17 +13,20 @@ import {
   Layers,
   TrendingUp,
   Users,
+  Video,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import {
   ApiError,
   getSessionPlanning,
   getStudentWorkspace,
+  listStudentLearning,
   listStudentAssignments,
   listStudentGrades,
   listStudentProgress,
   listStudentQuizzes,
   type SessionPlanning,
+  type LearningSession,
   type StudentAssignment,
   type StudentGrade,
   type StudentProgress,
@@ -43,6 +46,19 @@ function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Étudiant'
 }
 
+function shortDate(value: string) {
+  return new Date(`${value}T12:00:00`).toLocaleDateString('fr-FR', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
+function sessionStatus(status: string) {
+  if (status === 'open') return 'Ouverte'
+  if (status === 'running') return 'En cours'
+  if (status === 'completed') return 'Terminée'
+  return 'À venir'
+}
+
 const quickAccessLinks = [
   { to: '/app/student/formations?filter=classic', label: 'Formations en ligne', icon: BookOpen, tone: 'indigo' },
   { to: '/app/student/formations?filter=guided', label: 'Parcours guidés', icon: Users, tone: 'sky' },
@@ -57,6 +73,7 @@ export function StudentDashboardPage() {
   const { activeOrganization } = useTenant()
   const [workspace, setWorkspace] = useState<StudentWorkspace | null>(null)
   const [progress, setProgress] = useState<StudentProgress[]>([])
+  const [learning, setLearning] = useState<LearningSession[]>([])
   const [assignments, setAssignments] = useState<StudentAssignment[]>([])
   const [grades, setGrades] = useState<StudentGrade[]>([])
   const [quizzes, setQuizzes] = useState<StudentQuiz[]>([])
@@ -74,9 +91,10 @@ export function StudentDashboardPage() {
         if (cancelled) return
         setWorkspace(nextWorkspace)
 
-        const [progressRows, assignmentRows, quizRows, gradeRows, planningRows] =
+        const [progressRows, learningRows, assignmentRows, quizRows, gradeRows, planningRows] =
           await Promise.all([
             listStudentProgress().catch(() => []),
+            listStudentLearning().catch(() => []),
             listStudentAssignments().catch(() => []),
             listStudentQuizzes().catch(() => []),
             listStudentGrades().catch(() => []),
@@ -88,6 +106,7 @@ export function StudentDashboardPage() {
           ])
         if (cancelled) return
         setProgress(progressRows)
+        setLearning(learningRows)
         setAssignments(assignmentRows)
         setQuizzes(quizRows)
         setGrades(gradeRows)
@@ -167,13 +186,26 @@ export function StudentDashboardPage() {
   const averageLabel = averageOnTwenty === null
     ? '—/20'
     : `${averageOnTwenty.toFixed(1).replace(/\.0$/, '')}/20`
+  const courseProgress = learning.flatMap((session) => session.courses.map((course) => {
+    const lessons = course.chapters.flatMap((chapter) => chapter.lessons)
+    const completed = lessons.filter((lesson) => lesson.completed).length
+    return {
+      id: `${session.enrollment_id}-${course.id}`,
+      title: course.title,
+      completed,
+      total: lessons.length,
+      percent: lessons.length ? Math.round(completed / lessons.length * 100) : 0,
+    }
+  }))
 
   if (!workspace && !error) {
     return <div className="page-state">Chargement de votre espace étudiant…</div>
   }
 
   const progressPercent = focusProgress?.badge.score_pct || 0
-  const badgeIsPreview = !focusProgress || focusProgress.badge.level === 'aventurier'
+  const nextBadgeLabel = focusProgress?.badge.next_level
+    ? ({ debutant: 'Débutant', intermediaire: 'Intermédiaire', semi_pro: 'Semi-pro', professionnel: 'Professionnel' } as Record<string, string>)[focusProgress.badge.next_level]
+    : null
 
   return (
     <div className="role-overview">
@@ -242,6 +274,33 @@ export function StudentDashboardPage() {
               <RoleDashboardCalendar items={scheduleItems} />
             </section>
 
+            {workspace.sessions.length > 0 && <section className="student-overview-panel student-overview-sessions">
+              <header><div><Video size={19} aria-hidden="true" /><h2>Mes sessions programmées</h2></div></header>
+              <div className="student-overview-sessions__list">
+                {workspace.sessions.map((session) => <article className="student-overview-session" key={session.enrollment_id}>
+                  <div className="student-overview-session__content">
+                    <span className={`student-overview-session__status student-overview-session__status--${session.session_status}`}>{sessionStatus(session.session_status)}</span>
+                    <h3>{session.formation_title}</h3>
+                    <strong>{session.session_label}</strong>
+                    <p><CalendarDays size={17} aria-hidden="true" /> {shortDate(session.start_date)} → {shortDate(session.end_date)}{session.teacher_name ? ` · ${session.teacher_name}` : ''}{session.campus_label ? ` · ${session.campus_label}` : ''}</p>
+                  </div>
+                  <Link className="student-overview-session__action" to={`/app/student/${session.dashboard_type}/${session.enrollment_id}${session.dashboard_type === 'guided' ? '?tab=calendar' : ''}`}>
+                    <BookOpen size={17} aria-hidden="true" /> Voir le programme <ChevronRight size={17} aria-hidden="true" />
+                  </Link>
+                </article>)}
+              </div>
+            </section>}
+
+            <section className="student-overview-panel student-overview-progress">
+              <header><div><TrendingUp size={19} aria-hidden="true" /><h2>Ma progression</h2></div><Link className="dashboard-text-link" to="/app/student/formations">Voir tout <ChevronRight size={16} aria-hidden="true" /></Link></header>
+              {courseProgress.length > 0 ? <div className="student-overview-progress__list">
+                {courseProgress.map((course) => <article className="student-overview-progress__row" key={course.id}>
+                  <div><h3>{course.title}</h3><strong>{course.completed}/{course.total} leçons</strong></div>
+                  <div className="student-overview-progress__meter"><span>Avancement du cours</span><div role="progressbar" aria-label={`Progression de ${course.title}`} aria-valuenow={course.percent} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${course.percent}%` }} /></div><strong>{course.percent}%</strong></div>
+                </article>)}
+              </div> : <p className="student-overview-progress__empty">Les cours et leur progression apparaîtront ici dès leur publication.</p>}
+            </section>
+
             <RoleQuickAccess links={quickAccessLinks} />
           </section>
 
@@ -255,17 +314,16 @@ export function StudentDashboardPage() {
                 <div className="role-student-progress-card__head">
                   <StudentLevelBadge
                     level={focusProgress?.badge.level}
+                    schoolName={activeOrganization?.name}
+                    locked={!focusProgress}
                     className="role-student-progress-card__badge"
                   />
                   <span>
-                    <small>{badgeIsPreview ? 'Prochain badge' : 'Niveau actuel'}</small>
-                    <strong>
-                      {badgeIsPreview
-                        ? 'Débutant · Niveau 1'
-                        : focusProgress?.badge.label}
-                    </strong>
+                    <small>{focusProgress ? 'Sceau actuel' : 'Premier sceau'}</small>
+                    <strong>{focusProgress?.badge.label || 'Aventurier'}</strong>
                   </span>
                 </div>
+                {nextBadgeLabel && <p className="role-student-progress-card__next">Prochain niveau : {nextBadgeLabel}</p>}
                 <div className="role-student-progress-card__bar">
                   <i style={{ width: `${progressPercent}%` }} />
                 </div>

@@ -1,126 +1,38 @@
-/* Student progression badges use the prepared LEVEL UP artwork as rewards.
-   The first artwork is previewed while the student is still Aventurier/Démarrage. */
 .student-level-badge {
-  position: relative;
   display: inline-grid;
   place-items: center;
   flex: none;
-  line-height: 0;
-  isolation: isolate;
-}
-
-/* Discreet support circle sits only behind the LEVEL artwork. */
-.student-level-badge::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: calc(100% + 10px);
   aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--school-secondary) 10%, #fff);
-  box-shadow: 0 3px 8px rgba(16, 35, 63, .06);
-  z-index: 0;
-  pointer-events: none;
+  line-height: 0;
 }
 
-.student-level-badge img {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  opacity: 1;
-  filter: drop-shadow(0 4px 7px rgba(16, 35, 63, .14));
-  transition: transform .2s ease, filter .2s ease;
-}
+.student-level-badge svg { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 5px 8px rgba(15, 30, 60, .16)); }
+.student-level-badge__outer { fill: color-mix(in srgb, var(--school-secondary) 16%, #fff); stroke: color-mix(in srgb, var(--school-primary) 35%, #fff); stroke-width: 1.5; }
+.student-level-badge__ring { fill: none; stroke: var(--school-primary); stroke-width: 3; }
+.student-level-badge__field { fill: color-mix(in srgb, var(--school-secondary) 8%, #fff); stroke: color-mix(in srgb, var(--school-primary) 18%, #fff); }
+.student-level-badge__milestone { fill: color-mix(in srgb, var(--school-primary) 18%, #fff); }
+.student-level-badge__milestone.is-active { fill: var(--school-secondary); }
+.student-level-badge__book { fill: color-mix(in srgb, var(--school-secondary) 20%, #fff); stroke: var(--school-primary); stroke-width: 3; stroke-linejoin: round; }
+.student-level-badge__book-lines { fill: none; stroke: var(--school-primary); stroke-width: 2; stroke-linecap: round; }
+.student-level-badge__spark { fill: var(--school-secondary); }
+.student-level-badge__signature-line { stroke: color-mix(in srgb, var(--school-primary) 32%, #fff); stroke-width: 1.5; }
+.student-level-badge__school-mark { fill: var(--school-primary); font: 800 8px 'Manrope', sans-serif; letter-spacing: .08em; }
+.student-level-badge--intermediaire .student-level-badge__ring,
+.student-level-badge--semi_pro .student-level-badge__ring,
+.student-level-badge--professionnel .student-level-badge__ring { stroke-width: 4.5; }
+.student-level-badge--professionnel .student-level-badge__outer { stroke: var(--school-secondary); stroke-width: 3; }
+.student-level-badge.is-locked svg { opacity: .55; filter: grayscale(.55); }
 
-.student-level-badge.is-earned img {
-  opacity: 1;
-}
+.role-student-progress-card__badge { width: 86px; }
+.badge-orb__visual { width: 86px; margin: 0 auto 5px; }
+.progress-next__badge { width: 42px; }
 
-.student-level-badge.is-earned:hover img {
-  transform: translateY(-1px) scale(1.025);
-}
-
-.student-level-badge.is-locked img {
-  opacity: 1;
-  filter: drop-shadow(0 3px 5px rgba(16, 35, 63, .1));
-}
-
-.role-student-progress-card__head {
-  grid-template-columns: 28px minmax(0, 1fr);
-}
-
-.role-student-progress-card__badge {
-  width: 21px;
-  height: 24px;
-}
-
-.badge-orb {
-  min-width: 126px;
-  max-width: 140px;
-  gap: 4px;
-  padding: 9px 11px 11px;
-  border: 1px solid color-mix(in srgb, var(--school-primary) 10%, #e6ebf2);
-  background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--school-secondary) 7%, #fff));
-}
-
-.badge-orb__visual {
-  width: 30px;
-  height: 36px;
-  margin-bottom: 2px;
-}
-
-.badge-orb span {
-  color: #77869a;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .055em;
-  text-transform: uppercase;
-}
-
-.badge-orb strong {
-  color: var(--school-primary);
-  font-size: 16px;
-}
-
-.badge-orb small {
-  color: #7a8798;
-  font-size: 9.5px;
-  font-weight: 700;
-}
-
-.progress-next {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 14px 0 0;
-  color: #6f7c8f;
-  font-size: 12px;
-}
-
-.progress-next__badge {
-  width: 14px;
-  height: 17px;
-}
-
-.progress-next p {
-  margin: 0;
-}
-
-.progress-next strong {
-  color: var(--school-primary);
-}
+.tenant-role-shell--student .role-student-progress-card__head { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.tenant-role-shell--student .role-student-progress-card__head span { display: grid; gap: 3px; }
+.tenant-role-shell--student .role-student-progress-card__head strong { font-size: 15px; }
+.tenant-role-shell--student .role-student-progress-card__head small { font-size: 11px; }
+.tenant-role-shell--student .role-student-progress-card__next { margin: -4px 0 0; text-align: center; color: #69798d; font-size: 11px; }
 
 @media (max-width: 700px) {
-  .badge-orb {
-    min-width: 116px;
-  }
-
-  .badge-orb__visual {
-    width: 26px;
-    height: 31px;
-  }
+  .role-student-progress-card__badge, .badge-orb__visual { width: 74px; }
 }

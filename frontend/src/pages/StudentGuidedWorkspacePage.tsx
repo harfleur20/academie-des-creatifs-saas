@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { BookOpen, CalendarDays, ChevronRight, GraduationCap, MonitorPlay, Users } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
-import { ApiError, getSessionPlanning, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources, submitCourseDayFeedback,
-  type AcademicResource, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz } from '../lib/api'
+import { ApiError, getSessionPlanning, getStudentWorkspace, listPublicSchoolFormations, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources, submitCourseDayFeedback,
+  type AcademicResource, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz, type StudentWorkspaceSession } from '../lib/api'
 import { liveClassIsOpen } from '../lib/liveWindow'
 
 type Tab = 'overview' | 'program' | 'calendar' | 'assignments' | 'quizzes' | 'resources' | 'results'
@@ -20,6 +21,7 @@ export function StudentGuidedWorkspacePage() {
   const requestedTab = searchParams.get('tab')
   const tab: Tab = tabs.some((item) => item.id === requestedTab) ? requestedTab as Tab : 'overview'
   const [session, setSession] = useState<LearningSession | null>(null)
+  const [workspaceSession, setWorkspaceSession] = useState<StudentWorkspaceSession | null>(null)
   const [planning, setPlanning] = useState<SessionPlanning | null>(null)
   const [attendance, setAttendance] = useState<StudentAttendance[]>([])
   const [assignments, setAssignments] = useState<StudentAssignment[]>([])
@@ -54,6 +56,7 @@ export function StudentGuidedWorkspacePage() {
 
   useEffect(() => {
     if (!activeOrganization) { setSession(null); return }
+    const organizationSlug = activeOrganization.slug
     let cancelled = false
     setLoading(true)
     setSession(null)
@@ -63,11 +66,18 @@ export function StudentGuidedWorkspacePage() {
         const learning = await listStudentLearning()
         const selected = learning.find((item) => item.enrollment_id === Number(enrollmentId) && item.dashboard_type === 'guided')
         if (!selected) throw new Error('Parcours guidé introuvable dans votre école.')
-        const [days, attendanceRows, assignmentRows, quizRows, resourceRows, gradeRows, progressRows] = await Promise.all([
-          getSessionPlanning(selected.session_id), listStudentAttendance(), listStudentAssignments(), listStudentQuizzes(), listStudentResources(), listStudentGrades(), listStudentProgress(),
+        const [days, attendanceRows, assignmentRows, quizRows, resourceRows, gradeRows, progressRows, workspace] = await Promise.all([
+          getSessionPlanning(selected.session_id), listStudentAttendance(), listStudentAssignments(), listStudentQuizzes(), listStudentResources(), listStudentGrades(), listStudentProgress(), getStudentWorkspace(),
         ])
+        let selectedWorkspaceSession = workspace.sessions.find((item) => item.enrollment_id === selected.enrollment_id) ?? null
+        if (selectedWorkspaceSession && !selectedWorkspaceSession.formation_image) {
+          const catalogue = await listPublicSchoolFormations(organizationSlug).catch(() => [])
+          const cover = catalogue.find((formation) => formation.id === selected.formation_id)?.cover_image_url
+          if (cover) selectedWorkspaceSession = { ...selectedWorkspaceSession, formation_image: cover }
+        }
         if (cancelled) return
         setSession(selected)
+        setWorkspaceSession(selectedWorkspaceSession)
         setPlanning(days)
         setAttendance(attendanceRows.filter((row) => days.course_days.some((day) => day.id === row.course_day_id)))
         setAssignments(assignmentRows.filter((row) => row.enrollment_id === selected.enrollment_id))
@@ -91,18 +101,35 @@ export function StudentGuidedWorkspacePage() {
   const gradeMaximum = grades.reduce((sum, grade) => sum + grade.max_score, 0)
   const gradeAverage = gradeMaximum > 0 ? (gradePoints / gradeMaximum * 20).toFixed(1) : null
   const readerUrl = `/app/student/guided/${enrollmentId}/program`
+  const teacherName = workspaceSession?.teacher_name || session?.courses.find((course) => course.teacher_name)?.teacher_name || null
 
   return <main className="app-page guided-workspace-page">
-    <header className="app-page-header"><div><span className="page-kicker">Parcours guidé</span><h1>{session?.formation_title || 'Mon parcours'}</h1><p>{session ? `${session.session_label} · ${session.format_type === 'presentiel' ? 'Présentiel' : 'Live'}` : 'Votre espace pédagogique de session'}</p></div><Link to="/app/student/formations">Mes parcours</Link></header>
+    {!session && <header className="app-page-header"><div><span className="page-kicker">Parcours guidé</span><h1>Mon parcours</h1></div></header>}
     {error && <div className="form-error">{error}</div>}
     {loading && <div className="page-state">Chargement du parcours…</div>}
     {session && <>
+      <section className="guided-course-hero">
+        <div className="guided-course-hero__copy">
+          <span>PARCOURS {session.format_type === 'presentiel' ? 'PRÉSENTIEL' : 'LIVE'}</span>
+          <h1>{session.formation_title}</h1>
+          <p>Votre cohorte, les séances, les supports, les quiz et les corrections au même endroit.</p>
+          <div className="guided-course-hero__actions"><Link to="/app/student/formations">Retour à mes parcours</Link><button type="button" onClick={() => setSearchParams({ tab: 'program' })}>Voir le programme <ChevronRight size={17} aria-hidden="true" /></button></div>
+          {teacherName && <div className="guided-course-hero__teacher"><span aria-hidden="true">{teacherName.trim().charAt(0)}</span><div><small>Votre enseignant</small><strong>{teacherName}</strong></div></div>}
+        </div>
+        <div className="guided-course-hero__media">{workspaceSession?.formation_image ? <img src={workspaceSession.formation_image} alt="" /> : <GraduationCap size={70} aria-hidden="true" />}</div>
+      </section>
+      <div className="guided-course-facts">
+        <article><MonitorPlay size={21} aria-hidden="true" /><span>Format</span><strong>{session.format_type === 'presentiel' ? 'Présentiel' : 'Live'}</strong><small>{session.format_type === 'presentiel' ? 'Cours et présence sur place' : 'Cours en direct et supports synchronisés'}</small></article>
+        <article><CalendarDays size={21} aria-hidden="true" /><span>Session</span><strong>{session.session_label}</strong><small>{nextDay ? `Prochain cours : ${dateLabel(nextDay.scheduled_at)}` : 'Consultez le calendrier des cours'}</small></article>
+        <article><Users size={21} aria-hidden="true" /><span>Enseignant</span><strong>{teacherName || 'Équipe pédagogique'}</strong><small>{session.courses.length} cours dans ce parcours</small></article>
+      </div>
       {session.is_locked && <div className="student-reader-lock">Les cours ouvriront au début de la session{session.available_at ? `, le ${dateLabel(session.available_at)}` : ''}.</div>}
       <div className="guided-summary-grid">
         <article className="app-card"><span className="section-label">Progression</span><strong>{progress?.lesson_progress_pct ?? 0} %</strong><p>{progress?.completed_lessons ?? 0} / {progress?.total_lessons ?? 0} leçons terminées</p></article>
         <article className="app-card"><span className="section-label">Prochaine séance</span><strong>{nextDay ? dateLabel(nextDay.scheduled_at) : 'À venir'}</strong><p>{nextDay?.title || 'Le calendrier sera publié par l’école.'}</p></article>
         <article className="app-card"><span className="section-label">Suivi</span><strong>{pendingAssignments.length} devoir(s) à rendre</strong><p>{activeQuizzes.length} quiz disponible(s)</p></article>
       </div>
+      <section className="guided-pedagogy"><header><BookOpen size={21} aria-hidden="true" /><div><h2>Espace pédagogique</h2><p>Tout est filtré sur cette formation et cette session.</p></div></header>
       <nav className="guided-tabs" aria-label="Sections du parcours">{tabs.map((item) => <button type="button" key={item.id} className={tab === item.id ? 'is-active' : ''} aria-current={tab === item.id ? 'page' : undefined} onClick={() => setSearchParams({ tab: item.id })}>{item.label}</button>)}</nav>
       <section className="app-card guided-panel">
         {tab === 'overview' && <><h2>Vue d’ensemble</h2><p>{session.courses.length} cours publié(s) · {days.length} séance(s) · {resources.length} ressource(s)</p><p>{gradeAverage !== null ? `Moyenne : ${gradeAverage} / 20` : 'Aucune note disponible.'}</p><div className="guided-actions"><Link className="primary-button" to={readerUrl}>Ouvrir le programme</Link><Link className="secondary-button" to={`/app/student/class?session=${session.session_id}`}>Ma classe</Link><Link className="secondary-button" to="/app/student/certificates">Mes certificats</Link></div></>}
@@ -137,7 +164,7 @@ export function StudentGuidedWorkspacePage() {
         {tab === 'quizzes' && <><h2>Quiz</h2>{quizzes.map((item) => <div className="guided-list-row" key={item.id}><strong>{item.title}</strong><small>{item.passed ? 'Réussi' : item.is_locked ? 'À venir' : item.can_attempt ? 'Disponible' : 'Réessai indisponible'}</small><Link to={`/app/student/quizzes#quiz-${item.id}`}>Ouvrir</Link></div>)}{quizzes.length === 0 && <p>Aucun quiz pour cette session.</p>}</>}
         {tab === 'resources' && <><h2>Ressources</h2>{resources.map((item) => <div className="guided-list-row" key={item.id}><strong>{item.title}</strong><span>{item.resource_type}</span><Link to="/app/student/resources">Consulter</Link></div>)}{resources.length === 0 && <p>Aucune ressource publiée.</p>}</>}
         {tab === 'results' && <><h2>Notes et résultats</h2><p>{gradeAverage !== null ? `Moyenne : ${gradeAverage} / 20` : 'Aucune note disponible.'}</p>{grades.map((grade) => <div className="guided-list-row" key={grade.id}><strong>{grade.label}</strong><span>{grade.score} / {grade.max_score}</span></div>)}<Link to="/app/student/progress">Voir mon suivi complet</Link></>}
-      </section>
+      </section></section>
     </>}
   </main>
 }

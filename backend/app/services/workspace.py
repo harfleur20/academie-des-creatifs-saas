@@ -103,6 +103,9 @@ def get_student_workspace(
                 selectinload(EnrollmentRecord.session).selectinload(
                     FormationSessionRecord.courses
                 ),
+                selectinload(EnrollmentRecord.session)
+                .selectinload(FormationSessionRecord.teachers)
+                .selectinload(SessionTeacherRecord.teacher),
             )
             .where(
                 EnrollmentRecord.organization_id == tenant.organization_id,
@@ -125,6 +128,14 @@ def get_student_workspace(
             session_label=item.session.label,
             start_date=item.session.start_date,
             end_date=item.session.end_date,
+            teacher_name=next(
+                (assignment.teacher.full_name for assignment in sorted(
+                    item.session.teachers,
+                    key=lambda assignment: (assignment.role != "principal", assignment.id),
+                )),
+                None,
+            ),
+            campus_label=item.session.campus_label,
             session_status=item.session.status,
             enrollment_status=item.status,
             course_count=sum(

@@ -71,6 +71,7 @@ def seed(db: Session):
         label="Cohorte Octobre",
         start_date=date(2026, 10, 1),
         end_date=date(2026, 11, 1),
+        campus_label="Campus Créatif",
         seat_capacity=25,
         status="open",
     )
@@ -131,6 +132,8 @@ def test_student_workspace_only_contains_own_enrollments() -> None:
     assert workspace.total_courses == 1
     assert workspace.sessions[0].session_label == "Cohorte Octobre"
     assert workspace.sessions[0].formation_image == "https://example.test/motion.jpg"
+    assert workspace.sessions[0].teacher_name == "Teacher"
+    assert workspace.sessions[0].campus_label == "Campus Créatif"
 
     # Legacy student memberships without a commerce profile are repaired once.
     assert get_student_workspace(db, tenant).student_code == expected_code
