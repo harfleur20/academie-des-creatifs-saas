@@ -63,6 +63,7 @@ from app.services.class_certificates import (
 )
 from app.services.school_documents import build_certificate_pdf
 from app.services.learning_progress import (
+    badge_for_enrollment,
     list_student_learning,
     mark_attendance,
     mark_lesson_complete,
@@ -1057,6 +1058,28 @@ def test_draft_course_is_invisible_and_cannot_be_completed_by_student() -> None:
         mark_lesson_complete(db, student_tenant, lesson.id)
     assert error.value.status_code == 404
     assert db.scalar(select(LessonProgressRecord).where(LessonProgressRecord.enrollment_id == enrollment.id)) is None
+
+
+def test_guided_badge_waits_for_session_start() -> None:
+    db = build_db()
+    org, _, student, _, session, enrollment, *_ = seed(db)
+    session.formation.format_type = "live"
+    session.start_date = date(2099, 1, 1)
+    db.add(GradeRecord(
+        organization_id=org.id,
+        session_id=session.id,
+        enrollment_id=enrollment.id,
+        source_type="manual",
+        label="Note avant la rentrée",
+        score=20,
+        max_score=20,
+    ))
+    db.commit()
+
+    badge = badge_for_enrollment(db, ctx(db, org, student), enrollment)
+    assert badge.level == "aventurier"
+    assert badge.score_pct == 0
+    assert badge.grade_average_pct is None
 
 
 def test_guided_course_waits_for_session_start_but_classic_is_immediate() -> None:

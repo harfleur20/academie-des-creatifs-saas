@@ -102,6 +102,8 @@ def _copy_source_to_file(source_url: str, target, redirects_left: int = 5) -> tu
 def capture_jaas_recording(db: Session, payload: dict) -> LiveRecordingRecord | None:
     if payload.get("eventType", payload.get("event_type", payload.get("type"))) != "RECORDING_UPLOADED":
         return None
+    if settings.jaas_app_id and payload.get("appId") and payload["appId"] != settings.jaas_app_id:
+        return None
     data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
     fqn = payload.get("fqn") or payload.get("meetingFqn") or data.get("conference") or data.get("roomAddress")
     if not isinstance(fqn, str):
@@ -127,7 +129,7 @@ def capture_jaas_recording(db: Session, payload: dict) -> LiveRecordingRecord | 
                    if (url := _source_url(data.get(key)))), None)
     if source is None:
         return None
-    explicit_id = next((str(data[key]).strip() for key in ("recordingId", "recording_id", "fileId", "file_id", "id")
+    explicit_id = next((str(data[key]).strip() for key in ("recordingSessionId", "recordingId", "recording_id", "fileId", "file_id", "id")
                         if data.get(key)), "")
     provider_id = explicit_id[:180] or hashlib.sha256(f"{fqn}|{source}".encode()).hexdigest()
     recording = db.scalar(select(LiveRecordingRecord).where(
@@ -145,8 +147,13 @@ def capture_jaas_recording(db: Session, payload: dict) -> LiveRecordingRecord | 
         )
     if recording.status != "ready" or not recording.storage_key:
         recording.source_url = source
-    recording.uploaded_at = datetime.now(UTC)
-    duration = data.get("durationSeconds") or data.get("duration_seconds")
+    if recording.uploaded_at is None:
+        try:
+            recording.uploaded_at = datetime.fromtimestamp(float(payload["timestamp"]) / 1000, UTC)
+        except (KeyError, TypeError, ValueError, OverflowError):
+            recording.uploaded_at = datetime.now(UTC)
+    duration = next((data[key] for key in ("durationSec", "durationSeconds", "duration_seconds")
+                     if data.get(key) is not None), None)
     if duration is not None:
         try:
             recording.duration_seconds = max(0, int(duration))

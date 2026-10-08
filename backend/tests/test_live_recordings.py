@@ -95,6 +95,38 @@ def test_signed_webhook_and_tenant_room_capture(monkeypatch) -> None:
     assert capture_jaas_recording(db, payload) is None
 
 
+def test_official_jaas_recording_payload_uses_stable_id_and_duration(monkeypatch) -> None:
+    db, org, _, session, day, *_ = seed()
+    monkeypatch.setattr(settings, "jaas_app_id", "test-app")
+    event_time = datetime(2026, 10, 8, 11, tzinfo=UTC)
+    payload = {
+        "eventType": "RECORDING_UPLOADED",
+        "appId": "test-app",
+        "fqn": f"test-app/school-{org.id}-session-{session.id}-day-{day.id}",
+        "timestamp": int(event_time.timestamp() * 1000),
+        "data": {
+            "recordingSessionId": "stable-recording-session",
+            "durationSec": 93,
+            "preAuthenticatedLink": "https://cdn.example.test/first-link.mp4",
+        },
+    }
+    recording = capture_jaas_recording(db, payload)
+    assert recording is not None
+    assert recording.provider_recording_id == "stable-recording-session"
+    assert recording.duration_seconds == 93
+    assert recording.uploaded_at.replace(tzinfo=UTC) == event_time
+
+    payload["timestamp"] += 1000
+    payload["data"]["preAuthenticatedLink"] = "https://cdn.example.test/refreshed-link.mp4"
+    duplicate = capture_jaas_recording(db, payload)
+    assert duplicate.id == recording.id
+    assert duplicate.uploaded_at.replace(tzinfo=UTC) == event_time
+    assert duplicate.source_url == "https://cdn.example.test/refreshed-link.mp4"
+
+    payload["appId"] = "another-app"
+    assert capture_jaas_recording(db, payload) is None
+
+
 def test_replay_publication_and_stream_are_scoped_to_enrollment(tmp_path, monkeypatch) -> None:
     db, org, other_org, session, day, teacher, student, outsider = seed()
     payload = {

@@ -780,6 +780,22 @@ def badge_for_enrollment(
     tenant: TenantContext,
     enrollment: EnrollmentRecord,
 ) -> BadgeRead:
+    formation = formation_for_session(db, tenant, enrollment.session_id)
+    session = get_session(db, tenant, enrollment.session_id)
+    guided = dashboard_type(formation) == "guided"
+    if guided and not learning_is_open(formation, session):
+        return BadgeRead(
+            level="aventurier",
+            label=BADGE_LABELS["aventurier"],
+            score_pct=0.0,
+            next_level="debutant",
+            lesson_progress_pct=0.0,
+            assignment_progress_pct=None,
+            quiz_progress_pct=None,
+            attendance_pct=None,
+            grade_average_pct=None,
+            final_project_validated=False,
+        )
     total_lessons, completed_lessons, lesson_pct = _lesson_progress(db, tenant, enrollment)
     total_assignments, submitted_assignments, has_final, final_valid = _assignment_stats(
         db, tenant, enrollment, standard_only=True
@@ -810,9 +826,6 @@ def badge_for_enrollment(
         else None
     )
 
-    formation = formation_for_session(db, tenant, enrollment.session_id)
-    session = get_session(db, tenant, enrollment.session_id)
-    guided = dashboard_type(formation) == "guided"
     current = datetime.now(UTC)
     session_end = session_ends_at(session) if guided else None
     unresolved_days = db.scalar(select(SessionCourseDayRecord.id).where(
