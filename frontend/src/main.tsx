@@ -34,6 +34,7 @@ import './dashboard-link-motion.css'
 import './student-dashboard-kpis.css'
 import './student-overview-parity.css'
 import './student-class-parity.css'
+import './student-session-calendar-icon.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 
