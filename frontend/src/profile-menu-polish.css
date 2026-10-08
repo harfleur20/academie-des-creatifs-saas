@@ -37,6 +37,22 @@
   flex: 0 0 19px;
 }
 
+.tenant-role-profile-menu > button.is-danger > svg {
+  display: none;
+}
+
+.tenant-role-profile-menu > button.is-danger::before {
+  content: '⏻';
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 500;
+}
+
 .tenant-role-profile-menu .account-menu-divider {
   display: block;
   height: 1px;
