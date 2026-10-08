@@ -30,7 +30,7 @@
 .student-overview-session__content > strong { color: color-mix(in srgb, var(--school-secondary) 75%, #075e49); font-size: 13px; }
 .student-overview-session p { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin: 12px 0 0; color: #5e6d80; font-size: 12px; line-height: 1.5; }
 .student-overview-session__action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none; min-height: 40px; padding: 0 13px; border: 1px solid #dfe5ec; border-radius: 999px; color: var(--school-primary); background: #fff; font-size: 12px; font-weight: 800; text-decoration: none; transition: transform .18s ease, border-color .18s ease, background .18s ease; }
-.student-overview-session__action:hover, .student-overview-session__action:focus-visible { transform: translateY(-2px); border-color: var(--school-secondary); background: color-mix(in srgb, var(--school-secondary) 8%, #fff); }
+.student-overview-session__action:hover, .student-overview-session__action:focus-visible { transform: translateY(-2px); border-color: var(--school-secondary); background: transparent; }
 .student-overview-progress__row { display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 18px 23px; border-bottom: 1px solid #edf0f4; }
 .student-overview-progress__row h3 { margin: 0 0 4px; color: var(--school-primary); font: 700 15px/1.35 'Space Grotesk', sans-serif; }
 .student-overview-progress__row > div:first-child > strong { color: color-mix(in srgb, var(--school-primary) 65%, #6d3bac); font-size: 12px; }
