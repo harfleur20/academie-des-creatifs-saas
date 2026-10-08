@@ -1,158 +1,105 @@
+/* Student overview cards use the proportions from the mother site's stu-kpi-card. */
+@media (min-width: 1181px) {
+  .tenant-role-shell--student .role-overview-grid {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
 .tenant-role-shell--student .student-dashboard-kpis {
-  width: min(100%, 840px);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(16px, 2vw, 30px);
-  container-type: inline-size;
-}
-
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi {
   min-width: 0;
-  min-height: 0;
-  aspect-ratio: 1.27;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 0;
-  padding: clamp(18px, 4.5cqw, 38px);
-  border-radius: clamp(22px, 4cqw, 36px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi > span {
-  font-size: clamp(14px, 3cqw, 26px);
-  line-height: 1.15;
-  font-weight: 800;
-  letter-spacing: .055em;
+.student-dashboard-kpi {
+  position: relative;
+  min-width: 0;
+  min-height: 104px;
+  display: grid;
+  gap: 0.18rem;
+  overflow: hidden;
+  padding: 0.9rem 0.95rem;
+  border-radius: 14px;
+  font-family: 'Manrope', sans-serif;
+  color: #1f2559;
 }
 
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi > strong {
-  margin: clamp(10px, 2cqw, 18px) 0 0;
-  font-size: clamp(38px, 7.5cqw, 68px);
+.student-dashboard-kpi__label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.student-dashboard-kpi__value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.25rem, 1.8vw, 1.65rem);
   line-height: 1;
   font-weight: 800;
-  letter-spacing: -.045em;
-  white-space: nowrap;
 }
 
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi > small {
-  max-width: 88%;
-  margin-top: clamp(8px, 1.5cqw, 16px);
-  font-size: clamp(15px, 3.2cqw, 29px);
-  line-height: 1.22;
-  font-weight: 500;
-}
-
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi > svg {
-  width: clamp(60px, 12cqw, 105px);
-  height: clamp(60px, 12cqw, 105px);
-  right: -20px;
-  bottom: -20px;
-  opacity: .22;
-  stroke-width: 2;
-}
-
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi--primary {
-  color: #0c4a6e;
-  background: #bae6fd;
-}
-
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi--secondary {
-  color: #4c1d95;
-  background: #ddd6fe;
-}
-
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi--mint {
-  color: #065f46;
-  background: #bbf7d0;
-}
-
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi--accent {
-  color: #78350f;
-  background: #fde68a;
-}
-
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi > small,
-.tenant-role-shell--student .student-dashboard-kpis .role-kpi > svg {
-  color: inherit;
-}
-
-.student-dashboard-kpis__track {
+.student-dashboard-kpi__sub {
   position: relative;
   z-index: 1;
-  width: min(100%, 300px);
-  height: clamp(10px, 1.9cqw, 16px);
-  flex: 0 0 auto;
-  margin-top: auto;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .55);
+  max-width: calc(100% - 15px);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
-.student-dashboard-kpis__track i {
+.student-dashboard-kpi__progress {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 120px);
+  height: 6px;
+  margin-top: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.44);
+}
+
+.student-dashboard-kpi__progress span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #1e2b60;
+  background: currentColor;
 }
 
-@container (max-width: 580px) {
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi {
-    aspect-ratio: auto;
-    min-height: 170px;
-    padding: 16px;
-    border-radius: 22px;
-  }
-
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > span {
-    font-size: 11px;
-  }
-
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > strong {
-    font-size: 30px;
-  }
-
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > small {
-    font-size: 12px;
-  }
-
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > svg {
-    width: 58px;
-    height: 58px;
-    right: -13px;
-    bottom: -13px;
-  }
-
-  .student-dashboard-kpis__track {
-    height: 10px;
-  }
+.student-dashboard-kpi__icon {
+  position: absolute;
+  right: -12px;
+  bottom: -12px;
+  pointer-events: none;
+  line-height: 0;
+  opacity: 0.22;
 }
 
-@media (max-width: 560px) {
-  .tenant-role-shell--student .student-dashboard-kpis {
-    grid-template-columns: 1fr;
-  }
-
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi {
-    min-height: 220px;
-    padding: 26px;
-  }
-
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > span {
-    font-size: 18px;
-  }
-
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > strong {
-    font-size: 48px;
-  }
-
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > small {
-    font-size: 19px;
-  }
-
-  .tenant-role-shell--student .student-dashboard-kpis .role-kpi > svg {
-    width: 84px;
-    height: 84px;
-    right: -18px;
-    bottom: -18px;
-  }
+.student-dashboard-kpi__icon svg {
+  width: 44px;
+  height: 44px;
 }
+
+.student-dashboard-kpi--blue { background: #bae6fd; }
+.student-dashboard-kpi--blue .student-dashboard-kpi__label,
+.student-dashboard-kpi--blue .student-dashboard-kpi__value,
+.student-dashboard-kpi--blue .student-dashboard-kpi__icon { color: #0c4a6e; }
+.student-dashboard-kpi--blue .student-dashboard-kpi__sub { color: #075985; }
+
+.student-dashboard-kpi--purple { background: #ddd6fe; }
+.student-dashboard-kpi--purple .student-dashboard-kpi__label,
+.student-dashboard-kpi--purple .student-dashboard-kpi__value,
+.student-dashboard-kpi--purple .student-dashboard-kpi__icon { color: #4c1d95; }
+.student-dashboard-kpi--purple .student-dashboard-kpi__sub { color: #5b21b6; }
+
+.student-dashboard-kpi--green { background: #bbf7d0; }
+.student-dashboard-kpi--green .student-dashboard-kpi__label,
+.student-dashboard-kpi--green .student-dashboard-kpi__value,
+.student-dashboard-kpi--green .student-dashboard-kpi__icon { color: #065f46; }
+.student-dashboard-kpi--green .student-dashboard-kpi__sub { color: #047857; }
+
+.student-dashboard-kpi--yellow { background: #fde68a; }
+.student-dashboard-kpi--yellow .student-dashboard-kpi__label,
+.student-dashboard-kpi--yellow .student-dashboard-kpi__value,
+.student-dashboard-kpi--yellow .student-dashboard-kpi__icon { color: #78350f; }
+.student-dashboard-kpi--yellow .student-dashboard-kpi__sub { color: #92400e; }
