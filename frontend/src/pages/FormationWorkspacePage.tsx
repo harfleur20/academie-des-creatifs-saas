@@ -286,10 +286,18 @@ function SessionWorkspace({
   const [courseTeacherId, setCourseTeacherId] = useState('')
   const [chapterTitles, setChapterTitles] = useState<Record<number, string>>({})
   const [lessonTitles, setLessonTitles] = useState<Record<number, string>>({})
+  const [accessStartDate, setAccessStartDate] = useState(session.start_date)
+  const [accessEndDate, setAccessEndDate] = useState(session.end_date)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    setAccessStartDate(session.start_date)
+    setAccessEndDate(session.end_date)
+  }, [session.start_date, session.end_date])
+
   const assignedTeacherIds = new Set(session.teachers.map((item) => item.teacher_id))
+  const invalidAccessPeriod = !accessStartDate || !accessEndDate || accessEndDate < accessStartDate
 
   async function run(action: () => Promise<FormationDetail>) {
     setWorking(true)
@@ -309,12 +317,12 @@ function SessionWorkspace({
         <div>
           <span className="section-label">{formation.format_type === 'ligne' ? 'Contenu pédagogique' : session.status === 'open' ? 'Inscriptions ouvertes' : session.status === 'planned' ? 'Inscriptions fermées' : session.status}</span>
           <h2>{formation.format_type === 'ligne' ? formation.title : session.label}</h2>
-          {formation.format_type !== 'ligne' && <p>
+          <p>
             {new Date(session.start_date).toLocaleDateString('fr-FR')}
             {' → '}
             {new Date(session.end_date).toLocaleDateString('fr-FR')}
             {session.seat_capacity > 0 ? ` · ${session.enrollments.length}/${session.seat_capacity} places` : ''}
-          </p>}
+          </p>
         </div>
         <div className="session-workspace-stats">
           <span><GraduationCap size={14} /> {session.teachers.length}</span>
@@ -330,6 +338,27 @@ function SessionWorkspace({
       </header>
 
       {error && <div className="form-error">{error}</div>}
+
+      {formation.format_type === 'ligne' && <section className="online-access-period">
+        <div>
+          <span className="section-label">Période d’accès</span>
+          <h3>Dates d’accès étudiant</h3>
+          <p className="muted-note">Ces deux dates sont celles affichées dans « Mes sessions programmées ».</p>
+        </div>
+        <div className="online-access-period__fields">
+          <label>Début<input type="date" value={accessStartDate} onChange={(event) => setAccessStartDate(event.target.value)} /></label>
+          <label>Fin<input type="date" value={accessEndDate} min={accessStartDate || undefined} onChange={(event) => setAccessEndDate(event.target.value)} /></label>
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={working || invalidAccessPeriod || (accessStartDate === session.start_date && accessEndDate === session.end_date)}
+            onClick={() => void run(() => updateFormationSession(formation.id, session.id, {
+              start_date: accessStartDate,
+              end_date: accessEndDate,
+            }))}
+          ><Save size={14} /> Enregistrer les dates</button>
+        </div>
+      </section>}
 
       <div className="session-management-grid">
         <section>
