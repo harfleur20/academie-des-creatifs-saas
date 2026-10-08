@@ -32,6 +32,11 @@ export function badgeRingPercent(badge: StudentBadge) {
   return Math.max(0, Math.min(99, Math.round((badge.score_pct - start) / (end - start) * 100)))
 }
 
+function nextBadgeLevel(level: BadgeLevel) {
+  const index = LEVELS.indexOf(level)
+  return LEVELS[index + 1] ?? level
+}
+
 export function StudentLevelBadge({ level, className = '', locked = false, alt, ringPct = 100 }: {
   level?: BadgeLevel | null
   className?: string
@@ -40,11 +45,12 @@ export function StudentLevelBadge({ level, className = '', locked = false, alt, 
   ringPct?: number
 }) {
   const currentLevel = level || 'aventurier'
+  const ringLevel = !locked && ringPct < 100 ? nextBadgeLevel(currentLevel) : currentLevel
   const imageAlt = alt || `Badge ${LABELS[currentLevel]}${locked ? ' à débloquer' : ''}`
   const circumference = 2 * Math.PI * 44
   const safePct = Math.max(0, Math.min(100, ringPct))
 
-  return <span className={`student-level-badge student-level-badge--${currentLevel} ${locked ? 'is-locked' : 'is-earned'} ${className}`.trim()}>
+  return <span className={`student-level-badge student-level-badge--${currentLevel} student-level-badge--ring-${ringLevel} ${locked ? 'is-locked' : 'is-earned'} ${className}`.trim()}>
     <svg viewBox="0 0 100 100" role="img" aria-label={imageAlt}>
       <circle cx="50" cy="50" r="44" className="student-level-badge__track" />
       <circle cx="50" cy="50" r="44" className="student-level-badge__arc" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - safePct / 100)} />
