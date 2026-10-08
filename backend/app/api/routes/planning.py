@@ -1,6 +1,6 @@
 import hmac
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
@@ -62,9 +62,11 @@ def read_school_course_day_reports(
 @router.post("/course-days/{course_day_id}/live/join", response_model=LiveRoomRead)
 def join_course_day_live(
     course_day_id: int,
+    response: Response,
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
+    response.headers["Cache-Control"] = "private, no-store"
     return join_live_class(db, tenant, course_day_id)
 
 
