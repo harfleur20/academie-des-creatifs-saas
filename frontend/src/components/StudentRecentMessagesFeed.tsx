@@ -24,6 +24,9 @@ type StudentCommunicationRow = {
   unread: boolean
 }
 
+const LIVE_REFRESH_MS = 3_000
+const CLASS_LIST_REFRESH_MS = 60_000
+
 function initials(value: string) {
   return value
     .split(/\s+/)
@@ -120,43 +123,87 @@ export function StudentRecentMessagesFeed() {
     }
 
     let active = true
-    setLoading(true)
+    let refreshing = false
+    let refreshTimer: number | undefined
+    let classesCache: StudentClass[] = []
+    let classesRefreshedAt = 0
 
-    async function load() {
-      const [threadResult, classesResult] = await Promise.allSettled([
-        listMessageThreads(),
-        listStudentClasses(),
-      ])
-      if (!active) return
-
-      setThreads(threadResult.status === 'fulfilled' ? threadResult.value : [])
-
-      if (classesResult.status !== 'fulfilled') {
-        setClassActivity([])
-        return
-      }
-
-      const classes = classesResult.value
-      const discussionResults = await Promise.allSettled(
-        classes.map((studentClass) => listClassDiscussion(studentClass.session_id)),
-      )
-      if (!active) return
-
-      setClassActivity(
-        discussionResults.flatMap((result, index) => (
-          result.status === 'fulfilled'
-            ? classRows(classes[index], result.value)
-            : []
-        )),
-      )
+    function scheduleNextRefresh() {
+      if (!active || document.visibilityState !== 'visible') return
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => {
+        void refreshCommunications(false)
+      }, LIVE_REFRESH_MS)
     }
 
-    void load().finally(() => {
-      if (active) setLoading(false)
-    })
+    async function getClasses(force = false) {
+      const cacheFresh = classesRefreshedAt > 0
+        && Date.now() - classesRefreshedAt < CLASS_LIST_REFRESH_MS
+      if (!force && cacheFresh) return classesCache
+
+      try {
+        const rows = await listStudentClasses()
+        if (active) {
+          classesCache = rows
+          classesRefreshedAt = Date.now()
+        }
+        return rows
+      } catch {
+        return classesCache
+      }
+    }
+
+    async function refreshCommunications(initial: boolean) {
+      if (!active || refreshing) return
+      refreshing = true
+      if (initial) setLoading(true)
+
+      try {
+        const [threadResult, classes] = await Promise.all([
+          listMessageThreads().catch(() => null),
+          getClasses(initial),
+        ])
+        if (!active) return
+
+        if (threadResult) setThreads(threadResult)
+
+        const discussionResults = await Promise.allSettled(
+          classes.map((studentClass) => listClassDiscussion(studentClass.session_id)),
+        )
+        if (!active) return
+
+        setClassActivity(
+          discussionResults.flatMap((result, index) => (
+            result.status === 'fulfilled'
+              ? classRows(classes[index], result.value)
+              : []
+          )),
+        )
+      } finally {
+        refreshing = false
+        if (active) {
+          if (initial) setLoading(false)
+          scheduleNextRefresh()
+        }
+      }
+    }
+
+    function refreshNow() {
+      if (document.visibilityState === 'visible') {
+        if (refreshTimer !== undefined) window.clearTimeout(refreshTimer)
+        void refreshCommunications(false)
+      }
+    }
+
+    void refreshCommunications(true)
+    window.addEventListener('focus', refreshNow)
+    document.addEventListener('visibilitychange', refreshNow)
 
     return () => {
       active = false
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer)
+      window.removeEventListener('focus', refreshNow)
+      document.removeEventListener('visibilitychange', refreshNow)
     }
   }, [activeOrganization?.id])
 
@@ -170,7 +217,7 @@ export function StudentRecentMessagesFeed() {
       .slice(0, 4)
   }, [threads, classActivity, user?.id])
 
-  const unreadCount = rows.filter((row) => row.unread).length
+  const unreadCount = threads.reduce((sum, thread) => sum + thread.unread_count, 0)
 
   return (
     <section className="owner-dashboard-activity-card student-dashboard-communications" aria-label="Messages et échanges récents">
