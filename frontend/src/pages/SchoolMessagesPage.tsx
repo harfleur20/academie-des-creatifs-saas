@@ -1,5 +1,6 @@
 import { MessageCircle, Plus, Send } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -13,6 +14,8 @@ const roleLabel = (role: string) => role === 'admin' ? 'Équipe' : role === 'tea
 const messageDate = (value: string | null) => value ? new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : ''
 
 export function SchoolMessagesPage() {
+  const location = useLocation()
+  const requestedRecipient = Number(new URLSearchParams(location.search).get('recipient'))
   const { activeOrganization } = useTenant()
   const { user } = useAuth()
   const [threads, setThreads] = useState<SchoolMessageThread[]>([])
@@ -30,13 +33,19 @@ export function SchoolMessagesPage() {
 
   useEffect(() => {
     let active = true
-    setThreads([]); setRecipients([]); setSelectedId(null); setDetail(null); setLoading(true); setError('')
+    setThreads([]); setRecipients([]); setSelectedId(null); setDetail(null); setComposing(false); setRecipientIds([]); setLoading(true); setError('')
     Promise.all([listMessageThreads(), listMessageRecipients()])
-      .then(([items, people]) => { if (!active) return; setThreads(items); setRecipients(people); setSelectedId(items[0]?.id ?? null) })
+      .then(([items, people]) => {
+        if (!active) return
+        setThreads(items); setRecipients(people); setSelectedId(items[0]?.id ?? null)
+        if (people.some((person) => person.id === requestedRecipient)) {
+          setRecipientIds([requestedRecipient]); setComposing(true)
+        }
+      })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : 'Chargement impossible.') })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [activeOrganization?.id])
+  }, [activeOrganization?.id, requestedRecipient])
 
   useEffect(() => {
     if (selectedId === null) { setDetail(null); return }

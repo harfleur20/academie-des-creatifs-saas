@@ -271,6 +271,8 @@ class ClassmateRead(BaseModel):
     user_id: int
     enrollment_id: int
     full_name: str
+    avatar_url: str | None
+    student_code: str | None
     is_current_user: bool
     badge: BadgeRead
 
@@ -285,6 +287,7 @@ class StudentClassRead(BaseModel):
 class DiscussionAuthorRead(BaseModel):
     user_id: int
     full_name: str
+    avatar_url: str | None
     role: str
     is_current_user: bool
 

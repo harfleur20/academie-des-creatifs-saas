@@ -210,3 +210,50 @@ async def store_school_asset(file: UploadFile, organization_id: int):
         "size": len(raw),
         "content_type": content_type,
     }
+
+
+async def store_class_discussion_image(
+    file: UploadFile, organization_id: int, session_id: int
+):
+    name = Path(file.filename or "image").name
+    ext = Path(name).suffix.lower()
+    if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+        raise HTTPException(415, "Format autorisé : PNG, JPG ou WebP.")
+    limit = 5 * 1024 * 1024
+    raw = await file.read(limit + 1)
+    if len(raw) > limit:
+        raise HTTPException(413, "L'image ne doit pas dépasser 5 Mo.")
+    content_type = _validate_public_asset(ext, raw)
+    key = f"schools/{organization_id}/discussion/{session_id}/{uuid4().hex}{ext}"
+    if settings.storage_provider == "r2":
+        if not settings.r2_configured:
+            raise HTTPException(503, "Stockage R2 non configuré.")
+        import boto3
+        client = boto3.client(
+            "s3",
+            endpoint_url=settings.r2_endpoint_url,
+            aws_access_key_id=settings.r2_access_key_id,
+            aws_secret_access_key=settings.r2_secret_access_key,
+            region_name="auto",
+        )
+        client.put_object(
+            Bucket=settings.r2_bucket_name,
+            Key=key,
+            Body=raw,
+            ContentType=content_type,
+            ContentDisposition="inline",
+        )
+        url = f"{settings.r2_public_base_url.rstrip('/')}/{key}"
+    else:
+        if settings.environment == "production":
+            raise HTTPException(503, "Le stockage local est désactivé en production.")
+        destination = Path(__file__).resolve().parents[2] / "uploads" / key
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(raw)
+        url = f"{settings.backend_public_url}/uploads/{key}"
+    return {
+        "filename": name,
+        "public_url": url,
+        "size": len(raw),
+        "content_type": content_type,
+    }

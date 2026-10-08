@@ -34,6 +34,7 @@ from app.models.entities import (
     OrganizationMemberRecord,
     OrganizationPublicSiteRecord,
     OrganizationRecord,
+    OrganizationStudentProfileRecord,
     ResourceRecord,
     SessionCourseDayRecord,
     SessionTeacherRecord,
@@ -75,6 +76,7 @@ from app.services.learning_progress import (
 )
 from app.services.live_classes import join_live_class, start_live_class
 from app.api.routes.planning import read_jaas_room_branding
+from app.api.routes import academic as academic_routes
 from app.services.planning import get_session_planning, list_course_day_feedback, list_school_course_day_reports, submit_course_day_feedback, submit_course_day_report, update_course_day
 from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_enrollment, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
@@ -1397,12 +1399,23 @@ def test_attendance_is_owned_by_course_day_teacher() -> None:
 def test_class_roster_discussion_and_performance() -> None:
     db = build_db()
     org, teacher, student, classmate, session, *_ = seed(db)
+    student.avatar_url = "https://cdn.example/student.jpg"
+    classmate.avatar_url = "https://cdn.example/classmate.jpg"
+    db.add_all([
+        OrganizationStudentProfileRecord(organization_id=org.id, user_id=student.id, student_code="SC-001"),
+        OrganizationStudentProfileRecord(organization_id=org.id, user_id=classmate.id, student_code="SC-002"),
+    ])
+    db.commit()
     student_tenant = ctx(db, org, student)
     teacher_tenant = ctx(db, org, teacher)
 
     classes = list_student_classes(db, student_tenant)
     assert len(classes) == 1
     assert {item.full_name for item in classes[0].classmates} == {"Student", "Classmate"}
+    assert {(item.student_code, item.avatar_url) for item in classes[0].classmates} == {
+        ("SC-001", "https://cdn.example/student.jpg"),
+        ("SC-002", "https://cdn.example/classmate.jpg"),
+    }
 
     post = create_discussion_post(
         db,
@@ -1411,6 +1424,7 @@ def test_class_roster_discussion_and_performance() -> None:
         DiscussionCreate(body="Bonjour la classe"),
     )
     assert post.author.full_name == "Student"
+    assert post.author.avatar_url == student.avatar_url
     assert db.scalar(select(SchoolNotificationRecord).where(
         SchoolNotificationRecord.organization_id == org.id,
         SchoolNotificationRecord.user_id == classmate.id,
@@ -1426,6 +1440,42 @@ def test_class_roster_discussion_and_performance() -> None:
     performance = teacher_performance(db, teacher_tenant)
     assert performance.total_sessions == 1
     assert performance.total_students == 2
+
+
+def test_student_can_upload_class_discussion_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = build_db()
+    org, _, student, _, session, *_ = seed(db)
+    tenant = ctx(db, org, student)
+    uploaded: list[tuple[int, int]] = []
+
+    async def fake_store(file: UploadFile, organization_id: int, session_id: int):
+        uploaded.append((organization_id, session_id))
+        return {"public_url": "https://cdn.example/class-image.png"}
+
+    monkeypatch.setattr(academic_routes, "store_class_discussion_image", fake_store)
+    file = UploadFile(file=BytesIO(b"image"), filename="class-image.png")
+    result = asyncio.run(academic_routes.upload_class_discussion_asset(session.id, file, db, tenant))
+    assert result["public_url"] == "https://cdn.example/class-image.png"
+    assert uploaded == [(org.id, session.id)]
+
+    other_session = FormationSessionRecord(
+        organization_id=org.id,
+        formation_id=session.formation_id,
+        label="Autre cohorte",
+        start_date=date(2025, 3, 1),
+        end_date=date(2025, 4, 1),
+        status="open",
+    )
+    db.add(other_session)
+    db.commit()
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(academic_routes.upload_class_discussion_asset(other_session.id, file, db, tenant))
+    assert error.value.status_code == 403
+    assert uploaded == [(org.id, session.id)]
+
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(academic_routes.upload_class_discussion_asset(session.id + 100, file, db, tenant))
+    assert error.value.status_code == 404
 
 
 def test_student_grades_returns_quiz_grade() -> None:

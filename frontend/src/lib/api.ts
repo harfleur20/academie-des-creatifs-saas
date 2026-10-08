@@ -2109,6 +2109,8 @@ export type StudentClass = {
     user_id: number
     enrollment_id: number
     full_name: string
+    avatar_url: string | null
+    student_code: string | null
     is_current_user: boolean
     badge: StudentBadge
   }>
@@ -2119,6 +2121,7 @@ export type DiscussionPost = {
   author: {
     user_id: number
     full_name: string
+    avatar_url: string | null
     role: string
     is_current_user: boolean
   }
@@ -2130,6 +2133,7 @@ export type DiscussionPost = {
     author: {
       user_id: number
       full_name: string
+      avatar_url: string | null
       role: string
       is_current_user: boolean
     }
@@ -2144,6 +2148,15 @@ export const listStudentClasses = () =>
 
 export const listClassDiscussion = (sessionId: number) =>
   request<DiscussionPost[]>('/academic/classes/' + sessionId + '/discussion')
+
+export async function uploadClassDiscussionImage(sessionId: number, file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return request<{ filename: string; public_url: string; size: number; content_type: string }>(
+    '/academic/classes/' + sessionId + '/discussion/assets',
+    { method: 'POST', body },
+  )
+}
 
 export const createClassDiscussionPost = (
   sessionId: number,

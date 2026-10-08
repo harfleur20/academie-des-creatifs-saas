@@ -65,6 +65,7 @@ def _author(
     return DiscussionAuthorRead(
         user_id=user_id,
         full_name=user.full_name if user else "Utilisateur",
+        avatar_url=user.avatar_url if user else None,
         role=role,
         is_current_user=user_id == tenant.user.id,
     )
@@ -99,6 +100,18 @@ def list_student_classes(
                 )
             ).all()
         )
+        student_ids = [row.student_id for row in classmates]
+        users = {
+            user.id: user
+            for user in db.scalars(select(UserRecord).where(UserRecord.id.in_(student_ids)))
+        }
+        profiles = {
+            profile.user_id: profile
+            for profile in db.scalars(select(OrganizationStudentProfileRecord).where(
+                OrganizationStudentProfileRecord.organization_id == tenant.organization_id,
+                OrganizationStudentProfileRecord.user_id.in_(student_ids),
+            ))
+        }
         result.append(
             StudentClassRead(
                 session_id=session.id,
@@ -108,11 +121,9 @@ def list_student_classes(
                     ClassmateRead(
                         user_id=row.student_id,
                         enrollment_id=row.id,
-                        full_name=(
-                            db.get(UserRecord, row.student_id).full_name
-                            if db.get(UserRecord, row.student_id)
-                            else "Étudiant"
-                        ),
+                        full_name=users[row.student_id].full_name if row.student_id in users else "Étudiant",
+                        avatar_url=users[row.student_id].avatar_url if row.student_id in users else None,
+                        student_code=profiles[row.student_id].student_code if row.student_id in profiles else None,
                         is_current_user=row.student_id == tenant.user.id,
                         badge=badge_for_enrollment(db, tenant, row),
                     )

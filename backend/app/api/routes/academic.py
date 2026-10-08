@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
 from app.db.session import get_db
 from app.models.entities import CertificateRecord
+from app.services.academic_access import can_view_session, get_session
+from app.services.assets import store_class_discussion_image
 from app.schemas.academic import (
     AttendanceCourseDayRead,
     AttendanceMarkPayload,
@@ -284,6 +286,21 @@ def read_class_discussion(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return discussion_posts(db, tenant, session_id)
+
+
+@router.post("/classes/{session_id}/discussion/assets", status_code=status.HTTP_201_CREATED)
+async def upload_class_discussion_asset(
+    session_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    if tenant.support_mode:
+        raise HTTPException(403, "Le mode support est en lecture seule.")
+    get_session(db, tenant, session_id)
+    if not can_view_session(db, tenant, session_id):
+        raise HTTPException(403, "Vous n'avez pas accès à cette classe.")
+    return await store_class_discussion_image(file, tenant.organization_id, session_id)
 
 
 @router.post(
