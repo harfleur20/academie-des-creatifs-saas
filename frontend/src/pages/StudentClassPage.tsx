@@ -1,5 +1,6 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { ImagePlus, MessageCircle, Send, Users } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { LiveRecordingsPanel } from '../components/LiveRecordingsPanel'
 import {
   ApiError,
@@ -13,6 +14,8 @@ import {
 } from '../lib/api'
 
 export function StudentClassPage() {
+  const [searchParams,setSearchParams]=useSearchParams()
+  const requestedSession=searchParams.get('session')
   const [classes,setClasses]=useState<StudentClass[]>([])
   const [sessionId,setSessionId]=useState<number|null>(null)
   const [posts,setPosts]=useState<DiscussionPost[]>([])
@@ -22,8 +25,9 @@ export function StudentClassPage() {
   const [error,setError]=useState('')
   const [working,setWorking]=useState(false)
 
-  useEffect(()=>{listStudentClasses().then((rows)=>{setClasses(rows);setSessionId(rows[0]?.session_id??null)}).catch((err)=>setError(err instanceof ApiError?err.message:'Chargement impossible.'))},[])
-  useEffect(()=>{if(sessionId)listClassDiscussion(sessionId).then(setPosts).catch((err)=>setError(err instanceof ApiError?err.message:'Discussion indisponible.'))},[sessionId])
+  useEffect(()=>{listStudentClasses().then(setClasses).catch((err)=>setError(err instanceof ApiError?err.message:'Chargement impossible.'))},[])
+  useEffect(()=>{const requested=Number(requestedSession);setSessionId(classes.find((item)=>item.session_id===requested)?.session_id??classes[0]?.session_id??null)},[classes,requestedSession])
+  useEffect(()=>{if(!sessionId)return;let cancelled=false;setPosts([]);listClassDiscussion(sessionId).then((rows)=>{if(!cancelled)setPosts(rows)}).catch((err)=>{if(!cancelled)setError(err instanceof ApiError?err.message:'Discussion indisponible.')});return()=>{cancelled=true}},[sessionId])
   const current=classes.find((item)=>item.session_id===sessionId)??null
 
   async function uploadImage(event:ChangeEvent<HTMLInputElement>){const file=event.target.files?.[0];event.target.value='';if(!file)return;setWorking(true);try{const asset=await uploadAssignmentAsset(file);setImageUrl(asset.public_url)}catch(err){setError(err instanceof ApiError?err.message:'Upload impossible.')}finally{setWorking(false)}}
@@ -33,7 +37,7 @@ export function StudentClassPage() {
   return <main className="app-page academic-page">
     <header className="app-page-header"><div><span className="page-kicker">Espace étudiant</span><h1>Ma classe</h1><p>Retrouvez votre cohorte et échangez avec votre classe.</p></div></header>
     {error&&<div className="form-error">{error}</div>}
-    <label className="academic-session-select">Classe<select value={sessionId??''} onChange={(event)=>setSessionId(Number(event.target.value))}>{classes.map((item)=><option key={item.session_id} value={item.session_id}>{item.formation_title} · {item.session_label}</option>)}</select></label>
+    <label className="academic-session-select">Classe<select value={sessionId??''} onChange={(event)=>setSearchParams({session:event.target.value})}>{classes.map((item)=><option key={item.session_id} value={item.session_id}>{item.formation_title} · {item.session_label}</option>)}</select></label>
     {current&&<section className="class-layout">
       <aside className="app-card class-roster"><div className="settings-section-heading"><div><span className="section-label">Cohorte</span><h2>{current.classmates.length} étudiant(s)</h2></div><Users size={18}/></div>{current.classmates.map((mate)=><div className={'classmate-row '+(mate.is_current_user?'is-me':'')} key={mate.enrollment_id}><div className="roster-avatar">{mate.full_name.split(' ').slice(0,2).map((part)=>part[0]).join('').toUpperCase()}</div><div><strong>{mate.full_name}{mate.is_current_user?' · Vous':''}</strong><small>{mate.badge.label} · {mate.badge.score_pct}%</small></div></div>)}</aside>
       <section className="class-discussion">
