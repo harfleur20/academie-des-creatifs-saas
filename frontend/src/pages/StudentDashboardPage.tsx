@@ -164,7 +164,7 @@ export function StudentDashboardPage() {
               <div className="role-hero__copy">
                 <span>ESPACE ÉTUDIANT</span>
                 <h1>Bonjour, {firstName(user?.full_name)}</h1>
-                <p>Matricule : <strong>—</strong></p>
+                <p>Matricule : <strong>{workspace.student_code || 'En attente'}</strong></p>
                 <p>
                   {focusSession
                     ? `${focusSession.formation_title} · ${focusSession.session_label}`

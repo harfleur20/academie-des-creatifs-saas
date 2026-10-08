@@ -31,7 +31,7 @@ from app.schemas.organizations import (
 )
 from app.services.school_branding import branding_snapshot
 from app.services.school_communications import queue_school_event
-from app.services.school_profiles import ensure_teacher_profile
+from app.services.school_profiles import ensure_student_profile, ensure_teacher_profile
 from app.services.school_setup import require_team_setup
 from app.services.tenancy import TenantContext
 
@@ -206,6 +206,8 @@ def add_member(
         existing.role = role
         existing.status = "active"
         replace_effective_roles(db, existing, {role})
+        if role == "student":
+            ensure_student_profile(db, tenant.organization, user.id)
         db.commit()
         return _reload_member(db, existing.id)
 
@@ -218,6 +220,8 @@ def add_member(
     db.add(member)
     db.flush()
     replace_effective_roles(db, member, {role})
+    if role == "student":
+        ensure_student_profile(db, tenant.organization, user.id)
     db.commit()
     return _reload_member(db, member.id)
 
@@ -280,6 +284,8 @@ def update_member(
         member,
         previous_primary_role=previous_role,
     )
+    if new_status == "active" and new_role == "student":
+        ensure_student_profile(db, tenant.organization, member.user_id)
     db.commit()
     return _reload_member(db, member.id)
 
@@ -320,6 +326,8 @@ def update_member_functional_roles(
     if "teacher" in requested and "teacher" not in effective_member_roles(member):
         require_team_setup(db, tenant.organization)
 
+    if "student" in requested:
+        ensure_student_profile(db, tenant.organization, member.user_id)
     replace_functional_roles(db, member, requested)
     db.commit()
     return _reload_member(db, member.id)
@@ -643,6 +651,8 @@ def accept_invitation(
             organization,
             current_user.id,
         )
+    elif invitation.role == "student":
+        ensure_student_profile(db, organization, current_user.id)
 
     invitation.status = "accepted"
     invitation.accepted_by_user_id = current_user.id

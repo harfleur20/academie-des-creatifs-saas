@@ -17,7 +17,6 @@ from app.models.entities import (
     OrderInstallmentRecord,
     OrderInvoiceRecord,
     OrganizationMemberRecord,
-    OrganizationPublicSiteRecord,
     OrganizationDomainRecord,
     OrganizationRecord,
     OrganizationStudentProfileRecord,
@@ -55,6 +54,7 @@ from app.services.school_branding import (
 )
 from app.services.school_communications import queue_school_event
 from app.services.school_notifications import dismiss_event, notify_school_managers, notify_user
+from app.services.school_profiles import ensure_student_profile
 from app.services.tara_money import create_payment_link, verify_payment
 
 
@@ -278,71 +278,6 @@ def _split_installments(
     return rows
 
 
-def _student_code(
-    db: Session,
-    org: OrganizationRecord,
-) -> str:
-    # Ensure the identity row exists, then lock it for the whole transaction.
-    # On PostgreSQL this makes matricule allocation atomic per school.
-    get_or_create_identity_records(db, org)
-    site = db.scalar(
-        select(OrganizationPublicSiteRecord)
-        .where(OrganizationPublicSiteRecord.organization_id == org.id)
-        .with_for_update()
-    )
-    if site is None:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "Identité de l'école introuvable pour générer le matricule.",
-        )
-
-    if not site.student_code_prefix.strip() or not site.student_code_prefix_confirmed_at:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "Confirmez le préfixe des matricules avant d'inscrire un étudiant.",
-        )
-
-    prefix = site.student_code_prefix.upper()[:8]
-    now = utc_now()
-    sequence_year = int(now.strftime("%Y"))
-    code_year = now.strftime("%y")
-    base = f"{prefix}{code_year}-"
-
-    persisted_sequence = (
-        site.student_code_sequence
-        if site.student_code_sequence_year == sequence_year
-        else 0
-    )
-
-    # Migration-safe synchronization: if profiles already existed before the
-    # counter columns were introduced, continue after the highest real code.
-    existing_codes = list(
-        db.scalars(
-            select(OrganizationStudentProfileRecord.student_code).where(
-                OrganizationStudentProfileRecord.organization_id == org.id,
-                OrganizationStudentProfileRecord.student_code.like(f"{base}%"),
-            )
-        ).all()
-    )
-    highest_existing = 0
-    for code in existing_codes:
-        suffix = code[len(base):]
-        if suffix.isdigit():
-            highest_existing = max(highest_existing, int(suffix))
-
-    next_number = max(persisted_sequence, highest_existing) + 1
-    if next_number > 999_999:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "La séquence de matricules de cette école est épuisée.",
-        )
-
-    site.student_code_sequence_year = sequence_year
-    site.student_code_sequence = next_number
-    db.add(site)
-    db.flush()
-    return f"{base}{next_number:03d}"
-
 def _ensure_student_access(
     db: Session,
     org: OrganizationRecord,
@@ -371,22 +306,12 @@ def _ensure_student_access(
         roles.add("student")
         replace_effective_roles(db, member, roles)
 
-    profile = db.scalar(
-        select(OrganizationStudentProfileRecord).where(
-            OrganizationStudentProfileRecord.organization_id == org.id,
-            OrganizationStudentProfileRecord.user_id == order.user_id,
-        )
+    profile = ensure_student_profile(
+        db,
+        org,
+        order.user_id,
+        first_purchase_at=utc_now(),
     )
-    if profile is None:
-        profile = OrganizationStudentProfileRecord(
-            organization_id=org.id,
-            user_id=order.user_id,
-            student_code=_student_code(db, org),
-            status="active",
-            first_purchase_at=utc_now(),
-        )
-        db.add(profile)
-        db.flush()
 
     enrollment = db.scalar(
         select(EnrollmentRecord).where(

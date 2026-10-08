@@ -10,6 +10,7 @@ from app.models.entities import (
     OrganizationMemberRecord,
     OrganizationPublicSiteRecord,
     OrganizationRecord,
+    OrganizationStudentProfileRecord,
     UserRecord,
 )
 from app.schemas.organizations import OrganizationMemberFunctionalRolesUpdate
@@ -108,6 +109,12 @@ def test_functional_roles_can_be_removed_without_losing_primary_role() -> None:
             functional_roles=["teacher", "student"],
         ),
     )
+    profile = db.scalar(select(OrganizationStudentProfileRecord).where(
+        OrganizationStudentProfileRecord.organization_id == org.id,
+        OrganizationStudentProfileRecord.user_id == owner.id,
+    ))
+    assert profile is not None
+    assert profile.student_code.startswith(f"SC{datetime.now(UTC):%y}-")
     updated = update_member_functional_roles(
         db,
         tenant,

@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.entities import (
     EnrollmentRecord,
     FormationSessionRecord,
-    SessionTeacherRecord,
     OrganizationStudentProfileRecord,
+    SessionTeacherRecord,
 )
 from app.schemas.workspace import (
     StudentSessionWorkspaceRead,
@@ -13,8 +13,9 @@ from app.schemas.workspace import (
     TeacherSessionWorkspaceRead,
     TeacherWorkspaceRead,
 )
-from app.services.school_profiles import ensure_teacher_profile
 from app.services.pedagogy_access import dashboard_type
+from app.services.school_profiles import ensure_student_profile, ensure_teacher_profile
+from app.services.school_setup import confirmed_matricule_prefix
 from app.services.tenancy import TenantContext, require_organization_roles
 
 
@@ -142,6 +143,9 @@ def get_student_workspace(
             OrganizationStudentProfileRecord.user_id == tenant.user.id,
         )
     )
+    if student_profile is None and confirmed_matricule_prefix(db, tenant.organization_id):
+        student_profile = ensure_student_profile(db, tenant.organization, tenant.user.id)
+        db.commit()
     return StudentWorkspaceRead(
         student_code=student_profile.student_code if student_profile else None,
         sessions=rows,

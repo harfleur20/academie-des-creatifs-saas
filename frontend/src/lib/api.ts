@@ -1356,6 +1356,7 @@ export type StudentWorkspaceSession = {
 }
 
 export type StudentWorkspace = {
+  student_code: string | null
   sessions: StudentWorkspaceSession[]
   total_sessions: number
   total_courses: number

@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -14,6 +14,7 @@ from app.models.entities import (
     OrganizationMemberRecord,
     OrganizationPublicSiteRecord,
     OrganizationRecord,
+    OrganizationStudentProfileRecord,
     SessionTeacherRecord,
     UserRecord,
 )
@@ -124,10 +125,36 @@ def test_student_workspace_only_contains_own_enrollments() -> None:
 
     tenant = resolve_tenant_context(db, user=student, organization_id=org.id)
     workspace = get_student_workspace(db, tenant)
+    expected_code = f"SC{datetime.now(UTC):%y}-001"
+    assert workspace.student_code == expected_code
     assert workspace.total_sessions == 1
     assert workspace.total_courses == 1
     assert workspace.sessions[0].session_label == "Cohorte Octobre"
     assert workspace.sessions[0].formation_image == "https://example.test/motion.jpg"
+
+    # Legacy student memberships without a commerce profile are repaired once.
+    assert get_student_workspace(db, tenant).student_code == expected_code
+    profiles = db.scalars(select(OrganizationStudentProfileRecord).where(
+        OrganizationStudentProfileRecord.organization_id == org.id,
+        OrganizationStudentProfileRecord.user_id == student.id,
+    )).all()
+    assert len(profiles) == 1
+
+
+def test_student_workspace_stays_available_until_prefix_is_confirmed() -> None:
+    db = build_db()
+    org, _, _, student, _ = seed(db)
+    site = db.scalar(select(OrganizationPublicSiteRecord).where(
+        OrganizationPublicSiteRecord.organization_id == org.id,
+    ))
+    assert site is not None
+    site.student_code_prefix_confirmed_at = None
+    db.commit()
+
+    tenant = resolve_tenant_context(db, user=student, organization_id=org.id)
+    workspace = get_student_workspace(db, tenant)
+    assert workspace.student_code is None
+    assert workspace.total_sessions == 1
 
 
 def test_owner_without_student_role_cannot_open_student_workspace() -> None:
