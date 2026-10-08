@@ -12,6 +12,7 @@ import {
   GraduationCap,
   HelpCircle,
   Layers,
+  TrendingUp,
   Users,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
@@ -20,10 +21,12 @@ import {
   getSessionPlanning,
   getStudentWorkspace,
   listStudentAssignments,
+  listStudentGrades,
   listStudentProgress,
   listStudentQuizzes,
   type SessionPlanning,
   type StudentAssignment,
+  type StudentGrade,
   type StudentProgress,
   type StudentQuiz,
   type StudentWorkspace,
@@ -56,6 +59,7 @@ export function StudentDashboardPage() {
   const [workspace, setWorkspace] = useState<StudentWorkspace | null>(null)
   const [progress, setProgress] = useState<StudentProgress[]>([])
   const [assignments, setAssignments] = useState<StudentAssignment[]>([])
+  const [grades, setGrades] = useState<StudentGrade[]>([])
   const [quizzes, setQuizzes] = useState<StudentQuiz[]>([])
   const [planning, setPlanning] = useState<SessionPlanning[]>([])
   const [error, setError] = useState('')
@@ -71,11 +75,12 @@ export function StudentDashboardPage() {
         if (cancelled) return
         setWorkspace(nextWorkspace)
 
-        const [progressRows, assignmentRows, quizRows, planningRows] =
+        const [progressRows, assignmentRows, quizRows, gradeRows, planningRows] =
           await Promise.all([
             listStudentProgress().catch(() => []),
             listStudentAssignments().catch(() => []),
             listStudentQuizzes().catch(() => []),
+            listStudentGrades().catch(() => []),
             Promise.all(
               nextWorkspace.sessions.map((session) => (
                 getSessionPlanning(session.session_id).catch(() => null)
@@ -86,6 +91,7 @@ export function StudentDashboardPage() {
         setProgress(progressRows)
         setAssignments(assignmentRows)
         setQuizzes(quizRows)
+        setGrades(gradeRows)
         setPlanning(
           planningRows.filter(
             (item): item is SessionPlanning => item !== null,
@@ -147,6 +153,21 @@ export function StudentDashboardPage() {
     (item) => item.student_status === 'pending',
   ).length
   const availableQuizzes = quizzes.filter((item) => item.can_attempt).length
+  const taskCount = pendingAssignments + availableQuizzes
+  const lessonPercent = focusProgress?.lesson_progress_pct ?? 0
+  const attendanceTotal = focusProgress?.attendance_total ?? 0
+  const attendancePresent = focusProgress?.attendance_present ?? 0
+  const attendancePercent = attendanceTotal
+    ? Math.round((attendancePresent / attendanceTotal) * 100)
+    : null
+  const focusGrades = grades.filter((item) => item.session_id === focusSession?.session_id)
+  const validGrades = focusGrades.filter((item) => item.max_score > 0)
+  const averageOnTwenty = validGrades.length
+    ? validGrades.reduce((sum, item) => sum + (item.score / item.max_score) * 20, 0) / validGrades.length
+    : null
+  const averageLabel = averageOnTwenty === null
+    ? '—/20'
+    : `${averageOnTwenty.toFixed(1).replace(/\.0$/, '')}/20`
 
   if (!workspace && !error) {
     return <div className="page-state">Chargement de votre espace étudiant…</div>
@@ -180,6 +201,36 @@ export function StudentDashboardPage() {
                 schoolName={activeOrganization?.name || 'Votre école'}
                 logoUrl={activeOrganization?.logo_url}
               />
+            </section>
+
+            <section className="role-kpi-grid student-dashboard-kpis" aria-label="Mon suivi en un coup d’œil">
+              <article className="role-kpi role-kpi--primary">
+                <span>MA PROGRESSION</span>
+                <strong>{Math.round(lessonPercent)}%</strong>
+                <small>{focusProgress?.completed_lessons ?? 0}/{focusProgress?.total_lessons ?? 0} leçons terminées</small>
+                <div className="student-dashboard-kpis__track" role="progressbar" aria-label="Leçons terminées" aria-valuenow={Math.round(lessonPercent)} aria-valuemin={0} aria-valuemax={100}>
+                  <i style={{ width: `${Math.min(100, Math.max(0, lessonPercent))}%` }} />
+                </div>
+                <TrendingUp size={84} aria-hidden="true" />
+              </article>
+              <article className="role-kpi role-kpi--secondary">
+                <span>TRAVAIL À FAIRE</span>
+                <strong>{taskCount}</strong>
+                <small>{pendingAssignments} devoir{pendingAssignments > 1 ? 's' : ''} · {availableQuizzes} quiz</small>
+                <HelpCircle size={84} aria-hidden="true" />
+              </article>
+              <article className="role-kpi role-kpi--mint">
+                <span>ASSIDUITÉ</span>
+                <strong>{attendancePercent === null ? '—' : `${attendancePercent}%`}</strong>
+                <small>{attendancePresent}/{attendanceTotal} présence{attendancePresent > 1 ? 's' : ''} validée{attendancePresent > 1 ? 's' : ''}</small>
+                <Users size={84} aria-hidden="true" />
+              </article>
+              <article className="role-kpi role-kpi--accent">
+                <span>MOYENNE</span>
+                <strong>{averageLabel}</strong>
+                <small>{focusGrades.length ? `${focusGrades.length} note${focusGrades.length > 1 ? 's' : ''} publiée${focusGrades.length > 1 ? 's' : ''}` : 'Aucune note publiée'}</small>
+                <GraduationCap size={84} aria-hidden="true" />
+              </article>
             </section>
 
             <section className="role-calendar-card">
@@ -226,33 +277,6 @@ export function StudentDashboardPage() {
           </section>
 
           <aside className="role-overview-side">
-            <section className="role-kpi-grid">
-              <article className="role-kpi role-kpi--primary">
-                <span>MES SESSIONS</span>
-                <strong>{workspace.total_sessions}</strong>
-                <small>Inscriptions</small>
-                <GraduationCap size={29} />
-              </article>
-              <article className="role-kpi role-kpi--secondary">
-                <span>COURS DISPONIBLES</span>
-                <strong>{workspace.total_courses}</strong>
-                <small>Dans mes formations</small>
-                <BookOpen size={29} />
-              </article>
-              <article className="role-kpi role-kpi--mint">
-                <span>DEVOIRS À RENDRE</span>
-                <strong>{pendingAssignments}</strong>
-                <small>À traiter</small>
-                <ClipboardCheck size={29} />
-              </article>
-              <article className="role-kpi role-kpi--accent">
-                <span>QUIZ DISPONIBLES</span>
-                <strong>{availableQuizzes}</strong>
-                <small>À réaliser</small>
-                <CheckCircle2 size={29} />
-              </article>
-            </section>
-
             <section className="role-side-card">
               <header>
                 <strong>MA PROGRESSION</strong>

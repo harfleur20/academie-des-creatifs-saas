@@ -31,6 +31,7 @@ import './live-recordings.css'
 import './sidebar-scrollbar.css'
 import './profile-menu-polish.css'
 import './dashboard-link-motion.css'
+import './student-dashboard-kpis.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 
