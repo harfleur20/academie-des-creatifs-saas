@@ -319,8 +319,6 @@ export function StudentDashboardPage() {
                   <strong>{progressPercent}%</strong>
                 </div>
                 <div className="student-badge-card__footer">
-                  <strong>{focusProgress ? `${focusProgress.completed_lessons}/${focusProgress.total_lessons} leçons terminées` : 'Votre parcours commence ici'}</strong>
-                  <p>{focusProgress && focusProgress.total_lessons > focusProgress.completed_lessons ? 'À faire : poursuivez vos leçons' : 'Continuez à explorer vos cours et activités.'}</p>
                   <Link className="dashboard-text-link" to="/app/student/progress">Voir ma progression <ChevronRight size={15} aria-hidden="true" /></Link>
                 </div>
               </div>

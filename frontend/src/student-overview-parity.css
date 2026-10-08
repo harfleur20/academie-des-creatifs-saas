@@ -62,9 +62,7 @@
 .student-badge-card__progress span strong, .student-badge-card__progress > strong { color: color-mix(in srgb, var(--school-secondary) 65%, #066354); }
 .student-badge-card__progress > strong { font-size: 13px; }
 .student-badge-card__footer { display: grid; gap: 5px; width: 100%; margin-top: 3px; padding-top: 14px; border-top: 1px solid #dfe5eb; }
-.student-badge-card__footer > strong { color: var(--school-primary); font-size: 12px; }
-.student-badge-card__footer p { margin: 0; color: #718096; font-size: 11px; line-height: 1.45; }
-.student-badge-card__footer a { width: fit-content; margin-top: 6px; font-size: 11px; }
+.student-badge-card__footer a { width: fit-content; font-size: 11px; }
 
 .guided-workspace-page { font-family: 'Manrope', sans-serif; }
 .guided-course-hero { display: grid; grid-template-columns: minmax(0, 1fr) 30%; gap: 20px; align-items: center; min-height: 310px; padding: clamp(24px, 4vw, 46px); border-radius: 23px; color: #fff; background: linear-gradient(115deg, color-mix(in srgb, var(--school-accent) 90%, #14214d), color-mix(in srgb, var(--school-primary) 70%, var(--school-secondary))); }
