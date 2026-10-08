@@ -41,6 +41,31 @@
 .student-overview-progress__meter > strong { min-width: 37px; color: var(--school-primary); font-size: 12px; text-align: right; }
 .student-overview-progress__empty { margin: 0; padding: 24px; color: #68778b; font-size: 13px; }
 
+.tenant-role-shell--student .student-badge-card {
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, .08);
+  border-radius: 18px;
+  background: linear-gradient(to bottom, #fff 0%, #fff 79%, color-mix(in srgb, var(--school-secondary) 12%, #fff) 100%);
+  box-shadow: 0 7px 25px rgba(20, 36, 66, .06);
+  font-family: 'Manrope', sans-serif;
+}
+.student-badge-card > header { display: flex; align-items: center; gap: 9px; padding: 20px 20px 0; color: var(--school-primary); }
+.student-badge-card > header strong { font: 700 18px 'Space Grotesk', sans-serif; }
+.student-badge-card__body { display: flex; flex-direction: column; align-items: center; gap: 13px; padding: 18px 20px 22px; }
+.student-badge-card__course { display: grid; gap: 4px; width: 100%; text-align: center; }
+.student-badge-card__course strong, .student-badge-card__course span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.student-badge-card__course strong { color: color-mix(in srgb, var(--school-secondary) 65%, #076453); font-size: 13px; font-weight: 800; }
+.student-badge-card__course span { color: #64748b; font-size: 11px; font-weight: 700; }
+.student-badge-card__visual { width: 118px; margin-top: 2px; }
+.student-badge-card__level { color: var(--school-primary); font: 800 16px 'Manrope', sans-serif; letter-spacing: .03em; text-transform: uppercase; }
+.student-badge-card__progress { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; color: #66768b; font-size: 12px; }
+.student-badge-card__progress span strong, .student-badge-card__progress > strong { color: color-mix(in srgb, var(--school-secondary) 65%, #066354); }
+.student-badge-card__progress > strong { font-size: 13px; }
+.student-badge-card__footer { display: grid; gap: 5px; width: 100%; margin-top: 3px; padding-top: 14px; border-top: 1px solid #dfe5eb; }
+.student-badge-card__footer > strong { color: var(--school-primary); font-size: 12px; }
+.student-badge-card__footer p { margin: 0; color: #718096; font-size: 11px; line-height: 1.45; }
+.student-badge-card__footer a { width: fit-content; margin-top: 6px; font-size: 11px; }
+
 .guided-workspace-page { font-family: 'Manrope', sans-serif; }
 .guided-course-hero { display: grid; grid-template-columns: minmax(0, 1fr) 30%; gap: 20px; align-items: center; min-height: 310px; padding: clamp(24px, 4vw, 46px); border-radius: 23px; color: #fff; background: linear-gradient(115deg, color-mix(in srgb, var(--school-accent) 90%, #14214d), color-mix(in srgb, var(--school-primary) 70%, var(--school-secondary))); }
 .guided-course-hero__copy { min-width: 0; }

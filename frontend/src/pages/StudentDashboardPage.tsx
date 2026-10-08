@@ -40,7 +40,7 @@ import {
 } from '../components/RoleDashboardCalendar'
 import { RoleSchoolVisual } from '../components/RoleSchoolVisual'
 import { RoleQuickAccess } from '../components/RoleQuickAccess'
-import { StudentLevelBadge } from '../components/StudentLevelBadge'
+import { badgeRingPercent, StudentLevelBadge } from '../components/StudentLevelBadge'
 
 function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Étudiant'
@@ -164,7 +164,7 @@ export function StudentDashboardPage() {
     || workspace?.sessions[0]
     || null
   const focusProgress =
-    progress.find((item) => item.session_id === focusSession?.session_id)
+    progress.find((item) => item.enrollment_id === focusSession?.enrollment_id)
     || progress[0]
     || null
   const pendingAssignments = assignments.filter(
@@ -202,7 +202,7 @@ export function StudentDashboardPage() {
     return <div className="page-state">Chargement de votre espace étudiant…</div>
   }
 
-  const progressPercent = focusProgress?.badge.score_pct || 0
+  const progressPercent = focusProgress ? badgeRingPercent(focusProgress.badge) : 0
   const nextBadgeLabel = focusProgress?.badge.next_level
     ? ({ debutant: 'Débutant', intermediaire: 'Intermédiaire', semi_pro: 'Semi-pro', professionnel: 'Professionnel' } as Record<string, string>)[focusProgress.badge.next_level]
     : null
@@ -305,34 +305,24 @@ export function StudentDashboardPage() {
           </section>
 
           <aside className="role-overview-side">
-            <section className="role-side-card">
-              <header>
-                <strong>MA PROGRESSION</strong>
-                <span>{progressPercent}%</span>
-              </header>
-              <div className="role-student-progress-card">
-                <div className="role-student-progress-card__head">
-                  <StudentLevelBadge
-                    level={focusProgress?.badge.level}
-                    schoolName={activeOrganization?.name}
-                    locked={!focusProgress}
-                    className="role-student-progress-card__badge"
-                  />
-                  <span>
-                    <small>{focusProgress ? 'Sceau actuel' : 'Premier sceau'}</small>
-                    <strong>{focusProgress?.badge.label || 'Aventurier'}</strong>
-                  </span>
+            <section className="student-badge-card">
+              <header><Award size={21} aria-hidden="true" /><strong>Mon badge</strong></header>
+              <div className="student-badge-card__body">
+                <div className="student-badge-card__course">
+                  <strong title={focusSession?.formation_title || focusProgress?.formation_title}>{focusSession?.formation_title || focusProgress?.formation_title || 'Mon parcours'}</strong>
+                  <span>{focusSession?.session_label || focusProgress?.session_label || 'Votre session'}</span>
                 </div>
-                {nextBadgeLabel && <p className="role-student-progress-card__next">Prochain niveau : {nextBadgeLabel}</p>}
-                <div className="role-student-progress-card__bar">
-                  <i style={{ width: `${progressPercent}%` }} />
+                <StudentLevelBadge level={focusProgress?.badge.level} ringPct={progressPercent} locked={!focusProgress} className="student-badge-card__visual" />
+                <strong className="student-badge-card__level">{focusProgress?.badge.label || 'Aventurier'}</strong>
+                <div className="student-badge-card__progress">
+                  <span>{nextBadgeLabel ? <>Progression vers <strong>{nextBadgeLabel}</strong></> : 'Niveau maximal'}</span>
+                  <strong>{progressPercent}%</strong>
                 </div>
-                <p>
-                  {focusProgress
-                    ? `${focusProgress.completed_lessons}/${focusProgress.total_lessons} leçons terminées dans votre formation active.`
-                    : 'Votre progression apparaîtra dès que vous commencerez vos cours.'}
-                </p>
-                <Link className="dashboard-text-link" to="/app/student/progress">Voir ma progression <ChevronRight size={15} aria-hidden="true" /></Link>
+                <div className="student-badge-card__footer">
+                  <strong>{focusProgress ? `${focusProgress.completed_lessons}/${focusProgress.total_lessons} leçons terminées` : 'Votre parcours commence ici'}</strong>
+                  <p>{focusProgress && focusProgress.total_lessons > focusProgress.completed_lessons ? 'À faire : poursuivez vos leçons' : 'Continuez à explorer vos cours et activités.'}</p>
+                  <Link className="dashboard-text-link" to="/app/student/progress">Voir ma progression <ChevronRight size={15} aria-hidden="true" /></Link>
+                </div>
               </div>
             </section>
 

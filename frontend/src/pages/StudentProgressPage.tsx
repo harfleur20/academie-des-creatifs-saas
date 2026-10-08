@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Award, BookOpen, CheckCircle2, ClipboardCheck } from 'lucide-react'
-import { useTenant } from '../app/TenantContext'
 import {
   badgeLevelFromValue,
   badgeLevelNumber,
+  badgeRingPercent,
   StudentLevelBadge,
 } from '../components/StudentLevelBadge'
 import { ApiError, listStudentProgress, type StudentProgress } from '../lib/api'
@@ -21,7 +21,6 @@ function levelLabel(value: string) {
 }
 
 export function StudentProgressPage() {
-  const { activeOrganization } = useTenant()
   const [items, setItems] = useState<StudentProgress[]>([])
   const [error, setError] = useState('')
 
@@ -59,7 +58,7 @@ export function StudentProgressPage() {
                 <div className="badge-orb">
                   <StudentLevelBadge
                     level={item.badge.level}
-                    schoolName={activeOrganization?.name}
+                    ringPct={badgeRingPercent(item.badge)}
                     className="badge-orb__visual"
                   />
                   <span>Niveau {badgeLevelNumber(item.badge.level)}</span>
@@ -103,7 +102,7 @@ export function StudentProgressPage() {
                 <div className="progress-next">
                   <StudentLevelBadge
                     level={nextLevel}
-                    schoolName={activeOrganization?.name}
+                    ringPct={0}
                     className="progress-next__badge"
                     locked
                   />

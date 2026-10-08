@@ -79,7 +79,7 @@ export function StudentParcoursPage() {
         </div>
         {visible.length === 0 ? <div className="app-card">Aucun parcours dans cette catégorie.</div> : (
           <div className="student-parcours-grid">
-            {visible.map((session) => <Link className="student-parcours-card" key={session.enrollment_id} to={`/app/student/${session.dashboard_type}/${session.enrollment_id}`} aria-label={`Ouvrir le parcours ${session.formation_title}`}>
+            {visible.map((session) => <article className="student-parcours-card" key={session.enrollment_id}>
               <div className="student-parcours-card__media">
                 {session.formation_image ? (
                   <img src={session.formation_image} alt="" loading="lazy" decoding="async" />
@@ -94,11 +94,11 @@ export function StudentParcoursPage() {
                 </div>
                 <h2>{session.formation_title}</h2>
                 <p>{session.session_label || 'Session à venir'}</p>
-                <span className="student-parcours-card__link">
+                <Link className="student-parcours-card__link" to={`/app/student/${session.dashboard_type}/${session.enrollment_id}`}>
                   {session.dashboard_type === 'classic' ? 'Accéder au parcours' : session.format_type === 'presentiel' ? 'Ouvrir le suivi scolaire' : 'Accéder au parcours guidé'}
-                </span>
+                </Link>
               </div>
-            </Link>)}
+            </article>)}
           </div>
         )}
       </>}

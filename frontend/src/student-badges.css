@@ -1,38 +1,31 @@
 .student-level-badge {
-  display: inline-grid;
-  place-items: center;
+  --badge-ring: #35bbd9;
+  --badge-motif: #69c8df;
+  position: relative;
+  display: inline-block;
   flex: none;
   aspect-ratio: 1;
   line-height: 0;
 }
 
-.student-level-badge svg { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 5px 8px rgba(15, 30, 60, .16)); }
-.student-level-badge__outer { fill: color-mix(in srgb, var(--school-secondary) 16%, #fff); stroke: color-mix(in srgb, var(--school-primary) 35%, #fff); stroke-width: 1.5; }
-.student-level-badge__ring { fill: none; stroke: var(--school-primary); stroke-width: 3; }
-.student-level-badge__field { fill: color-mix(in srgb, var(--school-secondary) 8%, #fff); stroke: color-mix(in srgb, var(--school-primary) 18%, #fff); }
-.student-level-badge__milestone { fill: color-mix(in srgb, var(--school-primary) 18%, #fff); }
-.student-level-badge__milestone.is-active { fill: var(--school-secondary); }
-.student-level-badge__book { fill: color-mix(in srgb, var(--school-secondary) 20%, #fff); stroke: var(--school-primary); stroke-width: 3; stroke-linejoin: round; }
-.student-level-badge__book-lines { fill: none; stroke: var(--school-primary); stroke-width: 2; stroke-linecap: round; }
-.student-level-badge__spark { fill: var(--school-secondary); }
-.student-level-badge__signature-line { stroke: color-mix(in srgb, var(--school-primary) 32%, #fff); stroke-width: 1.5; }
-.student-level-badge__school-mark { fill: var(--school-primary); font: 800 8px 'Manrope', sans-serif; letter-spacing: .08em; }
-.student-level-badge--intermediaire .student-level-badge__ring,
-.student-level-badge--semi_pro .student-level-badge__ring,
-.student-level-badge--professionnel .student-level-badge__ring { stroke-width: 4.5; }
-.student-level-badge--professionnel .student-level-badge__outer { stroke: var(--school-secondary); stroke-width: 3; }
-.student-level-badge.is-locked svg { opacity: .55; filter: grayscale(.55); }
+.student-level-badge--debutant { --badge-ring: #68be94; --badge-motif: #a1e1bc; }
+.student-level-badge--intermediaire { --badge-ring: #6556af; --badge-motif: #e9e4ff; }
+.student-level-badge--semi_pro { --badge-ring: #1cab89; --badge-motif: #c6f7e3; }
+.student-level-badge--professionnel { --badge-ring: #ed922e; --badge-motif: #fff1d9; }
+.student-level-badge svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.student-level-badge__track, .student-level-badge__arc { fill: none; stroke-width: 6; transform: rotate(-90deg); transform-origin: 50% 50%; }
+.student-level-badge__track { stroke: color-mix(in srgb, var(--badge-ring) 26%, #fff); }
+.student-level-badge__arc { stroke: var(--badge-ring); stroke-linecap: round; transition: stroke-dashoffset .7s ease; }
+.student-level-badge__halo { fill: color-mix(in srgb, var(--badge-ring) 15%, #fff); }
+.student-level-badge__core { fill: #17385a; }
+.student-level-badge__motif { color: var(--badge-motif); }
+.student-level-badge--aventurier .student-level-badge__motif { fill: var(--badge-motif); }
+.student-level-badge.is-locked { opacity: .6; filter: grayscale(.55); }
 
-.role-student-progress-card__badge { width: 86px; }
-.badge-orb__visual { width: 86px; margin: 0 auto 5px; }
-.progress-next__badge { width: 42px; }
-
-.tenant-role-shell--student .role-student-progress-card__head { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
-.tenant-role-shell--student .role-student-progress-card__head span { display: grid; gap: 3px; }
-.tenant-role-shell--student .role-student-progress-card__head strong { font-size: 15px; }
-.tenant-role-shell--student .role-student-progress-card__head small { font-size: 11px; }
-.tenant-role-shell--student .role-student-progress-card__next { margin: -4px 0 0; text-align: center; color: #69798d; font-size: 11px; }
+.role-student-progress-card__badge { width: 104px; }
+.badge-orb__visual { width: 104px; margin: 0 auto 5px; }
+.progress-next__badge { width: 48px; border-width: 3px; }
 
 @media (max-width: 700px) {
-  .role-student-progress-card__badge, .badge-orb__visual { width: 74px; }
+  .role-student-progress-card__badge, .badge-orb__visual { width: 88px; }
 }
