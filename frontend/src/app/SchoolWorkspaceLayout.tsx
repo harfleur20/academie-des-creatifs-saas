@@ -109,8 +109,6 @@ export function SchoolWorkspaceLayout({
   const organizationAccent =
     activeOrganization?.accent_color || DEFAULT_BRAND_COLORS.accent
 
-  // Important: school identity only skins student/teacher spaces.
-  // The owner/admin management workspace keeps the platform identity.
   const brandStyle = {
     '--blue': isRoleSpace
       ? organizationPrimary
@@ -400,6 +398,15 @@ export function SchoolWorkspaceLayout({
   const schoolName = activeOrganization?.name || 'Académie des Créatifs'
   const schoolLogo = activeOrganization?.logo_url
 
+  function returnToSchoolSite() {
+    setProfileOpen(false)
+    if (activeOrganization?.slug) {
+      navigate(`/school/${activeOrganization.slug}`)
+      return
+    }
+    navigate('/')
+  }
+
   return (
     <div
       className={`tenant-role-shell tenant-role-shell--${space}`}
@@ -611,14 +618,28 @@ export function SchoolWorkspaceLayout({
                   type="button"
                   onClick={() => { setProfileOpen(false); navigate(profilePath) }}
                 >
-                  <UserRound size={15} />
+                  <UserRound size={19} />
                   Mon profil
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setProfileOpen(false); navigate(`${profilePath}?section=security`) }}
+                >
+                  <Settings size={19} />
+                  Paramètres du compte
+                </button>
+                <button
+                  type="button"
+                  onClick={returnToSchoolSite}
+                >
+                  <ExternalLink size={19} />
+                  Retour au site
                 </button>
                 <button
                   type="button"
                   onClick={() => { setProfileOpen(false); navigate(supportPath) }}
                 >
-                  <LifeBuoy size={15} />
+                  <LifeBuoy size={19} />
                   Support
                 </button>
                 <span className="account-menu-divider" aria-hidden="true" />
@@ -627,7 +648,7 @@ export function SchoolWorkspaceLayout({
                   className="is-danger"
                   onClick={handleSignOut}
                 >
-                  <LogOut size={15} />
+                  <LogOut size={19} />
                   Se déconnecter
                 </button>
               </div>
