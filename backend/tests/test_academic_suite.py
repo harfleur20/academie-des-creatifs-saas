@@ -467,7 +467,7 @@ def test_lesson_versions_restore_content_and_keep_school_boundary() -> None:
 
 def test_live_class_join_requires_own_school_membership_and_course_window(monkeypatch) -> None:
     db = build_db()
-    org, teacher, student, _, session, _, _, _, day = seed(db)
+    org, teacher, student, classmate, session, _, _, _, day = seed(db)
     db.get(FormationRecord, session.formation_id).format_type = "live"
     db.scalar(select(OrganizationPublicSiteRecord).where(
         OrganizationPublicSiteRecord.organization_id == org.id,
@@ -489,10 +489,21 @@ def test_live_class_join_requires_own_school_membership_and_course_window(monkey
                         audience="jitsi", options={"verify_exp": False, "verify_nbf": False})
     assert claims["room"] == f"school-{org.id}-session-{session.id}-day-{day.id}"
     assert claims["context"]["user"]["moderator"] == "false"
+    assert claims["exp"] - int(current.timestamp()) == 600
     assert join_live_class(db, ctx(db, org, teacher), day.id, now=current)["moderator"]
     with pytest.raises(HTTPException) as too_early:
         join_live_class(db, ctx(db, org, student), day.id, now=datetime(2025, 1, 10, 8, 40, tzinfo=UTC))
     assert too_early.value.status_code == 403
+
+    classmate_enrollment = db.scalar(select(EnrollmentRecord).where(
+        EnrollmentRecord.session_id == session.id,
+        EnrollmentRecord.student_id == classmate.id,
+    ))
+    db.delete(classmate_enrollment)
+    db.commit()
+    with pytest.raises(HTTPException) as not_enrolled:
+        join_live_class(db, ctx(db, org, classmate), day.id, now=current)
+    assert not_enrolled.value.status_code == 403
 
     other_school = OrganizationRecord(name="Other live", slug="other-live")
     db.add(other_school)
