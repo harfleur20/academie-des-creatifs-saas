@@ -1,0 +1,71 @@
+.online-access-period {
+  display: grid;
+  grid-template-columns: minmax(220px, .72fr) minmax(0, 1.28fr);
+  gap: 18px;
+  align-items: end;
+  margin: 18px 0 20px;
+  padding: 16px;
+  border: 1px solid #e7ebf1;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.online-access-period h3 {
+  margin: 5px 0 0;
+  color: var(--school-primary, var(--blue));
+  font-size: 15px;
+}
+
+.online-access-period .muted-note {
+  margin: 6px 0 0;
+}
+
+.online-access-period__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.online-access-period__fields label {
+  display: grid;
+  gap: 6px;
+  color: #66758b;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.online-access-period__fields input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid #dfe5ed;
+  border-radius: 10px;
+  background: #fff;
+  color: #10233f;
+  font: inherit;
+  outline: none;
+}
+
+.online-access-period__fields input:focus {
+  border-color: color-mix(in srgb, var(--school-secondary, var(--green)) 50%, #dfe5ed);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--school-secondary, var(--green)) 12%, transparent);
+}
+
+.online-access-period__fields .secondary-button {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .online-access-period {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 680px) {
+  .online-access-period__fields {
+    grid-template-columns: 1fr;
+  }
+}
