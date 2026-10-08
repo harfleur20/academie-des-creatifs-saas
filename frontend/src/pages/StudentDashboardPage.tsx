@@ -41,6 +41,7 @@ import {
 import { RoleSchoolVisual } from '../components/RoleSchoolVisual'
 import { RoleQuickAccess } from '../components/RoleQuickAccess'
 import { badgeRingPercent, StudentLevelBadge } from '../components/StudentLevelBadge'
+import { StudentRecentMessagesFeed } from '../components/StudentRecentMessagesFeed'
 
 function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Étudiant'
@@ -354,30 +355,7 @@ export function StudentDashboardPage() {
               </article>
             </section>
 
-            <section className="role-side-card">
-              <header>
-                <strong>MES FORMATIONS ACTIVES</strong>
-                <span>{workspace.sessions.length}</span>
-              </header>
-              <div className="role-side-list">
-                {workspace.sessions.slice(0, 4).map((session) => (
-                  <Link
-                    to={`/app/student/${session.dashboard_type}/${session.enrollment_id}`}
-                    key={session.enrollment_id}
-                  >
-                    <i />
-                    <span>
-                      <strong>{session.session_label}</strong>
-                      <small>{session.formation_title}</small>
-                    </span>
-                    <b>Ouvrir</b>
-                  </Link>
-                ))}
-                {workspace.sessions.length === 0 && (
-                  <p>Aucune formation active.</p>
-                )}
-              </div>
-            </section>
+            <StudentRecentMessagesFeed />
 
             <section className="role-side-card">
               <header>
