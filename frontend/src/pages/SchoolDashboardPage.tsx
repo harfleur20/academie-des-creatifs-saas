@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ArrowRight, BookOpen, Building2, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
+import { ChevronRight, BookOpen, Building2, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
 import {
   createOrganization,
   getCommercialDashboard,
@@ -318,7 +318,7 @@ export function SchoolDashboardPage() {
             {error && <div className="form-error">{error}</div>}
             <button className="primary-button full" disabled={submitting}>
               {submitting ? 'Création…' : 'Créer mon école'}
-              {!submitting && <ArrowRight size={17} />}
+              {!submitting && <ChevronRight size={17} />}
             </button>
           </form>
         </div>
@@ -352,7 +352,7 @@ export function SchoolDashboardPage() {
                 </small>
               </span>
               <span className="owner-dashboard-subscription-action">
-                {subscriptionActionLabel} <ArrowRight size={14} />
+                {subscriptionActionLabel} <ChevronRight size={14} />
               </span>
             </Link>
           )}
@@ -381,7 +381,7 @@ export function SchoolDashboardPage() {
             </div>
 
             <div className="owner-dashboard-quick-actions">
-              <Link className="primary-button" to="/app/manage/formations">Créer une formation <ArrowRight size={16} /></Link>
+              <Link className="primary-button" to="/app/manage/formations">Créer une formation <ChevronRight size={16} /></Link>
               <Link className="owner-dashboard-action" to="/app/manage/teachers"><UserPlus size={16} /> Inviter un enseignant</Link>
               <Link className="owner-dashboard-action" to="/app/manage/site-public"><Store size={16} /> Voir le site</Link>
             </div>
@@ -398,42 +398,42 @@ export function SchoolDashboardPage() {
                 <small>Formations</small>
                 <strong>{displayCount(formations?.length ?? null)}</strong>
                 <p>{formations === null ? 'Données indisponibles.' : formations.length === 0 ? 'Créez votre premier programme.' : `${publishedCount} publiée(s) · ${draftCount} en préparation.`}</p>
-                <Link className="dashboard-stat-link" to="/app/manage/formations">Voir les formations <ArrowRight size={15} /></Link>
+                <Link className="dashboard-stat-link" to="/app/manage/formations">Voir les formations <ChevronRight size={15} /></Link>
               </article>
               <article>
                 <span className="stat-icon"><Users size={20} /></span>
                 <small>Étudiants actifs</small>
                 <strong>{displayCount(activeStudents)}</strong>
                 <p>{commerce === null ? 'Données indisponibles.' : activeStudents === 0 ? 'Aucun étudiant n’a encore rejoint l’école.' : 'Étudiants dont le parcours est actif.'}</p>
-                <Link className="dashboard-stat-link" to="/app/manage/students">Voir les étudiants <ArrowRight size={15} /></Link>
+                <Link className="dashboard-stat-link" to="/app/manage/students">Voir les étudiants <ChevronRight size={15} /></Link>
               </article>
               <article>
                 <span className="stat-icon"><CalendarDays size={20} /></span>
                 <small>{hasGuidedFormation || !hasOnlineFormation ? 'Sessions' : 'Cours'}</small>
                 <strong>{displayCount(hasGuidedFormation || !hasOnlineFormation ? sessionCount : courseCount)}</strong>
                 <p>{formations === null ? 'Données indisponibles.' : hasGuidedFormation && sessionCount === 0 ? 'Ouvrez une session pour lancer les inscriptions guidées.' : hasOnlineFormation && !hasGuidedFormation ? 'Contenus de vos formations en ligne.' : `${displayCount(courseCount)} cours dans vos formations.`}</p>
-                <Link className="dashboard-stat-link" to="/app/manage/formations">Voir les formations <ArrowRight size={15} /></Link>
+                <Link className="dashboard-stat-link" to="/app/manage/formations">Voir les formations <ChevronRight size={15} /></Link>
               </article>
               <article>
                 <span className="stat-icon"><BookOpen size={20} /></span>
                 <small>Enseignants actifs</small>
                 <strong>{displayCount(activeTeachers)}</strong>
                 <p>{members === null ? 'Données indisponibles.' : activeTeachers === 0 ? 'Invitez un professeur pour animer vos cours.' : `${displayCount(activeTeam)} membre(s) actif(s) dans l’équipe.`}</p>
-                <Link className="dashboard-stat-link" to="/app/manage/teachers">Voir les enseignants <ArrowRight size={15} /></Link>
+                <Link className="dashboard-stat-link" to="/app/manage/teachers">Voir les enseignants <ChevronRight size={15} /></Link>
               </article>
               <article>
                 <span className="stat-icon"><ShoppingCart size={20} /></span>
                 <small>Commandes</small>
                 <strong>{displayCount(commerce?.order_count ?? null)}</strong>
                 <p>{commerce === null ? 'Données indisponibles.' : commerce.order_count === 0 ? 'Les premières commandes apparaîtront ici.' : `${commerce.paid_order_count} commande(s) entièrement réglée(s).`}</p>
-                <Link className="dashboard-stat-link" to="/app/manage/commerce">Voir les ventes <ArrowRight size={15} /></Link>
+                <Link className="dashboard-stat-link" to="/app/manage/commerce">Voir les ventes <ChevronRight size={15} /></Link>
               </article>
               <article>
                 <span className="stat-icon"><Clock3 size={20} /></span>
                 <small>Échéances en retard</small>
                 <strong>{displayCount(commerce?.late_installments ?? null)}</strong>
                 <p>{commerce === null ? 'Données indisponibles.' : commerce.late_installments === 0 ? 'Aucun paiement en retard actuellement.' : 'Paiements à suivre auprès des étudiants.'}</p>
-                <Link className="dashboard-stat-link" to="/app/manage/commerce">Suivre les paiements <ArrowRight size={15} /></Link>
+                <Link className="dashboard-stat-link" to="/app/manage/commerce">Suivre les paiements <ChevronRight size={15} /></Link>
               </article>
             </div>
           </section>
@@ -450,17 +450,17 @@ export function SchoolDashboardPage() {
             <Link to="/app/manage/commerce" className={(commerce?.late_installments ?? 0) > 0 ? 'is-alert' : ''}>
               <span className="owner-dashboard-priority-icon"><Clock3 size={18} /></span>
               <span><strong>{displayCount(commerce?.late_installments ?? null)} échéance(s)</strong><small>paiement(s) en retard</small></span>
-              <ArrowRight size={15} />
+              <ChevronRight size={15} />
             </Link>
             <Link to="/app/manage/formations">
               <span className="owner-dashboard-priority-icon"><CalendarDays size={18} /></span>
               <span><strong>{displayCount(sessionCount)} session(s)</strong><small>dans vos formations</small></span>
-              <ArrowRight size={15} />
+              <ChevronRight size={15} />
             </Link>
             <Link to="/app/manage/students">
               <span className="owner-dashboard-priority-icon"><Users size={18} /></span>
               <span><strong>{displayCount(activeStudents)} étudiant(s)</strong><small>actuellement actifs</small></span>
-              <ArrowRight size={15} />
+              <ChevronRight size={15} />
             </Link>
           </section>
 
@@ -507,14 +507,14 @@ export function SchoolDashboardPage() {
               <p>{onboarding.next_step?.description || 'Terminez les étapes de configuration de votre école.'}</p>
               <div className="owner-dashboard-progress"><span style={{ width: `${Math.min(100, Math.round((onboarding.completed_steps / Math.max(1, onboarding.total_steps)) * 100))}%` }} /></div>
               <small>{onboarding.completed_steps}/{onboarding.total_steps} étapes terminées</small>
-              <Link to={onboarding.next_step?.path || '/app/manage/onboarding'}>Continuer <ArrowRight size={15} /></Link>
+              <Link to={onboarding.next_step?.path || '/app/manage/onboarding'}>Continuer <ChevronRight size={15} /></Link>
             </section>
           ) : nextAction ? (
             <section className="owner-dashboard-next-card">
               <span className="section-label">Prochaine étape</span>
               <h3>{nextAction.title}</h3>
               <p>{nextAction.description}</p>
-              <Link to={nextAction.to}>{nextAction.label} <ArrowRight size={15} /></Link>
+              <Link to={nextAction.to}>{nextAction.label} <ChevronRight size={15} /></Link>
             </section>
           ) : null}
         </aside>

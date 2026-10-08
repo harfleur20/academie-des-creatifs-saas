@@ -5,6 +5,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
   ClipboardList,
   Clock3,
   FileText,
@@ -175,7 +176,7 @@ export function TeacherDashboardPage() {
                   <CalendarDays size={17} />
                   <strong>Calendrier des cours</strong>
                 </div>
-                <Link to="/app/teacher/sessions">Voir mes sessions</Link>
+                <Link className="dashboard-text-link" to="/app/teacher/sessions">Voir mes sessions <ChevronRight size={15} aria-hidden="true" /></Link>
               </header>
 
               {nextCourse ? (
@@ -194,7 +195,7 @@ export function TeacherDashboardPage() {
                       })}
                     </p>
                   </div>
-                  <Link to={nextCourse.href}>Voir la séance</Link>
+                  <Link className="dashboard-text-link" to={nextCourse.href}>Voir la séance <ChevronRight size={15} aria-hidden="true" /></Link>
                 </div>
               ) : (
                 <div className="role-next-course is-empty">

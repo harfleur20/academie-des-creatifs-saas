@@ -174,7 +174,7 @@ export function RoleDashboardCalendar({
                     {item.status ? ` · ${item.status}` : ''}
                   </p>
                 </div>
-                <Link to={item.href}>Voir la séance</Link>
+                <Link className="dashboard-text-link" to={item.href}>Voir la séance <ChevronRight size={14} aria-hidden="true" /></Link>
               </article>
             )
           })}

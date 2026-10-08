@@ -1,0 +1,39 @@
+.role-overview .dashboard-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.role-overview .dashboard-text-link > svg {
+  flex: none;
+  transition: transform 180ms cubic-bezier(.2, .75, .3, 1);
+}
+
+.role-overview .dashboard-text-link:hover,
+.role-overview .dashboard-text-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.role-overview .dashboard-text-link:hover > svg,
+.role-overview .dashboard-text-link:focus-visible > svg {
+  transform: translateX(3px);
+}
+
+.owner-dashboard-page .dashboard-stat-link:focus-visible svg {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-overview .dashboard-text-link > svg {
+    transition: none;
+  }
+
+  .role-overview .dashboard-text-link:hover > svg,
+  .role-overview .dashboard-text-link:focus-visible > svg,
+  .owner-dashboard-page .dashboard-stat-link:focus-visible svg {
+    transform: none;
+  }
+}

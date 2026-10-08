@@ -1,9 +1,15 @@
-.tenant-role-sidebar {
+.app-sidebar .app-nav,
+.tenant-role-sidebar,
+.tenant-role-sidebar .tenant-role-nav,
+.admin-sidebar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-.tenant-role-sidebar::-webkit-scrollbar {
+.app-sidebar .app-nav::-webkit-scrollbar,
+.tenant-role-sidebar::-webkit-scrollbar,
+.tenant-role-sidebar .tenant-role-nav::-webkit-scrollbar,
+.admin-sidebar::-webkit-scrollbar {
   width: 0;
   height: 0;
   display: none;

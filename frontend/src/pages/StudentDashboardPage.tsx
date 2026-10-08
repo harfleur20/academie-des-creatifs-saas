@@ -5,6 +5,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronRight,
   ClipboardCheck,
   Clock3,
   CreditCard,
@@ -187,7 +188,7 @@ export function StudentDashboardPage() {
                   <CalendarDays size={17} />
                   <strong>Calendrier des cours</strong>
                 </div>
-                <Link to="/app/student/planning">Voir tout le planning</Link>
+                <Link className="dashboard-text-link" to="/app/student/planning">Voir tout le planning <ChevronRight size={15} aria-hidden="true" /></Link>
               </header>
 
               {nextCourse ? (
@@ -206,7 +207,7 @@ export function StudentDashboardPage() {
                       })}
                     </p>
                   </div>
-                  <Link to={nextCourse.href}>Voir la séance</Link>
+                  <Link className="dashboard-text-link" to={nextCourse.href}>Voir la séance <ChevronRight size={15} aria-hidden="true" /></Link>
                 </div>
               ) : (
                 <div className="role-next-course is-empty">
@@ -280,7 +281,7 @@ export function StudentDashboardPage() {
                     ? `${focusProgress.completed_lessons}/${focusProgress.total_lessons} leçons terminées dans votre formation active.`
                     : 'Votre progression apparaîtra dès que vous commencerez vos cours.'}
                 </p>
-                <Link to="/app/student/progress">Voir ma progression</Link>
+                <Link className="dashboard-text-link" to="/app/student/progress">Voir ma progression <ChevronRight size={15} aria-hidden="true" /></Link>
               </div>
             </section>
 
