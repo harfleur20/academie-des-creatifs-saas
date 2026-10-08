@@ -83,6 +83,8 @@ class SessionPlanningRead(BaseModel):
 class LiveRoomRead(BaseModel):
     course_day_id: int
     title: str
+    school_name: str
+    school_logo_url: str | None
     starts_at: datetime
     ends_at: datetime
     domain: str

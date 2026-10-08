@@ -173,6 +173,7 @@ class Settings:
     jaas_private_key: str = os.getenv("JAAS_PRIVATE_KEY", "").replace("\\n", "\n").strip()
     jaas_private_key_file: str = os.getenv("JAAS_PRIVATE_KEY_FILE", "").strip()
     jaas_webhook_secret: str = os.getenv("JAAS_WEBHOOK_SECRET", "").strip()
+    jaas_branding_token: str = os.getenv("JAAS_BRANDING_TOKEN", "").strip()
     jaas_recording_enabled: bool = _env_bool("JAAS_RECORDING_ENABLED", False)
     live_replay_download_enabled: bool = _env_bool("LIVE_REPLAY_DOWNLOAD_ENABLED", True)
 

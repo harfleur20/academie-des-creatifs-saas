@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, status
+import hmac
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
+from app.core.config import settings
 from app.db.session import get_db
 from app.schemas.planning import (
     CourseDayCreate,
@@ -15,7 +18,7 @@ from app.schemas.planning import (
     LiveRoomRead,
     LiveStartRead,
 )
-from app.services.live_classes import join_live_class, start_live_class
+from app.services.live_classes import jaas_room_branding, join_live_class, start_live_class
 from app.services.planning import (
     create_course_day,
     get_session_planning,
@@ -30,6 +33,23 @@ from app.services.tenancy import TenantContext
 
 
 router = APIRouter(prefix="/planning", tags=["planning"])
+
+
+@router.get("/live/branding")
+def read_jaas_room_branding(
+    conference: str = Query(max_length=512),
+    authorization: str = Header(default=""),
+    db: Session = Depends(get_db),
+):
+    """JaaS Advanced Branding calls this endpoint with its configured Authorization value."""
+    if not settings.jaas_branding_token:
+        raise HTTPException(503, "Identité des salles JaaS non configurée.")
+    if not hmac.compare_digest(authorization, settings.jaas_branding_token):
+        raise HTTPException(401, "Jeton JaaS invalide.")
+    branding = jaas_room_branding(db, conference)
+    if branding is None:
+        raise HTTPException(404, "Salle live introuvable.")
+    return branding
 
 
 @router.get("/reports", response_model=list[SchoolCourseDayReportRead])

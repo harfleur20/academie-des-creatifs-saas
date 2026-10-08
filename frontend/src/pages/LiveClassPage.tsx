@@ -13,6 +13,7 @@ declare global {
       width: string
       height: string
       configOverwrite: Record<string, unknown>
+      lang?: string
     }) => { dispose: () => void }
   }
 }
@@ -83,7 +84,11 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
         parentNode: container.current,
         width: '100%',
         height: '100%',
-        configOverwrite: { prejoinConfig: { enabled: true } },
+        lang: 'fr',
+        configOverwrite: {
+          prejoinConfig: { enabled: true },
+          subject: `${joined.school_name} · ${joined.title}`,
+        },
       })
     }).catch((caught) => {
       if (!cancelled) setError(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Impossible de rejoindre la classe live.')
@@ -93,14 +98,14 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
 
   return <main className="app-page live-class-page">
     <Link className="planning-back-link" to={space === 'teacher' ? '/app/teacher/sessions' : '/app/student/formations'}><ArrowLeft size={15}/> Retour aux sessions</Link>
-    <header className="app-page-header"><div><span className="page-kicker">Classe en direct</span><h1>{room?.title || 'Votre cours live'}</h1><p>{room ? new Date(room.starts_at).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' }) : 'Connexion à la salle sécurisée'}</p></div><Video size={22}/></header>
+    <header className="app-page-header"><div><span className="page-kicker">Classe en direct · {room?.school_name || activeOrganization?.name || 'Votre école'}</span><h1>{room?.title || 'Votre cours live'}</h1><p>{room ? new Date(room.starts_at).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' }) : 'Connexion à la salle sécurisée'}</p></div>{room?.school_logo_url ? <img className="live-class-school-logo" src={room.school_logo_url} alt={`Logo de ${room.school_name}`} /> : <Video size={22}/>}</header>
     {error && <div className="form-error">{error}</div>}
-    {loading && <div className="page-state">Ouverture de la classe live…</div>}
+    {loading && <div className="page-state">Ouverture de la classe live de {activeOrganization?.name || 'votre école'}…</div>}
     {room && <div className="live-class-controls">
       {room.started_at ? <p>Cours démarré à {new Date(room.started_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</p> : space === 'teacher' ? <>
-        <p>La salle est ouverte. Démarrez le cours à l'heure prévue lorsque vous êtes prêt.</p>
+        <p>La salle de {room.school_name} est ouverte. Démarrez le cours à l'heure prévue lorsque vous êtes prêt.</p>
         <button className="primary-button" type="button" disabled={starting || nowMs < new Date(room.starts_at).getTime()} onClick={() => void startCourse()}>Démarrer le cours</button>
-      </> : <p>La salle est ouverte. Le professeur n'a pas encore démarré le cours.</p>}
+      </> : <p>La salle de {room.school_name} est ouverte. Le professeur n'a pas encore démarré le cours.</p>}
     </div>}
     <div ref={container} className="live-class-stage" aria-label="Salle de classe en direct" />
   </main>

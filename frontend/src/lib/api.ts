@@ -1488,6 +1488,8 @@ export const listSchoolCourseDayReports = () => request<SchoolCourseDayReport[]>
 export type LiveRoom = {
   course_day_id: number
   title: string
+  school_name: string
+  school_logo_url: string | null
   starts_at: string
   ends_at: string
   domain: string

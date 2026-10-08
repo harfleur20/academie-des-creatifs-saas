@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+import re
 
 import jwt
 from fastapi import HTTPException
@@ -9,7 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
-from app.models.entities import EnrollmentRecord, FormationSessionRecord, SessionCourseDayRecord, SessionTeacherRecord
+from app.models.entities import EnrollmentRecord, FormationSessionRecord, OrganizationPublicSiteRecord, OrganizationRecord, SessionCourseDayRecord, SessionTeacherRecord
+from app.services.live_recordings import _source_url
 from app.services.teacher_readiness import require_teacher_ready
 from app.services.tenancy import TenantContext
 
@@ -34,6 +36,48 @@ def _private_key() -> str:
 
 def live_provider_configured() -> bool:
     return bool(settings.jaas_enabled and settings.jaas_app_id and settings.jaas_kid and _private_key())
+
+
+def _school_live_identity(db: Session, organization_id: int) -> tuple[str, str | None, str]:
+    organization = db.get(OrganizationRecord, organization_id)
+    site = db.scalar(select(OrganizationPublicSiteRecord).where(
+        OrganizationPublicSiteRecord.organization_id == organization_id,
+    ))
+    return (
+        (site.site_name or organization.name) if site else organization.name,
+        organization.logo_url,
+        organization.primary_color,
+    )
+
+
+def jaas_room_branding(db: Session, conference: str) -> dict | None:
+    """Return the owning school's public identity for one verified JaaS room."""
+    if not settings.jaas_app_id:
+        return None
+    match = re.fullmatch(
+        rf"{re.escape(settings.jaas_app_id)}/school-(\d+)-session-(\d+)-day-(\d+)",
+        conference,
+    )
+    if match is None:
+        return None
+    organization_id, session_id, day_id = map(int, match.groups())
+    day = db.scalar(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.id == day_id,
+        SessionCourseDayRecord.session_id == session_id,
+        SessionCourseDayRecord.organization_id == organization_id,
+    ))
+    session = db.scalar(select(FormationSessionRecord).options(selectinload(FormationSessionRecord.formation)).where(
+        FormationSessionRecord.id == session_id,
+        FormationSessionRecord.organization_id == organization_id,
+    ))
+    if day is None or session is None or session.formation.format_type != "live":
+        return None
+    _, logo_url, primary_color = _school_live_identity(db, organization_id)
+    branding = {"backgroundColor": primary_color}
+    public_logo_url = _source_url(logo_url)
+    if public_logo_url:
+        branding["logoImageUrl"] = public_logo_url
+    return branding
 
 
 def start_live_class(
@@ -135,9 +179,12 @@ def join_live_class(
         token = jwt.encode(payload, private_key, algorithm="RS256", headers={"kid": settings.jaas_kid, "typ": "JWT"})
     except (ValueError, TypeError) as exc:
         raise HTTPException(503, "La configuration de la classe live est invalide.") from exc
+    school_name, school_logo_url, _ = _school_live_identity(db, tenant.organization_id)
     return {
         "course_day_id": day.id,
         "title": day.title,
+        "school_name": school_name,
+        "school_logo_url": school_logo_url,
         "starts_at": starts_at,
         "ends_at": ends_at,
         "domain": settings.jaas_domain,

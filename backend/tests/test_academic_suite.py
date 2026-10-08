@@ -74,6 +74,7 @@ from app.services.learning_progress import (
     teacher_performance,
 )
 from app.services.live_classes import join_live_class, start_live_class
+from app.api.routes.planning import read_jaas_room_branding
 from app.services.planning import get_session_planning, list_course_day_feedback, list_school_course_day_reports, submit_course_day_feedback, submit_course_day_report, update_course_day
 from app.services.formations import create_lesson, list_lesson_versions, publish_lesson, restore_lesson_version, update_course, update_enrollment, update_lesson
 from app.services.pdf_lessons import pdf_bytes, read_pdf_progress, report_pdf_page, store_pdf_asset
@@ -468,6 +469,9 @@ def test_live_class_join_requires_own_school_membership_and_course_window(monkey
     db = build_db()
     org, teacher, student, _, session, _, _, _, day = seed(db)
     db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.scalar(select(OrganizationPublicSiteRecord).where(
+        OrganizationPublicSiteRecord.organization_id == org.id,
+    )).site_name = "Académie de l'école"
     db.commit()
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     pem = private_key.private_bytes(
@@ -480,6 +484,7 @@ def test_live_class_join_requires_own_school_membership_and_course_window(monkey
     current = datetime(2025, 1, 10, 9, 5, tzinfo=UTC)
 
     joined = join_live_class(db, ctx(db, org, student), day.id, now=current)
+    assert joined["school_name"] == "Académie de l'école"
     claims = jwt.decode(joined["token"], private_key.public_key(), algorithms=["RS256"],
                         audience="jitsi", options={"verify_exp": False, "verify_nbf": False})
     assert claims["room"] == f"school-{org.id}-session-{session.id}-day-{day.id}"
@@ -500,6 +505,53 @@ def test_live_class_join_requires_own_school_membership_and_course_window(monkey
     with pytest.raises(HTTPException) as hidden:
         join_live_class(db, ctx(db, other_school, teacher), day.id, now=current)
     assert hidden.value.status_code == 404
+
+
+def test_jaas_branding_is_scoped_to_each_school_room(monkeypatch) -> None:
+    db = build_db()
+    org, _, _, _, session, _, _, _, day = seed(db)
+    session.formation.format_type = "live"
+    org.logo_url = "https://school-a.example/logo.png"
+    org.primary_color = "#123456"
+    db.scalar(select(OrganizationPublicSiteRecord).where(
+        OrganizationPublicSiteRecord.organization_id == org.id,
+    )).site_name = "École A"
+    other = OrganizationRecord(name="École B", slug="ecole-b", logo_url="https://school-b.example/logo.png", primary_color="#654321")
+    db.add(other)
+    db.flush()
+    other_formation = FormationRecord(organization_id=other.id, slug="live-b", title="Cours B", format_type="live")
+    db.add(other_formation)
+    db.flush()
+    other_session = FormationSessionRecord(
+        organization_id=other.id, formation_id=other_formation.id, label="Cohorte B",
+        start_date=date(2025, 1, 1), end_date=date(2025, 2, 1), status="open",
+    )
+    db.add(other_session)
+    db.flush()
+    other_day = SessionCourseDayRecord(
+        organization_id=other.id, session_id=other_session.id,
+        title="Cours B", scheduled_at=datetime(2025, 1, 10, 9, tzinfo=UTC),
+        duration_minutes=90,
+    )
+    db.add(other_day)
+    db.commit()
+    monkeypatch.setattr(settings, "jaas_app_id", "test-app")
+    monkeypatch.setattr(settings, "jaas_branding_token", "test-branding-secret")
+
+    room_a = f"test-app/school-{org.id}-session-{session.id}-day-{day.id}"
+    room_b = f"test-app/school-{other.id}-session-{other_session.id}-day-{other_day.id}"
+    assert read_jaas_room_branding(room_a, "test-branding-secret", db) == {
+        "backgroundColor": "#123456", "logoImageUrl": "https://school-a.example/logo.png",
+    }
+    assert read_jaas_room_branding(room_b, "test-branding-secret", db) == {
+        "backgroundColor": "#654321", "logoImageUrl": "https://school-b.example/logo.png",
+    }
+    with pytest.raises(HTTPException) as unauthorized:
+        read_jaas_room_branding(room_a, "wrong-token", db)
+    assert unauthorized.value.status_code == 401
+    with pytest.raises(HTTPException) as forged:
+        read_jaas_room_branding(f"test-app/school-{other.id}-session-{session.id}-day-{day.id}", "test-branding-secret", db)
+    assert forged.value.status_code == 404
 
 
 def test_live_class_start_is_teacher_owned_and_time_gated() -> None:
