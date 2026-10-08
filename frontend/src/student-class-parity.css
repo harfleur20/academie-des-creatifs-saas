@@ -1,5 +1,5 @@
 .tenant-role-shell--student .student-class-page { font-family: 'Manrope', sans-serif; }
-.tenant-role-shell--student .student-class-page .class-layout { grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: 18px; }
+.tenant-role-shell--student .student-class-page .class-layout { grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: 18px; align-items: start; }
 .tenant-role-shell--student .student-class-page .class-roster { padding: 19px; border-radius: 18px; }
 .student-class-page .class-roster .settings-section-heading { margin-bottom: 16px; }
 .student-class-page .student-class-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -18,20 +18,155 @@
 .student-classmate-card__badge strong { display: block; margin-top: 2px; color: var(--school-primary); font-size: 11px; }
 .student-classmate-card__contact { grid-column: 1 / -1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 30px; border-radius: 8px; color: #fff; background: var(--school-primary); font-size: 10px; font-weight: 800; text-decoration: none; }
 .student-classmate-card__contact:hover { background: var(--school-secondary); }
-.student-class-page .class-composer, .student-class-page .class-post { border-radius: 16px; }
-.student-class-page .class-composer textarea { min-height: 100px; font-size: 13px; }
-.student-class-page .class-composer > .class-composer__preview { position: relative; display: inline-block; width: fit-content; max-width: 100%; margin-top: 10px; }
-.student-class-page .class-composer__preview img { display: block; max-width: 100%; max-height: 220px; border-radius: 10px; }
-.student-class-page .class-composer__preview button { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; color: #fff; background: rgba(15, 23, 42, .75); cursor: pointer; }
-.student-class-page .class-post > header .class-person-avatar { width: 38px; height: 38px; border-radius: 50%; }
-.student-class-page .class-post header strong { color: var(--school-primary); font-size: 12px; }
-.student-class-page .class-post header small { margin-top: 2px; font-size: 10px; }
-.student-class-page .class-post > p { font-size: 12px; }
-.student-class-page .class-replies { padding-left: 14px; }
-.student-class-page .class-replies > .class-reply { display: flex; align-items: flex-start; gap: 8px; }
-.student-class-page .class-reply .class-person-avatar { width: 28px; height: 28px; border-radius: 50%; font-size: 9px; }
-.student-class-page .class-reply strong, .student-class-page .class-reply span, .student-class-page .class-reply small { font-size: 10px; }
 
-@media (max-width: 1200px) { .student-class-page .student-class-grid { grid-template-columns: 1fr; } }
-@media (max-width: 850px) { .tenant-role-shell--student .student-class-page .class-layout { grid-template-columns: 1fr; } .student-class-page .student-class-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .student-class-page .student-class-grid { grid-template-columns: 1fr; } }
+/* Discussion de classe — parité fonctionnelle et visuelle avec le site mère. */
+.student-class-page .class-discussion {
+  display: grid;
+  gap: .82rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(31, 37, 89, .08);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgba(17, 25, 60, .05);
+}
+
+.student-class-page .class-discussion__top { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.student-class-page .class-discussion__top h3 { display: inline-flex; align-items: center; gap: .45rem; margin: 0; color: #111827; font-size: .98rem; font-weight: 850; }
+.student-class-page .class-discussion__top h3 svg { color: var(--school-primary); }
+.student-class-page .class-discussion__top span { display: block; margin-top: .18rem; color: #6b7280; font-size: .75rem; font-weight: 700; }
+
+.student-class-page .class-discussion-composer { display: grid; gap: .62rem; }
+.student-class-page .class-discussion-composer textarea,
+.student-class-page .class-discussion-reply-form textarea {
+  width: 100%;
+  border: 1px solid rgba(31, 37, 89, .1);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #111827;
+  font: inherit;
+  line-height: 1.45;
+  outline: none;
+}
+.student-class-page .class-discussion-composer textarea { min-height: 92px; resize: vertical; padding: .78rem .86rem; font-size: .86rem; }
+.student-class-page .class-discussion-reply-form textarea { min-height: 42px; max-height: 120px; resize: vertical; padding: .54rem .68rem; font-size: .8rem; }
+.student-class-page .class-discussion-composer textarea:focus,
+.student-class-page .class-discussion-reply-form textarea:focus { border-color: color-mix(in srgb, var(--school-secondary) 55%, transparent); background: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--school-secondary) 12%, transparent); }
+
+.student-class-page .class-discussion-composer__image { position: relative; width: min(260px, 100%); overflow: hidden; border: 1px solid rgba(31, 37, 89, .08); border-radius: 8px; background: #f8fafc; }
+.student-class-page .class-discussion-composer__image img { display: block; width: 100%; max-height: 180px; object-fit: cover; }
+.student-class-page .class-discussion-composer__image button,
+.student-class-page .class-discussion-reply-form__preview button { position: absolute; display: grid; place-items: center; border: 0; border-radius: 999px; background: rgba(17, 24, 39, .78); color: #fff; cursor: pointer; }
+.student-class-page .class-discussion-composer__image button { top: .42rem; right: .42rem; width: 30px; height: 30px; }
+
+.student-class-page .class-discussion-composer__actions { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
+.student-class-page .class-discussion-composer__actions input,
+.student-class-page .class-discussion-reply-form__tools input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.student-class-page .class-discussion-composer__upload,
+.student-class-page .class-discussion-composer__actions button,
+.student-class-page .class-discussion-reply-form__upload,
+.student-class-page .class-discussion-reply-form__main > button,
+.student-class-page .class-discussion-emoji-row button { display: inline-flex; align-items: center; justify-content: center; gap: .38rem; min-height: 34px; border-radius: 8px; font-size: .78rem; font-weight: 850; cursor: pointer; }
+.student-class-page .class-discussion-composer__upload { padding: .52rem .76rem; border: 1px solid rgba(31, 37, 89, .1); background: #fff; color: var(--school-primary); }
+.student-class-page .class-discussion-composer__upload:hover { border-color: color-mix(in srgb, var(--school-secondary) 30%, #dbe2ea); }
+.student-class-page .class-discussion-composer__actions button { padding: .52rem .82rem; border: 0; background: var(--school-primary); color: #fff; }
+.student-class-page .class-discussion-composer__actions button:hover:not(:disabled) { background: color-mix(in srgb, var(--school-primary) 88%, #000); }
+.student-class-page .class-discussion-composer__actions button:disabled,
+.student-class-page .class-discussion-reply-form__main > button:disabled { cursor: not-allowed; opacity: .48; }
+
+.student-class-page .class-discussion__error,
+.student-class-page .class-discussion__loading,
+.student-class-page .class-discussion__empty { padding: .68rem .78rem; border-radius: 8px; font-size: .78rem; font-weight: 700; }
+.student-class-page .class-discussion__error { background: #fff1f2; color: #be123c; }
+.student-class-page .class-discussion__loading { display: inline-flex; align-items: center; gap: .42rem; background: #f8fafc; color: #64748b; }
+.student-class-page .class-discussion__empty { background: #f8fafc; color: #64748b; text-align: center; }
+.student-class-page .spin-icon { animation: class-discussion-spin .85s linear infinite; }
+@keyframes class-discussion-spin { to { transform: rotate(360deg); } }
+
+.student-class-page .class-discussion-feed { display: grid; gap: .72rem; }
+.student-class-page .class-discussion-post { display: grid; gap: .68rem; padding: .82rem; border: 1px solid rgba(31, 37, 89, .08); border-radius: 8px; background: #f8fafc; }
+.student-class-page .class-discussion-post__head,
+.student-class-page .class-discussion-reply { display: flex; align-items: flex-start; gap: .58rem; min-width: 0; }
+.student-class-page .class-discussion-post__head > .class-person-avatar { width: 36px; height: 36px; border-radius: 8px; font-size: .72rem; }
+.student-class-page .class-discussion-post__meta,
+.student-class-page .class-discussion-reply > div:last-child { min-width: 0; flex: 1; }
+.student-class-page .class-discussion-author-name { display: inline-flex !important; align-items: center; gap: .28rem; max-width: 100%; color: var(--school-primary) !important; font-size: .82rem !important; font-weight: 800 !important; line-height: 1.25 !important; }
+.student-class-page .class-discussion-author-name > span { min-width: 0; margin: 0 !important; color: inherit !important; font-size: inherit !important; font-weight: inherit !important; overflow-wrap: anywhere; }
+.student-class-page .class-discussion-verified { flex: none; color: var(--school-secondary); }
+.student-class-page .class-discussion-post__meta > span,
+.student-class-page .class-discussion-reply__head span { display: block; margin-top: .1rem; color: #94a3b8; font-size: .7rem; font-weight: 750; }
+.student-class-page .class-discussion-post__actions { display: flex; align-items: center; gap: .32rem; margin-left: auto; flex-shrink: 0; }
+.student-class-page .class-discussion-icon-button { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(31, 37, 89, .08); border-radius: 8px; background: #fff; color: #64748b; cursor: pointer; }
+.student-class-page .class-discussion-icon-button:hover { border-color: color-mix(in srgb, var(--school-secondary) 30%, transparent); color: var(--school-secondary); }
+.student-class-page .class-discussion-icon-button--danger:hover { border-color: rgba(220, 38, 38, .22); color: #b91c1c; }
+.student-class-page .class-discussion-icon-button:disabled { cursor: not-allowed; opacity: .5; }
+.student-class-page .class-discussion-post__body,
+.student-class-page .class-discussion-reply p { margin: 0; color: #1f2937; font-size: .86rem; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }
+
+.student-class-page .class-discussion-image-button { padding: 0; border: 0; cursor: zoom-in; text-align: left; }
+.student-class-page .class-discussion-post__image { display: block; width: min(420px, 100%); overflow: hidden; border-radius: 8px; background: #e5e7eb; }
+.student-class-page .class-discussion-post__image img { display: block; width: 100%; max-height: 320px; object-fit: cover; transition: transform 160ms ease; }
+.student-class-page .class-discussion-image-button:hover img { transform: scale(1.015); }
+
+.student-class-page .class-discussion-replies { display: grid; gap: .54rem; padding-left: .28rem; }
+.student-class-page .class-discussion-reply { padding: .58rem; border: 1px solid rgba(31, 37, 89, .06); border-radius: 8px; background: #fff; }
+.student-class-page .class-discussion-reply > .class-person-avatar { width: 30px; height: 30px; border-radius: 7px; font-size: .66rem; }
+.student-class-page .class-discussion-reply__head { display: flex; align-items: flex-start; justify-content: space-between; gap: .35rem; margin-bottom: .42rem; }
+.student-class-page .class-discussion-reply__head > div { display: grid; gap: .08rem; min-width: 0; }
+.student-class-page .class-discussion-reply__head span { margin-top: 0; }
+.student-class-page .class-discussion-reply__image { display: block; width: min(300px, 100%); margin-top: .42rem; overflow: hidden; border-radius: 8px; background: #e5e7eb; }
+.student-class-page .class-discussion-reply__image img { display: block; width: 100%; max-height: 220px; object-fit: cover; transition: transform 160ms ease; }
+
+.student-class-page .class-discussion-reply-form { display: grid; gap: .45rem; }
+.student-class-page .class-discussion-reply-form__main { display: grid; grid-template-columns: minmax(0, 1fr) 42px; align-items: stretch; gap: .45rem; }
+.student-class-page .class-discussion-reply-form__main > button { width: 42px; min-height: 42px; padding: 0; border: 0; background: var(--school-primary); color: #fff; }
+.student-class-page .class-discussion-reply-form__main > button:hover:not(:disabled) { background: color-mix(in srgb, var(--school-primary) 88%, #000); }
+.student-class-page .class-discussion-reply-form__tools { display: flex; align-items: center; flex-wrap: wrap; gap: .42rem; }
+.student-class-page .class-discussion-reply-form__tools > span { display: inline-flex; align-items: center; gap: .24rem; color: #94a3b8; font-size: .68rem; font-weight: 850; }
+.student-class-page .class-discussion-emoji-row { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .24rem; }
+.student-class-page .class-discussion-emoji-row button,
+.student-class-page .class-discussion-reply-form__upload { min-height: 30px; border: 1px solid rgba(31, 37, 89, .08); background: #fff; color: #334155; }
+.student-class-page .class-discussion-emoji-row button { width: 30px; padding: 0; font-size: .84rem; }
+.student-class-page .class-discussion-emoji-row button:hover { border-color: color-mix(in srgb, var(--school-secondary) 30%, transparent); background: color-mix(in srgb, var(--school-secondary) 7%, #fff); }
+.student-class-page .class-discussion-reply-form__upload { gap: .28rem; padding: .34rem .56rem; color: var(--school-primary); }
+.student-class-page .class-discussion-reply-form__preview { position: relative; width: min(220px, 100%); overflow: hidden; border: 1px solid rgba(31, 37, 89, .08); border-radius: 8px; background: #f8fafc; }
+.student-class-page .class-discussion-reply-form__preview img { display: block; width: 100%; max-height: 150px; object-fit: cover; }
+.student-class-page .class-discussion-reply-form__preview button { top: .36rem; right: .36rem; width: 26px; height: 26px; }
+
+.student-class-page .class-discussion-more { position: relative; min-height: 132px; }
+.student-class-page .class-discussion-more__preview { display: grid; gap: .5rem; max-height: 156px; overflow: hidden; filter: blur(2.4px); user-select: none; -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, .36) 100%); mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, .36) 100%); }
+.student-class-page .class-discussion-more-card { display: flex; align-items: flex-start; gap: .58rem; min-width: 0; padding: .68rem; border: 1px solid rgba(31, 37, 89, .08); border-radius: 8px; background: #fff; }
+.student-class-page .class-discussion-more-card > .class-person-avatar { width: 32px; height: 32px; border-radius: 8px; font-size: .68rem; }
+.student-class-page .class-discussion-more-card > div:last-child { min-width: 0; }
+.student-class-page .class-discussion-more-card strong,
+.student-class-page .class-discussion-more-card span { display: block; }
+.student-class-page .class-discussion-more-card strong { color: var(--school-primary); font-size: .82rem; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+.student-class-page .class-discussion-more-card span { margin-top: .1rem; color: #94a3b8; font-size: .7rem; font-weight: 750; }
+.student-class-page .class-discussion-more-card p { display: -webkit-box; margin: .42rem 0 0; overflow: hidden; color: #1f2937; font-size: .82rem; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.student-class-page .class-discussion-more__button { position: absolute; top: 50%; left: 50%; display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: .58rem .88rem; border: 0; border-radius: 9px; background: var(--school-primary); color: #fff; font-size: .76rem; font-weight: 850; white-space: nowrap; box-shadow: 0 12px 30px color-mix(in srgb, var(--school-primary) 22%, transparent); cursor: pointer; transform: translate(-50%, -50%); }
+.student-class-page .class-discussion-more__button:hover { background: color-mix(in srgb, var(--school-primary) 88%, #000); }
+
+.student-class-page .class-discussion-lightbox { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 2rem; background: rgba(15, 23, 42, .88); backdrop-filter: blur(8px); cursor: zoom-out; }
+.student-class-page .class-discussion-lightbox > img { display: block; max-width: min(1100px, 94vw); max-height: 90vh; object-fit: contain; border-radius: 10px; background: #111827; box-shadow: 0 28px 80px rgba(0, 0, 0, .4); cursor: default; }
+.student-class-page .class-discussion-lightbox__close { position: fixed; top: 1.25rem; right: 1.25rem; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid rgba(255, 255, 255, .18); border-radius: 999px; background: rgba(255, 255, 255, .12); color: #fff; cursor: pointer; }
+.student-class-page .class-discussion-lightbox__close:hover { background: rgba(255, 255, 255, .22); }
+
+@media (max-width: 1200px) {
+  .student-class-page .student-class-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 850px) {
+  .tenant-role-shell--student .student-class-page .class-layout { grid-template-columns: 1fr; }
+  .student-class-page .student-class-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .student-class-page .student-class-grid { grid-template-columns: 1fr; }
+  .student-class-page .class-discussion { padding: .78rem; }
+  .student-class-page .class-discussion-composer__actions { justify-content: stretch; }
+  .student-class-page .class-discussion-composer__upload,
+  .student-class-page .class-discussion-composer__actions button { flex: 1; }
+  .student-class-page .class-discussion-reply-form__tools > span { width: 100%; }
+  .student-class-page .class-discussion-more__button { width: max-content; max-width: calc(100% - 1rem); white-space: normal; text-align: center; }
+  .student-class-page .class-discussion-lightbox { padding: 1rem; }
+}
