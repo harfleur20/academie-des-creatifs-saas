@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import calendar
 from datetime import date, timedelta
+from decimal import Decimal
 
 INSTALLMENT_FINAL_MARGIN_DAYS = 5
 INSTALLMENT_MIN_INTERVAL_DAYS = 7
@@ -64,11 +65,69 @@ def session_installment_dates(
     return installment_due_dates(session_end=session_end, today=today, max_count=limit)
 
 
+RESERVATION_DEPOSIT_DUE_DAYS = 10
+
+
+def _unit(currency: str) -> int:
+    return FCFA_ROUNDING if currency.upper() in FCFA_CURRENCIES else 1
+
+
+def reservation_deposit_available(
+    *,
+    format_type: str,
+    enabled: bool,
+    total: int,
+    currency: str,
+    session_start: date,
+    today: date,
+) -> bool:
+    """A live session can be reserved with a deposit while it starts in more than ten days."""
+    return (
+        format_type == "live"
+        and enabled
+        and total >= 2 * _unit(currency)
+        and (session_start - today).days > RESERVATION_DEPOSIT_DUE_DAYS
+    )
+
+
+def reservation_deposit_amount(total: int, percent: float, currency: str) -> int:
+    """The percentage of the price, rounded to 500 FCFA, never the whole price."""
+    unit = _unit(currency)
+    if total <= 0:
+        return 0
+    rounded = int(Decimal(total) * Decimal(str(percent)) / Decimal(100 * unit) + Decimal("0.5")) * unit
+    maximum = ((total - 1) // unit) * unit
+    return min(max(rounded, unit), maximum)
+
+
+def reservation_balance_due_date(session_start: date) -> date:
+    return session_start - timedelta(days=RESERVATION_DEPOSIT_DUE_DAYS)
+
+
+def deposit_plan(
+    *,
+    total: int,
+    deposit: int,
+    currency: str,
+    session_start: date,
+    installment_dates: list[date],
+) -> list[tuple[int, date]]:
+    """Deposit today, then the balance ten days before the start, or spread over the instalment plan."""
+    if len(installment_dates) > 1:
+        dates = installment_dates
+        affordable = 1 + (total - deposit) // _unit(currency)
+        if len(dates) > affordable:
+            dates = [dates[0], dates[-1]]
+        amounts = [deposit, *split_amounts(total - deposit, len(dates) - 1, currency)]
+        return list(zip(amounts, dates))
+    return [(deposit, installment_dates[0]), (total - deposit, reservation_balance_due_date(session_start))]
+
+
 def split_amounts(total: int, count: int, currency: str) -> list[int]:
     """Split a total into instalments that add up exactly, rounded to 500 FCFA when possible."""
     if count <= 1:
         return [total]
-    unit = FCFA_ROUNDING if currency.upper() in FCFA_CURRENCIES else 1
+    unit = _unit(currency)
     base = (total // count // unit) * unit
     if base <= 0:
         quotient, remainder = divmod(total, count)

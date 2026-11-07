@@ -254,6 +254,7 @@ export function SchoolFormationDetailPage() {
             {hasDiscount && <del>{formatSchoolMoney(displayBasePrice, formation.currency)}</del>}
             <strong>{formatSchoolMoney(displayPrice, formation.currency)}</strong>
             {formation.allow_installments && <span>Paiement possible jusqu’en {formation.installment_count} tranches.</span>}
+            {formation.reservation_deposit_percent != null && <span>Réservez votre place avec un acompte de {formation.reservation_deposit_percent} % pour une session qui commence dans plus de 10 jours.</span>}
           </div>
 
           <div className="school-session-panel-divider" />

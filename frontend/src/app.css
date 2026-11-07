@@ -7708,3 +7708,6 @@
   .login-redesign .auth-card h2 { font-size: 32px; }
   .login-redesign .auth-card > p { margin-bottom: 28px; }
 }
+
+.school-deposit-terms p { margin: 8px 0 4px; color: #596a80; font-size: 11px; line-height: 1.6; }
+.school-deposit-terms label { align-items: flex-start; font-size: 11px; }

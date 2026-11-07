@@ -1011,6 +1011,8 @@ export type FormationSummary = {
   currency: string
   allow_installments: boolean
   installment_count: number
+  reservation_deposit_enabled: boolean
+  reservation_deposit_percent: number
   is_featured: boolean
   featured_order: number
   status: 'draft' | 'published' | 'archived'
@@ -1137,7 +1139,8 @@ export const updateFormation = (
     'title' | 'description' | 'category' | 'level' | 'format_type' | 'training_hours' |
     'short_description' | 'cover_image_url' | 'objectives' | 'prerequisites' |
     'public_program' | 'price_cents' | 'currency' | 'allow_installments' |
-    'installment_count' | 'is_featured' | 'featured_order' | 'status'
+    'installment_count' | 'reservation_deposit_enabled' | 'reservation_deposit_percent' |
+    'is_featured' | 'featured_order' | 'status'
   >>,
 ) =>
   request<FormationSummary>(`/formations/${formationId}`, {
@@ -2470,6 +2473,7 @@ export type PublicFormationDetail = PublicFormationCard & {
   public_program: string
   allow_installments: boolean
   installment_count: number
+  reservation_deposit_percent: number | null
   modules: PublicProgramModule[]
   sessions: PublicSession[]
   teacher_names: string[]
@@ -2636,6 +2640,10 @@ export type PricePreview = {
   coupon_code: string | null
   installments_allowed: boolean
   installment_count: number
+  deposit_cents: number | null
+  deposit_percent: number | null
+  balance_cents: number | null
+  balance_due_date: string | null
 }
 
 export type Checkout = {
@@ -2654,6 +2662,7 @@ export type Checkout = {
   currency: string
   payment_mode: string
   installment_count: number
+  deposit_cents: number | null
   checkout_url: string | null
   provider_reference: string | null
 }
@@ -2699,6 +2708,7 @@ export const createPublicCheckout = (
   sessionId: number,
   paymentMode: 'full'|'installments',
   couponCode?: string | null,
+  acceptDepositTerms = false,
 ) => request<Checkout>(
   '/commerce/public/' + encodeURIComponent(schoolKey) + '/checkout',
   {
@@ -2707,6 +2717,7 @@ export const createPublicCheckout = (
       session_id: sessionId,
       payment_mode: paymentMode,
       coupon_code: couponCode || null,
+      accept_deposit_terms: acceptDepositTerms,
     }),
     organizationId: null,
   },

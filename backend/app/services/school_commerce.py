@@ -55,7 +55,14 @@ from app.services.school_branding import (
 from app.services.school_communications import queue_school_event
 from app.services.school_notifications import dismiss_event, notify_school_managers, notify_user
 from app.services.school_profiles import ensure_student_profile
-from app.services.session_payment_plans import session_installment_dates, split_amounts
+from app.services.session_payment_plans import (
+    deposit_plan,
+    reservation_balance_due_date,
+    reservation_deposit_amount,
+    reservation_deposit_available,
+    session_installment_dates,
+    split_amounts,
+)
 from app.services.tara_money import create_payment_link, verify_payment
 
 
@@ -243,6 +250,12 @@ def price_preview(
     )
     final = max(0, after_promotion - coupon_discount)
     installment_count = len(_installment_due_dates(formation, session, final))
+    deposit = None
+    if reservation_deposit_available(
+        format_type=formation.format_type, enabled=formation.reservation_deposit_enabled, total=final,
+        currency=formation.currency, session_start=session.start_date, today=utc_now().date(),
+    ):
+        deposit = reservation_deposit_amount(final, formation.reservation_deposit_percent, formation.currency)
     return PricePreviewRead(
         base_price_cents=base,
         promotion_discount_cents=promotion_discount,
@@ -254,6 +267,10 @@ def price_preview(
         coupon_code=coupon.code if coupon else None,
         installments_allowed=installment_count >= 2,
         installment_count=installment_count,
+        deposit_cents=deposit,
+        deposit_percent=formation.reservation_deposit_percent if deposit is not None else None,
+        balance_cents=final - deposit if deposit is not None else None,
+        balance_due_date=reservation_balance_due_date(session.start_date) if deposit is not None else None,
     )
 
 
@@ -281,7 +298,10 @@ def _installment_rows(
     currency: str,
     *,
     installments: bool,
+    deposit: int | None = None,
 ) -> list[tuple[int, datetime, datetime]]:
+    if deposit is not None:
+        return _deposit_rows(formation, session, total, currency, deposit, installments=installments)
     if not installments or formation.format_type == "ligne":
         count = len(_installment_due_dates(formation, session, total)) if installments else 1
         return _split_installments(
@@ -295,6 +315,30 @@ def _installment_rows(
     for amount, due_date in zip(split_amounts(total, len(dates), currency), dates):
         due = now + timedelta(days=(due_date - now.date()).days)
         rows.append((amount, due, due + grace))
+    return rows
+
+
+def _deposit_rows(
+    formation: FormationRecord,
+    session: FormationSessionRecord,
+    total: int,
+    currency: str,
+    deposit: int,
+    *,
+    installments: bool,
+) -> list[tuple[int, datetime, datetime]]:
+    now = utc_now()
+    grace = timedelta(days=settings.commerce_grace_period_days)
+    dates = _installment_due_dates(formation, session, total) if installments else [now.date()]
+    rows = []
+    plan = deposit_plan(total=total, deposit=deposit, currency=currency, session_start=session.start_date, installment_dates=dates)
+    for sequence, (amount, due_date) in enumerate(plan, start=1):
+        if sequence == 1:
+            rows.append((amount, now, now + grace))
+            continue
+        due = datetime.combine(due_date, time.min, tzinfo=UTC)
+        # As on the mother site, access is suspended the day the balance is due and unpaid; the seat stays held.
+        rows.append((amount, due, due if sequence == 2 else due + grace))
     return rows
 
 
@@ -641,6 +685,7 @@ def _checkout_read(order: StudentOrderRecord) -> CheckoutRead:
         currency=order.currency,
         payment_mode=order.payment_mode,
         installment_count=order.installment_count,
+        deposit_cents=order.deposit_cents,
         checkout_url=order.checkout_url,
         provider_reference=order.provider_reference,
     )
@@ -712,6 +757,8 @@ def create_checkout(
     )
     if payload.payment_mode == "installments" and not preview.installments_allowed:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Le paiement en plusieurs tranches n'est pas disponible pour cette formation.")
+    if preview.deposit_cents is not None and not payload.accept_deposit_terms:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Acceptez les conditions de l'acompte non remboursable pour réserver votre place.")
     if preview.final_price_cents > 0 and not settings.demo_payments_enabled:
         if not settings.tara_configured:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Le paiement en ligne n'est pas configuré.")
@@ -744,6 +791,7 @@ def create_checkout(
     installment_rows = _installment_rows(
         formation, session, preview.final_price_cents, preview.currency,
         installments=payload.payment_mode == "installments",
+        deposit=preview.deposit_cents,
     )
     count = len(installment_rows)
     order = StudentOrderRecord(
@@ -773,6 +821,8 @@ def create_checkout(
         coupon_code=preview.coupon_code,
         payment_mode=payload.payment_mode,
         installment_count=count,
+        deposit_cents=preview.deposit_cents,
+        deposit_terms_accepted_at=utc_now() if preview.deposit_cents is not None else None,
         payment_provider="demo" if settings.demo_payments_enabled else "taramoney",
         branding_snapshot=branding_snapshot(db, org),
         return_origin=return_origin,

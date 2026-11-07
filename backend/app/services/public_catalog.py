@@ -424,6 +424,10 @@ def public_formation_detail(
         public_program=formation.public_program,
         allow_installments=formation.allow_installments and installment_count >= 2,
         installment_count=installment_count,
+        reservation_deposit_percent=(
+            formation.reservation_deposit_percent
+            if formation.format_type == "live" and formation.reservation_deposit_enabled else None
+        ),
         modules=modules,
         sessions=session_reads,
         teacher_names=teacher_names,

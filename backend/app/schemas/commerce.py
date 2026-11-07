@@ -175,6 +175,7 @@ class PublicFormationDetailRead(PublicFormationCardRead):
     public_program: str
     allow_installments: bool
     installment_count: int
+    reservation_deposit_percent: float | None = None
     modules: list[PublicProgramModuleRead]
     sessions: list[PublicSessionRead]
     teacher_names: list[str]
@@ -269,12 +270,18 @@ class PricePreviewRead(BaseModel):
     coupon_code: str | None
     installments_allowed: bool
     installment_count: int
+    # Set when the live session is reserved with a non-refundable deposit, as on the mother site.
+    deposit_cents: int | None = None
+    deposit_percent: float | None = None
+    balance_cents: int | None = None
+    balance_due_date: date | None = None
 
 
 class CheckoutCreate(BaseModel):
     session_id: int = Field(gt=0)
     payment_mode: PaymentMode = "full"
     coupon_code: str | None = Field(default=None, max_length=64)
+    accept_deposit_terms: bool = False
 
 
 class CheckoutRead(BaseModel):
@@ -293,6 +300,7 @@ class CheckoutRead(BaseModel):
     currency: str
     payment_mode: str
     installment_count: int
+    deposit_cents: int | None = None
     checkout_url: str | None
     provider_reference: str | None
 

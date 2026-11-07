@@ -49,6 +49,8 @@ export function FormationWorkspacePage() {
   const [price, setPrice] = useState('')
   const [allowInstallments, setAllowInstallments] = useState(false)
   const [installmentCount, setInstallmentCount] = useState('3')
+  const [depositEnabled, setDepositEnabled] = useState(false)
+  const [depositPercent, setDepositPercent] = useState('37.5')
   const [publicProgram, setPublicProgram] = useState('')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
@@ -69,6 +71,8 @@ export function FormationWorkspacePage() {
       setPrice(detail.price_cents ? String(detail.currency === 'XAF' ? detail.price_cents : detail.price_cents / 100) : '')
       setAllowInstallments(detail.allow_installments)
       setInstallmentCount(String(detail.installment_count))
+      setDepositEnabled(detail.reservation_deposit_enabled)
+      setDepositPercent(String(detail.reservation_deposit_percent))
       setPublicProgram(detail.public_program)
       setMembers(team)
     } catch (err) {
@@ -142,6 +146,8 @@ export function FormationWorkspacePage() {
         price_cents: price ? Math.round(Number(price) * (formation.currency === 'XAF' ? 1 : 100)) : 0,
         allow_installments: allowInstallments,
         installment_count: Math.min(12, Math.max(2, Number(installmentCount) || 2)),
+        reservation_deposit_enabled: depositEnabled,
+        reservation_deposit_percent: Math.min(99, Math.max(1, Number(depositPercent) || 37.5)),
         public_program: publicProgram.trim(),
       })
       setFormation(await getFormation(formation.id))
@@ -206,6 +212,11 @@ export function FormationWorkspacePage() {
           {allowInstallments && <label>Nombre maximal de paiements<input type="number" min={2} max={12} step={1} value={installmentCount} onChange={(event) => setInstallmentCount(event.target.value)} /></label>}
           {allowInstallments && formation.format_type !== 'ligne' && <small>Comme sur le site mère, la durée de chaque session plafonne ce nombre : un seul paiement sous un mois, 2 pour un mois, 3 au-delà. La dernière échéance tombe 5 jours avant la fin de la session.</small>}
           {allowInstallments && formation.format_type === 'ligne' && <small>Les paiements sont espacés d’un mois.</small>}
+          {formation.format_type === 'live' && <>
+            <label className="formation-payment-toggle"><input type="checkbox" checked={depositEnabled} onChange={(event) => setDepositEnabled(event.target.checked)} /> Réserver une place avec un acompte</label>
+            {depositEnabled && <label>Acompte (% du prix)<input type="number" min={1} max={99} step={0.5} value={depositPercent} onChange={(event) => setDepositPercent(event.target.value)} /></label>}
+            {depositEnabled && <small>Comme sur le site mère, l’acompte non remboursable réserve la place quand la session commence dans plus de 10 jours. Le solde est dû 10 jours avant le début : sans lui, l’accès est suspendu mais la place reste gardée. Les montants en XAF sont arrondis à 500 FCFA.</small>}
+          </>}
         </fieldset>
         <label>Description générale<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} rows={5} placeholder="Présentez la formation, sa promesse et son approche pédagogique." /></label>
         <label>Résumé court<textarea value={shortDescription} onChange={(event) => setShortDescription(event.target.value)} maxLength={500} rows={3} placeholder="Texte court affiché dans l’introduction et sur les cartes du catalogue." /><small>{shortDescription.length}/500 caractères</small></label>

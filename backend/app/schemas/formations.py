@@ -33,6 +33,8 @@ class FormationCreate(BaseModel):
     currency: str = Field(default="XAF", min_length=3, max_length=3)
     allow_installments: bool = False
     installment_count: int = Field(default=3, ge=2, le=12)
+    reservation_deposit_enabled: bool = False
+    reservation_deposit_percent: float = Field(default=37.5, ge=1, le=99)
     is_featured: bool = False
     featured_order: int = Field(default=0, ge=0, le=1000)
     status: str = Field(default="draft", pattern=FORMATION_STATUSES)
@@ -54,6 +56,8 @@ class FormationUpdate(BaseModel):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     allow_installments: bool | None = None
     installment_count: int | None = Field(default=None, ge=2, le=12)
+    reservation_deposit_enabled: bool | None = None
+    reservation_deposit_percent: float | None = Field(default=None, ge=1, le=99)
     is_featured: bool | None = None
     featured_order: int | None = Field(default=None, ge=0, le=1000)
     status: str | None = Field(default=None, pattern=FORMATION_STATUSES)
@@ -78,6 +82,8 @@ class FormationSummaryRead(BaseModel):
     currency: str
     allow_installments: bool
     installment_count: int
+    reservation_deposit_enabled: bool
+    reservation_deposit_percent: float
     is_featured: bool
     featured_order: int
     status: str
