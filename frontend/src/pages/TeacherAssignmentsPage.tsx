@@ -30,6 +30,7 @@ import {
   reviewAssignmentSubmission,
   updateTeacherAssignment,
   type Assignment,
+  type AssignmentBrief,
   type AssignmentComment,
   type AssignmentSubmission,
   type CourseDay,
@@ -40,6 +41,14 @@ import {
   getTeacherAIStatus,
 } from '../lib/tenantIntegrationApi'
 import { initialTeacherSessionId } from '../lib/teacherSession'
+import {
+  AssignmentBriefEditor,
+  assignmentBriefProblem,
+  assignmentBriefToText,
+  cleanAssignmentBrief,
+  emptyAssignmentBrief,
+} from '../components/AssignmentBriefEditor'
+import { AssignmentBriefView } from '../components/AssignmentBriefView'
 
 function dateTime(value: string) {
   return new Date(value).toLocaleString('fr-FR', {
@@ -56,23 +65,6 @@ function toDateTimeLocal(date: Date) {
   return adjusted.toISOString().slice(0, 16)
 }
 
-function assignmentBriefToText(brief: Record<string, unknown>, fallback: string) {
-  const lines: string[] = []
-  if (typeof brief.context === 'string' && brief.context.trim()) {
-    lines.push('Contexte', brief.context.trim(), '')
-  }
-  const deliverables = Array.isArray(brief.deliverables) ? brief.deliverables.filter((item): item is string => typeof item === 'string') : []
-  if (deliverables.length) {
-    lines.push('Livrables attendus', ...deliverables.map((item) => `- ${item}`), '')
-  }
-  const criteria = Array.isArray(brief.success_criteria) ? brief.success_criteria.filter((item): item is string => typeof item === 'string') : []
-  if (criteria.length) {
-    lines.push('Critères de réussite', ...criteria.map((item) => `- ${item}`), '')
-  }
-  if (fallback.trim()) lines.push('Consignes', fallback.trim())
-  return lines.join('\n').trim() || fallback
-}
-
 type CreationMode = 'manual' | 'ai'
 
 export function TeacherAssignmentsPage() {
@@ -82,6 +74,7 @@ export function TeacherAssignmentsPage() {
   const [courseDays, setCourseDays] = useState<CourseDay[]>([])
   const [title, setTitle] = useState('')
   const [instructions, setInstructions] = useState('')
+  const [brief, setBrief] = useState<AssignmentBrief | null>(null)
   const [dueDate, setDueDate] = useState('')
   const [courseDayId, setCourseDayId] = useState('')
   const [finalProject, setFinalProject] = useState(false)
@@ -149,6 +142,7 @@ export function TeacherAssignmentsPage() {
   function resetForm() {
     setTitle('')
     setInstructions('')
+    setBrief(null)
     setDueDate('')
     setCourseDayId('')
     setFinalProject(false)
@@ -164,6 +158,7 @@ export function TeacherAssignmentsPage() {
     setEditing(assignment)
     setTitle(assignment.title)
     setInstructions(assignment.instructions)
+    setBrief(assignment.brief)
     setDueDate(toDateTimeLocal(new Date(assignment.due_date)))
     setCourseDayId(assignment.course_day_id ? String(assignment.course_day_id) : '')
     setFinalProject(assignment.is_final_project)
@@ -196,7 +191,8 @@ export function TeacherAssignmentsPage() {
         assignment_type: finalProject ? 'final_project' : aiAssignmentType,
       })
       setTitle(draft.title)
-      setInstructions(assignmentBriefToText(draft.brief, draft.instructions))
+      setBrief(draft.brief)
+      setInstructions(draft.instructions)
       setFinalProject(draft.is_final_project)
       const deadline = new Date()
       deadline.setDate(deadline.getDate() + draft.duration_days)
@@ -213,11 +209,19 @@ export function TeacherAssignmentsPage() {
     event.preventDefault()
     if (!sessionId || !dueDate || title.trim().length < 2) return
 
+    const cleanBrief = brief ? cleanAssignmentBrief(brief) : null
+    const briefProblem = cleanBrief ? assignmentBriefProblem(cleanBrief) : null
+    if (briefProblem) {
+      setError(briefProblem)
+      return
+    }
+
     setWorking(true)
     setError('')
     const fields = {
       title: title.trim(),
       instructions: instructions.trim(),
+      brief: cleanBrief,
       course_day_id: courseDayId ? Number(courseDayId) : null,
       is_final_project: finalProject,
     }
@@ -348,11 +352,13 @@ export function TeacherAssignmentsPage() {
                 <div className="teacher-assignment-title-row">
                   <strong>{assignment.title}</strong>
                   {assignment.publication_status === 'draft' && <span className="dsh-badge dsh-badge--gray">Brouillon</span>}
+                  {assignment.brief && <span className="dsh-badge dsh-badge--blue">Fiche TP</span>}
                   {assignment.is_final_project && <span className="dsh-badge dsh-badge--yellow">Projet final</span>}
                 </div>
                 {assignment.publication_status === 'draft' && <span className="dsh-list-item__meta">Invisible pour les étudiants</span>}
                 <span className="dsh-list-item__meta"><Clock3 size={12} /> Date limite : {dateTime(assignment.due_date)}</span>
                 <span className="dsh-list-item__meta"><Users size={12} /> {assignment.submissions_count} soumission(s){assignment.teacher_name ? ` · Prof. ${assignment.teacher_name}` : ''}</span>
+                <AssignmentBriefView brief={assignment.brief} instructions={assignment.instructions} />
               </div>
               <div className="dsh-list-item__actions">
                 {assignment.can_manage && assignment.publication_status === 'draft' && (
@@ -433,7 +439,28 @@ export function TeacherAssignmentsPage() {
                   <label>Créneau de cours<select value={courseDayId} onChange={(event) => setCourseDayId(event.target.value)}><option value="">Sans créneau</option>{courseDays.filter((day) => day.can_edit || day.id === Number(courseDayId)).map((day) => <option key={day.id} value={day.id}>{dateTime(day.scheduled_at)} · {day.title}</option>)}</select></label>
                   <label>Date limite<input type="datetime-local" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required /></label>
                 </div>
-                <label>Consignes<textarea className="teacher-long-textarea" value={instructions} onChange={(event) => setInstructions(event.target.value)} /></label>
+                {brief ? (
+                  <>
+                    <AssignmentBriefEditor brief={brief} onChange={setBrief} />
+                    <button
+                      className="dsh-btn dsh-btn--ghost dsh-btn--sm"
+                      type="button"
+                      onClick={() => {
+                        setInstructions(assignmentBriefToText(brief))
+                        setBrief(null)
+                      }}
+                    >
+                      Revenir à une consigne libre
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <label>Consignes<textarea className="teacher-long-textarea" value={instructions} onChange={(event) => setInstructions(event.target.value)} /></label>
+                    <button className="dsh-btn dsh-btn--ghost dsh-btn--sm" type="button" onClick={() => setBrief(emptyAssignmentBrief())}>
+                      Structurer en fiche TP
+                    </button>
+                  </>
+                )}
                 <label className="teacher-check-row"><input type="checkbox" checked={finalProject} onChange={(event) => setFinalProject(event.target.checked)} /> Projet final</label>
                 {editing?.publication_status === 'published' && <span className="dsh-list-item__meta">Ce devoir est publié : les étudiants seront prévenus de vos modifications.</span>}
                 {error && <div className="dsh-error" ref={formErrorRef}>{error}</div>}

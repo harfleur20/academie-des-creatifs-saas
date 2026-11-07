@@ -1,9 +1,10 @@
+import hmac
 import mimetypes
 import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,9 +15,17 @@ from app.models.entities import AssignmentRecord, AssignmentSubmissionRecord, En
 from app.schemas.assignments import *
 from app.services.assignments import *
 from app.services.assets import ALLOWED, store_assignment_asset, store_submission_asset
+from app.services.assignment_reminders import process_assignment_reminders
+from app.services.communication_delivery import process_communication_outbox
 from app.services.tenancy import TenantContext
 
 router=APIRouter(prefix="/assignments",tags=["assignments"])
+
+@router.post("/internal/reminders",include_in_schema=False)
+def send_reminders(db:Session=Depends(get_db),cron_secret:str|None=Header(default=None,alias="X-Billing-Cron-Secret")):
+    if not settings.billing_cron_secret or not cron_secret or not hmac.compare_digest(settings.billing_cron_secret,cron_secret):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,"Secret cron invalide.")
+    return {"reminders":process_assignment_reminders(db),"communications":process_communication_outbox(db)}
 
 @router.get("/teacher/sessions/{session_id}",response_model=list[AssignmentRead])
 def teacher_list(session_id:int,db:Session=Depends(get_db),tenant:TenantContext=Depends(get_tenant_context)): return list_teacher_assignments(db,tenant,session_id)

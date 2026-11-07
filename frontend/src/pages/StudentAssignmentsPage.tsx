@@ -22,6 +22,7 @@ import {
   type AssignmentComment,
   type StudentAssignment,
 } from '../lib/api'
+import { AssignmentBriefView } from '../components/AssignmentBriefView'
 
 function dateTime(value: string) {
   return new Date(value).toLocaleString('fr-FR', {
@@ -178,6 +179,7 @@ export function StudentAssignmentsPage() {
                         : `Date limite : ${dateTime(assignment.due_date)}`}
                       {assignment.submitted_at ? ` · Remis le ${dateTime(assignment.submitted_at)}` : ''}
                     </span>
+                    <AssignmentBriefView brief={assignment.brief} instructions={assignment.instructions} />
                   </div>
 
                   <div className="dsh-list-item__actions">
@@ -269,7 +271,9 @@ export function StudentAssignmentsPage() {
 
               <aside className="asg-submit-modal__instructions-pane">
                 <h4>Consignes</h4>
-                <p>{submitTarget.instructions || 'Aucune consigne supplémentaire.'}</p>
+                {submitTarget.brief || submitTarget.instructions
+                  ? <AssignmentBriefView brief={submitTarget.brief} instructions={submitTarget.instructions} collapsible={false} />
+                  : <p>Aucune consigne supplémentaire.</p>}
                 <h4 style={{ marginTop: 22 }}>Date limite</h4>
                 <p>{dateTime(submitTarget.due_date)}</p>
                 {submitTarget.student_status === 'late' && (

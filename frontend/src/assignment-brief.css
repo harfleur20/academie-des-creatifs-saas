@@ -1,0 +1,124 @@
+.asg-brief {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  color: #51607a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.asg-brief__preview {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: pre-line;
+}
+
+.asg-brief__free-text,
+.asg-brief__content p {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.asg-brief__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.asg-brief__content {
+  display: grid;
+  gap: 12px;
+}
+
+.asg-brief__content h4 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.asg-brief__content ul,
+.asg-brief__content ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.asg-brief__rubric {
+  display: grid;
+  gap: 6px;
+}
+
+.asg-brief__criterion {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #f6f8fb;
+}
+
+.asg-brief__criterion b {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.asg-brief-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.asg-brief-editor__rubric {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #dfe5ed;
+  border-radius: 12px;
+}
+
+.asg-brief-editor__rubric legend {
+  padding: 0 6px;
+  color: #66758b;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.asg-brief-editor__criterion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 78px 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.asg-brief-editor__criterion textarea {
+  grid-column: 1 / -1;
+}
+
+.asg-brief-editor__rubric-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.asg-brief-editor__rubric-footer strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.asg-brief-editor__rubric-footer strong.is-invalid {
+  color: #c0342b;
+}

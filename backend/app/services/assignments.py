@@ -59,7 +59,7 @@ def _formation_title(db,sid):
     return row or ""
 def _session_label(db,sid): return db.get(FormationSessionRecord,sid).label
 def _teacher_view(db,tenant,a):
-    return AssignmentRead(id=a.id,session_id=a.session_id,course_day_id=a.course_day_id,teacher_id=a.teacher_id,teacher_name=_teacher_name(db,a),title=a.title,publication_status=a.publication_status,instructions=a.instructions,due_date=a.due_date,is_final_project=a.is_final_project,submissions_count=int(db.scalar(select(func.count(AssignmentSubmissionRecord.id)).where(AssignmentSubmissionRecord.assignment_id==a.id)) or 0),created_at=a.created_at,can_manage=a.teacher_id==tenant.user.id and not tenant.support_mode,delete_blocked_reason=_delete_blocked_reason(db,a))
+    return AssignmentRead(id=a.id,session_id=a.session_id,course_day_id=a.course_day_id,teacher_id=a.teacher_id,teacher_name=_teacher_name(db,a),title=a.title,publication_status=a.publication_status,instructions=a.instructions,brief=a.brief_json,due_date=a.due_date,is_final_project=a.is_final_project,submissions_count=int(db.scalar(select(func.count(AssignmentSubmissionRecord.id)).where(AssignmentSubmissionRecord.assignment_id==a.id)) or 0),created_at=a.created_at,can_manage=a.teacher_id==tenant.user.id and not tenant.support_mode,delete_blocked_reason=_delete_blocked_reason(db,a))
 def due_date_label(org:OrganizationRecord,due_date:datetime)->str:
     """Show a deadline in the school's time zone, as students read it."""
     try: zone=ZoneInfo(org.timezone or "UTC")
@@ -93,6 +93,7 @@ def _student_view(db,a,e,s,now):
         teacher_name=_teacher_name(db, a),
         title=a.title,
         instructions="" if locked else a.instructions,
+        brief=None if locked else a.brief_json,
         due_date=a.due_date,
         is_final_project=a.is_final_project,
         is_locked=locked,
@@ -126,7 +127,7 @@ def create_assignment(db:Session,tenant:TenantContext,sid:int,p:AssignmentCreate
     if s.status in {"cancelled","completed"}: raise HTTPException(409,"Cette session n'accepte plus de nouveaux devoirs.")
     day=_own_course_day(db,tenant,sid,p.course_day_id) if p.course_day_id else None
     _check_due_date(s,day,p.due_date)
-    a=AssignmentRecord(organization_id=tenant.organization_id,session_id=sid,course_day_id=p.course_day_id,teacher_id=tenant.user.id,title=p.title.strip(),publication_status="draft",instructions=p.instructions.strip(),due_date=p.due_date,is_final_project=p.is_final_project)
+    a=AssignmentRecord(organization_id=tenant.organization_id,session_id=sid,course_day_id=p.course_day_id,teacher_id=tenant.user.id,title=p.title.strip(),publication_status="draft",instructions=p.instructions.strip(),brief_json=p.brief.model_dump() if p.brief else None,due_date=p.due_date,is_final_project=p.is_final_project)
     db.add(a); db.commit(); db.refresh(a); return _teacher_view(db,tenant,a)
 
 def release_assignment(db:Session,org:OrganizationRecord,a:AssignmentRecord):
@@ -150,12 +151,13 @@ def update_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentUpdate
     day=None
     if day_id: day=_own_course_day(db,tenant,a.session_id,day_id) if day_changed else db.get(SessionCourseDayRecord,day_id)
     if day_changed or _utc(due)!=_utc(a.due_date): _check_due_date(s,day,due)
-    before=(a.title,a.instructions,_utc(a.due_date),a.course_day_id,a.is_final_project)
+    before=(a.title,a.instructions,a.brief_json,_utc(a.due_date),a.course_day_id,a.is_final_project)
     if p.title is not None: a.title=p.title.strip()
     if p.instructions is not None: a.instructions=p.instructions.strip()
+    if "brief" in p.model_fields_set: a.brief_json=p.brief.model_dump() if p.brief else None
     if p.is_final_project is not None: a.is_final_project=p.is_final_project
     a.course_day_id=day_id; a.due_date=due
-    if a.publication_status=="published" and before!=(a.title,a.instructions,_utc(a.due_date),a.course_day_id,a.is_final_project):
+    if a.publication_status=="published" and before!=(a.title,a.instructions,a.brief_json,_utc(a.due_date),a.course_day_id,a.is_final_project):
         queue_session_students_event(db,org=tenant.organization,session_id=a.session_id,event_key="student.assignment.updated",context=_event_context(db,a))
     db.commit(); db.refresh(a); return _teacher_view(db,tenant,a)
 

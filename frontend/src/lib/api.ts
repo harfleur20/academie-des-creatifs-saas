@@ -1552,6 +1552,22 @@ export const updateSessionCourseDay = (
   })
 
 
+export type AssignmentRubricCriterion = {
+  label: string
+  points: number
+  description: string
+}
+
+export type AssignmentBrief = {
+  context: string
+  objective: string
+  deliverables: string[]
+  steps: string[]
+  evaluation_criteria: AssignmentRubricCriterion[]
+  submission_method: string
+  tips: string[]
+}
+
 export type Assignment = {
   id: number
   session_id: number
@@ -1561,6 +1577,7 @@ export type Assignment = {
   title: string
   publication_status: 'draft' | 'published'
   instructions: string
+  brief: AssignmentBrief | null
   due_date: string
   is_final_project: boolean
   submissions_count: number
@@ -1572,6 +1589,7 @@ export type Assignment = {
 export type AssignmentPayload = {
   title: string
   instructions: string
+  brief?: AssignmentBrief | null
   due_date: string
   course_day_id?: number | null
   is_final_project?: boolean
@@ -1588,6 +1606,7 @@ export type StudentAssignment = {
   teacher_name: string | null
   title: string
   instructions: string
+  brief: AssignmentBrief | null
   is_locked: boolean
   available_at: string | null
   due_date: string

@@ -930,6 +930,7 @@ class AssignmentRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     publication_status: Mapped[str] = mapped_column(String(16), nullable=False, default="published")
     instructions: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    brief_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     due_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_final_project: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

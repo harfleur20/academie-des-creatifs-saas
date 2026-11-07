@@ -67,6 +67,14 @@ SCHOOL_MESSAGE_TEMPLATES: dict[str, SchoolMessageTemplate] = {
         "Devoir mis à jour",
         "Bonjour {recipient_name},\nle devoir « {assignment_title} » a été mis à jour pour la session {session_label}.\nDate limite : {due_at}.",
     ),
+    "student.assignment.due_24h": SchoolMessageTemplate(
+        "Devoir à rendre dans 24 h",
+        "Bonjour {recipient_name},\nle devoir « {assignment_title} » est à remettre avant le {due_at}.",
+    ),
+    "student.assignment.due_1h": SchoolMessageTemplate(
+        "Devoir à rendre dans moins d'une heure",
+        "Bonjour {recipient_name},\nle devoir « {assignment_title} » est à remettre avant le {due_at}.",
+    ),
     "student.assignment.reviewed": SchoolMessageTemplate(
         "Votre devoir a été corrigé",
         "Bonjour {recipient_name},\nvotre devoir « {assignment_title} » a été corrigé.\nNote : {score_label}.",

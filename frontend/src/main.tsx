@@ -38,6 +38,7 @@ import './student-session-calendar-icon.css'
 import './formation-access-period.css'
 import './session-edit-panel.css'
 import './teacher-grades.css'
+import './assignment-brief.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 
