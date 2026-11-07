@@ -651,7 +651,7 @@ def submit_course_day_report(
     current = _aware(now or datetime.now(UTC))
     if current < _aware(day.scheduled_at) + timedelta(minutes=day.duration_minutes):
         raise HTTPException(409, "Le rapport s'ouvre à la fin de la séance.")
-    if payload.delivery_status in {"held", "partial"}:
+    if payload.delivery_status in {"held", "partial", "interrupted"}:
         enrollment_ids = set(db.scalars(select(EnrollmentRecord.id).where(
             EnrollmentRecord.organization_id == tenant.organization_id,
             EnrollmentRecord.session_id == session.id,
@@ -661,10 +661,19 @@ def submit_course_day_report(
             AttendanceRecord.organization_id == tenant.organization_id,
             AttendanceRecord.course_day_id == day.id,
         )).all())
-        if enrollment_ids - marked_ids:
-            raise HTTPException(409, "Marquez la présence de tous les étudiants avant de clôturer.")
-        if day.started_at is None and session.formation.format_type == "live":
-            day.started_at = _aware(day.scheduled_at)
+        # As on the mother site, the report records unmarked students as absent;
+        # the teacher can still correct attendance for 24 h.
+        for enrollment_id in sorted(enrollment_ids - marked_ids):
+            db.add(AttendanceRecord(
+                organization_id=tenant.organization_id,
+                course_day_id=day.id,
+                enrollment_id=enrollment_id,
+                status="absent",
+                marked_by_user_id=tenant.user.id,
+                marked_at=current,
+            ))
+    if payload.delivery_status in {"held", "partial"} and day.started_at is None and session.formation.format_type == "live":
+        day.started_at = _aware(day.scheduled_at)
     day.delivery_status = payload.delivery_status
     day.report_summary = payload.summary
     day.report_difficulties = payload.difficulties

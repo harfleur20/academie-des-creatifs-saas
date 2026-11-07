@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BarChart3, CalendarCheck2 } from 'lucide-react'
 import {
   ApiError,
+  ATTENDANCE_LABELS,
   listStudentAttendance,
   listStudentGrades,
   type StudentAttendance,
@@ -19,7 +20,7 @@ export function StudentResultsPage() {
     {error&&<div className="form-error">{error}</div>}
     <section className="student-results-grid">
       <article className="app-card"><div className="settings-section-heading"><div><span className="section-label">Évaluations</span><h2>Mes notes</h2></div><BarChart3 size={19}/></div><div className="result-list">{grades.map((grade)=><div className="result-row" key={grade.id}><div><strong>{grade.label}</strong><small>{grade.source_type} · {new Date(grade.created_at).toLocaleDateString('fr-FR')}</small></div><span>{grade.score}/{grade.max_score}</span></div>)}{grades.length===0&&<p className="empty-row">Aucune note pour le moment.</p>}</div></article>
-      <article className="app-card"><div className="settings-section-heading"><div><span className="section-label">Assiduité</span><h2>Mes présences</h2></div><CalendarCheck2 size={19}/></div><div className="result-list">{attendance.map((row)=><div className="result-row" key={row.course_day_id}><div><strong>{row.title}</strong><small>{new Date(row.scheduled_at).toLocaleString('fr-FR')}</small></div><span className={'attendance-status '+(row.status||'pending')}>{row.status==='present'?'Présent':row.status==='absent'?'Absent':row.status==='excused'?'Excusé':'À confirmer'}</span></div>)}{attendance.length===0&&<p className="empty-row">Aucune séance enregistrée.</p>}</div></article>
+      <article className="app-card"><div className="settings-section-heading"><div><span className="section-label">Assiduité</span><h2>Mes présences</h2></div><CalendarCheck2 size={19}/></div><div className="result-list">{attendance.map((row)=><div className="result-row" key={row.course_day_id}><div><strong>{row.title}</strong><small>{new Date(row.scheduled_at).toLocaleString('fr-FR')}</small></div><span className={'attendance-status '+(row.status||'pending')}>{row.status?ATTENDANCE_LABELS[row.status]:'À confirmer'}</span></div>)}{attendance.length===0&&<p className="empty-row">Aucune séance enregistrée.</p>}</div></article>
     </section>
   </main>
 }

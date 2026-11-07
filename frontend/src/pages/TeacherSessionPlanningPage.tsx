@@ -270,7 +270,7 @@ export function TeacherSessionPlanningPage() {
                   <label>Difficultés rencontrées<textarea maxLength={2500} value={reportDifficulties} onChange={(event) => setReportDifficulties(event.target.value)} /></label>
                   <label>Travail à faire<textarea maxLength={2500} value={reportHomework} onChange={(event) => setReportHomework(event.target.value)} /></label>
                   <label>Notes sur les présences<textarea maxLength={2500} value={reportAttendanceNotes} onChange={(event) => setReportAttendanceNotes(event.target.value)} /></label>
-                  {(reportStatus === 'held' || reportStatus === 'partial') && <small>Marquez la présence de chaque étudiant dans « Présences » avant de remettre ce rapport.</small>}
+                  {reportStatus !== 'not_held' && <small>Les étudiants non marqués dans « Présences » seront enregistrés absents. Vous pourrez corriger les présences pendant 24 h après ce rapport.</small>}
                   <div><button className="primary-button" type="submit" disabled={working || reportSummary.trim().length < 10}>Remettre le rapport</button><button className="secondary-button" type="button" onClick={() => setReportDayId(null)}>Annuler</button></div>
                 </form>}
                 {day.can_edit && day.status !== 'cancelled' && !day.started_at && (

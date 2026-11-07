@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -57,7 +57,7 @@ from app.services.badge_rules import (
     quiz_mastery_pct,
 )
 from app.services.grades import grade_average_pct
-from app.services.pedagogy_access import dashboard_type, guided_activity_available, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
+from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
 from app.services.tenancy import TenantContext
 
 
@@ -66,6 +66,8 @@ VIDEO_HEARTBEAT_SEEK_TOLERANCE_SECONDS = 2.5
 VIDEO_HEARTBEAT_MAX_GAP_SECONDS = 15.0
 VIDEO_MAX_PLAYBACK_RATE = 2.0
 BADGE_PASSING_QUIZ_PCT = 80.0
+ATTENDANCE_CORRECTION_HOURS = 24
+ATTENDED_STATUSES = frozenset({"present", "late"})
 
 
 BADGE_LABELS = {
@@ -438,6 +440,33 @@ def sync_lesson_video_progress(
     return next(item for item in list_student_learning(db, tenant) if item.enrollment_id == enrollment.id)
 
 
+def attendance_locks_at(day: SessionCourseDayRecord) -> datetime | None:
+    """The mother site lets the teacher correct attendance for 24 h after the course report."""
+    if day.report_submitted_at is None:
+        return None
+    return current_utc(day.report_submitted_at) + timedelta(hours=ATTENDANCE_CORRECTION_HOURS)
+
+
+def attendance_edit_issue(
+    db: Session,
+    day: SessionCourseDayRecord,
+    *,
+    now: datetime | None = None,
+) -> str | None:
+    current = current_utc(now)
+    session = db.get(FormationSessionRecord, day.session_id)
+    if day.status == "cancelled" or (session is not None and session.status == "cancelled"):
+        return "Les présences de cette séance sont clôturées."
+    if day.delivery_status == "not_held":
+        return "Cette séance n'a pas eu lieu : il n'y a pas de présence à saisir."
+    if current < current_utc(day.scheduled_at):
+        return "La saisie n'ouvre qu'au début de cette séance."
+    locks_at = attendance_locks_at(day)
+    if locks_at is not None and current >= locks_at:
+        return "Les présences de cette séance sont verrouillées : elles se corrigent pendant 24 h après le rapport."
+    return None
+
+
 def _course_day_attendance(
     db: Session,
     tenant: TenantContext,
@@ -472,6 +501,7 @@ def _course_day_attendance(
         )
 
     teacher = db.get(UserRecord, day.teacher_id) if day.teacher_id else None
+    issue = attendance_edit_issue(db, day)
     return AttendanceCourseDayRead(
         course_day_id=day.id,
         session_id=day.session_id,
@@ -479,7 +509,9 @@ def _course_day_attendance(
         scheduled_at=day.scheduled_at,
         teacher_id=day.teacher_id,
         teacher_name=teacher.full_name if teacher else None,
-        can_edit=day.teacher_id == tenant.user.id and not tenant.support_mode and day.report_submitted_at is None,
+        can_edit=day.teacher_id == tenant.user.id and not tenant.support_mode and issue is None,
+        edit_blocked_reason=issue,
+        locks_at=attendance_locks_at(day),
         delivery_status=day.delivery_status,
         report_submitted_at=day.report_submitted_at,
         rows=rows,
@@ -526,8 +558,9 @@ def mark_attendance(
         )
     if tenant.support_mode:
         raise HTTPException(403, "Le mode support est en lecture seule.")
-    if day.report_submitted_at is not None or day.status == "cancelled":
-        raise HTTPException(409, "Les présences de cette séance sont clôturées.")
+    issue = attendance_edit_issue(db, day)
+    if issue:
+        raise HTTPException(409, issue)
 
     enrollment = db.scalar(
         select(EnrollmentRecord).where(
@@ -779,7 +812,7 @@ def _attendance_stats(
         if row and row.status == "excused" and guided:
             excused += 1
             continue
-        if row and row.status == "present":
+        if row and row.status in ATTENDED_STATUSES:
             present += 1
     return len(days) - excused, present
 

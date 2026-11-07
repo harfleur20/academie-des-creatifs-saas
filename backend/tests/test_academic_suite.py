@@ -604,11 +604,7 @@ def test_guided_badge_waits_for_course_day_report_and_finalized_attendance() -> 
     with pytest.raises(HTTPException) as too_early:
         submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(delivery_status="held", summary="Cours terminé normalement"), now=datetime(2025, 1, 10, 9, 30, tzinfo=UTC))
     assert too_early.value.status_code == 409
-    with pytest.raises(HTTPException) as unmarked:
-        submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(delivery_status="held", summary="Cours terminé normalement"))
-    assert unmarked.value.status_code == 409
-    for current_enrollment in (enrollment, classmate_enrollment):
-        mark_attendance(db, teacher_tenant, day.id, AttendanceMarkPayload(enrollment_id=current_enrollment.id, status="present"))
+    mark_attendance(db, teacher_tenant, day.id, AttendanceMarkPayload(enrollment_id=enrollment.id, status="present"))
     planning = submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(
         delivery_status="held", summary="Cours terminé normalement",
         difficulties="  Audio instable  ", homework="Projet suivant", attendance_notes="  ",
@@ -622,6 +618,16 @@ def test_guided_badge_waits_for_course_day_report_and_finalized_attendance() -> 
     assert get_session_planning(db, student_tenant, session.id).course_days[0].report_summary is None
     assert get_session_planning(db, student_tenant, session.id).course_days[0].report_difficulties is None
     assert student_progress(db, student_tenant)[0].badge.level == "professionnel"
+
+    # The report recorded the unmarked classmate absent; the teacher corrects it within 24 h.
+    classmate_tenant = ctx(db, org, classmate)
+    assert student_progress(db, classmate_tenant)[0].attendance_present == 0
+    corrected = mark_attendance(db, teacher_tenant, day.id, AttendanceMarkPayload(enrollment_id=classmate_enrollment.id, status="late"))
+    assert {row.enrollment_id: row.status for row in corrected.rows}[classmate_enrollment.id] == "late"
+    assert student_progress(db, classmate_tenant)[0].attendance_present == 1
+
+    db.get(SessionCourseDayRecord, day.id).report_submitted_at = datetime.now(UTC) - timedelta(hours=24, seconds=1)
+    db.commit()
     with pytest.raises(HTTPException) as closed:
         mark_attendance(db, teacher_tenant, day.id, AttendanceMarkPayload(enrollment_id=enrollment.id, status="absent"))
     assert closed.value.status_code == 409

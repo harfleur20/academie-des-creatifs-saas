@@ -254,16 +254,20 @@ class TeacherGradebookRead(BaseModel):
     grades: list[TeacherGradeRead]
 
 
+# As on the mother site, a late student counts as present.
+AttendanceStatus = Literal["present", "late", "absent", "excused"]
+
+
 class AttendanceRowRead(BaseModel):
     enrollment_id: int
     student_id: int
     student_name: str
-    status: Literal["present", "absent", "excused"] | None
+    status: AttendanceStatus | None
 
 
 class AttendanceMarkPayload(BaseModel):
     enrollment_id: int
-    status: Literal["present", "absent", "excused"]
+    status: AttendanceStatus
 
 
 class AttendanceCourseDayRead(BaseModel):
@@ -274,6 +278,8 @@ class AttendanceCourseDayRead(BaseModel):
     teacher_id: int | None
     teacher_name: str | None
     can_edit: bool
+    edit_blocked_reason: str | None = None
+    locks_at: datetime | None = None
     delivery_status: str | None
     report_submitted_at: datetime | None
     rows: list[AttendanceRowRead]
@@ -283,7 +289,7 @@ class StudentAttendanceRead(BaseModel):
     course_day_id: int
     title: str
     scheduled_at: datetime
-    status: Literal["present", "absent", "excused"] | None
+    status: AttendanceStatus | None
 
 
 BadgeLevel = Literal["aventurier", "debutant", "intermediaire", "semi_pro", "professionnel"]

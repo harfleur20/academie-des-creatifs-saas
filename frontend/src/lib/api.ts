@@ -2035,21 +2035,32 @@ export type AttendanceCourseDay = {
   teacher_id: number | null
   teacher_name: string | null
   can_edit: boolean
+  edit_blocked_reason: string | null
+  locks_at: string | null
   delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted' | null
   report_submitted_at: string | null
   rows: Array<{
     enrollment_id: number
     student_id: number
     student_name: string
-    status: 'present' | 'absent' | 'excused' | null
+    status: AttendanceStatus | null
   }>
+}
+
+export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused'
+
+export const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = {
+  present: 'Présent',
+  late: 'En retard',
+  absent: 'Absent',
+  excused: 'Excusé',
 }
 
 export type StudentAttendance = {
   course_day_id: number
   title: string
   scheduled_at: string
-  status: 'present' | 'absent' | 'excused' | null
+  status: AttendanceStatus | null
 }
 
 export const getTeacherAttendance = (sessionId: number) =>
@@ -2058,7 +2069,7 @@ export const getTeacherAttendance = (sessionId: number) =>
 export const markTeacherAttendance = (
   courseDayId: number,
   enrollmentId: number,
-  status: 'present' | 'absent' | 'excused',
+  status: AttendanceStatus,
 ) =>
   request<AttendanceCourseDay>('/academic/teacher/course-days/' + courseDayId + '/attendance', {
     method: 'PUT',
