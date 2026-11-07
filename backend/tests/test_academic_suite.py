@@ -53,7 +53,7 @@ from app.schemas.academic import (
 from app.schemas.assignments import AssignmentCreate, AssignmentSubmit
 from app.schemas.formations import CourseUpdate, EnrollmentUpdate, LessonCreate
 from app.schemas.planning import CourseDayFeedbackSubmit, CourseDayReportSubmit, CourseDayUpdate
-from app.services.assignments import create_assignment, list_student_assignments, submit_assignment
+from app.services.assignments import create_assignment, list_student_assignments, publish_assignment, submit_assignment
 from app.services.class_certificates import (
     certificate_eligibility,
     create_discussion_post,
@@ -1289,6 +1289,7 @@ def test_guided_quiz_and_assignment_wait_for_session_start() -> None:
     assignment = create_assignment(db, teacher_tenant, session.id, AssignmentCreate(
         title="Travail", due_date=datetime(2099, 1, 20, tzinfo=UTC),
     ))
+    publish_assignment(db, teacher_tenant, assignment.id)
     locked_assignment = list_student_assignments(db, student_tenant)[0]
     assert locked_assignment.is_locked is True
     assert locked_assignment.instructions == ""

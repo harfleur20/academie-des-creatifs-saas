@@ -29,10 +29,12 @@ def seed(db):
  db.add_all([SessionTeacherRecord(organization_id=org.id,session_id=se.id,teacher_id=t.id,role="principal"),EnrollmentRecord(organization_id=org.id,session_id=se.id,student_id=s.id,status="active")]);db.commit()
  return org,t,s,se
 def ctx(db,o,u): return resolve_tenant_context(db,user=u,organization_id=o.id)
+def published_assignment(db,tenant,session_id,payload):
+ return publish_assignment(db,tenant,create_assignment(db,tenant,session_id,payload).id)
 
 def test_assignment_submission_review_flow():
  db=dbx();o,t,s,se=seed(db)
- a=create_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Projet",instructions="Créer",due_date=days_from_now(20)))
+ a=published_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Projet",instructions="Créer",due_date=days_from_now(20)))
  assert a.teacher_name=="Teacher"
  sa=list_student_assignments(db,ctx(db,o,s))[0]; assert sa.student_status=="pending"
  asset=asyncio.run(store_submission_asset(UploadFile(file=BytesIO(b"test work"),filename="work.pdf"),o.id,s.id))
@@ -49,7 +51,7 @@ def test_assignment_submission_review_flow():
 def test_linked_assignment_lesson_requires_opening_and_completes_on_submission():
  db=dbx();o,t,s,se=seed(db)
  se.end_date=date(2099,2,1);db.commit()
- assignment=create_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="TP lié",due_date=datetime(2099,1,20,tzinfo=UTC)))
+ assignment=published_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="TP lié",due_date=datetime(2099,1,20,tzinfo=UTC)))
  course=CourseRecord(organization_id=o.id,session_id=se.id,teacher_id=t.id,title="Cours",status="published")
  db.add(course);db.flush()
  chapter=ChapterRecord(organization_id=o.id,course_id=course.id,title="Module")
@@ -76,7 +78,7 @@ def test_submission_file_requires_student_or_own_teacher(monkeypatch):
  db=dbx();o,t,s,se=seed(db)
  monkeypatch.setattr(settings,"storage_provider","local")
  monkeypatch.setattr(settings,"environment","development")
- a=create_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Projet",due_date=days_from_now(20)))
+ a=published_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Projet",due_date=days_from_now(20)))
  with pytest.raises(HTTPException) as invalid:
   submit_assignment(db,ctx(db,o,s),a.id,AssignmentSubmit(file_url="https://public.example/work.pdf"))
  assert invalid.value.status_code==422
@@ -154,7 +156,7 @@ def test_legacy_teacher_resource_is_available_through_authorized_route(monkeypat
 def test_legacy_submission_is_available_only_through_authorized_route(monkeypatch):
  db=dbx();o,t,s,se=seed(db)
  monkeypatch.setattr(settings,"storage_provider","local")
- a=create_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Ancien devoir",due_date=days_from_now(20)))
+ a=published_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Ancien devoir",due_date=days_from_now(20)))
  filename="a"*32+".pdf"
  path=Path(__file__).resolve().parents[1]/"uploads"/"schools"/str(o.id)/"assignments"/filename
  path.parent.mkdir(parents=True,exist_ok=True)
@@ -175,8 +177,8 @@ def test_legacy_submission_is_available_only_through_authorized_route(monkeypatc
  finally:
   path.unlink(missing_ok=True)
 
-def test_student_cannot_submit_after_deadline():
+def test_deadline_does_not_replace_the_file_check():
  db=dbx();o,t,s,se=seed(db)
- a=create_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Projet",due_date=days_from_now(-1)))
+ a=published_assignment(db,ctx(db,o,t),se.id,AssignmentCreate(title="Projet",due_date=days_from_now(-1)))
  with pytest.raises(HTTPException) as exc: submit_assignment(db,ctx(db,o,s),a.id,AssignmentSubmit(file_url="x"))
- assert exc.value.status_code==400
+ assert exc.value.status_code==422

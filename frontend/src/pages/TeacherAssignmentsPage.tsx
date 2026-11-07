@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   CheckCircle2,
   Clock3,
@@ -6,8 +6,11 @@ import {
   FileUp,
   LoaderCircle,
   MessageSquare,
+  Pencil,
   Plus,
+  Send,
   Sparkles,
+  Trash2,
   Users,
   WandSparkles,
   X,
@@ -16,13 +19,16 @@ import {
   ApiError,
   createAssignmentComment,
   createTeacherAssignment,
+  deleteTeacherAssignment,
   getSessionPlanning,
   getTeacherWorkspace,
   listAssignmentComments,
   listAssignmentSubmissions,
   listTeacherAssignments,
   openAssignmentSubmission,
+  publishTeacherAssignment,
   reviewAssignmentSubmission,
+  updateTeacherAssignment,
   type Assignment,
   type AssignmentComment,
   type AssignmentSubmission,
@@ -86,8 +92,11 @@ export function TeacherAssignmentsPage() {
   const [comments, setComments] = useState<AssignmentComment[]>([])
   const [comment, setComment] = useState('')
   const [error, setError] = useState('')
+  const formErrorRef = useRef<HTMLDivElement>(null)
   const [working, setWorking] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<Assignment | null>(null)
+  const [busyAssignmentId, setBusyAssignmentId] = useState<number | null>(null)
   const [creationMode, setCreationMode] = useState<CreationMode>('manual')
 
   const [aiConnected, setAiConnected] = useState<boolean | null>(null)
@@ -127,6 +136,11 @@ export function TeacherAssignmentsPage() {
     )
   }, [sessionId])
 
+  useEffect(() => {
+    // The form scrolls: bring a refusal into view instead of leaving it below the fold.
+    if (error) formErrorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [error])
+
   const currentSession = useMemo(
     () => workspace?.sessions.find((item) => item.session_id === sessionId) ?? null,
     [workspace, sessionId],
@@ -144,6 +158,26 @@ export function TeacherAssignmentsPage() {
     setAiObjectives('')
     setAiDurationDays(7)
     setAiAssignmentType('auto')
+  }
+
+  function openEdit(assignment: Assignment) {
+    setEditing(assignment)
+    setTitle(assignment.title)
+    setInstructions(assignment.instructions)
+    setDueDate(toDateTimeLocal(new Date(assignment.due_date)))
+    setCourseDayId(assignment.course_day_id ? String(assignment.course_day_id) : '')
+    setFinalProject(assignment.is_final_project)
+    setCreationMode('manual')
+    setError('')
+    setShowForm(true)
+  }
+
+  function closeForm() {
+    setShowForm(false)
+    if (editing) {
+      setEditing(null)
+      resetForm()
+    }
   }
 
   async function generateWithAI() {
@@ -175,27 +209,62 @@ export function TeacherAssignmentsPage() {
     }
   }
 
-  async function createAssignment(event: FormEvent) {
+  async function saveAssignment(event: FormEvent) {
     event.preventDefault()
     if (!sessionId || !dueDate || title.trim().length < 2) return
 
     setWorking(true)
     setError('')
+    const fields = {
+      title: title.trim(),
+      instructions: instructions.trim(),
+      course_day_id: courseDayId ? Number(courseDayId) : null,
+      is_final_project: finalProject,
+    }
+    const due_date = new Date(dueDate).toISOString()
     try {
-      await createTeacherAssignment(sessionId, {
-        title: title.trim(),
-        instructions: instructions.trim(),
-        due_date: new Date(dueDate).toISOString(),
-        course_day_id: courseDayId ? Number(courseDayId) : null,
-        is_final_project: finalProject,
-      })
+      if (editing) {
+        const dueDateChanged = dueDate !== toDateTimeLocal(new Date(editing.due_date))
+        await updateTeacherAssignment(editing.id, dueDateChanged ? { ...fields, due_date } : fields)
+      } else {
+        await createTeacherAssignment(sessionId, { ...fields, due_date })
+      }
       resetForm()
+      setEditing(null)
       setShowForm(false)
       await refreshSession(sessionId)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Création impossible.')
+      setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.')
     } finally {
       setWorking(false)
+    }
+  }
+
+  async function publishAssignment(assignment: Assignment) {
+    if (!sessionId) return
+    setBusyAssignmentId(assignment.id)
+    setError('')
+    try {
+      await publishTeacherAssignment(assignment.id)
+      await refreshSession(sessionId)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Publication impossible.')
+    } finally {
+      setBusyAssignmentId(null)
+    }
+  }
+
+  async function removeAssignment(assignment: Assignment) {
+    if (!sessionId || !window.confirm(`Supprimer le devoir « ${assignment.title} » ?`)) return
+    setBusyAssignmentId(assignment.id)
+    setError('')
+    try {
+      await deleteTeacherAssignment(assignment.id)
+      await refreshSession(sessionId)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Suppression impossible.')
+    } finally {
+      setBusyAssignmentId(null)
     }
   }
 
@@ -278,15 +347,39 @@ export function TeacherAssignmentsPage() {
               <div className="dsh-list-item__main">
                 <div className="teacher-assignment-title-row">
                   <strong>{assignment.title}</strong>
+                  {assignment.publication_status === 'draft' && <span className="dsh-badge dsh-badge--gray">Brouillon</span>}
                   {assignment.is_final_project && <span className="dsh-badge dsh-badge--yellow">Projet final</span>}
                 </div>
+                {assignment.publication_status === 'draft' && <span className="dsh-list-item__meta">Invisible pour les étudiants</span>}
                 <span className="dsh-list-item__meta"><Clock3 size={12} /> Date limite : {dateTime(assignment.due_date)}</span>
                 <span className="dsh-list-item__meta"><Users size={12} /> {assignment.submissions_count} soumission(s){assignment.teacher_name ? ` · Prof. ${assignment.teacher_name}` : ''}</span>
               </div>
               <div className="dsh-list-item__actions">
+                {assignment.can_manage && assignment.publication_status === 'draft' && (
+                  <button className="dsh-btn dsh-btn--primary dsh-btn--sm" type="button" disabled={busyAssignmentId === assignment.id} onClick={() => void publishAssignment(assignment)}>
+                    <Send size={13} /> {busyAssignmentId === assignment.id ? 'Publication…' : 'Publier'}
+                  </button>
+                )}
                 <button className="dsh-btn dsh-btn--outline dsh-btn--sm" type="button" onClick={() => void openSubmissions(assignment)}>
                   <Users size={13} /> Voir les soumissions
                 </button>
+                {assignment.can_manage && (
+                  <button className="dsh-icon-btn" type="button" title="Modifier" aria-label="Modifier" onClick={() => openEdit(assignment)}>
+                    <Pencil size={15} />
+                  </button>
+                )}
+                {assignment.can_manage && (
+                  <button
+                    className="dsh-icon-btn"
+                    type="button"
+                    disabled={assignment.delete_blocked_reason !== null || busyAssignmentId === assignment.id}
+                    title={assignment.delete_blocked_reason ?? 'Supprimer'}
+                    aria-label="Supprimer"
+                    onClick={() => void removeAssignment(assignment)}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             </article>
           ))}
@@ -297,17 +390,19 @@ export function TeacherAssignmentsPage() {
       </div>
 
       {showForm && currentSession && (
-        <div className="dsh-modal-overlay" onClick={() => !working && !aiGenerating && setShowForm(false)}>
-          <form className="dsh-modal dsh-modal--large teacher-create-modal" onSubmit={createAssignment} onClick={(event) => event.stopPropagation()}>
+        <div className="dsh-modal-overlay" onClick={() => !working && !aiGenerating && closeForm()}>
+          <form className="dsh-modal dsh-modal--large teacher-create-modal" onSubmit={saveAssignment} onClick={(event) => event.stopPropagation()}>
             <div className="dsh-modal__header">
-              <div><span className="section-label">{currentSession.session_label}</span><h3>Nouveau devoir</h3></div>
-              <button className="dsh-icon-btn" type="button" disabled={working || aiGenerating} onClick={() => setShowForm(false)}><X size={16} /></button>
+              <div><span className="section-label">{currentSession.session_label}</span><h3>{editing ? 'Modifier le devoir' : 'Nouveau devoir'}</h3></div>
+              <button className="dsh-icon-btn" type="button" disabled={working || aiGenerating} onClick={closeForm}><X size={16} /></button>
             </div>
 
-            <div className="teacher-create-tabs">
-              <button type="button" className={creationMode === 'manual' ? 'is-active' : ''} onClick={() => setCreationMode('manual')}>Manuel</button>
-              <button type="button" className={creationMode === 'ai' ? 'is-active' : ''} onClick={() => setCreationMode('ai')}><WandSparkles size={14} /> Avec IA</button>
-            </div>
+            {!editing && (
+              <div className="teacher-create-tabs">
+                <button type="button" className={creationMode === 'manual' ? 'is-active' : ''} onClick={() => setCreationMode('manual')}>Manuel</button>
+                <button type="button" className={creationMode === 'ai' ? 'is-active' : ''} onClick={() => setCreationMode('ai')}><WandSparkles size={14} /> Avec IA</button>
+              </div>
+            )}
 
             <div className="teacher-create-body">
               {creationMode === 'ai' && (
@@ -335,17 +430,19 @@ export function TeacherAssignmentsPage() {
               <section className="teacher-manual-fields">
                 <label>Titre<input value={title} onChange={(event) => setTitle(event.target.value)} required minLength={2} /></label>
                 <div className="teacher-form-grid two-columns">
-                  <label>Créneau de cours<select value={courseDayId} onChange={(event) => setCourseDayId(event.target.value)}><option value="">Sans créneau</option>{courseDays.filter((day) => day.can_edit).map((day) => <option key={day.id} value={day.id}>{dateTime(day.scheduled_at)} · {day.title}</option>)}</select></label>
+                  <label>Créneau de cours<select value={courseDayId} onChange={(event) => setCourseDayId(event.target.value)}><option value="">Sans créneau</option>{courseDays.filter((day) => day.can_edit || day.id === Number(courseDayId)).map((day) => <option key={day.id} value={day.id}>{dateTime(day.scheduled_at)} · {day.title}</option>)}</select></label>
                   <label>Date limite<input type="datetime-local" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required /></label>
                 </div>
                 <label>Consignes<textarea className="teacher-long-textarea" value={instructions} onChange={(event) => setInstructions(event.target.value)} /></label>
                 <label className="teacher-check-row"><input type="checkbox" checked={finalProject} onChange={(event) => setFinalProject(event.target.checked)} /> Projet final</label>
+                {editing?.publication_status === 'published' && <span className="dsh-list-item__meta">Ce devoir est publié : les étudiants seront prévenus de vos modifications.</span>}
+                {error && <div className="dsh-error" ref={formErrorRef}>{error}</div>}
               </section>
             </div>
 
             <div className="dsh-modal__footer">
-              <button className="dsh-btn dsh-btn--ghost" type="button" disabled={working} onClick={() => setShowForm(false)}>Annuler</button>
-              <button className="dsh-btn dsh-btn--primary" disabled={working || title.trim().length < 2 || !dueDate}>{working ? 'Création…' : 'Créer en brouillon'}</button>
+              <button className="dsh-btn dsh-btn--ghost" type="button" disabled={working} onClick={closeForm}>Annuler</button>
+              <button className="dsh-btn dsh-btn--primary" disabled={working || title.trim().length < 2 || !dueDate}>{working ? 'Enregistrement…' : editing ? 'Enregistrer' : 'Créer en brouillon'}</button>
             </div>
           </form>
         </div>
@@ -358,7 +455,7 @@ export function TeacherAssignmentsPage() {
             <div className="teacher-submission-list">
               {submissions.map((submission) => (
                 <article className="teacher-submission-row" key={submission.id}>
-                  <div><strong>{submission.student_name}</strong><small>{dateTime(submission.submitted_at)}</small></div>
+                  <div><strong>{submission.student_name}</strong><small>{dateTime(submission.submitted_at)}</small>{new Date(submission.submitted_at) > new Date(selected.due_date) && <span className="dsh-badge dsh-badge--red">Remis en retard</span>}</div>
                   <button className="dsh-btn dsh-btn--ghost dsh-btn--sm" type="button" onClick={() => void openAssignmentSubmission(submission.file_url).catch((cause) => setError(cause instanceof Error ? cause.message : 'Téléchargement impossible.'))}><ExternalLink size={13} /> Travail</button>
                   <div className="teacher-score-control"><input type="number" min="0" max="20" step=".5" value={scores[submission.id] ?? ''} onChange={(event) => setScores((current) => ({ ...current, [submission.id]: event.target.value }))} /><span>/20</span><button className="dsh-btn dsh-btn--outline dsh-btn--sm" type="button" onClick={() => void saveScore(submission)}>{submission.is_reviewed && <CheckCircle2 size={13} />} Enregistrer</button></div>
                   <button className="dsh-btn dsh-btn--outline dsh-btn--sm" type="button" onClick={() => void openThread(submission)}><MessageSquare size={13} /> Échanges {submission.comment_count > 0 ? `(${submission.comment_count})` : ''}</button>

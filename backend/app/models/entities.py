@@ -928,6 +928,7 @@ class AssignmentRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     course_day_id: Mapped[int | None] = mapped_column(ForeignKey("session_course_days.id", ondelete="SET NULL"), nullable=True, index=True)
     teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
+    publication_status: Mapped[str] = mapped_column(String(16), nullable=False, default="published")
     instructions: Mapped[str] = mapped_column(Text, nullable=False, default="")
     due_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_final_project: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

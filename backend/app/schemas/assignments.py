@@ -11,10 +11,18 @@ class AssignmentCreate(BaseModel):
     course_day_id:int|None=None
     is_final_project:bool=False
 
+class AssignmentUpdate(BaseModel):
+    title:str|None=Field(default=None,min_length=2,max_length=255)
+    instructions:str|None=Field(default=None,max_length=10000)
+    due_date:datetime|None=None
+    course_day_id:int|None=None
+    is_final_project:bool|None=None
+
 class AssignmentRead(BaseModel):
     id:int; session_id:int; course_day_id:int|None; teacher_id:int|None; teacher_name:str|None
-    title:str; instructions:str; due_date:datetime; is_final_project:bool
+    title:str; publication_status:Literal["draft","published"]; instructions:str; due_date:datetime; is_final_project:bool
     submissions_count:int; created_at:datetime
+    can_manage:bool; delete_blocked_reason:str|None
 
 class StudentAssignmentRead(BaseModel):
     id:int; enrollment_id:int; session_id:int; session_label:str; formation_title:str; teacher_name:str|None

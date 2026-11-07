@@ -379,6 +379,10 @@
   gap: 4px;
 }
 
+.teacher-submission-row > div:first-child .dsh-badge {
+  justify-self: start;
+}
+
 .teacher-submission-row small,
 .teacher-results-list small {
   color: #8a94a4;

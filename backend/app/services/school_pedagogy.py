@@ -89,6 +89,7 @@ def _student_row(
             select(AssignmentRecord).where(
                 AssignmentRecord.organization_id == tenant.organization_id,
                 AssignmentRecord.session_id == enrollment.session_id,
+                AssignmentRecord.publication_status == "published",
                 AssignmentRecord.due_date < datetime.now(UTC),
             )
         ).all()

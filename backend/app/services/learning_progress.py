@@ -660,6 +660,7 @@ def _assignment_stats(
             select(AssignmentRecord).where(
                 AssignmentRecord.organization_id == tenant.organization_id,
                 AssignmentRecord.session_id == enrollment.session_id,
+                AssignmentRecord.publication_status == "published",
             )
         ).all()
     )
@@ -890,6 +891,7 @@ def _badge_assignment_stats(
     for assignment in db.scalars(select(AssignmentRecord).where(
         AssignmentRecord.organization_id == tenant.organization_id,
         AssignmentRecord.session_id == enrollment.session_id,
+        AssignmentRecord.publication_status == "published",
     )).all():
         if not _linked_activity_is_published(db, tenant, "assignment", assignment.id):
             continue

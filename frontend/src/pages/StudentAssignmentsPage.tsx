@@ -159,10 +159,7 @@ export function StudentAssignmentsPage() {
         ) : (
           <div className="dsh-list">
             {items.map((assignment) => {
-              const canSubmit = !assignment.is_locked && (
-                assignment.student_status === 'pending' ||
-                assignment.student_status === 'submitted'
-              )
+              const canSubmit = !assignment.is_locked && assignment.student_status !== 'reviewed'
 
               return (
                 <article
@@ -207,7 +204,9 @@ export function StudentAssignmentsPage() {
                         onClick={() => setSubmitTarget(assignment)}
                       >
                         <FileUp size={13} />
-                        {assignment.student_status === 'submitted' ? 'Modifier' : 'Remettre'}
+                        {assignment.student_status === 'submitted'
+                          ? 'Modifier'
+                          : assignment.student_status === 'late' ? 'Remettre en retard' : 'Remettre'}
                       </button>
                     )}
                     {!assignment.is_locked && (
@@ -273,6 +272,9 @@ export function StudentAssignmentsPage() {
                 <p>{submitTarget.instructions || 'Aucune consigne supplémentaire.'}</p>
                 <h4 style={{ marginTop: 22 }}>Date limite</h4>
                 <p>{dateTime(submitTarget.due_date)}</p>
+                {submitTarget.student_status === 'late' && (
+                  <p>La date limite est passée : votre remise reste possible et sera enregistrée à sa date réelle.</p>
+                )}
               </aside>
             </div>
           </div>

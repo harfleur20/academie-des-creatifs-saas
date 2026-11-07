@@ -1559,11 +1559,22 @@ export type Assignment = {
   teacher_id: number | null
   teacher_name: string | null
   title: string
+  publication_status: 'draft' | 'published'
   instructions: string
   due_date: string
   is_final_project: boolean
   submissions_count: number
   created_at: string
+  can_manage: boolean
+  delete_blocked_reason: string | null
+}
+
+export type AssignmentPayload = {
+  title: string
+  instructions: string
+  due_date: string
+  course_day_id?: number | null
+  is_final_project?: boolean
 }
 
 export type StudentAssignmentStatus = 'pending' | 'submitted' | 'late' | 'reviewed'
@@ -1616,20 +1627,23 @@ export type AssignmentComment = {
 export const listTeacherAssignments = (sessionId: number) =>
   request<Assignment[]>('/assignments/teacher/sessions/' + sessionId)
 
-export const createTeacherAssignment = (
-  sessionId: number,
-  payload: {
-    title: string
-    instructions: string
-    due_date: string
-    course_day_id?: number | null
-    is_final_project?: boolean
-  },
-) =>
+export const createTeacherAssignment = (sessionId: number, payload: AssignmentPayload) =>
   request<Assignment>('/assignments/teacher/sessions/' + sessionId, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+
+export const updateTeacherAssignment = (assignmentId: number, payload: Partial<AssignmentPayload>) =>
+  request<Assignment>('/assignments/teacher/' + assignmentId, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+
+export const publishTeacherAssignment = (assignmentId: number) =>
+  request<Assignment>('/assignments/teacher/' + assignmentId + '/publish', { method: 'POST' })
+
+export const deleteTeacherAssignment = (assignmentId: number) =>
+  request<void>('/assignments/teacher/' + assignmentId, { method: 'DELETE' })
 
 export const listAssignmentSubmissions = (assignmentId: number) =>
   request<AssignmentSubmission[]>('/assignments/teacher/' + assignmentId + '/submissions')

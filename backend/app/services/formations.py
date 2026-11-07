@@ -52,6 +52,7 @@ from app.schemas.formations import (
     LessonRead,
     LessonVersionRead,
 )
+from app.services.assignments import release_assignment
 from app.services.membership_roles import member_has_role
 from app.services.online_formations import ensure_online_content_session
 from app.services.onboarding import get_onboarding_status
@@ -950,6 +951,7 @@ def update_course(
         for lesson in lessons:
             _validate_lesson_publication(db, tenant, lesson, session.id)
         for lesson in lessons:
+            _release_linked_assignment(db, tenant, lesson)
             if lesson.publication_status != "published":
                 _ensure_lesson_baseline(db, lesson)
                 lesson.publication_status = "published"
@@ -1114,6 +1116,11 @@ def _validate_lesson_publication(db: Session, tenant: TenantContext, lesson: Les
                 raise HTTPException(422, f"Le {kind} lié doit appartenir à cette session et être disponible.")
 
 
+def _release_linked_assignment(db: Session, tenant: TenantContext, lesson: LessonRecord) -> None:
+    if lesson.assignment_id is not None:
+        release_assignment(db, tenant.organization, _get_scoped(db, tenant, AssignmentRecord, lesson.assignment_id))
+
+
 def _lesson_for_edit(db: Session, tenant: TenantContext, formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int) -> tuple[CourseRecord, LessonRecord]:
     session = _get_scoped(db, tenant, FormationSessionRecord, session_id)
     course = _get_scoped(db, tenant, CourseRecord, course_id)
@@ -1197,6 +1204,7 @@ def update_lesson(db: Session, tenant: TenantContext, formation_id: int, session
         except HTTPException:
             db.rollback()
             raise
+        _release_linked_assignment(db, tenant, lesson)
     if old_identity != (lesson.lesson_type, lesson.video_url, lesson.file_url, lesson.quiz_id, lesson.assignment_id, lesson.resource_id):
         db.execute(delete(LessonProgressRecord).where(LessonProgressRecord.organization_id == tenant.organization_id, LessonProgressRecord.lesson_id == lesson.id))
     if old_identity[:2] != (lesson.lesson_type, lesson.video_url):
@@ -1212,6 +1220,7 @@ def publish_lesson(db: Session, tenant: TenantContext, formation_id: int, sessio
     if course.status != "published":
         raise HTTPException(409, "Publiez d'abord le cours parent.")
     _validate_lesson_publication(db, tenant, lesson, session_id)
+    _release_linked_assignment(db, tenant, lesson)
     if lesson.publication_status != "published":
         _ensure_lesson_baseline(db, lesson)
         lesson.publication_status = "published"

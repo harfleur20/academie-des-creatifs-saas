@@ -1,8 +1,9 @@
 from datetime import UTC, datetime, time
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import HTTPException
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
-from app.models.entities import AssignmentCommentRecord, AssignmentRecord, AssignmentSubmissionRecord, EnrollmentRecord, FormationRecord, FormationSessionRecord, GradeRecord, SessionCourseDayRecord, SessionTeacherRecord, UserRecord
+from app.models.entities import AssignmentCommentRecord, AssignmentRecord, AssignmentSubmissionRecord, EnrollmentRecord, FormationRecord, FormationSessionRecord, GradeRecord, LessonRecord, OrganizationRecord, SessionCourseDayRecord, SessionTeacherRecord, UserRecord
 from app.schemas.assignments import *
 from app.services.grades import upsert_grade
 from app.services.assets import validate_submission_asset
@@ -25,14 +26,47 @@ def _assignment(db,tenant,aid):
     a=db.scalar(select(AssignmentRecord).where(AssignmentRecord.id==aid,AssignmentRecord.organization_id==tenant.organization_id))
     if not a: raise HTTPException(404,"Devoir introuvable.")
     return a
+def _published_assignment(db,tenant,aid):
+    a=_assignment(db,tenant,aid)
+    if a.publication_status!="published": raise HTTPException(404,"Devoir introuvable.")
+    return a
+def _owned_assignment(db,tenant,aid):
+    a=_assignment(db,tenant,aid)
+    if tenant.support_mode: raise HTTPException(403,"Le mode support est en lecture seule.")
+    if not _teacher_assigned(db,tenant,a.session_id): raise HTTPException(403,"Cette session ne vous est pas affectée.")
+    if a.teacher_id!=tenant.user.id: raise HTTPException(403,"Ce devoir appartient à un autre professeur. Vous pouvez le consulter, mais pas le modifier.")
+    return a
+def _own_course_day(db,tenant,sid,day_id):
+    day=db.scalar(select(SessionCourseDayRecord).where(SessionCourseDayRecord.id==day_id,SessionCourseDayRecord.organization_id==tenant.organization_id,SessionCourseDayRecord.session_id==sid))
+    if not day: raise HTTPException(422,"Le créneau ne correspond pas à cette session.")
+    if day.teacher_id!=tenant.user.id: raise HTTPException(403,"Vous ne pouvez rattacher un devoir qu'à l'un de vos créneaux.")
+    return day
+def _check_due_date(s,day,due_date):
+    if day and _utc(due_date)<_utc(day.scheduled_at): raise HTTPException(422,"La date limite doit être postérieure au créneau.")
+    start=datetime.combine(s.start_date,time.min); end=datetime.combine(s.end_date,time.max)
+    due=_utc(due_date)
+    if due<start or due>end: raise HTTPException(422,"La date limite doit rester dans les dates de la session.")
+def _delete_blocked_reason(db,a):
+    if db.scalar(select(LessonRecord.id).where(LessonRecord.organization_id==a.organization_id,LessonRecord.assignment_id==a.id)) is not None:
+        return "Un devoir associé à une leçon ne peut pas être supprimé."
+    if db.scalar(select(AssignmentSubmissionRecord.id).where(AssignmentSubmissionRecord.organization_id==a.organization_id,AssignmentSubmissionRecord.assignment_id==a.id)) is not None:
+        return "Un devoir avec des travaux remis ne peut pas être supprimé."
+    return None
 def _count_comments(db,a,e): return int(db.scalar(select(func.count(AssignmentCommentRecord.id)).where(AssignmentCommentRecord.assignment_id==a,AssignmentCommentRecord.enrollment_id==e)) or 0)
 def _teacher_name(db,a): return db.get(UserRecord,a.teacher_id).full_name if a.teacher_id and db.get(UserRecord,a.teacher_id) else None
 def _formation_title(db,sid):
     row=db.execute(select(FormationRecord.title).join(FormationSessionRecord,FormationSessionRecord.formation_id==FormationRecord.id).where(FormationSessionRecord.id==sid)).scalar_one_or_none()
     return row or ""
 def _session_label(db,sid): return db.get(FormationSessionRecord,sid).label
-def _teacher_view(db,a):
-    return AssignmentRead(id=a.id,session_id=a.session_id,course_day_id=a.course_day_id,teacher_id=a.teacher_id,teacher_name=_teacher_name(db,a),title=a.title,instructions=a.instructions,due_date=a.due_date,is_final_project=a.is_final_project,submissions_count=int(db.scalar(select(func.count(AssignmentSubmissionRecord.id)).where(AssignmentSubmissionRecord.assignment_id==a.id)) or 0),created_at=a.created_at)
+def _teacher_view(db,tenant,a):
+    return AssignmentRead(id=a.id,session_id=a.session_id,course_day_id=a.course_day_id,teacher_id=a.teacher_id,teacher_name=_teacher_name(db,a),title=a.title,publication_status=a.publication_status,instructions=a.instructions,due_date=a.due_date,is_final_project=a.is_final_project,submissions_count=int(db.scalar(select(func.count(AssignmentSubmissionRecord.id)).where(AssignmentSubmissionRecord.assignment_id==a.id)) or 0),created_at=a.created_at,can_manage=a.teacher_id==tenant.user.id and not tenant.support_mode,delete_blocked_reason=_delete_blocked_reason(db,a))
+def due_date_label(org:OrganizationRecord,due_date:datetime)->str:
+    """Show a deadline in the school's time zone, as students read it."""
+    try: zone=ZoneInfo(org.timezone or "UTC")
+    except (ZoneInfoNotFoundError,ValueError): zone=UTC
+    return current_utc(due_date).astimezone(zone).strftime("%d/%m/%Y %H:%M")
+def _event_context(db,a):
+    return {"assignment_title":a.title,"session_label":_session_label(db,a.session_id),"due_at":due_date_label(db.get(OrganizationRecord,a.organization_id),a.due_date)}
 def _student_view(db,a,e,s,now):
     status = "reviewed" if s and s.is_reviewed else "submitted" if s else "late" if _utc(now) > _utc(a.due_date) else "pending"
     session = db.get(FormationSessionRecord, a.session_id)
@@ -72,62 +106,80 @@ def _student_view(db,a,e,s,now):
         comment_count=_count_comments(db, a.id, e.id),
     )
 
-def _student_assignment_open(db,tenant,a,now=None):
-    session = _session(db, tenant, a.session_id)
-    formation = db.get(FormationRecord, session.formation_id)
+def assignment_open_for_students(db,session,formation,a,*,now=None):
     day = db.get(SessionCourseDayRecord, a.course_day_id) if a.course_day_id else None
     linked_gate = linked_lesson_gate(db, formation, session, "assignment", a.id, now=now)
     return guided_activity_available(formation, session, day=day, now=now) and (linked_gate is None or linked_gate[1])
 
+def _student_assignment_open(db,tenant,a,now=None):
+    session = _session(db, tenant, a.session_id)
+    return assignment_open_for_students(db, session, db.get(FormationRecord, session.formation_id), a, now=now)
+
 def list_teacher_assignments(db:Session,tenant:TenantContext,sid:int):
     _session(db,tenant,sid)
     if not _teacher_assigned(db,tenant,sid): raise HTTPException(403,"Cette session ne vous est pas affectée.")
-    return [_teacher_view(db,a) for a in db.scalars(select(AssignmentRecord).where(AssignmentRecord.organization_id==tenant.organization_id,AssignmentRecord.session_id==sid).order_by(AssignmentRecord.due_date)).all()]
+    return [_teacher_view(db,tenant,a) for a in db.scalars(select(AssignmentRecord).where(AssignmentRecord.organization_id==tenant.organization_id,AssignmentRecord.session_id==sid).order_by(AssignmentRecord.due_date)).all()]
 
 def create_assignment(db:Session,tenant:TenantContext,sid:int,p:AssignmentCreate):
     s=_session(db,tenant,sid)
     if not _teacher_assigned(db,tenant,sid): raise HTTPException(403,"Cette session ne vous est pas affectée.")
     if s.status in {"cancelled","completed"}: raise HTTPException(409,"Cette session n'accepte plus de nouveaux devoirs.")
+    day=_own_course_day(db,tenant,sid,p.course_day_id) if p.course_day_id else None
+    _check_due_date(s,day,p.due_date)
+    a=AssignmentRecord(organization_id=tenant.organization_id,session_id=sid,course_day_id=p.course_day_id,teacher_id=tenant.user.id,title=p.title.strip(),publication_status="draft",instructions=p.instructions.strip(),due_date=p.due_date,is_final_project=p.is_final_project)
+    db.add(a); db.commit(); db.refresh(a); return _teacher_view(db,tenant,a)
+
+def release_assignment(db:Session,org:OrganizationRecord,a:AssignmentRecord):
+    """Make a draft visible to the students and tell them, only the first time."""
+    if a.publication_status=="published": return
+    a.publication_status="published"
+    queue_session_students_event(db,org=org,session_id=a.session_id,event_key="student.assignment.created",context=_event_context(db,a))
+
+def publish_assignment(db:Session,tenant:TenantContext,aid:int):
+    a=_owned_assignment(db,tenant,aid)
+    if _session(db,tenant,a.session_id).status in {"cancelled","completed"}: raise HTTPException(409,"Cette session n'accepte plus de nouveaux devoirs.")
+    release_assignment(db,tenant.organization,a)
+    db.commit(); db.refresh(a); return _teacher_view(db,tenant,a)
+
+def update_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentUpdate):
+    a=_owned_assignment(db,tenant,aid)
+    s=_session(db,tenant,a.session_id)
+    day_id=p.course_day_id if "course_day_id" in p.model_fields_set else a.course_day_id
+    due=p.due_date or a.due_date
+    day_changed=day_id!=a.course_day_id
     day=None
-    if p.course_day_id:
-        day=db.scalar(select(SessionCourseDayRecord).where(SessionCourseDayRecord.id==p.course_day_id,SessionCourseDayRecord.organization_id==tenant.organization_id,SessionCourseDayRecord.session_id==sid))
-        if not day: raise HTTPException(422,"Le créneau ne correspond pas à cette session.")
-        if day.teacher_id!=tenant.user.id: raise HTTPException(403,"Vous ne pouvez rattacher un devoir qu'à l'un de vos créneaux.")
-        if _utc(p.due_date)<_utc(day.scheduled_at): raise HTTPException(422,"La date limite doit être postérieure au créneau.")
-    start=datetime.combine(s.start_date,time.min); end=datetime.combine(s.end_date,time.max)
-    due=_utc(p.due_date)
-    if due<start or due>end: raise HTTPException(422,"La date limite doit rester dans les dates de la session.")
-    a=AssignmentRecord(organization_id=tenant.organization_id,session_id=sid,course_day_id=p.course_day_id,teacher_id=tenant.user.id,title=p.title.strip(),instructions=p.instructions.strip(),due_date=p.due_date,is_final_project=p.is_final_project)
-    db.add(a); db.flush()
-    queue_session_students_event(
-        db,
-        org=tenant.organization,
-        session_id=sid,
-        event_key="student.assignment.created",
-        context={
-            "assignment_title": a.title,
-            "session_label": s.label,
-            "due_at": a.due_date.strftime("%d/%m/%Y %H:%M"),
-        },
-    )
-    db.commit(); db.refresh(a); return _teacher_view(db,a)
+    if day_id: day=_own_course_day(db,tenant,a.session_id,day_id) if day_changed else db.get(SessionCourseDayRecord,day_id)
+    if day_changed or _utc(due)!=_utc(a.due_date): _check_due_date(s,day,due)
+    before=(a.title,a.instructions,_utc(a.due_date),a.course_day_id,a.is_final_project)
+    if p.title is not None: a.title=p.title.strip()
+    if p.instructions is not None: a.instructions=p.instructions.strip()
+    if p.is_final_project is not None: a.is_final_project=p.is_final_project
+    a.course_day_id=day_id; a.due_date=due
+    if a.publication_status=="published" and before!=(a.title,a.instructions,_utc(a.due_date),a.course_day_id,a.is_final_project):
+        queue_session_students_event(db,org=tenant.organization,session_id=a.session_id,event_key="student.assignment.updated",context=_event_context(db,a))
+    db.commit(); db.refresh(a); return _teacher_view(db,tenant,a)
+
+def delete_assignment(db:Session,tenant:TenantContext,aid:int):
+    a=_owned_assignment(db,tenant,aid)
+    reason=_delete_blocked_reason(db,a)
+    if reason: raise HTTPException(409,reason)
+    db.delete(a); db.commit()
 
 def list_student_assignments(db:Session,tenant:TenantContext):
     if not tenant.has_role("student"): raise HTTPException(403,"Accès étudiant requis.")
     ens=list(db.scalars(select(EnrollmentRecord).where(EnrollmentRecord.organization_id==tenant.organization_id,EnrollmentRecord.student_id==tenant.user.id,EnrollmentRecord.status.in_(["active","completed"]))).all())
     now=datetime.now(UTC); out=[]
     for e in ens:
-        for a in db.scalars(select(AssignmentRecord).where(AssignmentRecord.organization_id==tenant.organization_id,AssignmentRecord.session_id==e.session_id).order_by(AssignmentRecord.due_date)).all():
+        for a in db.scalars(select(AssignmentRecord).where(AssignmentRecord.organization_id==tenant.organization_id,AssignmentRecord.session_id==e.session_id,AssignmentRecord.publication_status=="published").order_by(AssignmentRecord.due_date)).all():
             sub=db.scalar(select(AssignmentSubmissionRecord).where(AssignmentSubmissionRecord.organization_id==tenant.organization_id,AssignmentSubmissionRecord.assignment_id==a.id,AssignmentSubmissionRecord.enrollment_id==e.id))
             out.append(_student_view(db,a,e,sub,now))
     return sorted(out,key=lambda x:x.due_date)
 
 def submit_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentSubmit):
-    a=_assignment(db,tenant,aid); e=_enrollment(db,tenant,a.session_id)
+    a=_published_assignment(db,tenant,aid); e=_enrollment(db,tenant,a.session_id)
     if not e: raise HTTPException(403,"Vous n'êtes pas inscrit à cette session.")
     now=datetime.now(UTC)
     if not _student_assignment_open(db,tenant,a,now): raise HTTPException(409,"Ce devoir n'est pas encore disponible.")
-    if _utc(now)>_utc(a.due_date): raise HTTPException(400,"La date limite de remise est dépassée.")
     validate_submission_asset(p.file_url, tenant.organization_id, tenant.user.id)
     sub=db.scalar(select(AssignmentSubmissionRecord).where(AssignmentSubmissionRecord.organization_id==tenant.organization_id,AssignmentSubmissionRecord.assignment_id==aid,AssignmentSubmissionRecord.enrollment_id==e.id))
     if sub:
@@ -217,15 +269,19 @@ def _thread_access(db,tenant,a,enrollment_id):
         return "teacher"
     raise HTTPException(403,"Accès refusé.")
 
+def _require_student_thread_open(db,tenant,a):
+    if a.publication_status!="published": raise HTTPException(404,"Devoir introuvable.")
+    if not _student_assignment_open(db,tenant,a): raise HTTPException(409,"Ce devoir n'est pas encore disponible.")
+
 def list_comments(db,tenant,aid,enrollment_id):
     a=_assignment(db,tenant,aid); role=_thread_access(db,tenant,a,enrollment_id)
-    if role=="student" and not _student_assignment_open(db,tenant,a): raise HTTPException(409,"Ce devoir n'est pas encore disponible.")
+    if role=="student": _require_student_thread_open(db,tenant,a)
     rows=db.scalars(select(AssignmentCommentRecord).where(AssignmentCommentRecord.organization_id==tenant.organization_id,AssignmentCommentRecord.assignment_id==aid,AssignmentCommentRecord.enrollment_id==enrollment_id).order_by(AssignmentCommentRecord.created_at)).all()
     return [CommentRead(id=x.id,assignment_id=aid,enrollment_id=enrollment_id,author_role=x.author_role,author_name=(db.get(UserRecord,x.author_user_id).full_name if db.get(UserRecord,x.author_user_id) else "—"),body=x.body,attachment_url=x.attachment_url,created_at=x.created_at) for x in rows]
 
 def add_comment(db,tenant,aid,enrollment_id,p:CommentCreate):
     a=_assignment(db,tenant,aid); role=_thread_access(db,tenant,a,enrollment_id)
-    if role=="student" and not _student_assignment_open(db,tenant,a): raise HTTPException(409,"Ce devoir n'est pas encore disponible.")
+    if role=="student": _require_student_thread_open(db,tenant,a)
     if not p.body.strip() and not p.attachment_url: raise HTTPException(422,"Ajoutez un message ou une pièce jointe.")
     x=AssignmentCommentRecord(organization_id=tenant.organization_id,assignment_id=aid,enrollment_id=enrollment_id,author_user_id=tenant.user.id,author_role=role,body=p.body.strip(),attachment_url=p.attachment_url)
     db.add(x); db.commit(); db.refresh(x); return list_comments(db,tenant,aid,enrollment_id)[-1]
