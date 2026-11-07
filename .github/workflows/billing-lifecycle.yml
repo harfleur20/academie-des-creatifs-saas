@@ -27,6 +27,17 @@ jobs:
             -H "X-Billing-Cron-Secret: $BILLING_CRON_SECRET" \
             "$BILLING_CRON_URL/api/v1/billing/internal/lifecycle"
 
+      - name: Apply student payment lifecycle
+        if: ${{ always() && env.BILLING_CRON_URL != '' && env.BILLING_CRON_SECRET != '' }}
+        run: |
+          curl --fail --silent --show-error \
+            --max-time 30 \
+            --retry 2 \
+            --retry-delay 5 \
+            -X POST \
+            -H "X-Billing-Cron-Secret: $BILLING_CRON_SECRET" \
+            "$BILLING_CRON_URL/api/v1/commerce/internal/lifecycle"
+
       - name: Send assignment reminders
         if: ${{ always() && env.BILLING_CRON_URL != '' && env.BILLING_CRON_SECRET != '' }}
         run: |
