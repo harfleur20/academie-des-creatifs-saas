@@ -2059,7 +2059,7 @@ export type StudentBadge = {
   grade_average_pct: number | null
   final_project_validated: boolean
   missing_requirements: string[]
-  next_level_progress_pct: number | null
+  ring_pct: number
 }
 
 export type StudentProgress = {
@@ -2114,7 +2114,7 @@ export type StudentClass = {
     avatar_url: string | null
     student_code: string | null
     is_current_user: boolean
-    badge: StudentBadge
+    badge: Pick<StudentBadge, 'level' | 'label' | 'ring_pct'>
   }>
 }
 

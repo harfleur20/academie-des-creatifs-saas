@@ -176,3 +176,14 @@ def level_readiness_pct(level: str, stats: BadgeStats) -> float:
     """Average advancement of a level's criteria: it never grants the level by itself."""
     criteria = _criteria(level, stats)
     return round(sum(item.ratio for item in criteria) / len(criteria) * 100, 1)
+
+
+def badge_ring_pct(level: str, next_level: str | None, stats: BadgeStats) -> float:
+    """Progress shown around the badge, capped so that only a real award reaches 100 %."""
+    if next_level is None:
+        return 100.0
+    if stats.guided:
+        return min(99.0, level_readiness_pct(next_level, stats))
+    start = 0.0 if level == "aventurier" else LEVEL_RULES[level]["score"]
+    end = LEVEL_RULES[next_level]["score"]
+    return max(0.0, min(99.0, round((badge_score(stats) - start) / (end - start) * 100)))

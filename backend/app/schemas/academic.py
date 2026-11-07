@@ -236,8 +236,11 @@ class StudentAttendanceRead(BaseModel):
     status: Literal["present", "absent", "excused"] | None
 
 
+BadgeLevel = Literal["aventurier", "debutant", "intermediaire", "semi_pro", "professionnel"]
+
+
 class BadgeRead(BaseModel):
-    level: Literal["aventurier", "debutant", "intermediaire", "semi_pro", "professionnel"]
+    level: BadgeLevel
     label: str
     score_pct: float
     next_level: str | None
@@ -248,7 +251,15 @@ class BadgeRead(BaseModel):
     grade_average_pct: float | None
     final_project_validated: bool
     missing_requirements: list[str] = []
-    next_level_progress_pct: float | None = None
+    ring_pct: float = 0.0
+
+
+class ClassmateBadgeRead(BaseModel):
+    """What a student may see of a classmate's badge: no score, grade or attendance."""
+
+    level: BadgeLevel
+    label: str
+    ring_pct: float
 
 
 class ProgressRead(BaseModel):
@@ -276,7 +287,7 @@ class ClassmateRead(BaseModel):
     avatar_url: str | None
     student_code: str | None
     is_current_user: bool
-    badge: BadgeRead
+    badge: ClassmateBadgeRead
 
 
 class StudentClassRead(BaseModel):

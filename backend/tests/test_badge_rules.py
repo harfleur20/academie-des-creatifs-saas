@@ -24,7 +24,14 @@ from app.models.entities import (
     SessionTeacherRecord,
     UserRecord,
 )
-from app.services.badge_rules import BadgeStats, badge_level, badge_score, level_readiness_pct, missing_requirements
+from app.services.badge_rules import (
+    BadgeStats,
+    badge_level,
+    badge_ring_pct,
+    badge_score,
+    level_readiness_pct,
+    missing_requirements,
+)
 from app.services.class_certificates import list_student_classes
 from app.services.grades import grade_average_pct
 from app.services.learning_progress import badge_for_enrollment
@@ -272,15 +279,34 @@ def test_every_final_project_must_be_validated():
     assert badge_for_enrollment(db, tenant, enrollment).final_project_validated is True
 
 
-def test_classmates_do_not_see_what_another_student_is_missing():
-    db, org, _teacher, student, classmate, _session, _enrollment = school()
-    add_assignment(db, org, _session, _teacher)
+def test_class_page_only_exposes_the_badge_of_classmates():
+    db, org, teacher, student, classmate, session, _enrollment = school()
+    add_assignment(db, org, session, teacher)
+    db.add(GradeRecord(
+        organization_id=org.id, session_id=session.id, enrollment_id=_enrollment.id,
+        source_type="assignment", source_id=1, label="Devoir : TP", score=12, max_score=20,
+    ))
     db.commit()
-    classmates = list_student_classes(db, tenant_for(db, org, student))[0].classmates
-    mine = next(item for item in classmates if item.user_id == student.id)
-    theirs = next(item for item in classmates if item.user_id == classmate.id)
-    assert mine.badge.missing_requirements
-    assert theirs.badge.missing_requirements == []
+    classmates = list_student_classes(db, tenant_for(db, org, classmate))[0].classmates
+    theirs = next(item for item in classmates if item.user_id == student.id)
+    assert set(theirs.badge.model_dump()) == {"level", "label", "ring_pct"}
+    assert theirs.badge.level == "aventurier"
+
+
+@pytest.mark.parametrize("score, ring", [(60.0, 40.0), (74.9, 99.0)])
+def test_classic_ring_follows_the_score_between_two_levels(score, ring):
+    lessons = int(score * 10)
+    stats = replace(
+        COMPLETE, guided=False, format_type="ligne", total_lessons=1000, completed_lessons=lessons,
+        lesson_progress_pct=score, total_assignments=0, submitted_assignments=0, validated_assignments=0,
+        total_quizzes=0, attempted_quizzes=0, passed_quizzes=0, attendance_total=0, attendance_present=0,
+    )
+    assert badge_ring_pct("intermediaire", "semi_pro", stats) == ring
+
+
+def test_guided_ring_never_reaches_a_full_circle_before_the_award():
+    assert badge_ring_pct("semi_pro", "professionnel", replace(COMPLETE, professional_eligible=False)) < 100
+    assert badge_ring_pct("professionnel", None, COMPLETE) == 100
 
 
 def test_session_not_started_explains_the_empty_badge():

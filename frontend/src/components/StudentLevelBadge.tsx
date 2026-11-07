@@ -19,18 +19,8 @@ export function badgeLevelNumber(level?: BadgeLevel | null) {
   return LEVELS.indexOf(level || 'aventurier') + 1
 }
 
-export function badgeRingPercent(badge: StudentBadge) {
-  const thresholds: Record<BadgeLevel, [number, number]> = {
-    aventurier: [0, 25],
-    debutant: [25, 50],
-    intermediaire: [50, 75],
-    semi_pro: [75, 90],
-    professionnel: [90, 100],
-  }
-  if (!badge.next_level) return 100
-  if (badge.next_level_progress_pct !== null) return Math.min(99, Math.round(badge.next_level_progress_pct))
-  const [start, end] = thresholds[badge.level]
-  return Math.max(0, Math.min(99, Math.round((badge.score_pct - start) / (end - start) * 100)))
+export function badgeRingPercent(badge: Pick<StudentBadge, 'ring_pct'>) {
+  return Math.round(badge.ring_pct)
 }
 
 function nextBadgeLevel(level: BadgeLevel) {

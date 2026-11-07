@@ -51,8 +51,8 @@ from app.services.academic_access import (
 from app.services.badge_rules import (
     BadgeStats,
     badge_level,
+    badge_ring_pct,
     badge_score,
-    level_readiness_pct,
     missing_requirements,
     quiz_mastery_pct,
 )
@@ -992,7 +992,7 @@ def badge_for_enrollment(
         grade_average_pct=grade_pct,
         final_project_validated=final_valid,
         missing_requirements=missing_requirements(next_level, stats) if next_level else [],
-        next_level_progress_pct=level_readiness_pct(next_level, stats) if guided and next_level else None,
+        ring_pct=badge_ring_pct(level, next_level, stats),
     )
 
 

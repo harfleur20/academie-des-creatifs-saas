@@ -24,9 +24,9 @@ from app.models.entities import (
     UserRecord,
 )
 from app.schemas.academic import (
-    BadgeRead,
     CertificateEligibilityRead,
     CertificateRead,
+    ClassmateBadgeRead,
     ClassmateRead,
     DiscussionAuthorRead,
     DiscussionCreate,
@@ -72,11 +72,9 @@ def _author(
     )
 
 
-def _classmate_badge(db: Session, tenant: TenantContext, enrollment: EnrollmentRecord) -> BadgeRead:
+def _classmate_badge(db: Session, tenant: TenantContext, enrollment: EnrollmentRecord) -> ClassmateBadgeRead:
     badge = badge_for_enrollment(db, tenant, enrollment)
-    if enrollment.student_id == tenant.user.id:
-        return badge
-    return badge.model_copy(update={"missing_requirements": []})
+    return ClassmateBadgeRead(level=badge.level, label=badge.label, ring_pct=badge.ring_pct)
 
 
 def list_student_classes(
