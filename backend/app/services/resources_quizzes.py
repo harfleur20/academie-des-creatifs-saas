@@ -47,8 +47,22 @@ from app.services.school_notifications import notify_session_students
 from app.services.tenancy import TenantContext
 
 
-MAX_QUIZ_ATTEMPTS = 3
+QUIZ_ATTEMPTS_PER_CYCLE = 3
 QUIZ_RETRY_HOURS = 8
+
+
+def quiz_attempt_gate(attempts: list[QuizAttemptRecord], now: datetime) -> tuple[int, datetime | None]:
+    """Return the tries left and the end of the wait for a quiz not yet passed.
+
+    As on the mother site, every quiz gives three tries per cycle. After the third
+    failure of a cycle, the student waits eight hours, then a new cycle of three starts.
+    """
+    used = len(attempts) % QUIZ_ATTEMPTS_PER_CYCLE
+    if attempts and used == 0:
+        unlock_at = current_utc(attempts[-1].submitted_at) + timedelta(hours=QUIZ_RETRY_HOURS)
+        if now < unlock_at:
+            return 0, unlock_at
+    return QUIZ_ATTEMPTS_PER_CYCLE - used, None
 
 
 def _teacher_name(db: Session, teacher_id: int | None) -> str | None:
@@ -408,28 +422,12 @@ def _student_quiz_view(
         pdf_reading_locked = pdf_reading_pct < PDF_READING_PCT
         activity_open = activity_open and not pdf_reading_locked
     locked = not activity_open or quiz.status != "active"
-    next_attempt_available_at = None
-    if not passed and pdf_lesson is not None and attempts and len(attempts) % MAX_QUIZ_ATTEMPTS == 0:
-        next_attempt_available_at = current_utc(attempts[-1].submitted_at) + timedelta(hours=QUIZ_RETRY_HOURS)
-        if now >= next_attempt_available_at:
-            next_attempt_available_at = None
-    elif not passed and pdf_lesson is None and len(attempts) == 2:
-        next_attempt_available_at = current_utc(attempts[-1].submitted_at) + timedelta(hours=QUIZ_RETRY_HOURS)
-        if now >= next_attempt_available_at:
-            next_attempt_available_at = None
-    if passed or next_attempt_available_at is not None:
-        attempts_remaining = 0
-    elif pdf_lesson is not None:
-        attempts_remaining = MAX_QUIZ_ATTEMPTS - len(attempts) % MAX_QUIZ_ATTEMPTS
-    else:
-        attempts_remaining = max(0, MAX_QUIZ_ATTEMPTS - len(attempts))
+    attempts_remaining, next_attempt_available_at = (0, None) if passed else quiz_attempt_gate(attempts, now)
     can_attempt = (
         quiz.status == "active"
         and scheduled_open
         and activity_open
-        and not passed
-        and (pdf_lesson is not None or len(attempts) < MAX_QUIZ_ATTEMPTS)
-        and next_attempt_available_at is None
+        and attempts_remaining > 0
     )
     return StudentQuizRead(
         id=quiz.id,
@@ -460,6 +458,8 @@ def _student_quiz_view(
                 attempt_number=item.attempt_number,
                 score_pct=item.score_pct,
                 submitted_at=item.submitted_at,
+                submitted_answers=[int(answer) for answer in (item.answers or []) if isinstance(answer, int | float)],
+                correct_answers=[question.correct_index for question in quiz.questions],
             )
             for item in attempts
         ],

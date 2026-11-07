@@ -1848,6 +1848,8 @@ export type QuizAttempt = {
   attempt_number: number
   score_pct: number
   submitted_at: string
+  submitted_answers: number[]
+  correct_answers: number[]
 }
 
 export type StudentQuiz = {

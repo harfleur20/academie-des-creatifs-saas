@@ -349,14 +349,16 @@ def test_linked_quiz_lesson_opens_on_schedule_and_completes_after_success() -> N
     assert manual.value.status_code == 400
     submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[0]))
     second = submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[0]))
-    assert second.can_attempt is False
-    assert second.next_attempt_available_at is not None
+    assert second.can_attempt is True and second.attempts_remaining == 1
+    third = submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[0]))
+    assert third.can_attempt is False
+    assert third.next_attempt_available_at is not None
     with pytest.raises(HTTPException) as retry:
         submit_quiz_attempt(db, student_tenant, quiz.id, QuizAttemptPayload(answers=[1]))
     assert retry.value.status_code == 409
     attempt = db.scalar(select(QuizAttemptRecord).where(
         QuizAttemptRecord.quiz_id == quiz.id, QuizAttemptRecord.enrollment_id == enrollment.id,
-        QuizAttemptRecord.attempt_number == 2,
+        QuizAttemptRecord.attempt_number == 3,
     ))
     attempt.submitted_at = datetime.now(UTC) - timedelta(hours=9)
     db.commit()
@@ -771,7 +773,7 @@ def test_pdf_lesson_requires_real_page_reading_before_quiz_completion() -> None:
         ))
         lesson_id = detail.sessions[0].courses[0].chapters[0].lessons[-1].id
         publish_lesson(db, teacher_tenant, session.formation_id, session.id, course.id, chapter.id, lesson_id)
-        assert db.get(QuizRecord, quiz.id).pass_pct == 70
+        assert db.get(QuizRecord, quiz.id).pass_pct == 80
         assert pdf_bytes(db, student_tenant, lesson_id) == raw.getvalue()
         assert read_pdf_progress(db, student_tenant, lesson_id)["viewed_pct"] == 0
         locked_quiz = list_student_quizzes(db, student_tenant)[0]

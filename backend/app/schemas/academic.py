@@ -3,6 +3,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# As on the mother site, a quiz is passed at 80 % at least, PDF validation quizzes included.
+QUIZ_PASS_PCT = 80.0
+
 
 class ResourceCreate(BaseModel):
     title: str = Field(min_length=2, max_length=255)
@@ -50,7 +53,7 @@ class QuizCreate(BaseModel):
     duration_minutes: int | None = Field(default=None, ge=5, le=360)
     scheduled_at: datetime | None = None
     course_day_id: int | None = None
-    pass_pct: float = Field(default=80, ge=0, le=100)
+    pass_pct: float = Field(default=QUIZ_PASS_PCT, ge=QUIZ_PASS_PCT, le=100)
     questions: list[QuizQuestionCreate] = Field(min_length=1, max_length=100)
 
 
@@ -95,6 +98,9 @@ class QuizAttemptRead(BaseModel):
     attempt_number: int
     score_pct: float
     submitted_at: datetime
+    # The student's own correction, as on the mother site: one entry per question, -1 when unanswered.
+    submitted_answers: list[int] = Field(default_factory=list)
+    correct_answers: list[int] = Field(default_factory=list)
 
 
 class StudentQuizRead(BaseModel):

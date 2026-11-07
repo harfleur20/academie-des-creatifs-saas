@@ -30,6 +30,7 @@ from app.models.entities import (
     StudentOrderRecord,
     UserRecord,
 )
+from app.schemas.academic import QUIZ_PASS_PCT
 from app.schemas.formations import (
     ChapterCreate,
     CourseCreate,
@@ -1093,7 +1094,7 @@ def _validate_lesson_links(
         quiz = _get_scoped(db, tenant, QuizRecord, payload.quiz_id)
         if quiz is None or len(quiz.questions) != 20:
             raise HTTPException(422, "Le quiz de validation PDF doit contenir exactement 20 questions.")
-        quiz.pass_pct = 70
+        quiz.pass_pct = QUIZ_PASS_PCT
         quiz.status = "active"
 
 
