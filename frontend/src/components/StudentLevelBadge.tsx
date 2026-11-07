@@ -28,6 +28,7 @@ export function badgeRingPercent(badge: StudentBadge) {
     professionnel: [90, 100],
   }
   if (!badge.next_level) return 100
+  if (badge.next_level_progress_pct !== null) return Math.min(99, Math.round(badge.next_level_progress_pct))
   const [start, end] = thresholds[badge.level]
   return Math.max(0, Math.min(99, Math.round((badge.score_pct - start) / (end - start) * 100)))
 }

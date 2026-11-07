@@ -247,6 +247,8 @@ class BadgeRead(BaseModel):
     attendance_pct: float | None
     grade_average_pct: float | None
     final_project_validated: bool
+    missing_requirements: list[str] = []
+    next_level_progress_pct: float | None = None
 
 
 class ProgressRead(BaseModel):

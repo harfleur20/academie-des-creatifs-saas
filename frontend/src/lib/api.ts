@@ -2058,6 +2058,8 @@ export type StudentBadge = {
   attendance_pct: number | null
   grade_average_pct: number | null
   final_project_validated: boolean
+  missing_requirements: string[]
+  next_level_progress_pct: number | null
 }
 
 export type StudentProgress = {

@@ -1011,7 +1011,8 @@ def test_badge_weights_standard_assignments_and_final_project_separately() -> No
     assert progress.total_assignments == 2
     assert progress.badge.assignment_progress_pct == 100
     assert progress.badge.final_project_validated is False
-    assert progress.badge.score_pct == 23.3
+    # A submitted but unreviewed TP weighs 40 %, then 70 % of production next to the final project.
+    assert progress.badge.score_pct == 9.3
 
 
 def test_badge_quiz_mastery_requires_eighty_percent() -> None:

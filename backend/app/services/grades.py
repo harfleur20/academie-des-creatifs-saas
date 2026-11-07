@@ -64,10 +64,13 @@ def grade_average_pct(db: Session, *, organization_id: int, enrollment_id: int) 
             )
         ).all()
     )
+    # Quiz mastery has its own badge measure: counting its automatic grade here
+    # would reward the same proof twice. Exams stay in the average.
     values = [
         (row.score / row.max_score) * 100
         for row in rows
         if row.max_score and row.max_score > 0
+        and not (row.source_type == "quiz" and row.label.startswith("Quiz"))
     ]
     if not values:
         return None

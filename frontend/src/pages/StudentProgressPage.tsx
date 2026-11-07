@@ -109,6 +109,11 @@ export function StudentProgressPage() {
                   <p>
                     Prochain niveau : <strong>{levelLabel(nextLevel)}</strong>
                   </p>
+                  {item.badge.missing_requirements.length > 0 && (
+                    <ul className="progress-next__missing">
+                      {item.badge.missing_requirements.map((requirement) => <li key={requirement}>{requirement}</li>)}
+                    </ul>
+                  )}
                 </div>
               )}
             </article>
