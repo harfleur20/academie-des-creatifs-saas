@@ -47,6 +47,8 @@ export function FormationWorkspacePage() {
   const [prerequisites, setPrerequisites] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
   const [price, setPrice] = useState('')
+  const [allowInstallments, setAllowInstallments] = useState(false)
+  const [installmentCount, setInstallmentCount] = useState('3')
   const [publicProgram, setPublicProgram] = useState('')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
@@ -65,6 +67,8 @@ export function FormationWorkspacePage() {
       setPrerequisites(detail.prerequisites)
       setCoverUrl(detail.cover_image_url || '')
       setPrice(detail.price_cents ? String(detail.currency === 'XAF' ? detail.price_cents : detail.price_cents / 100) : '')
+      setAllowInstallments(detail.allow_installments)
+      setInstallmentCount(String(detail.installment_count))
       setPublicProgram(detail.public_program)
       setMembers(team)
     } catch (err) {
@@ -136,6 +140,8 @@ export function FormationWorkspacePage() {
         prerequisites: prerequisites.trim(),
         cover_image_url: coverUrl || null,
         price_cents: price ? Math.round(Number(price) * (formation.currency === 'XAF' ? 1 : 100)) : 0,
+        allow_installments: allowInstallments,
+        installment_count: Math.min(12, Math.max(2, Number(installmentCount) || 2)),
         public_program: publicProgram.trim(),
       })
       setFormation(await getFormation(formation.id))
@@ -194,6 +200,13 @@ export function FormationWorkspacePage() {
           <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={(event) => void uploadCover(event)} disabled={working} />
         </label>
         <label>Prix ({formation.currency})<input type="number" min={formation.currency === 'XAF' ? '1' : '0.01'} step={formation.currency === 'XAF' ? '1' : '0.01'} value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formation.currency === 'XAF' ? 'Ex. 150000' : 'Ex. 250.00'} /></label>
+        <fieldset className="formation-payment-options">
+          <legend>Modalités de paiement</legend>
+          <label className="formation-payment-toggle"><input type="checkbox" checked={allowInstallments} onChange={(event) => setAllowInstallments(event.target.checked)} /> Autoriser le paiement en plusieurs fois</label>
+          {allowInstallments && <label>Nombre maximal de paiements<input type="number" min={2} max={12} step={1} value={installmentCount} onChange={(event) => setInstallmentCount(event.target.value)} /></label>}
+          {allowInstallments && formation.format_type !== 'ligne' && <small>Comme sur le site mère, la durée de chaque session plafonne ce nombre : un seul paiement sous un mois, 2 pour un mois, 3 au-delà. La dernière échéance tombe 5 jours avant la fin de la session.</small>}
+          {allowInstallments && formation.format_type === 'ligne' && <small>Les paiements sont espacés d’un mois.</small>}
+        </fieldset>
         <label>Description générale<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} rows={5} placeholder="Présentez la formation, sa promesse et son approche pédagogique." /></label>
         <label>Résumé court<textarea value={shortDescription} onChange={(event) => setShortDescription(event.target.value)} maxLength={500} rows={3} placeholder="Texte court affiché dans l’introduction et sur les cartes du catalogue." /><small>{shortDescription.length}/500 caractères</small></label>
         <label>À la fin de cette formation, l’apprenant sera capable de…<textarea value={objectives} onChange={(event) => setObjectives(event.target.value)} maxLength={10000} rows={6} placeholder={'Concevoir une application complète\nAutomatiser des tâches métier\nCréer une interface professionnelle'} /><small>Un acquis par ligne pour un affichage clair sur le site public.</small></label>

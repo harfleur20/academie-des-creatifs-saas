@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -55,6 +55,7 @@ from app.services.school_branding import (
 from app.services.school_communications import queue_school_event
 from app.services.school_notifications import dismiss_event, notify_school_managers, notify_user
 from app.services.school_profiles import ensure_student_profile
+from app.services.session_payment_plans import session_installment_dates, split_amounts
 from app.services.tara_money import create_payment_link, verify_payment
 
 
@@ -241,6 +242,7 @@ def price_preview(
         coupon_code=coupon_code,
     )
     final = max(0, after_promotion - coupon_discount)
+    installment_count = len(_installment_due_dates(formation, session, final))
     return PricePreviewRead(
         base_price_cents=base,
         promotion_discount_cents=promotion_discount,
@@ -250,9 +252,50 @@ def price_preview(
         currency=formation.currency,
         promotion_label=promotion.name if promotion else None,
         coupon_code=coupon.code if coupon else None,
-        installments_allowed=formation.allow_installments and formation.installment_count >= 2 and final > 0,
-        installment_count=formation.installment_count if formation.allow_installments else 1,
+        installments_allowed=installment_count >= 2,
+        installment_count=installment_count,
     )
+
+
+def _installment_due_dates(formation: FormationRecord, session: FormationSessionRecord, total: int) -> list[date]:
+    """The instalment plan offered for this session; one date means a single payment."""
+    today = utc_now().date()
+    if formation.format_type == "ligne":
+        # Online access has no session length to follow: the school's count applies, a month apart.
+        count = formation.installment_count if formation.allow_installments and formation.installment_count >= 2 and total > 0 else 1
+        return [today + timedelta(days=30 * index) for index in range(count)]
+    return session_installment_dates(
+        allow_installments=formation.allow_installments,
+        school_max_count=formation.installment_count,
+        session_start=session.start_date,
+        session_end=session.end_date,
+        total=total,
+        today=today,
+    )
+
+
+def _installment_rows(
+    formation: FormationRecord,
+    session: FormationSessionRecord,
+    total: int,
+    currency: str,
+    *,
+    installments: bool,
+) -> list[tuple[int, datetime, datetime]]:
+    if not installments or formation.format_type == "ligne":
+        count = len(_installment_due_dates(formation, session, total)) if installments else 1
+        return _split_installments(
+            total, count,
+            session_end=(utc_now() + timedelta(days=30 * count)).date() if formation.format_type == "ligne" else session.end_date,
+        )
+    now = utc_now()
+    dates = _installment_due_dates(formation, session, total)
+    grace = timedelta(days=settings.commerce_grace_period_days)
+    rows = []
+    for amount, due_date in zip(split_amounts(total, len(dates), currency), dates):
+        due = now + timedelta(days=(due_date - now.date()).days)
+        rows.append((amount, due, due + grace))
+    return rows
 
 
 def _split_installments(
@@ -698,11 +741,11 @@ def create_checkout(
             )
         )
 
-    count = (
-        formation.installment_count
-        if payload.payment_mode == "installments"
-        else 1
+    installment_rows = _installment_rows(
+        formation, session, preview.final_price_cents, preview.currency,
+        installments=payload.payment_mode == "installments",
     )
+    count = len(installment_rows)
     order = StudentOrderRecord(
         organization_id=org.id,
         order_number=f"{org.slug[:8].upper()}-{utc_now():%Y%m%d}-{uuid4().hex[:8].upper()}",
@@ -737,14 +780,7 @@ def create_checkout(
     db.add(order)
     db.flush()
 
-    installment_rows = []
-    for sequence, (amount, due, grace) in enumerate(
-        _split_installments(
-            preview.final_price_cents, count,
-            session_end=(utc_now() + timedelta(days=30 * count)).date() if formation.format_type == "ligne" else session.end_date,
-        ),
-        start=1,
-    ):
+    for sequence, (amount, due, grace) in enumerate(installment_rows, start=1):
         row = OrderInstallmentRecord(
             organization_id=org.id,
             order_id=order.id,
@@ -755,7 +791,6 @@ def create_checkout(
             status="pending",
         )
         db.add(row)
-        installment_rows.append(row)
     db.commit()
     order = db.scalar(
         select(StudentOrderRecord)

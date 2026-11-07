@@ -3566,6 +3566,12 @@
 .formation-presentation label { display: grid; gap: 7px; margin: 14px 0; color: #405067; font-size: 12px; font-weight: 700; }
 .formation-presentation input, .formation-presentation textarea { width: 100%; border: 1px solid #dfe5ed; border-radius: 10px; padding: 10px 11px; background: #fff; color: #28384d; font: inherit; }
 .formation-presentation textarea { min-height: 110px; resize: vertical; }
+.formation-payment-options { display: grid; gap: 4px; margin: 14px 0; padding: 12px 14px; border: 1px solid #dfe5ed; border-radius: 10px; }
+.formation-payment-options legend { padding: 0 6px; color: #405067; font-size: 12px; font-weight: 800; }
+.formation-payment-options label { margin: 6px 0; }
+.formation-presentation .formation-payment-toggle { display: flex; align-items: center; gap: 8px; }
+.formation-presentation .formation-payment-toggle input { width: auto; }
+.formation-payment-options small { color: #65758a; font-size: 11px; font-weight: 500; line-height: 1.45; }
 .formation-cover-picker img { display: block; width: min(100%, 360px); max-height: 190px; object-fit: cover; border-radius: 10px; }
 
 .session-create-grid {
