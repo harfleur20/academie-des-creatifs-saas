@@ -16,6 +16,7 @@ function errorMessage(err: unknown, fallback: string) {
 
 export function TeacherGradesPage() {
   const [sessions, setSessions] = useState<TeacherWorkspaceSession[]>([])
+  const [sessionsLoaded, setSessionsLoaded] = useState(false)
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [gradebook, setGradebook] = useState<TeacherGradebook | null>(null)
   const [courseDayId, setCourseDayId] = useState<number | null>(null)
@@ -32,6 +33,7 @@ export function TeacherGradesPage() {
       setSessions(guided)
       setSessionId(initialTeacherSessionId(guided))
     }).catch((err) => setError(errorMessage(err, 'Chargement impossible.')))
+      .finally(() => setSessionsLoaded(true))
   }, [])
 
   useEffect(() => {
@@ -97,7 +99,7 @@ export function TeacherGradesPage() {
       {sessions.map((item) => <option key={item.session_id} value={item.session_id}>{item.formation_title} · {item.session_label}</option>)}
     </select></label>
 
-    {sessions.length === 0 && <div className="app-card formation-empty"><GraduationCap size={26} /><strong>Aucune session</strong><p>Les notes concernent vos sessions live et présentiel.</p></div>}
+    {sessionsLoaded && sessions.length === 0 && <div className="app-card formation-empty"><GraduationCap size={26} /><strong>Aucune session</strong><p>Les notes concernent vos sessions live et présentiel.</p></div>}
 
     {gradebook && <section className="attendance-day-list">
       <form className="app-card attendance-day-card" onSubmit={(event) => void save(event)}>

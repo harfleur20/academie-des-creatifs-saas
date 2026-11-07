@@ -67,6 +67,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [schoolBranding, setSchoolBranding] = useState<CurrentSchoolBranding | null>(null)
   const [accessProfile, setAccessProfile] = useState<OrganizationAccessProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [resolvedUserId, setResolvedUserId] = useState<number | null>(null)
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState('')
   const profileRequest = useRef(0)
@@ -99,6 +100,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setActiveOrganization(null)
       setSchoolBranding(null)
       setAccessProfile(null)
+      setResolvedUserId(null)
       setLoading(false)
       return
     }
@@ -134,7 +136,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       organizationsReady.current = true
       if (selected) await applyCurrentBranding(selected)
     } finally {
-      if (organizationsRequest.current === requestId && shouldBlockWorkspace) setLoading(false)
+      if (organizationsRequest.current === requestId) {
+        setResolvedUserId(user.id)
+        if (shouldBlockWorkspace) setLoading(false)
+      }
     }
   }, [user?.id, supportMode?.organization_id, applyCurrentBranding])
 
@@ -296,13 +301,17 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     ],
   )
 
+  // The user appears one render before their schools start loading: without this,
+  // the route guards would read "no school" and leave the requested page.
+  const tenantLoading = loading || (user !== null && resolvedUserId !== user.id)
+
   const value = useMemo(
     () => ({
       organizations,
       activeOrganization,
       schoolBranding,
       accessProfile,
-      loading,
+      loading: tenantLoading,
       profileLoading,
       profileError,
       refreshOrganizations,
@@ -315,7 +324,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       activeOrganization,
       schoolBranding,
       accessProfile,
-      loading,
+      tenantLoading,
       profileLoading,
       profileError,
       refreshOrganizations,

@@ -3,6 +3,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
@@ -84,13 +85,15 @@ import { CharterSettingsPage } from './pages/CharterSettingsPage'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
   const { user, supportMode, loading } = useAuth()
+  const location = useLocation()
 
   if (loading) {
     return <div className="app-loading">Chargement de votre espace…</div>
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    const target = `${location.pathname}${location.search}${location.hash}`
+    return <Navigate to={target === '/app' ? '/login' : `/login?return=${encodeURIComponent(target)}`} replace />
   }
 
   if (user.platform_role === 'super_admin' && !supportMode) {
