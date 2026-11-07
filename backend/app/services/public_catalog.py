@@ -254,6 +254,12 @@ def _session_read(
     )
 
 
+def _session_display_order(session: FormationSessionRecord) -> tuple:
+    """As on the mother site, sessions still to start come first, then the ones already running."""
+    today = datetime.now(UTC).date()
+    return (0 if session.start_date > today else 1, session.start_date, session.id)
+
+
 def _public_formation_query(org_id: int):
     return (
         select(FormationRecord)
@@ -278,10 +284,7 @@ def _formation_card(
 ) -> PublicFormationCardRead:
     sessions = [
         _session_read(db, formation, item)
-        for item in sorted(
-            formation.sessions,
-            key=lambda value: (value.start_date, value.id),
-        )
+        for item in sorted(formation.sessions, key=_session_display_order)
         if formation.format_type == "ligne" or item.status not in {"cancelled", "completed"}
     ]
     available = [item for item in sessions if item.can_purchase]
@@ -365,7 +368,7 @@ def public_formation_detail(
     card = _formation_card(db, formation)
     session_reads = [
         _session_read(db, formation, item)
-        for item in sorted(formation.sessions, key=lambda value: (value.start_date, value.id))
+        for item in sorted(formation.sessions, key=_session_display_order)
         if formation.format_type != "ligne" and item.status not in {"cancelled", "completed"}
     ]
     source_session = next(
