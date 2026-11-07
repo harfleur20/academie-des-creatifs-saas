@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import settings
 from app.models.entities import (
     AssignmentRecord,
     AssignmentSubmissionRecord,
@@ -55,6 +56,7 @@ from app.services.membership_roles import member_has_role
 from app.services.online_formations import ensure_online_content_session
 from app.services.onboarding import get_onboarding_status
 from app.services.pdf_lessons import pdf_asset
+from app.services.pedagogy_access import current_utc
 from app.services.publication import formation_content_issues, formation_publication_issues
 from app.services.school_communications import queue_session_students_event
 from app.services.school_notifications import notify_user
@@ -509,6 +511,59 @@ def update_formation(
     return _serialize_formation_summary(db, tenant, formation)
 
 
+def _guided_session_place(
+    formation: FormationRecord,
+    *,
+    campus_label: str | None,
+    seat_capacity: int,
+) -> str | None:
+    """Apply the mother site's live and onsite rules and return the place to store."""
+    place = (campus_label or "").strip() or None
+    if formation.format_type == "ligne":
+        return place
+    if seat_capacity < 1:
+        raise HTTPException(status_code=422, detail="Une session doit proposer au moins une place.")
+    if formation.format_type == "live":
+        return None
+    if place is None:
+        raise HTTPException(status_code=422, detail="Le lieu est obligatoire pour une formation en présentiel.")
+    return place
+
+
+def _occupied_seats(db: Session, organization_id: int, session_id: int) -> int:
+    enrolled = db.scalar(select(func.count(EnrollmentRecord.id)).where(
+        EnrollmentRecord.organization_id == organization_id,
+        EnrollmentRecord.session_id == session_id,
+        EnrollmentRecord.status.in_(["active", "completed", "suspended_payment"]),
+    )) or 0
+    reservation_cutoff = datetime.now(UTC) - timedelta(minutes=settings.commerce_reservation_minutes)
+    reserved = db.scalar(select(func.count(StudentOrderRecord.id)).where(
+        StudentOrderRecord.organization_id == organization_id,
+        StudentOrderRecord.session_id == session_id,
+        StudentOrderRecord.status == "pending",
+        StudentOrderRecord.created_at > reservation_cutoff,
+    )) or 0
+    return int(enrolled) + int(reserved)
+
+
+def _require_course_days_within(
+    db: Session,
+    session: FormationSessionRecord,
+    start_date: date,
+    end_date: date,
+) -> None:
+    scheduled_days = db.scalars(select(SessionCourseDayRecord.scheduled_at).where(
+        SessionCourseDayRecord.organization_id == session.organization_id,
+        SessionCourseDayRecord.session_id == session.id,
+        SessionCourseDayRecord.status != "cancelled",
+    )).all()
+    if any(not start_date <= current_utc(item).date() <= end_date for item in scheduled_days):
+        raise HTTPException(
+            status_code=409,
+            detail="Une séance déjà planifiée se trouve hors des nouvelles dates de la session.",
+        )
+
+
 def create_session(
     db: Session,
     tenant: TenantContext,
@@ -518,13 +573,18 @@ def create_session(
     formation = get_formation_record(db, tenant, formation_id)
     if formation is None:
         raise HTTPException(status_code=404, detail="Formation introuvable.")
+    campus_label = _guided_session_place(
+        formation,
+        campus_label=payload.campus_label,
+        seat_capacity=payload.seat_capacity,
+    )
     record = FormationSessionRecord(
         organization_id=tenant.organization_id,
         formation_id=formation.id,
         label=payload.label.strip(),
         start_date=payload.start_date,
         end_date=payload.end_date,
-        campus_label=payload.campus_label.strip() if payload.campus_label else None,
+        campus_label=campus_label,
         seat_capacity=payload.seat_capacity,
         enrollment_open_at=payload.enrollment_open_at,
         enrollment_close_at=payload.enrollment_close_at,
@@ -555,6 +615,7 @@ def update_session(
     session = _get_scoped(db, tenant, FormationSessionRecord, session_id)
     if session is None or session.formation_id != formation_id:
         raise HTTPException(status_code=404, detail="Session introuvable.")
+    formation = get_formation_record(db, tenant, formation_id)
 
     values = payload.model_dump(exclude_unset=True)
     next_start = values.get("start_date", session.start_date)
@@ -568,12 +629,29 @@ def update_session(
     next_close = values.get("enrollment_close_at", session.enrollment_close_at)
     if next_open and next_close and next_close.replace(tzinfo=next_close.tzinfo or UTC) < next_open.replace(tzinfo=next_open.tzinfo or UTC):
         raise HTTPException(status_code=422, detail="La clôture des inscriptions doit suivre leur ouverture.")
+    if (next_start, next_end) != (session.start_date, session.end_date):
+        _require_course_days_within(db, session, next_start, next_end)
+    next_capacity = values.get("seat_capacity", session.seat_capacity)
+    if (
+        next_capacity != session.seat_capacity
+        and 0 < next_capacity < _occupied_seats(db, tenant.organization_id, session.id)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="La capacité ne peut pas être inférieure aux places déjà occupées ou réservées.",
+        )
+    # Older sessions may miss a place: they stay closable, and must be fixed to reopen.
+    if {"campus_label", "seat_capacity"} & values.keys() or values.get("status", session.status) == "open":
+        values["campus_label"] = _guided_session_place(
+            formation,
+            campus_label=values.get("campus_label", session.campus_label),
+            seat_capacity=next_capacity,
+        )
     for key, value in values.items():
         if isinstance(value, str):
             value = value.strip()
         setattr(session, key, value)
     if session.status == "open":
-        formation = get_formation_record(db, tenant, formation_id)
         issues = formation_publication_issues(db, formation)
         if formation.status != "published" or issues or session.end_date < datetime.now(UTC).date():
             db.rollback()

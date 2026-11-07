@@ -5,6 +5,7 @@ import {
   CalendarPlus,
   GraduationCap,
   ImagePlus,
+  Pencil,
   Plus,
   Save,
   Send,
@@ -38,7 +39,7 @@ export function FormationWorkspacePage() {
   const [sessionLabel, setSessionLabel] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [capacity, setCapacity] = useState('0')
+  const [capacity, setCapacity] = useState('')
   const [campus, setCampus] = useState('')
   const [description, setDescription] = useState('')
   const [shortDescription, setShortDescription] = useState('')
@@ -91,12 +92,12 @@ export function FormationWorkspacePage() {
         start_date: startDate,
         end_date: endDate,
         campus_label: campus.trim() || null,
-        seat_capacity: Number(capacity || 0),
+        seat_capacity: Number(capacity),
       }))
       setSessionLabel('')
       setStartDate('')
       setEndDate('')
-      setCapacity('0')
+      setCapacity('')
       setCampus('')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Création de session impossible.')
@@ -233,13 +234,13 @@ export function FormationWorkspacePage() {
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
           </label>
           <label>
-            Capacité
-            <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+            Places
+            <input type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} required />
           </label>
           {formation.format_type === 'presentiel' && (
             <label>
-              Campus
-              <input value={campus} onChange={(e) => setCampus(e.target.value)} placeholder="Bonamoussadi" />
+              Lieu
+              <input value={campus} onChange={(e) => setCampus(e.target.value)} required placeholder="Bonamoussadi" />
             </label>
           )}
           <button className="primary-button" disabled={working}>
@@ -288,6 +289,9 @@ function SessionWorkspace({
   const [lessonTitles, setLessonTitles] = useState<Record<number, string>>({})
   const [accessStartDate, setAccessStartDate] = useState(session.start_date)
   const [accessEndDate, setAccessEndDate] = useState(session.end_date)
+  const [editLabel, setEditLabel] = useState(session.label)
+  const [editCapacity, setEditCapacity] = useState(String(session.seat_capacity))
+  const [editCampus, setEditCampus] = useState(session.campus_label ?? '')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
 
@@ -296,8 +300,31 @@ function SessionWorkspace({
     setAccessEndDate(session.end_date)
   }, [session.start_date, session.end_date])
 
+  useEffect(() => {
+    setEditLabel(session.label)
+    setEditCapacity(String(session.seat_capacity))
+    setEditCampus(session.campus_label ?? '')
+  }, [session.label, session.seat_capacity, session.campus_label])
+
   const assignedTeacherIds = new Set(session.teachers.map((item) => item.teacher_id))
   const invalidAccessPeriod = !accessStartDate || !accessEndDate || accessEndDate < accessStartDate
+  const isOnsite = formation.format_type === 'presentiel'
+  const sessionUnchanged = editLabel.trim() === session.label
+    && accessStartDate === session.start_date
+    && accessEndDate === session.end_date
+    && Number(editCapacity) === session.seat_capacity
+    && (!isOnsite || editCampus.trim() === (session.campus_label ?? ''))
+
+  function saveSession(event: FormEvent) {
+    event.preventDefault()
+    void run(() => updateFormationSession(formation.id, session.id, {
+      label: editLabel.trim(),
+      start_date: accessStartDate,
+      end_date: accessEndDate,
+      seat_capacity: Number(editCapacity),
+      ...(isOnsite ? { campus_label: editCampus.trim() } : {}),
+    }))
+  }
 
   async function run(action: () => Promise<FormationDetail>) {
     setWorking(true)
@@ -322,6 +349,7 @@ function SessionWorkspace({
             {' → '}
             {new Date(session.end_date).toLocaleDateString('fr-FR')}
             {session.seat_capacity > 0 ? ` · ${session.enrollments.length}/${session.seat_capacity} places` : ''}
+            {isOnsite && session.campus_label ? ` · ${session.campus_label}` : ''}
           </p>
         </div>
         <div className="session-workspace-stats">
@@ -338,6 +366,37 @@ function SessionWorkspace({
       </header>
 
       {error && <div className="form-error">{error}</div>}
+
+      {formation.format_type !== 'ligne' && <details className="session-edit-panel">
+        <summary><Pencil size={14} /> Modifier la session</summary>
+        <form className="session-create-grid" onSubmit={saveSession}>
+          <label>
+            Nom de session
+            <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} required minLength={2} />
+          </label>
+          <label>
+            Début
+            <input type="date" value={accessStartDate} onChange={(e) => setAccessStartDate(e.target.value)} required />
+          </label>
+          <label>
+            Fin
+            <input type="date" value={accessEndDate} min={accessStartDate || undefined} onChange={(e) => setAccessEndDate(e.target.value)} required />
+          </label>
+          <label>
+            Places
+            <input type="number" min={1} value={editCapacity} onChange={(e) => setEditCapacity(e.target.value)} required />
+          </label>
+          {isOnsite && (
+            <label>
+              Lieu
+              <input value={editCampus} onChange={(e) => setEditCampus(e.target.value)} required placeholder="Bonamoussadi" />
+            </label>
+          )}
+          <button className="secondary-button" disabled={working || invalidAccessPeriod || sessionUnchanged}>
+            <Save size={14} /> Enregistrer
+          </button>
+        </form>
+      </details>}
 
       {formation.format_type === 'ligne' && <section className="online-access-period">
         <div>

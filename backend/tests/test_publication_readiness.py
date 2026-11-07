@@ -112,7 +112,7 @@ def test_publication_requires_presentation_price_and_session_then_opens_enrollme
 
     today = datetime.now(UTC).date()
     detail = create_session(db, tenant, formation.id, SessionCreate(
-        label="Cohorte automne", start_date=today + timedelta(days=10), end_date=today + timedelta(days=40),
+        label="Cohorte automne", start_date=today + timedelta(days=10), end_date=today + timedelta(days=40), seat_capacity=10,
     ))
     session = detail.sessions[0]
     assert session.status == "planned"
@@ -154,7 +154,7 @@ def test_legacy_zero_price_publication_is_not_sold():
     ))
     today = datetime.now(UTC).date()
     detail = create_session(db, tenant, formation.id, SessionCreate(
-        label="Cohorte historique", start_date=today + timedelta(days=1), end_date=today + timedelta(days=30),
+        label="Cohorte historique", start_date=today + timedelta(days=1), end_date=today + timedelta(days=30), seat_capacity=10,
     ))
     # Simulate a record published before the validation rules existed.
     from app.models.entities import FormationRecord, FormationSessionRecord

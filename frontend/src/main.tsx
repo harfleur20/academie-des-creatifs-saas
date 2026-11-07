@@ -36,6 +36,7 @@ import './student-overview-parity.css'
 import './student-class-parity.css'
 import './student-session-calendar-icon.css'
 import './formation-access-period.css'
+import './session-edit-panel.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 
