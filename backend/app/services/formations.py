@@ -327,6 +327,23 @@ def _serialize_formation_summary(
     )
 
 
+def _require_no_running_session(db: Session, formation: FormationRecord) -> None:
+    """As on the mother site, a formation cannot be archived while one of its sessions is running."""
+    today = datetime.now(UTC).date()
+    running = db.scalar(select(FormationSessionRecord).where(
+        FormationSessionRecord.organization_id == formation.organization_id,
+        FormationSessionRecord.formation_id == formation.id,
+        FormationSessionRecord.status.not_in(["cancelled", "completed"]),
+        FormationSessionRecord.start_date <= today,
+        FormationSessionRecord.end_date >= today,
+    ).order_by(FormationSessionRecord.start_date))
+    if running is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"La session « {running.label} » est en cours : terminez-la ou annulez-la avant d'archiver la formation.",
+        )
+
+
 def list_formations(
     db: Session,
     tenant: TenantContext,
@@ -497,6 +514,8 @@ def update_formation(
     if formation is None:
         raise HTTPException(status_code=404, detail="Formation introuvable.")
 
+    if payload.status == "archived" and formation.status != "archived":
+        _require_no_running_session(db, formation)
     previously_published = formation.status == "published"
     previously_complete = not formation_content_issues(formation)
     for key, value in payload.model_dump(exclude_unset=True).items():

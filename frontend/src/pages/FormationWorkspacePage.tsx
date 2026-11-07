@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
+  Archive,
   ArrowLeft,
   BookOpen,
   CalendarPlus,
@@ -130,6 +131,32 @@ export function FormationWorkspacePage() {
     }
   }
 
+  async function archiveFormation() {
+    if (!formation) return
+    const today = new Date().toISOString().slice(0, 10)
+    // As on the mother site: warn about future sessions that already have students.
+    const upcoming = formation.sessions.filter((session) => session.status !== 'cancelled' && session.status !== 'completed'
+      && session.start_date > today && session.enrollments.some((item) => item.status === 'active'))
+    const warning = upcoming.length
+      ? `Ces sessions à venir ont déjà des inscrits : ${upcoming.map((session) => session.label).join(', ')}. Leurs étudiants gardent leur accès, mais la formation disparaîtra du catalogue.
+
+`
+      : ''
+    if (!window.confirm(`${warning}Archiver « ${formation.title} » ? L’historique des sessions, des inscriptions et des paiements est conservé.`)) return
+    setWorking(true)
+    setError('')
+    setMessage('')
+    try {
+      await updateFormation(formation.id, { status: 'archived' })
+      setFormation(await getFormation(formation.id))
+      setMessage('Formation archivée : elle n’apparaît plus dans le catalogue.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Archivage impossible.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
   async function savePresentation(event: FormEvent) {
     event.preventDefault()
     if (!formation) return
@@ -191,7 +218,7 @@ export function FormationWorkspacePage() {
           <h1>{formation.title}</h1>
           <p>{formation.description || 'Aucune description.'}</p>
         </div>
-        <div className="formation-workspace-actions"><span className="status-chip">{formation.status === 'published' ? 'Publiée' : 'Brouillon'}{formation.format_type !== 'ligne' && ` · ${formation.session_count} session(s)`}</span>{formation.status === 'draft' && <button className="primary-button" type="button" disabled={working || formation.publication_issues.length > 0} onClick={() => void publishFormation()}><Send size={15} /> {working ? 'Publication…' : 'Publier la formation'}</button>}</div>
+        <div className="formation-workspace-actions"><span className="status-chip">{formation.status === 'published' ? 'Publiée' : formation.status === 'archived' ? 'Archivée' : 'Brouillon'}{formation.format_type !== 'ligne' && ` · ${formation.session_count} session(s)`}</span>{formation.status === 'draft' && <button className="primary-button" type="button" disabled={working || formation.publication_issues.length > 0} onClick={() => void publishFormation()}><Send size={15} /> {working ? 'Publication…' : 'Publier la formation'}</button>}{formation.status !== 'archived' && <button className="secondary-button" type="button" disabled={working} onClick={() => void archiveFormation()}><Archive size={15} /> Archiver</button>}</div>
       </header>
 
       {error && <div className="form-error">{error}</div>}
