@@ -1105,6 +1105,7 @@ class GradeRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
     enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_day_id: Mapped[int | None] = mapped_column(ForeignKey("session_course_days.id", ondelete="SET NULL"), nullable=True, index=True)
     teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     source_type: Mapped[str] = mapped_column(String(24), nullable=False, default="manual")
     source_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

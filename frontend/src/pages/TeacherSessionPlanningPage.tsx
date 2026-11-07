@@ -166,6 +166,7 @@ export function TeacherSessionPlanningPage() {
           <Link to={`/app/teacher/courses?session=${id}`}>Cours</Link>
           <Link to={`/app/teacher/students?session=${id}`}>Étudiants</Link>
           <Link to={`/app/teacher/attendance?session=${id}`}>Présences</Link>
+          <Link to={`/app/teacher/grades?session=${id}`}>Notes</Link>
           <Link to={`/app/teacher/assignments?session=${id}`}>Devoirs</Link>
           <Link to={`/app/teacher/quizzes?session=${id}`}>Quiz</Link>
           <Link to={`/app/teacher/resources?session=${id}`}>Ressources</Link>

@@ -2047,6 +2047,45 @@ export type StudentGrade = {
 export const listStudentGrades = () =>
   request<StudentGrade[]>('/academic/student/grades')
 
+export type TeacherGradebook = {
+  session_id: number
+  can_grade_session: boolean
+  students: Array<{ enrollment_id: number; student_name: string }>
+  course_days: Array<{ id: number; title: string; scheduled_at: string; can_grade: boolean }>
+  grades: Array<{
+    id: number
+    enrollment_id: number
+    student_name: string
+    course_day_id: number | null
+    course_day_title: string | null
+    teacher_name: string | null
+    is_own: boolean
+    source_type: string
+    label: string
+    score: number
+    max_score: number
+    note: string
+  }>
+}
+
+export const getTeacherGradebook = (sessionId: number) =>
+  request<TeacherGradebook>('/academic/teacher/sessions/' + sessionId + '/grades')
+
+export const saveTeacherGrades = (
+  sessionId: number,
+  entries: Array<{
+    enrollment_id: number
+    course_day_id: number | null
+    label: string
+    score: number
+    max_score: number
+  }>,
+) =>
+  request<TeacherGradebook>('/academic/teacher/sessions/' + sessionId + '/grades', {
+    method: 'PUT',
+    body: JSON.stringify(entries),
+  })
+
 export type StudentBadge = {
   level: 'aventurier' | 'debutant' | 'intermediaire' | 'semi_pro' | 'professionnel'
   label: string

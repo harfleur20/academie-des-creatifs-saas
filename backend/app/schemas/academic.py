@@ -204,6 +204,50 @@ class GradeRead(BaseModel):
     created_at: datetime
 
 
+class TeacherGradeEntry(BaseModel):
+    enrollment_id: int
+    course_day_id: int | None = None
+    label: str = Field(min_length=1, max_length=180)
+    score: float = Field(ge=0)
+    max_score: float = Field(default=20, gt=0)
+    note: str = Field(default="", max_length=2000)
+
+
+class TeacherGradeRead(BaseModel):
+    id: int
+    enrollment_id: int
+    student_name: str
+    course_day_id: int | None
+    course_day_title: str | None
+    teacher_name: str | None
+    is_own: bool
+    source_type: str
+    label: str
+    score: float
+    max_score: float
+    note: str
+
+
+class GradebookStudentRead(BaseModel):
+    enrollment_id: int
+    student_name: str
+
+
+class GradebookCourseDayRead(BaseModel):
+    id: int
+    title: str
+    scheduled_at: datetime
+    can_grade: bool
+
+
+class TeacherGradebookRead(BaseModel):
+    session_id: int
+    can_grade_session: bool
+    students: list[GradebookStudentRead]
+    course_days: list[GradebookCourseDayRead]
+    grades: list[TeacherGradeRead]
+
+
 class AttendanceRowRead(BaseModel):
     enrollment_id: int
     student_id: int

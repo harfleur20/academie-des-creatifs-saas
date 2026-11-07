@@ -26,6 +26,8 @@ from app.schemas.academic import (
     StudentAttendanceRead,
     StudentClassRead,
     StudentQuizRead,
+    TeacherGradebookRead,
+    TeacherGradeEntry,
     TeacherPerformanceRead,
     SchoolPedagogyOverviewRead,
     TeacherQuizRead,
@@ -41,6 +43,7 @@ from app.services.class_certificates import (
     list_student_classes,
     verify_certificate_token,
 )
+from app.services.grades import save_teacher_grades, teacher_gradebook
 from app.services.school_documents import build_certificate_pdf
 from app.services.learning_progress import (
     mark_attendance,
@@ -234,6 +237,25 @@ def update_teacher_attendance(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return mark_attendance(db, tenant, course_day_id, payload)
+
+
+@router.get("/teacher/sessions/{session_id}/grades", response_model=TeacherGradebookRead)
+def read_teacher_gradebook(
+    session_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return teacher_gradebook(db, tenant, session_id)
+
+
+@router.put("/teacher/sessions/{session_id}/grades", response_model=TeacherGradebookRead)
+def update_teacher_grades(
+    session_id: int,
+    entries: list[TeacherGradeEntry],
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return save_teacher_grades(db, tenant, session_id, entries)
 
 
 @router.get("/student/attendance", response_model=list[StudentAttendanceRead])

@@ -45,6 +45,7 @@ const StudentCoursesPage = lazy(() => import('./pages/StudentCoursesPage').then(
 const StudentGuidedWorkspacePage = lazy(() => import('./pages/StudentGuidedWorkspacePage').then((module) => ({ default: module.StudentGuidedWorkspacePage })))
 const StudentParcoursPage = lazy(() => import('./pages/StudentParcoursPage').then((module) => ({ default: module.StudentParcoursPage })))
 import { TeacherAttendancePage } from './pages/TeacherAttendancePage'
+import { TeacherGradesPage } from './pages/TeacherGradesPage'
 import { TeacherPerformancePage } from './pages/TeacherPerformancePage'
 import { TeacherStudentsPage } from './pages/TeacherStudentsPage'
 import { StudentResultsPage } from './pages/StudentResultsPage'
@@ -268,6 +269,7 @@ export default function App() {
               <Route path="assignments" element={<TeacherAssignmentsPage />} />
               <Route path="quizzes" element={<TeacherQuizzesPage />} />
               <Route path="attendance" element={<TeacherAttendancePage />} />
+              <Route path="grades" element={<TeacherGradesPage />} />
               <Route path="students" element={<TeacherStudentsPage />} />
               <Route path="performance" element={<TeacherPerformancePage />} />
               <Route path="profile" element={<TeacherProfilePage />} />
