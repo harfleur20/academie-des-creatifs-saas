@@ -1072,11 +1072,12 @@ def _validate_lesson_links(
         activity = _get_scoped(db, tenant, model, linked_id)
         if activity is None or activity.session_id != session_id:
             raise HTTPException(422, f"{label.capitalize()} lié introuvable dans cette session.")
-        if label == "quiz" and payload.lesson_type not in {"quiz", "pdf", "text"}:
+        # As on the mother site, a video lesson can carry one complementary quiz, assignment or resource.
+        if label == "quiz" and payload.lesson_type not in {"quiz", "pdf", "text", "video"}:
             raise HTTPException(422, "Ce type de leçon ne peut pas valider un quiz.")
-        if label == "assignment" and payload.lesson_type != "assignment":
+        if label == "assignment" and payload.lesson_type not in {"assignment", "video"}:
             raise HTTPException(422, "Le devoir doit être lié à une leçon de type devoir.")
-        if label == "resource" and payload.lesson_type != "resource":
+        if label == "resource" and payload.lesson_type not in {"resource", "video"}:
             raise HTTPException(422, "La ressource doit être liée à une leçon de type ressource.")
         linked_query = select(LessonRecord.id).where(LessonRecord.organization_id == tenant.organization_id, getattr(LessonRecord, f"{label}_id") == linked_id)
         if lesson_id is not None:
@@ -1087,6 +1088,8 @@ def _validate_lesson_links(
             raise HTTPException(409, "Ce quiz a déjà été passé. Créez un nouveau quiz pour cette leçon.")
         if label == "assignment" and (lesson_id is None or db.get(LessonRecord, lesson_id).assignment_id != linked_id) and db.scalar(select(AssignmentSubmissionRecord.id).where(AssignmentSubmissionRecord.organization_id == tenant.organization_id, AssignmentSubmissionRecord.assignment_id == linked_id)) is not None:
             raise HTTPException(409, "Ce devoir a déjà été remis. Créez un nouveau devoir pour cette leçon.")
+    if payload.lesson_type == "video" and sum(item is not None for item in (payload.quiz_id, payload.assignment_id, payload.resource_id)) > 1:
+        raise HTTPException(422, "Une leçon vidéo ne porte qu'une activité complémentaire.")
     if payload.lesson_type == "quiz" and payload.quiz_id is None:
         raise HTTPException(422, "Choisissez un quiz pour cette leçon.")
     if payload.lesson_type == "assignment" and payload.assignment_id is None:
@@ -1210,7 +1213,10 @@ def update_lesson(db: Session, tenant: TenantContext, formation_id: int, session
             db.rollback()
             raise
         _release_linked_assignment(db, tenant, lesson)
-    if old_identity != (lesson.lesson_type, lesson.video_url, lesson.file_url, lesson.quiz_id, lesson.assignment_id, lesson.resource_id):
+    new_identity = (lesson.lesson_type, lesson.video_url, lesson.file_url, lesson.quiz_id, lesson.assignment_id, lesson.resource_id)
+    # A video lesson is earned by watching it: switching its complementary activity keeps the progress.
+    complementary_only = old_identity[0] == "video" and lesson.lesson_type == "video" and old_identity[:3] == new_identity[:3]
+    if old_identity != new_identity and not complementary_only:
         db.execute(delete(LessonProgressRecord).where(LessonProgressRecord.organization_id == tenant.organization_id, LessonProgressRecord.lesson_id == lesson.id))
     if old_identity[:2] != (lesson.lesson_type, lesson.video_url):
         db.execute(delete(LessonVideoProgressRecord).where(LessonVideoProgressRecord.organization_id == tenant.organization_id, LessonVideoProgressRecord.lesson_id == lesson.id))

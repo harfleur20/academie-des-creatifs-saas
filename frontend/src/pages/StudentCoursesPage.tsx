@@ -272,7 +272,12 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
 
   function renderLesson(lesson: LearningLesson) {
     if (lesson.lesson_type === 'video' && lesson.video_url) {
-      return <TrackedLessonVideo key={lesson.id} lesson={lesson} onUpdated={onUpdated} onError={setError} />
+      return <>
+        <TrackedLessonVideo key={lesson.id} lesson={lesson} onUpdated={onUpdated} onError={setError} />
+        {lesson.quiz_id && <p className="student-reader-complement">Pour aller plus loin : <Link to={`/app/student/quizzes#quiz-${lesson.quiz_id}`}>le quiz de cette vidéo</Link></p>}
+        {lesson.assignment_id && <p className="student-reader-complement">Pour aller plus loin : <Link to={`/app/student/assignments#assignment-${lesson.assignment_id}`}>l’exercice de cette vidéo</Link></p>}
+        {lesson.resource_id && <p className="student-reader-complement">Pour aller plus loin : <Link to="/app/student/resources">la ressource de cette vidéo</Link></p>}
+      </>
     }
     if (lesson.lesson_type === 'pdf' && lesson.quiz_id) {
       return <PdfLessonReader key={lesson.id} lesson={lesson} onCompleted={() => {

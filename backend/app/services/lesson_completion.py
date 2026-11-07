@@ -33,6 +33,8 @@ def complete_activity_lessons(
         )
     ).all()
     for lesson in lessons:
+        if lesson.lesson_type == "video":
+            continue  # its activity is complementary: watching the video completes the lesson
         lesson_id = lesson.id
         if activity_type == "quiz" and lesson.lesson_type == "pdf":
             from app.services.pdf_lessons import complete_pdf_if_eligible, pdf_asset

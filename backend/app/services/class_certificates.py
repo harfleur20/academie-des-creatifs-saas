@@ -377,6 +377,7 @@ def _certificate_reason(
                 CourseRecord.status == "published",
                 LessonRecord.organization_id == tenant.organization_id,
                 LessonRecord.publication_status == "published",
+                LessonRecord.lesson_type != "video",  # a video lesson's quiz is complementary
                 QuizRecord.organization_id == tenant.organization_id,
             )
         ).all()
