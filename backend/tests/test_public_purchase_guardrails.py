@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -89,16 +89,17 @@ def seed_sale(db: Session):
     )
     db.add(formation)
     db.flush()
+    now = datetime.now(UTC)
     session = FormationSessionRecord(
         organization_id=org.id,
         formation_id=formation.id,
         label="Session test",
-        start_date=date(2026, 10, 10),
-        end_date=date(2026, 12, 20),
+        start_date=(now + timedelta(days=30)).date(),
+        end_date=(now + timedelta(days=100)).date(),
         seat_capacity=20,
         status="open",
-        enrollment_open_at=datetime(2026, 9, 1, tzinfo=UTC),
-        enrollment_close_at=datetime(2026, 10, 9, 23, 59, tzinfo=UTC),
+        enrollment_open_at=now - timedelta(days=30),
+        enrollment_close_at=now + timedelta(days=29),
     )
     db.add(session)
     db.commit()
