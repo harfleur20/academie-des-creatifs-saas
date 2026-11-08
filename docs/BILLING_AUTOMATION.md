@@ -12,7 +12,7 @@ Le workflow appelle, dans cet ordre :
 ```
 POST /api/v1/billing/internal/lifecycle      # abonnements des écoles
 POST /api/v1/commerce/internal/lifecycle     # paiements des étudiants, puis envoi des emails en attente
-POST /api/v1/assignments/internal/reminders  # rappels 24 h et 1 h avant la date limite d'un devoir
+POST /api/v1/assignments/internal/reminders  # rappels de devoirs et de cours (24 h et 1 h avant), de paiement (J-7 et J-1), fin de session
 ```
 
 Chaque appel a un timeout de 30 secondes et deux tentatives supplémentaires en cas d'échec réseau. Une étape en échec n'empêche pas les suivantes.

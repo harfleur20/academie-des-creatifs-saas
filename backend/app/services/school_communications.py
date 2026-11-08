@@ -75,6 +75,38 @@ SCHOOL_MESSAGE_TEMPLATES: dict[str, SchoolMessageTemplate] = {
         "Devoir à rendre dans moins d'une heure",
         "Bonjour {recipient_name},\nle devoir « {assignment_title} » est à remettre avant le {due_at}.",
     ),
+    "student.course.reminder_24h": SchoolMessageTemplate(
+        "Cours demain",
+        "Bonjour {recipient_name},\nle cours « {course_title} » de la session {session_label} commence le {starts_at}.",
+    ),
+    "student.course.reminder_1h": SchoolMessageTemplate(
+        "Cours dans moins d'une heure",
+        "Bonjour {recipient_name},\nle cours « {course_title} » de la session {session_label} commence le {starts_at}.",
+    ),
+    "student.attendance.absent": SchoolMessageTemplate(
+        "Absence enregistrée",
+        "Bonjour {recipient_name},\nune absence a été enregistrée pour vous au cours « {course_title} » du {starts_at}.\nSi c'est une erreur, prévenez votre professeur : il peut la corriger pendant 24 h.",
+    ),
+    "student.grade.created": SchoolMessageTemplate(
+        "Nouvelle note",
+        "Bonjour {recipient_name},\nune nouvelle note est disponible : {grade_label}, {score_label}.",
+    ),
+    "student.payment.reminder": SchoolMessageTemplate(
+        "Échéance de paiement à venir",
+        "Bonjour {recipient_name},\nune échéance de {amount_label} pour {formation_title} est à régler avant le {due_at}.",
+    ),
+    "student.session.ended": SchoolMessageTemplate(
+        "Votre session est terminée",
+        "Bonjour {recipient_name},\nla session {session_label} de {formation_title} est terminée.\nRetrouvez vos résultats et votre certificat dans votre espace.",
+    ),
+    "teacher.assignment.submitted": SchoolMessageTemplate(
+        "Nouveau rendu à corriger",
+        "Bonjour {recipient_name},\n{student_name} a remis « {assignment_title} » pour la session {session_label}.",
+    ),
+    "teacher.enrollment.created": SchoolMessageTemplate(
+        "Nouvel inscrit",
+        "Bonjour {recipient_name},\n{student_name} rejoint la session {session_label} de {formation_title}.",
+    ),
     "student.assignment.reviewed": SchoolMessageTemplate(
         "Votre devoir a été corrigé",
         "Bonjour {recipient_name},\nvotre devoir « {assignment_title} » a été corrigé.\nNote : {score_label}.",

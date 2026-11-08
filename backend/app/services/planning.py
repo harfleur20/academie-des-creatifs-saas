@@ -32,6 +32,7 @@ from app.services.school_communications import queue_session_students_event
 from app.services.school_notifications import notify_session_students
 from app.services.live_classes import live_provider_configured
 from app.services.tenancy import TenantContext
+from app.services.training_notifications import notify_absence
 
 
 def _aware(value: datetime) -> datetime:
@@ -680,5 +681,13 @@ def submit_course_day_report(
     day.report_homework = payload.homework
     day.report_attendance_notes = payload.attendance_notes
     day.report_submitted_at = current
+    if payload.delivery_status in {"held", "partial"}:
+        db.flush()
+        for row in db.scalars(select(AttendanceRecord).where(
+            AttendanceRecord.organization_id == tenant.organization_id,
+            AttendanceRecord.course_day_id == day.id,
+            AttendanceRecord.status == "absent",
+        )).all():
+            notify_absence(db, org=tenant.organization, day=day, enrollment=db.get(EnrollmentRecord, row.enrollment_id))
     db.commit()
     return get_session_planning(db, tenant, session.id)

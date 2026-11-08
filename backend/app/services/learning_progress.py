@@ -59,6 +59,7 @@ from app.services.badge_rules import (
 from app.services.grades import grade_average_pct
 from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
 from app.services.tenancy import TenantContext
+from app.services.training_notifications import clear_absence, notify_absence
 
 
 VIDEO_COMPLETION_PCT = 80.0
@@ -580,6 +581,7 @@ def mark_attendance(
             AttendanceRecord.enrollment_id == enrollment.id,
         )
     )
+    previous_status = row.status if row is not None else None
     if row is None:
         row = AttendanceRecord(
             organization_id=tenant.organization_id,
@@ -594,6 +596,11 @@ def mark_attendance(
         row.status = payload.status
         row.marked_by_user_id = tenant.user.id
         row.marked_at = datetime.now(UTC)
+    if day.report_submitted_at is not None and day.delivery_status in {"held", "partial"}:
+        if payload.status == "absent" and previous_status != "absent":
+            notify_absence(db, org=tenant.organization, day=day, enrollment=enrollment)
+        elif previous_status == "absent" and payload.status != "absent":
+            clear_absence(db, organization_id=tenant.organization_id, day_id=day.id, enrollment_id=enrollment.id)
     db.commit()
     return _course_day_attendance(db, tenant, day)
 

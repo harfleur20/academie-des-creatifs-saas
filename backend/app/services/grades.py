@@ -27,6 +27,7 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.pedagogy_access import current_utc, dashboard_type, session_ends_at
+from app.services.training_notifications import notify_grade
 from app.services.tenancy import TenantContext
 
 
@@ -259,5 +260,10 @@ def save_teacher_grades(
         row.score = entry.score
         row.max_score = entry.max_score
         row.note = entry.note
+        db.flush()
+        notify_grade(
+            db, org=tenant.organization, enrollment=db.get(EnrollmentRecord, entry.enrollment_id),
+            grade_id=row.id, label=label, score=row.score, max_score=row.max_score,
+        )
     db.commit()
     return teacher_gradebook(db, tenant, session_id)

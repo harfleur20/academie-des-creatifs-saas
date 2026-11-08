@@ -64,6 +64,7 @@ from app.services.session_payment_plans import (
     split_amounts,
 )
 from app.services.tara_money import create_payment_link, verify_payment
+from app.services.training_notifications import notify_new_enrollment
 
 
 def utc_now() -> datetime:
@@ -585,6 +586,8 @@ def _apply_installment_payment(
             category="payment", tone="success", action_label="Commerce",
             action_path="/app/manage/commerce",
         )
+        if was_unpaid:
+            notify_new_enrollment(db, org=org, session=session, formation=formation, student=user)
         if reactivated:
             queue_school_event(
                 db,

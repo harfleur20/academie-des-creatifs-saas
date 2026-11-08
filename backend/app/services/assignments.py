@@ -11,6 +11,7 @@ from app.services.lesson_completion import complete_activity_lessons
 from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, linked_lesson_gate, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.school_notifications import notify_user
+from app.services.training_notifications import email_new_submission
 from app.services.tenancy import TenantContext
 
 def _utc(v:datetime)->datetime: return v.astimezone(UTC).replace(tzinfo=None) if v.tzinfo else v
@@ -184,6 +185,7 @@ def submit_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentSubmit
     if not _student_assignment_open(db,tenant,a,now): raise HTTPException(409,"Ce devoir n'est pas encore disponible.")
     validate_submission_asset(p.file_url, tenant.organization_id, tenant.user.id)
     sub=db.scalar(select(AssignmentSubmissionRecord).where(AssignmentSubmissionRecord.organization_id==tenant.organization_id,AssignmentSubmissionRecord.assignment_id==aid,AssignmentSubmissionRecord.enrollment_id==e.id))
+    first_submission = sub is None
     if sub:
         sub.file_url=p.file_url; sub.submitted_at=now; sub.is_reviewed=False; sub.review_score=None; sub.review_max_score=20
     else:
@@ -207,6 +209,11 @@ def submit_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentSubmit
             category="assignment", action_label="Voir les devoirs",
             action_path="/app/teacher/assignments",
         )
+        if first_submission:
+            email_new_submission(
+                db, org=tenant.organization, teacher_id=a.teacher_id, student=tenant.user,
+                assignment_title=a.title, session_label=_session_label(db, a.session_id),
+            )
     db.commit(); db.refresh(sub); return _student_view(db,a,e,sub,now)
 
 def list_submissions(db,tenant,aid):

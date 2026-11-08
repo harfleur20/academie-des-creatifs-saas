@@ -61,7 +61,7 @@ from app.services.pdf_lessons import pdf_asset
 from app.services.pedagogy_access import current_utc
 from app.services.publication import formation_content_issues, formation_publication_issues
 from app.services.school_communications import queue_session_students_event
-from app.services.school_notifications import notify_user
+from app.services.school_notifications import notify_session_students, notify_user
 from app.services.tenancy import TenantContext, scoped_select
 
 
@@ -1255,6 +1255,13 @@ def publish_lesson(db: Session, tenant: TenantContext, formation_id: int, sessio
         _ensure_lesson_baseline(db, lesson)
         lesson.publication_status = "published"
         _record_lesson_version(db, tenant, lesson, "published")
+        if lesson.available_at is None or current_utc(lesson.available_at) <= current_utc():
+            notify_session_students(
+                db, organization_id=tenant.organization_id, session_id=session_id,
+                event_key=f"lesson.published:{lesson.id}", title="Nouvelle leçon disponible",
+                message=f"« {lesson.title} » est disponible dans « {course.title} ».",
+                action_label="Ouvrir le cours", action_path="/app/student/courses",
+            )
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 
