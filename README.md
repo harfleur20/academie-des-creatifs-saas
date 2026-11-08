@@ -16,7 +16,7 @@ Permettre à une école, un centre de formation, un formateur ou un organisme de
 - Paiement : TaraMoney + mode démo local
 - Email : Brevo
 - WhatsApp : Wapino
-- Live : JaaS
+- Live : Jitsi auto-hébergé (`infra/live`) ou JaaS
 - Stockage : Cloudinary / Cloudflare R2
 
 ## Lancer le projet en local
