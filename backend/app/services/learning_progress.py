@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from math import ceil
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -49,9 +48,18 @@ from app.services.academic_access import (
     require_student_enrollment,
     require_teacher_assignment,
 )
+from app.services.badge_rules import (
+    BadgeStats,
+    badge_level,
+    badge_ring_pct,
+    badge_score,
+    missing_requirements,
+    quiz_mastery_pct,
+)
 from app.services.grades import grade_average_pct
-from app.services.pedagogy_access import dashboard_type, guided_activity_available, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
+from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
 from app.services.tenancy import TenantContext
+from app.services.training_notifications import clear_absence, notify_absence
 
 
 VIDEO_COMPLETION_PCT = 80.0
@@ -59,6 +67,8 @@ VIDEO_HEARTBEAT_SEEK_TOLERANCE_SECONDS = 2.5
 VIDEO_HEARTBEAT_MAX_GAP_SECONDS = 15.0
 VIDEO_MAX_PLAYBACK_RATE = 2.0
 BADGE_PASSING_QUIZ_PCT = 80.0
+ATTENDANCE_CORRECTION_HOURS = 24
+ATTENDED_STATUSES = frozenset({"present", "late"})
 
 
 BADGE_LABELS = {
@@ -431,6 +441,33 @@ def sync_lesson_video_progress(
     return next(item for item in list_student_learning(db, tenant) if item.enrollment_id == enrollment.id)
 
 
+def attendance_locks_at(day: SessionCourseDayRecord) -> datetime | None:
+    """The mother site lets the teacher correct attendance for 24 h after the course report."""
+    if day.report_submitted_at is None:
+        return None
+    return current_utc(day.report_submitted_at) + timedelta(hours=ATTENDANCE_CORRECTION_HOURS)
+
+
+def attendance_edit_issue(
+    db: Session,
+    day: SessionCourseDayRecord,
+    *,
+    now: datetime | None = None,
+) -> str | None:
+    current = current_utc(now)
+    session = db.get(FormationSessionRecord, day.session_id)
+    if day.status == "cancelled" or (session is not None and session.status == "cancelled"):
+        return "Les présences de cette séance sont clôturées."
+    if day.delivery_status == "not_held":
+        return "Cette séance n'a pas eu lieu : il n'y a pas de présence à saisir."
+    if current < current_utc(day.scheduled_at):
+        return "La saisie n'ouvre qu'au début de cette séance."
+    locks_at = attendance_locks_at(day)
+    if locks_at is not None and current >= locks_at:
+        return "Les présences de cette séance sont verrouillées : elles se corrigent pendant 24 h après le rapport."
+    return None
+
+
 def _course_day_attendance(
     db: Session,
     tenant: TenantContext,
@@ -465,6 +502,7 @@ def _course_day_attendance(
         )
 
     teacher = db.get(UserRecord, day.teacher_id) if day.teacher_id else None
+    issue = attendance_edit_issue(db, day)
     return AttendanceCourseDayRead(
         course_day_id=day.id,
         session_id=day.session_id,
@@ -472,7 +510,9 @@ def _course_day_attendance(
         scheduled_at=day.scheduled_at,
         teacher_id=day.teacher_id,
         teacher_name=teacher.full_name if teacher else None,
-        can_edit=day.teacher_id == tenant.user.id and not tenant.support_mode and day.report_submitted_at is None,
+        can_edit=day.teacher_id == tenant.user.id and not tenant.support_mode and issue is None,
+        edit_blocked_reason=issue,
+        locks_at=attendance_locks_at(day),
         delivery_status=day.delivery_status,
         report_submitted_at=day.report_submitted_at,
         rows=rows,
@@ -519,8 +559,9 @@ def mark_attendance(
         )
     if tenant.support_mode:
         raise HTTPException(403, "Le mode support est en lecture seule.")
-    if day.report_submitted_at is not None or day.status == "cancelled":
-        raise HTTPException(409, "Les présences de cette séance sont clôturées.")
+    issue = attendance_edit_issue(db, day)
+    if issue:
+        raise HTTPException(409, issue)
 
     enrollment = db.scalar(
         select(EnrollmentRecord).where(
@@ -540,6 +581,7 @@ def mark_attendance(
             AttendanceRecord.enrollment_id == enrollment.id,
         )
     )
+    previous_status = row.status if row is not None else None
     if row is None:
         row = AttendanceRecord(
             organization_id=tenant.organization_id,
@@ -554,6 +596,11 @@ def mark_attendance(
         row.status = payload.status
         row.marked_by_user_id = tenant.user.id
         row.marked_at = datetime.now(UTC)
+    if day.report_submitted_at is not None and day.delivery_status in {"held", "partial"}:
+        if payload.status == "absent" and previous_status != "absent":
+            notify_absence(db, org=tenant.organization, day=day, enrollment=enrollment)
+        elif previous_status == "absent" and payload.status != "absent":
+            clear_absence(db, organization_id=tenant.organization_id, day_id=day.id, enrollment_id=enrollment.id)
     db.commit()
     return _course_day_attendance(db, tenant, day)
 
@@ -647,30 +694,17 @@ def _assignment_stats(
     db: Session,
     tenant: TenantContext,
     enrollment: EnrollmentRecord,
-    *,
-    standard_only: bool = False,
 ) -> tuple[int, int, bool, bool]:
     assignments = list(
         db.scalars(
             select(AssignmentRecord).where(
                 AssignmentRecord.organization_id == tenant.organization_id,
                 AssignmentRecord.session_id == enrollment.session_id,
+                AssignmentRecord.publication_status == "published",
             )
         ).all()
     )
     assignments = [item for item in assignments if _linked_activity_is_published(db, tenant, "assignment", item.id)]
-    if standard_only:
-        session = get_session(db, tenant, enrollment.session_id)
-        formation = formation_for_session(db, tenant, enrollment.session_id)
-        if dashboard_type(formation) == "guided":
-            assignments = [
-                item for item in assignments
-                if item.is_final_project or guided_activity_available(
-                    formation,
-                    session,
-                    day=db.get(SessionCourseDayRecord, item.course_day_id) if item.course_day_id else None,
-                )
-            ]
     submitted = 0
     has_final = False
     final_valid = False
@@ -682,7 +716,7 @@ def _assignment_stats(
                 AssignmentSubmissionRecord.enrollment_id == enrollment.id,
             )
         )
-        if submission and (not standard_only or not assignment.is_final_project):
+        if submission:
             submitted += 1
         if assignment.is_final_project:
             has_final = True
@@ -694,14 +728,15 @@ def _assignment_stats(
                 and (submission.review_score / submission.review_max_score) * 100 >= 80
             ):
                 final_valid = True
-    total = sum(not item.is_final_project for item in assignments) if standard_only else len(assignments)
-    return total, submitted, has_final, final_valid
+    return len(assignments), submitted, has_final, final_valid
 
 
 def _quiz_stats(
     db: Session,
     tenant: TenantContext,
     enrollment: EnrollmentRecord,
+    *,
+    badge: bool = False,
 ) -> tuple[int, int, int, float | None]:
     quizzes = list(
         db.scalars(
@@ -713,6 +748,8 @@ def _quiz_stats(
         ).all()
     )
     quizzes = [item for item in quizzes if _linked_activity_is_published(db, tenant, "quiz", item.id)]
+    if badge:
+        quizzes = _guided_badge_quizzes(db, tenant, enrollment, quizzes)
     attempted = 0
     passed = 0
     best_scores: list[float] = []
@@ -782,9 +819,137 @@ def _attendance_stats(
         if row and row.status == "excused" and guided:
             excused += 1
             continue
-        if row and row.status == "present":
+        if row and row.status in ATTENDED_STATUSES:
             present += 1
     return len(days) - excused, present
+
+
+def _course_day_work_excluded(day: SessionCourseDayRecord | None) -> bool:
+    return day is not None and (
+        day.status in {"cancelled", "not_held", "missed", "interrupted"}
+        or day.delivery_status in {"not_held", "interrupted"}
+    )
+
+
+def _published_lessons(db: Session, tenant: TenantContext, session_id: int) -> list[LessonRecord]:
+    return list(db.scalars(
+        select(LessonRecord)
+        .join(ChapterRecord, ChapterRecord.id == LessonRecord.chapter_id)
+        .join(CourseRecord, CourseRecord.id == ChapterRecord.course_id)
+        .where(
+            CourseRecord.organization_id == tenant.organization_id,
+            CourseRecord.session_id == session_id,
+            CourseRecord.status == "published",
+            LessonRecord.organization_id == tenant.organization_id,
+            LessonRecord.publication_status == "published",
+        )
+    ).all())
+
+
+def _lesson_course_day(db: Session, lesson: LessonRecord) -> SessionCourseDayRecord | None:
+    activity = None
+    if lesson.quiz_id is not None:
+        activity = db.get(QuizRecord, lesson.quiz_id)
+    elif lesson.assignment_id is not None:
+        activity = db.get(AssignmentRecord, lesson.assignment_id)
+    elif lesson.resource_id is not None:
+        activity = db.get(ResourceRecord, lesson.resource_id)
+    if activity is None or activity.course_day_id is None:
+        return None
+    return db.get(SessionCourseDayRecord, activity.course_day_id)
+
+
+def _guided_badge_quizzes(
+    db: Session,
+    tenant: TenantContext,
+    enrollment: EnrollmentRecord,
+    quizzes: list[QuizRecord],
+) -> list[QuizRecord]:
+    """Keep the quizzes that are open and are not already the proof of a content lesson."""
+    formation = formation_for_session(db, tenant, enrollment.session_id)
+    if dashboard_type(formation) != "guided":
+        return quizzes
+    session = get_session(db, tenant, enrollment.session_id)
+    content_validation_ids = {
+        lesson.quiz_id
+        for lesson in _published_lessons(db, tenant, enrollment.session_id)
+        if lesson.lesson_type in {"text", "pdf"} and lesson.quiz_id is not None
+    }
+    kept = []
+    for quiz in quizzes:
+        day = db.get(SessionCourseDayRecord, quiz.course_day_id) if quiz.course_day_id else None
+        if (
+            quiz.id not in content_validation_ids
+            and not _course_day_work_excluded(day)
+            and guided_activity_available(formation, session, scheduled_at=quiz.scheduled_at, day=day)
+        ):
+            kept.append(quiz)
+    return kept
+
+
+def _badge_lesson_progress(
+    db: Session,
+    tenant: TenantContext,
+    enrollment: EnrollmentRecord,
+    formation: FormationRecord,
+    session: FormationSessionRecord,
+) -> tuple[int, int, float]:
+    if dashboard_type(formation) != "guided":
+        return _lesson_progress(db, tenant, enrollment)
+    lesson_ids = {
+        lesson.id
+        for lesson in _published_lessons(db, tenant, session.id)
+        if lesson.lesson_type not in {"quiz", "assignment"}
+        and lesson_access(db, formation, session, lesson)[1]
+        and not _course_day_work_excluded(_lesson_course_day(db, lesson))
+    }
+    completed = _completion_set(db, tenant, enrollment.id, guided=True) & lesson_ids
+    pct = round(len(completed) / len(lesson_ids) * 100, 1) if lesson_ids else 0.0
+    return len(lesson_ids), len(completed), pct
+
+
+def _final_project_passed(submission: AssignmentSubmissionRecord | None) -> bool:
+    return bool(
+        submission is not None
+        and submission.is_reviewed
+        and submission.review_score is not None
+        and submission.review_max_score > 0
+        and submission.review_score / submission.review_max_score * 100 >= 80
+    )
+
+
+def _badge_assignment_stats(
+    db: Session,
+    tenant: TenantContext,
+    enrollment: EnrollmentRecord,
+    formation: FormationRecord,
+    session: FormationSessionRecord,
+) -> tuple[int, int, int, bool, bool]:
+    guided = dashboard_type(formation) == "guided"
+    standard: list[AssignmentRecord] = []
+    finals: list[AssignmentRecord] = []
+    for assignment in db.scalars(select(AssignmentRecord).where(
+        AssignmentRecord.organization_id == tenant.organization_id,
+        AssignmentRecord.session_id == enrollment.session_id,
+        AssignmentRecord.publication_status == "published",
+    )).all():
+        if not _linked_activity_is_published(db, tenant, "assignment", assignment.id):
+            continue
+        day = db.get(SessionCourseDayRecord, assignment.course_day_id) if assignment.course_day_id else None
+        if guided and (_course_day_work_excluded(day) or not guided_activity_available(formation, session, day=day)):
+            continue
+        (finals if assignment.is_final_project else standard).append(assignment)
+    submissions = {
+        item.assignment_id: item
+        for item in db.scalars(select(AssignmentSubmissionRecord).where(
+            AssignmentSubmissionRecord.organization_id == tenant.organization_id,
+            AssignmentSubmissionRecord.enrollment_id == enrollment.id,
+        )).all()
+    }
+    submitted = [item for item in standard if item.id in submissions]
+    validated = [item for item in submitted if submissions[item.id].is_reviewed]
+    final_valid = bool(finals) and all(_final_project_passed(submissions.get(item.id)) for item in finals)
+    return len(standard), len(submitted), len(validated), bool(finals), final_valid
 
 
 def badge_for_enrollment(
@@ -807,13 +972,14 @@ def badge_for_enrollment(
             attendance_pct=None,
             grade_average_pct=None,
             final_project_validated=False,
+            missing_requirements=["Session non démarrée"],
         )
-    total_lessons, completed_lessons, lesson_pct = _lesson_progress(db, tenant, enrollment)
-    total_assignments, submitted_assignments, has_final, final_valid = _assignment_stats(
-        db, tenant, enrollment, standard_only=True
+    total_lessons, completed_lessons, lesson_pct = _badge_lesson_progress(db, tenant, enrollment, formation, session)
+    total_assignments, submitted_assignments, validated_assignments, has_final, final_valid = _badge_assignment_stats(
+        db, tenant, enrollment, formation, session
     )
     total_quizzes, attempted_quizzes, passed_quizzes, _quiz_average = _quiz_stats(
-        db, tenant, enrollment
+        db, tenant, enrollment, badge=True
     )
     attendance_total, attendance_present = _attendance_stats(db, tenant, enrollment)
     grade_pct = grade_average_pct(
@@ -822,97 +988,53 @@ def badge_for_enrollment(
         enrollment_id=enrollment.id,
     )
 
-    assignment_pct = (
-        round((submitted_assignments / total_assignments) * 100, 1)
-        if total_assignments
-        else None
-    )
-    quiz_pct = (
-        round(((passed_quizzes * 0.8 + attempted_quizzes * 0.2) / total_quizzes) * 100, 1)
-        if total_quizzes
-        else None
-    )
-    attendance_pct = (
-        round((attendance_present / attendance_total) * 100, 1)
-        if attendance_total
-        else None
-    )
-
     current = datetime.now(UTC)
-    session_end = session_ends_at(session) if guided else None
-    unresolved_days = db.scalar(select(SessionCourseDayRecord.id).where(
+    unresolved_days = guided and db.scalar(select(SessionCourseDayRecord.id).where(
         SessionCourseDayRecord.organization_id == tenant.organization_id,
         SessionCourseDayRecord.session_id == session.id,
         SessionCourseDayRecord.status != "cancelled",
         SessionCourseDayRecord.scheduled_at <= current,
         SessionCourseDayRecord.report_submitted_at.is_(None),
-    )) is not None if guided else False
-    weights = (
-        {"content": 24.7, "evaluation": 17.6, "production": 17.7, "live": 40.0}
-        if formation.format_type == "live"
-        else {"content": 35.0, "evaluation": 25.0, "production": 25.0, "live": 15.0}
+    )) is not None
+    stats = BadgeStats(
+        guided=guided,
+        format_type=formation.format_type,
+        total_lessons=total_lessons,
+        completed_lessons=completed_lessons,
+        lesson_progress_pct=lesson_pct,
+        total_assignments=total_assignments,
+        submitted_assignments=submitted_assignments,
+        validated_assignments=validated_assignments,
+        total_quizzes=total_quizzes,
+        attempted_quizzes=attempted_quizzes,
+        passed_quizzes=passed_quizzes,
+        attendance_total=attendance_total,
+        attendance_present=attendance_present,
+        grade_average_pct=grade_pct,
+        has_final_project=has_final,
+        final_project_validated=final_valid,
+        professional_eligible=not guided or (
+            session.status != "cancelled" and current >= session_ends_at(session) and not unresolved_days
+        ),
     )
-    pillars: dict[str, float] = {}
-    if total_lessons:
-        pillars["content"] = lesson_pct
-
-    evaluation_values: list[float] = []
-    if quiz_pct is not None:
-        evaluation_values.append(quiz_pct)
-    if grade_pct is not None:
-        evaluation_values.append(grade_pct)
-    if evaluation_values:
-        pillars["evaluation"] = sum(evaluation_values) / len(evaluation_values)
-
-    if assignment_pct is not None and has_final:
-        pillars["production"] = assignment_pct * 0.7 + (100.0 if final_valid else 0.0) * 0.3
-    elif assignment_pct is not None:
-        pillars["production"] = assignment_pct
-    elif has_final:
-        pillars["production"] = 100.0 if final_valid else 0.0
-
-    if attendance_pct is not None:
-        pillars["live"] = attendance_pct
-
-    total_weight = sum(weights[key] for key in pillars)
-    score = (
-        round(sum(value * weights[key] for key, value in pillars.items()) / total_weight, 1)
-        if total_weight
-        else 0.0
-    )
-
-    professional = (
-        score >= 90
-        and (not guided or (session.status != "cancelled" and current >= session_end and not unresolved_days))
-        and (not total_lessons or lesson_pct >= 100)
-        and (not total_assignments or submitted_assignments >= total_assignments)
-        and (not total_quizzes or passed_quizzes >= max(1, ceil(total_quizzes * 0.8)))
-        and (not attendance_total or attendance_pct is not None and attendance_pct >= 80)
-        and (not has_final or final_valid)
-        and (grade_pct is None or grade_pct >= 80)
-    )
-    if professional:
-        level = "professionnel"
-    elif score >= 75:
-        level = "semi_pro"
-    elif score >= 50:
-        level = "intermediaire"
-    elif score >= 25:
-        level = "debutant"
-    else:
-        level = "aventurier"
+    level = badge_level(stats)
+    next_level = NEXT_BADGE.get(level)
 
     return BadgeRead(
         level=level,
         label=BADGE_LABELS[level],
-        score_pct=score,
-        next_level=NEXT_BADGE.get(level),
+        score_pct=badge_score(stats),
+        next_level=next_level,
         lesson_progress_pct=lesson_pct,
-        assignment_progress_pct=assignment_pct,
-        quiz_progress_pct=quiz_pct,
-        attendance_pct=attendance_pct,
+        assignment_progress_pct=(
+            round(submitted_assignments / total_assignments * 100, 1) if total_assignments else None
+        ),
+        quiz_progress_pct=quiz_mastery_pct(stats),
+        attendance_pct=round(attendance_present / attendance_total * 100, 1) if attendance_total else None,
         grade_average_pct=grade_pct,
         final_project_validated=final_valid,
+        missing_requirements=missing_requirements(next_level, stats) if next_level else [],
+        ring_pct=badge_ring_pct(level, next_level, stats),
     )
 
 

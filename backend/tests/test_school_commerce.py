@@ -99,16 +99,17 @@ def seed(db: Session):
     )
     db.add(formation)
     db.flush()
+    now = datetime.now(UTC)
     session = FormationSessionRecord(
         organization_id=org.id,
         formation_id=formation.id,
-        label="Octobre 2026",
-        start_date=date(2026, 10, 10),
-        end_date=date(2026, 12, 20),
+        label="Session test",
+        start_date=(now + timedelta(days=30)).date(),
+        end_date=(now + timedelta(days=100)).date(),
         seat_capacity=20,
         status="open",
-        enrollment_open_at=datetime(2026, 9, 1, tzinfo=UTC),
-        enrollment_close_at=datetime(2026, 10, 9, 23, 59, tzinfo=UTC),
+        enrollment_open_at=now - timedelta(days=30),
+        enrollment_close_at=now + timedelta(days=29),
     )
     db.add(session)
     db.commit()
@@ -253,7 +254,7 @@ def test_full_payment_creates_student_profile_membership_and_enrollment() -> Non
         )
     )
     assert profile is not None
-    assert profile.student_code == "SB26-001"
+    assert profile.student_code == f"SB{datetime.now(UTC):%y}-001"
 
     member = db.scalar(
         select(OrganizationMemberRecord).where(

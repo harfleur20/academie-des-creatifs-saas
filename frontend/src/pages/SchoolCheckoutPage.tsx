@@ -47,6 +47,7 @@ export function SchoolCheckoutPage() {
   const [coupon, setCoupon] = useState('')
   const couponRef = useRef('')
   const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>('full')
+  const [acceptDepositTerms, setAcceptDepositTerms] = useState(false)
   const [order, setOrder] = useState<Checkout | null>(null)
   const [orderInstallments, setOrderInstallments] = useState<OrderInstallment[]>([])
   const [invoices, setInvoices] = useState<SchoolInvoice[]>([])
@@ -187,6 +188,7 @@ export function SchoolCheckoutPage() {
         item.session_id,
         paymentMode,
         coupon.trim() || null,
+        acceptDepositTerms,
       )
       setOrder(created)
       if (created.final_price_cents === 0) {
@@ -344,6 +346,10 @@ export function SchoolCheckoutPage() {
   }
 
   const total = preview?.final_price_cents ?? item.price_cents
+  const hasDeposit = preview?.deposit_cents != null
+  const balanceDue = preview?.balance_due_date
+    ? new Date(preview.balance_due_date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : ''
 
   return (
     <main className="school-section school-checkout-page">
@@ -389,7 +395,7 @@ export function SchoolCheckoutPage() {
                   checked={paymentMode === 'full'}
                   onChange={() => setPaymentMode('full')}
                 />
-                Paiement comptant
+                {hasDeposit ? `Acompte aujourd’hui, puis le solde avant le ${balanceDue}` : 'Paiement comptant'}
               </label>
               <label>
                 <input
@@ -397,7 +403,25 @@ export function SchoolCheckoutPage() {
                   checked={paymentMode === 'installments'}
                   onChange={() => setPaymentMode('installments')}
                 />
-                Paiement en {preview.installment_count} tranches
+                {hasDeposit
+                  ? `Acompte aujourd’hui, puis le solde en ${preview.installment_count - 1} paiements`
+                  : `Paiement en ${preview.installment_count} tranches`}
+              </label>
+            </article>
+          )}
+
+          {hasDeposit && preview && (
+            <article className="school-payment-choice school-deposit-terms">
+              <h3>Réservation avec acompte</h3>
+              <p>
+                Vous réservez votre place avec un acompte de{' '}
+                <strong>{formatSchoolMoney(preview.deposit_cents ?? 0, preview.currency)}</strong> ({preview.deposit_percent} %), réglé aujourd’hui.
+                {paymentMode === 'full' && <> Le solde de <strong>{formatSchoolMoney(preview.balance_cents ?? 0, preview.currency)}</strong> est à régler avant le {balanceDue}, 10 jours avant le début de la session.</>}
+                {' '}Si le solde n’est pas réglé à temps, votre accès est suspendu, mais votre place reste réservée.
+              </p>
+              <label>
+                <input type="checkbox" checked={acceptDepositTerms} onChange={(event) => setAcceptDepositTerms(event.target.checked)} />
+                J’accepte que l’acompte ne soit pas remboursable.
               </label>
             </article>
           )}
@@ -411,13 +435,16 @@ export function SchoolCheckoutPage() {
           <strong>
             {formatSchoolMoney(total, preview?.currency || item.currency)}
           </strong>
+          {hasDeposit && preview && (
+            <small>À régler aujourd’hui : {formatSchoolMoney(preview.deposit_cents ?? 0, preview.currency)}</small>
+          )}
           {paymentMode === 'installments' && preview && (
             <small>
               Le premier versement ouvre immédiatement votre accès. Les prochaines
               échéances seront visibles dans votre espace.
             </small>
           )}
-          <button type="button" disabled={working || !preview || (preview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase()} onClick={() => void pay()}>
+          <button type="button" disabled={working || !preview || (preview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase() || (hasDeposit && !acceptDepositTerms)} onClick={() => void pay()}>
             <CreditCard size={16} />
             {working ? 'Préparation…' : 'Payer maintenant'}
           </button>

@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileText,
+  GraduationCap,
   LayoutDashboard,
   UserRound,
   Users,
@@ -58,6 +59,11 @@ export function TeacherLayout() {
           to: '/app/teacher/attendance',
           label: 'Présences',
           icon: <CalendarCheck2 size={18} />,
+        },
+        {
+          to: '/app/teacher/grades',
+          label: 'Notes',
+          icon: <GraduationCap size={18} />,
         },
         {
           to: '/app/teacher/students',

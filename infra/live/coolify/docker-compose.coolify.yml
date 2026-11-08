@@ -1,0 +1,27 @@
+# Ajouté au docker-compose officiel quand BEHIND_COOLIFY=1 :
+# - le conteneur web rejoint le réseau de Coolify, d'où son proxy Traefik le sert sur le domaine du live ;
+# - le relais vidéo et Jicofo sont plafonnés pour qu'un cours chargé ne ralentisse pas le SaaS,
+#   qui tourne sur le même serveur. Ajustez ces limites après mesure.
+services:
+  web:
+    networks:
+      meet.jitsi:
+      coolify:
+        aliases:
+          - academie-live-web
+  jvb:
+    deploy:
+      resources:
+        limits:
+          cpus: "2.5"
+          memory: 2560M
+  jicofo:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1280M
+
+networks:
+  coolify:
+    external: true

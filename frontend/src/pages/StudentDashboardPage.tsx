@@ -169,7 +169,7 @@ export function StudentDashboardPage() {
     || progress[0]
     || null
   const pendingAssignments = assignments.filter(
-    (item) => item.student_status === 'pending',
+    (item) => item.student_status === 'pending' || item.student_status === 'late',
   ).length
   const availableQuizzes = quizzes.filter((item) => item.can_attempt).length
   const taskCount = pendingAssignments + availableQuizzes

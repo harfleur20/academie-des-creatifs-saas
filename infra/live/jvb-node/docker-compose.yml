@@ -1,0 +1,25 @@
+# Relais vidéo supplémentaire (Jitsi Videobridge). Un par serveur ; Jicofo répartit
+# automatiquement les classes entre tous les relais connectés au serveur principal.
+# Usage : cp jvb-node.env.example .env, remplissez-le, puis docker compose up -d
+services:
+  jvb:
+    image: ghcr.io/jitsi/jvb:${JITSI_IMAGE_VERSION:-stable-11248-3}
+    restart: unless-stopped
+    ports:
+      - "${JVB_PORT:-10000}:${JVB_PORT:-10000}/udp"
+      # WebSocket du relais, joignable seulement depuis le serveur principal (réseau privé).
+      - "${JVB_PRIVATE_IP}:9090:9090"
+    environment:
+      - XMPP_SERVER
+      - XMPP_PORT
+      - XMPP_DOMAIN
+      - XMPP_AUTH_DOMAIN
+      - XMPP_INTERNAL_MUC_DOMAIN
+      - JVB_AUTH_USER
+      - JVB_AUTH_PASSWORD
+      - JVB_BREWERY_MUC
+      - JVB_PORT
+      - JVB_ADVERTISE_IPS
+      - JVB_WS_SERVER_ID
+      - PUBLIC_URL
+      - TZ

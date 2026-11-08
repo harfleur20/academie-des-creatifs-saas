@@ -1,0 +1,28 @@
+# Route du live dans le proxy Traefik de Coolify (configuration dynamique).
+# install-main.sh remplace __DOMAIN__ et copie ce fichier dans /data/coolify/proxy/dynamic/.
+http:
+  routers:
+    academie-live-http:
+      rule: Host(`__DOMAIN__`)
+      entryPoints:
+        - http
+      middlewares:
+        - academie-live-https
+      service: academie-live
+    academie-live:
+      rule: Host(`__DOMAIN__`)
+      entryPoints:
+        - https
+      service: academie-live
+      tls:
+        certResolver: letsencrypt
+  middlewares:
+    academie-live-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+  services:
+    academie-live:
+      loadBalancer:
+        servers:
+          - url: http://academie-live-web:8000

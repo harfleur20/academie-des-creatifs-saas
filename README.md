@@ -16,7 +16,7 @@ Permettre à une école, un centre de formation, un formateur ou un organisme de
 - Paiement : TaraMoney + mode démo local
 - Email : Brevo
 - WhatsApp : Wapino
-- Live : JaaS
+- Live : Jitsi auto-hébergé (`infra/live`) ou JaaS
 - Stockage : Cloudinary / Cloudflare R2
 
 ## Lancer le projet en local
@@ -76,6 +76,8 @@ Vérifications :
 
 - API : `http://localhost:8000/health`
 - Documentation FastAPI : `http://localhost:8000/docs`
+
+Les tâches horaires (abonnements, paiements étudiants, rappels de devoirs et envoi des emails) tournent en production via GitHub Actions. En local, lancez-les dans un second terminal depuis `backend` avec `python scripts/run_cron_jobs.py --every 15`. Voir [docs/BILLING_AUTOMATION.md](docs/BILLING_AUTOMATION.md).
 
 ### 3. Préparer le frontend
 

@@ -6,14 +6,18 @@ import {
   RotateCcw,
   Timer,
   X,
-  XCircle,
 } from 'lucide-react'
 import {
   ApiError,
   listStudentQuizzes,
   submitStudentQuizAttempt,
+  type QuizAttempt,
   type StudentQuiz,
+  type StudentQuizQuestion,
 } from '../lib/api'
+import { QuizAttemptReview } from '../components/QuizAttemptReview'
+
+type Review = { title: string; questions: StudentQuizQuestion[]; attempt: QuizAttempt; passPct: number }
 
 function timerStorageKey(quiz: StudentQuiz) {
   return `student_quiz_started_${quiz.id}_${quiz.attempts.length + 1}`
@@ -32,9 +36,6 @@ function quizStatus(quiz: StudentQuiz) {
   if (quiz.next_attempt_available_at && new Date(quiz.next_attempt_available_at).getTime() > Date.now()) {
     return <span className="dsh-badge dsh-badge--yellow"><Clock3 size={12} /> Réessai en attente</span>
   }
-  if (quiz.attempts_remaining <= 0 && quiz.best_score_pct !== null) {
-    return <span className="dsh-badge dsh-badge--red"><XCircle size={12} /> Essais épuisés</span>
-  }
   if (quiz.best_score_pct !== null) {
     return <span className="dsh-badge dsh-badge--orange"><RotateCcw size={12} /> À refaire · {quiz.best_score_pct}%</span>
   }
@@ -45,6 +46,7 @@ export function StudentQuizzesPage() {
   const [items, setItems] = useState<StudentQuiz[]>([])
   const [active, setActive] = useState<StudentQuiz | null>(null)
   const [result, setResult] = useState<StudentQuiz | null>(null)
+  const [review, setReview] = useState<Review | null>(null)
   const [answers, setAnswers] = useState<Record<number, number>>({})
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -134,6 +136,9 @@ export function StudentQuizzesPage() {
       window.localStorage.removeItem(timerStorageKey(active))
       setItems((current) => current.map((item) => item.id === updated.id ? updated : item))
       setResult(updated)
+      const attempt = updated.attempts[updated.attempts.length - 1]
+      // As on the mother site, the correction opens right after each attempt.
+      if (attempt) setReview({ title: active.title, questions: active.questions, attempt, passPct: updated.pass_pct })
       closeQuiz()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Soumission impossible.')
@@ -189,6 +194,9 @@ export function StudentQuizzesPage() {
               <p>
                 Meilleur score : {result.best_score_pct ?? 0}% · seuil de réussite : {result.pass_pct}%.
                 {!result.passed && result.attempts_remaining > 0 ? ` ${result.attempts_remaining} essai(s) restant(s).` : ''}
+                {!result.passed && result.next_attempt_available_at
+                  ? ` Vos 3 essais sont utilisés : un nouveau cycle de 3 essais s'ouvre le ${new Date(result.next_attempt_available_at).toLocaleString('fr-FR')}.`
+                  : ''}
               </p>
             </div>
             <button className="dsh-icon-btn" type="button" onClick={() => setResult(null)} aria-label="Fermer"><X size={14} /></button>
@@ -291,6 +299,23 @@ export function StudentQuizzesPage() {
               <button className="dsh-btn dsh-btn--primary" type="button" disabled={working || secondsLeft === 0} onClick={() => void submit(false)}>
                 {working ? 'Correction…' : 'Soumettre mes réponses'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {review && (
+        <div className="dsh-modal-overlay" onClick={() => setReview(null)}>
+          <div className="dsh-modal dsh-modal--large" onClick={(event) => event.stopPropagation()}>
+            <div className="dsh-modal__header">
+              <div>
+                <h3>Correction · {review.title}</h3>
+              </div>
+              <button className="dsh-icon-btn" type="button" onClick={() => setReview(null)} aria-label="Fermer"><X size={16} /></button>
+            </div>
+            <QuizAttemptReview questions={review.questions} attempt={review.attempt} passPct={review.passPct} />
+            <div className="dsh-modal__footer">
+              <button className="dsh-btn dsh-btn--primary" type="button" onClick={() => setReview(null)}>Fermer la correction</button>
             </div>
           </div>
         </div>

@@ -22,6 +22,7 @@ import {
   type AssignmentComment,
   type StudentAssignment,
 } from '../lib/api'
+import { AssignmentBriefView } from '../components/AssignmentBriefView'
 
 function dateTime(value: string) {
   return new Date(value).toLocaleString('fr-FR', {
@@ -159,10 +160,7 @@ export function StudentAssignmentsPage() {
         ) : (
           <div className="dsh-list">
             {items.map((assignment) => {
-              const canSubmit = !assignment.is_locked && (
-                assignment.student_status === 'pending' ||
-                assignment.student_status === 'submitted'
-              )
+              const canSubmit = !assignment.is_locked && assignment.student_status !== 'reviewed'
 
               return (
                 <article
@@ -181,6 +179,7 @@ export function StudentAssignmentsPage() {
                         : `Date limite : ${dateTime(assignment.due_date)}`}
                       {assignment.submitted_at ? ` · Remis le ${dateTime(assignment.submitted_at)}` : ''}
                     </span>
+                    <AssignmentBriefView brief={assignment.brief} instructions={assignment.instructions} />
                   </div>
 
                   <div className="dsh-list-item__actions">
@@ -207,7 +206,9 @@ export function StudentAssignmentsPage() {
                         onClick={() => setSubmitTarget(assignment)}
                       >
                         <FileUp size={13} />
-                        {assignment.student_status === 'submitted' ? 'Modifier' : 'Remettre'}
+                        {assignment.student_status === 'submitted'
+                          ? 'Modifier'
+                          : assignment.student_status === 'late' ? 'Remettre en retard' : 'Remettre'}
                       </button>
                     )}
                     {!assignment.is_locked && (
@@ -270,9 +271,14 @@ export function StudentAssignmentsPage() {
 
               <aside className="asg-submit-modal__instructions-pane">
                 <h4>Consignes</h4>
-                <p>{submitTarget.instructions || 'Aucune consigne supplémentaire.'}</p>
+                {submitTarget.brief || submitTarget.instructions
+                  ? <AssignmentBriefView brief={submitTarget.brief} instructions={submitTarget.instructions} collapsible={false} />
+                  : <p>Aucune consigne supplémentaire.</p>}
                 <h4 style={{ marginTop: 22 }}>Date limite</h4>
                 <p>{dateTime(submitTarget.due_date)}</p>
+                {submitTarget.student_status === 'late' && (
+                  <p>La date limite est passée : votre remise reste possible et sera enregistrée à sa date réelle.</p>
+                )}
               </aside>
             </div>
           </div>

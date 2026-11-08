@@ -37,3 +37,10 @@
 @media (max-width: 700px) {
   .role-student-progress-card__badge, .badge-orb__visual { width: 88px; }
 }
+
+.progress-next__missing {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  font-size: 11px;
+  line-height: 1.5;
+}

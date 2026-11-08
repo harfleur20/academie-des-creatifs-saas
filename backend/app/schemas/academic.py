@@ -3,6 +3,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# As on the mother site, a quiz is passed at 80 % at least, PDF validation quizzes included.
+QUIZ_PASS_PCT = 80.0
+
 
 class ResourceCreate(BaseModel):
     title: str = Field(min_length=2, max_length=255)
@@ -50,7 +53,7 @@ class QuizCreate(BaseModel):
     duration_minutes: int | None = Field(default=None, ge=5, le=360)
     scheduled_at: datetime | None = None
     course_day_id: int | None = None
-    pass_pct: float = Field(default=80, ge=0, le=100)
+    pass_pct: float = Field(default=QUIZ_PASS_PCT, ge=QUIZ_PASS_PCT, le=100)
     questions: list[QuizQuestionCreate] = Field(min_length=1, max_length=100)
 
 
@@ -95,6 +98,9 @@ class QuizAttemptRead(BaseModel):
     attempt_number: int
     score_pct: float
     submitted_at: datetime
+    # The student's own correction, as on the mother site: one entry per question, -1 when unanswered.
+    submitted_answers: list[int] = Field(default_factory=list)
+    correct_answers: list[int] = Field(default_factory=list)
 
 
 class StudentQuizRead(BaseModel):
@@ -204,16 +210,64 @@ class GradeRead(BaseModel):
     created_at: datetime
 
 
+class TeacherGradeEntry(BaseModel):
+    enrollment_id: int
+    course_day_id: int | None = None
+    label: str = Field(min_length=1, max_length=180)
+    score: float = Field(ge=0)
+    max_score: float = Field(default=20, gt=0)
+    note: str = Field(default="", max_length=2000)
+
+
+class TeacherGradeRead(BaseModel):
+    id: int
+    enrollment_id: int
+    student_name: str
+    course_day_id: int | None
+    course_day_title: str | None
+    teacher_name: str | None
+    is_own: bool
+    source_type: str
+    label: str
+    score: float
+    max_score: float
+    note: str
+
+
+class GradebookStudentRead(BaseModel):
+    enrollment_id: int
+    student_name: str
+
+
+class GradebookCourseDayRead(BaseModel):
+    id: int
+    title: str
+    scheduled_at: datetime
+    can_grade: bool
+
+
+class TeacherGradebookRead(BaseModel):
+    session_id: int
+    can_grade_session: bool
+    students: list[GradebookStudentRead]
+    course_days: list[GradebookCourseDayRead]
+    grades: list[TeacherGradeRead]
+
+
+# As on the mother site, a late student counts as present.
+AttendanceStatus = Literal["present", "late", "absent", "excused"]
+
+
 class AttendanceRowRead(BaseModel):
     enrollment_id: int
     student_id: int
     student_name: str
-    status: Literal["present", "absent", "excused"] | None
+    status: AttendanceStatus | None
 
 
 class AttendanceMarkPayload(BaseModel):
     enrollment_id: int
-    status: Literal["present", "absent", "excused"]
+    status: AttendanceStatus
 
 
 class AttendanceCourseDayRead(BaseModel):
@@ -224,6 +278,8 @@ class AttendanceCourseDayRead(BaseModel):
     teacher_id: int | None
     teacher_name: str | None
     can_edit: bool
+    edit_blocked_reason: str | None = None
+    locks_at: datetime | None = None
     delivery_status: str | None
     report_submitted_at: datetime | None
     rows: list[AttendanceRowRead]
@@ -233,11 +289,14 @@ class StudentAttendanceRead(BaseModel):
     course_day_id: int
     title: str
     scheduled_at: datetime
-    status: Literal["present", "absent", "excused"] | None
+    status: AttendanceStatus | None
+
+
+BadgeLevel = Literal["aventurier", "debutant", "intermediaire", "semi_pro", "professionnel"]
 
 
 class BadgeRead(BaseModel):
-    level: Literal["aventurier", "debutant", "intermediaire", "semi_pro", "professionnel"]
+    level: BadgeLevel
     label: str
     score_pct: float
     next_level: str | None
@@ -247,6 +306,16 @@ class BadgeRead(BaseModel):
     attendance_pct: float | None
     grade_average_pct: float | None
     final_project_validated: bool
+    missing_requirements: list[str] = []
+    ring_pct: float = 0.0
+
+
+class ClassmateBadgeRead(BaseModel):
+    """What a student may see of a classmate's badge: no score, grade or attendance."""
+
+    level: BadgeLevel
+    label: str
+    ring_pct: float
 
 
 class ProgressRead(BaseModel):
@@ -274,7 +343,7 @@ class ClassmateRead(BaseModel):
     avatar_url: str | None
     student_code: str | None
     is_current_user: bool
-    badge: BadgeRead
+    badge: ClassmateBadgeRead
 
 
 class StudentClassRead(BaseModel):

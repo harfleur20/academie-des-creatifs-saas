@@ -1011,6 +1011,8 @@ export type FormationSummary = {
   currency: string
   allow_installments: boolean
   installment_count: number
+  reservation_deposit_enabled: boolean
+  reservation_deposit_percent: number
   is_featured: boolean
   featured_order: number
   status: 'draft' | 'published' | 'archived'
@@ -1137,7 +1139,8 @@ export const updateFormation = (
     'title' | 'description' | 'category' | 'level' | 'format_type' | 'training_hours' |
     'short_description' | 'cover_image_url' | 'objectives' | 'prerequisites' |
     'public_program' | 'price_cents' | 'currency' | 'allow_installments' |
-    'installment_count' | 'is_featured' | 'featured_order' | 'status'
+    'installment_count' | 'reservation_deposit_enabled' | 'reservation_deposit_percent' |
+    'is_featured' | 'featured_order' | 'status'
   >>,
 ) =>
   request<FormationSummary>(`/formations/${formationId}`, {
@@ -1552,6 +1555,22 @@ export const updateSessionCourseDay = (
   })
 
 
+export type AssignmentRubricCriterion = {
+  label: string
+  points: number
+  description: string
+}
+
+export type AssignmentBrief = {
+  context: string
+  objective: string
+  deliverables: string[]
+  steps: string[]
+  evaluation_criteria: AssignmentRubricCriterion[]
+  submission_method: string
+  tips: string[]
+}
+
 export type Assignment = {
   id: number
   session_id: number
@@ -1559,11 +1578,24 @@ export type Assignment = {
   teacher_id: number | null
   teacher_name: string | null
   title: string
+  publication_status: 'draft' | 'published'
   instructions: string
+  brief: AssignmentBrief | null
   due_date: string
   is_final_project: boolean
   submissions_count: number
   created_at: string
+  can_manage: boolean
+  delete_blocked_reason: string | null
+}
+
+export type AssignmentPayload = {
+  title: string
+  instructions: string
+  brief?: AssignmentBrief | null
+  due_date: string
+  course_day_id?: number | null
+  is_final_project?: boolean
 }
 
 export type StudentAssignmentStatus = 'pending' | 'submitted' | 'late' | 'reviewed'
@@ -1577,6 +1609,7 @@ export type StudentAssignment = {
   teacher_name: string | null
   title: string
   instructions: string
+  brief: AssignmentBrief | null
   is_locked: boolean
   available_at: string | null
   due_date: string
@@ -1616,20 +1649,23 @@ export type AssignmentComment = {
 export const listTeacherAssignments = (sessionId: number) =>
   request<Assignment[]>('/assignments/teacher/sessions/' + sessionId)
 
-export const createTeacherAssignment = (
-  sessionId: number,
-  payload: {
-    title: string
-    instructions: string
-    due_date: string
-    course_day_id?: number | null
-    is_final_project?: boolean
-  },
-) =>
+export const createTeacherAssignment = (sessionId: number, payload: AssignmentPayload) =>
   request<Assignment>('/assignments/teacher/sessions/' + sessionId, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
+
+export const updateTeacherAssignment = (assignmentId: number, payload: Partial<AssignmentPayload>) =>
+  request<Assignment>('/assignments/teacher/' + assignmentId, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+
+export const publishTeacherAssignment = (assignmentId: number) =>
+  request<Assignment>('/assignments/teacher/' + assignmentId + '/publish', { method: 'POST' })
+
+export const deleteTeacherAssignment = (assignmentId: number) =>
+  request<void>('/assignments/teacher/' + assignmentId, { method: 'DELETE' })
 
 export const listAssignmentSubmissions = (assignmentId: number) =>
   request<AssignmentSubmission[]>('/assignments/teacher/' + assignmentId + '/submissions')
@@ -1815,6 +1851,8 @@ export type QuizAttempt = {
   attempt_number: number
   score_pct: number
   submitted_at: string
+  submitted_answers: number[]
+  correct_answers: number[]
 }
 
 export type StudentQuiz = {
@@ -2000,21 +2038,32 @@ export type AttendanceCourseDay = {
   teacher_id: number | null
   teacher_name: string | null
   can_edit: boolean
+  edit_blocked_reason: string | null
+  locks_at: string | null
   delivery_status: 'held' | 'partial' | 'not_held' | 'interrupted' | null
   report_submitted_at: string | null
   rows: Array<{
     enrollment_id: number
     student_id: number
     student_name: string
-    status: 'present' | 'absent' | 'excused' | null
+    status: AttendanceStatus | null
   }>
+}
+
+export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused'
+
+export const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = {
+  present: 'Présent',
+  late: 'En retard',
+  absent: 'Absent',
+  excused: 'Excusé',
 }
 
 export type StudentAttendance = {
   course_day_id: number
   title: string
   scheduled_at: string
-  status: 'present' | 'absent' | 'excused' | null
+  status: AttendanceStatus | null
 }
 
 export const getTeacherAttendance = (sessionId: number) =>
@@ -2023,7 +2072,7 @@ export const getTeacherAttendance = (sessionId: number) =>
 export const markTeacherAttendance = (
   courseDayId: number,
   enrollmentId: number,
-  status: 'present' | 'absent' | 'excused',
+  status: AttendanceStatus,
 ) =>
   request<AttendanceCourseDay>('/academic/teacher/course-days/' + courseDayId + '/attendance', {
     method: 'PUT',
@@ -2047,6 +2096,45 @@ export type StudentGrade = {
 export const listStudentGrades = () =>
   request<StudentGrade[]>('/academic/student/grades')
 
+export type TeacherGradebook = {
+  session_id: number
+  can_grade_session: boolean
+  students: Array<{ enrollment_id: number; student_name: string }>
+  course_days: Array<{ id: number; title: string; scheduled_at: string; can_grade: boolean }>
+  grades: Array<{
+    id: number
+    enrollment_id: number
+    student_name: string
+    course_day_id: number | null
+    course_day_title: string | null
+    teacher_name: string | null
+    is_own: boolean
+    source_type: string
+    label: string
+    score: number
+    max_score: number
+    note: string
+  }>
+}
+
+export const getTeacherGradebook = (sessionId: number) =>
+  request<TeacherGradebook>('/academic/teacher/sessions/' + sessionId + '/grades')
+
+export const saveTeacherGrades = (
+  sessionId: number,
+  entries: Array<{
+    enrollment_id: number
+    course_day_id: number | null
+    label: string
+    score: number
+    max_score: number
+  }>,
+) =>
+  request<TeacherGradebook>('/academic/teacher/sessions/' + sessionId + '/grades', {
+    method: 'PUT',
+    body: JSON.stringify(entries),
+  })
+
 export type StudentBadge = {
   level: 'aventurier' | 'debutant' | 'intermediaire' | 'semi_pro' | 'professionnel'
   label: string
@@ -2058,6 +2146,8 @@ export type StudentBadge = {
   attendance_pct: number | null
   grade_average_pct: number | null
   final_project_validated: boolean
+  missing_requirements: string[]
+  ring_pct: number
 }
 
 export type StudentProgress = {
@@ -2112,7 +2202,7 @@ export type StudentClass = {
     avatar_url: string | null
     student_code: string | null
     is_current_user: boolean
-    badge: StudentBadge
+    badge: Pick<StudentBadge, 'level' | 'label' | 'ring_pct'>
   }>
 }
 
@@ -2383,6 +2473,7 @@ export type PublicFormationDetail = PublicFormationCard & {
   public_program: string
   allow_installments: boolean
   installment_count: number
+  reservation_deposit_percent: number | null
   modules: PublicProgramModule[]
   sessions: PublicSession[]
   teacher_names: string[]
@@ -2549,6 +2640,10 @@ export type PricePreview = {
   coupon_code: string | null
   installments_allowed: boolean
   installment_count: number
+  deposit_cents: number | null
+  deposit_percent: number | null
+  balance_cents: number | null
+  balance_due_date: string | null
 }
 
 export type Checkout = {
@@ -2567,6 +2662,7 @@ export type Checkout = {
   currency: string
   payment_mode: string
   installment_count: number
+  deposit_cents: number | null
   checkout_url: string | null
   provider_reference: string | null
 }
@@ -2612,6 +2708,7 @@ export const createPublicCheckout = (
   sessionId: number,
   paymentMode: 'full'|'installments',
   couponCode?: string | null,
+  acceptDepositTerms = false,
 ) => request<Checkout>(
   '/commerce/public/' + encodeURIComponent(schoolKey) + '/checkout',
   {
@@ -2620,6 +2717,7 @@ export const createPublicCheckout = (
       session_id: sessionId,
       payment_mode: paymentMode,
       coupon_code: couponCode || null,
+      accept_deposit_terms: acceptDepositTerms,
     }),
     organizationId: null,
   },

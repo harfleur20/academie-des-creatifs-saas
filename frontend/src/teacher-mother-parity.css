@@ -91,6 +91,11 @@
   font-weight: 800;
 }
 
+.teacher-session-select select {
+  width: 100%;
+  min-width: 0;
+}
+
 .teacher-session-select select,
 .teacher-quiz-actions select {
   min-height: 40px;
@@ -377,6 +382,10 @@
 .teacher-submission-row > div:first-child {
   display: grid;
   gap: 4px;
+}
+
+.teacher-submission-row > div:first-child .dsh-badge {
+  justify-self: start;
 }
 
 .teacher-submission-row small,
@@ -838,7 +847,7 @@
 
 @media (max-width: 620px) {
   .teacher-session-select {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .teacher-course-create-mother > div:last-child,

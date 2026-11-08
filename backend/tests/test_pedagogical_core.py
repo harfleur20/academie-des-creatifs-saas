@@ -297,6 +297,7 @@ def test_teacher_formation_detail_hides_unassigned_sibling_session() -> None:
             label="Cohorte du professeur",
             start_date=date(2026, 10, 5),
             end_date=date(2026, 10, 31),
+            seat_capacity=10,
         ),
     )
     assigned_session_id = first.sessions[0].id
@@ -316,6 +317,7 @@ def test_teacher_formation_detail_hides_unassigned_sibling_session() -> None:
             label="Cohorte privée",
             start_date=date(2026, 11, 1),
             end_date=date(2026, 12, 1),
+            seat_capacity=10,
         ),
     )
     sibling_session_id = next(

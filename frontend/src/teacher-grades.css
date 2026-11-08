@@ -1,0 +1,39 @@
+.grade-entry-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) 110px;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.grade-entry-fields label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  color: #66758b;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.grade-entry-fields input,
+.grade-entry-fields select,
+.grade-score-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid #dfe5ed;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+
+.grade-save-button {
+  margin-top: 14px;
+}
+
+@media (max-width: 720px) {
+  .grade-entry-fields {
+    grid-template-columns: 1fr;
+  }
+}

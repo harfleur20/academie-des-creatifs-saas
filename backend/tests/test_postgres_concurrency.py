@@ -24,6 +24,7 @@ from app.models.entities import (
     UserRecord,
 )
 from app.schemas.commerce import CheckoutCreate
+from app.services import school_branding
 from app.services.communication_delivery import process_communication_outbox
 from app.services.school_branding import get_or_create_identity_records
 from app.services.school_commerce import confirm_demo_checkout, create_checkout
@@ -133,6 +134,39 @@ def test_concurrent_payments_allocate_distinct_student_codes(postgres_engine):
     with Session(postgres_engine) as db:
         codes = db.scalars(select(OrganizationStudentProfileRecord.student_code).where(OrganizationStudentProfileRecord.organization_id == org_id)).all()
         assert len(codes) == len(set(codes)) == 2
+
+
+def test_two_first_visits_create_one_identity_per_school(postgres_engine, monkeypatch):
+    suffix = uuid4().hex[:10]
+    with Session(postgres_engine) as db:
+        org = OrganizationRecord(name="Fresh school", slug=f"fresh-{suffix}", subdomain=f"fresh-{suffix}")
+        db.add(org)
+        db.commit()
+        org_id = org.id
+    gate = threading.Barrier(2)
+    local = threading.local()
+    real_find = school_branding._find_identity_record
+
+    def find_then_wait(db, model, organization_id):
+        found = real_find(db, model, organization_id)
+        if not getattr(local, "waited", False):
+            local.waited = True
+            gate.wait(timeout=10)  # both visits have found the public site missing
+        return found
+
+    monkeypatch.setattr(school_branding, "_find_identity_record", find_then_wait)
+
+    def visit():
+        local.waited = False
+        with Session(postgres_engine, autoflush=False, expire_on_commit=False) as db:
+            return [record.id for record in get_or_create_identity_records(db, db.get(OrganizationRecord, org_id))]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first, second = [future.result() for future in [pool.submit(visit) for _ in range(2)]]
+    assert first == second
+    with Session(postgres_engine) as db:
+        for model, _defaults in school_branding.IDENTITY_RECORDS:
+            assert len(db.scalars(select(model.id).where(model.organization_id == org_id)).all()) == 1
 
 
 def test_two_workers_send_one_outbox_message(postgres_engine):

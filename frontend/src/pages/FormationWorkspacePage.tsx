@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
+  Archive,
   ArrowLeft,
   BookOpen,
   CalendarPlus,
   GraduationCap,
   ImagePlus,
+  Pencil,
   Plus,
   Save,
   Send,
@@ -38,7 +40,7 @@ export function FormationWorkspacePage() {
   const [sessionLabel, setSessionLabel] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [capacity, setCapacity] = useState('0')
+  const [capacity, setCapacity] = useState('')
   const [campus, setCampus] = useState('')
   const [description, setDescription] = useState('')
   const [shortDescription, setShortDescription] = useState('')
@@ -46,6 +48,10 @@ export function FormationWorkspacePage() {
   const [prerequisites, setPrerequisites] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
   const [price, setPrice] = useState('')
+  const [allowInstallments, setAllowInstallments] = useState(false)
+  const [installmentCount, setInstallmentCount] = useState('3')
+  const [depositEnabled, setDepositEnabled] = useState(false)
+  const [depositPercent, setDepositPercent] = useState('37.5')
   const [publicProgram, setPublicProgram] = useState('')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
@@ -64,6 +70,10 @@ export function FormationWorkspacePage() {
       setPrerequisites(detail.prerequisites)
       setCoverUrl(detail.cover_image_url || '')
       setPrice(detail.price_cents ? String(detail.currency === 'XAF' ? detail.price_cents : detail.price_cents / 100) : '')
+      setAllowInstallments(detail.allow_installments)
+      setInstallmentCount(String(detail.installment_count))
+      setDepositEnabled(detail.reservation_deposit_enabled)
+      setDepositPercent(String(detail.reservation_deposit_percent))
       setPublicProgram(detail.public_program)
       setMembers(team)
     } catch (err) {
@@ -91,12 +101,12 @@ export function FormationWorkspacePage() {
         start_date: startDate,
         end_date: endDate,
         campus_label: campus.trim() || null,
-        seat_capacity: Number(capacity || 0),
+        seat_capacity: Number(capacity),
       }))
       setSessionLabel('')
       setStartDate('')
       setEndDate('')
-      setCapacity('0')
+      setCapacity('')
       setCampus('')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Création de session impossible.')
@@ -121,6 +131,32 @@ export function FormationWorkspacePage() {
     }
   }
 
+  async function archiveFormation() {
+    if (!formation) return
+    const today = new Date().toISOString().slice(0, 10)
+    // As on the mother site: warn about future sessions that already have students.
+    const upcoming = formation.sessions.filter((session) => session.status !== 'cancelled' && session.status !== 'completed'
+      && session.start_date > today && session.enrollments.some((item) => item.status === 'active'))
+    const warning = upcoming.length
+      ? `Ces sessions à venir ont déjà des inscrits : ${upcoming.map((session) => session.label).join(', ')}. Leurs étudiants gardent leur accès, mais la formation disparaîtra du catalogue.
+
+`
+      : ''
+    if (!window.confirm(`${warning}Archiver « ${formation.title} » ? L’historique des sessions, des inscriptions et des paiements est conservé.`)) return
+    setWorking(true)
+    setError('')
+    setMessage('')
+    try {
+      await updateFormation(formation.id, { status: 'archived' })
+      setFormation(await getFormation(formation.id))
+      setMessage('Formation archivée : elle n’apparaît plus dans le catalogue.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Archivage impossible.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
   async function savePresentation(event: FormEvent) {
     event.preventDefault()
     if (!formation) return
@@ -135,6 +171,10 @@ export function FormationWorkspacePage() {
         prerequisites: prerequisites.trim(),
         cover_image_url: coverUrl || null,
         price_cents: price ? Math.round(Number(price) * (formation.currency === 'XAF' ? 1 : 100)) : 0,
+        allow_installments: allowInstallments,
+        installment_count: Math.min(12, Math.max(2, Number(installmentCount) || 2)),
+        reservation_deposit_enabled: depositEnabled,
+        reservation_deposit_percent: Math.min(99, Math.max(1, Number(depositPercent) || 37.5)),
         public_program: publicProgram.trim(),
       })
       setFormation(await getFormation(formation.id))
@@ -178,7 +218,7 @@ export function FormationWorkspacePage() {
           <h1>{formation.title}</h1>
           <p>{formation.description || 'Aucune description.'}</p>
         </div>
-        <div className="formation-workspace-actions"><span className="status-chip">{formation.status === 'published' ? 'Publiée' : 'Brouillon'}{formation.format_type !== 'ligne' && ` · ${formation.session_count} session(s)`}</span>{formation.status === 'draft' && <button className="primary-button" type="button" disabled={working || formation.publication_issues.length > 0} onClick={() => void publishFormation()}><Send size={15} /> {working ? 'Publication…' : 'Publier la formation'}</button>}</div>
+        <div className="formation-workspace-actions"><span className="status-chip">{formation.status === 'published' ? 'Publiée' : formation.status === 'archived' ? 'Archivée' : 'Brouillon'}{formation.format_type !== 'ligne' && ` · ${formation.session_count} session(s)`}</span>{formation.status === 'draft' && <button className="primary-button" type="button" disabled={working || formation.publication_issues.length > 0} onClick={() => void publishFormation()}><Send size={15} /> {working ? 'Publication…' : 'Publier la formation'}</button>}{formation.status !== 'archived' && <button className="secondary-button" type="button" disabled={working} onClick={() => void archiveFormation()}><Archive size={15} /> Archiver</button>}</div>
       </header>
 
       {error && <div className="form-error">{error}</div>}
@@ -193,6 +233,18 @@ export function FormationWorkspacePage() {
           <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={(event) => void uploadCover(event)} disabled={working} />
         </label>
         <label>Prix ({formation.currency})<input type="number" min={formation.currency === 'XAF' ? '1' : '0.01'} step={formation.currency === 'XAF' ? '1' : '0.01'} value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formation.currency === 'XAF' ? 'Ex. 150000' : 'Ex. 250.00'} /></label>
+        <fieldset className="formation-payment-options">
+          <legend>Modalités de paiement</legend>
+          <label className="formation-payment-toggle"><input type="checkbox" checked={allowInstallments} onChange={(event) => setAllowInstallments(event.target.checked)} /> Autoriser le paiement en plusieurs fois</label>
+          {allowInstallments && <label>Nombre maximal de paiements<input type="number" min={2} max={12} step={1} value={installmentCount} onChange={(event) => setInstallmentCount(event.target.value)} /></label>}
+          {allowInstallments && formation.format_type !== 'ligne' && <small>Comme sur le site mère, la durée de chaque session plafonne ce nombre : un seul paiement sous un mois, 2 pour un mois, 3 au-delà. La dernière échéance tombe 5 jours avant la fin de la session.</small>}
+          {allowInstallments && formation.format_type === 'ligne' && <small>Les paiements sont espacés d’un mois.</small>}
+          {formation.format_type === 'live' && <>
+            <label className="formation-payment-toggle"><input type="checkbox" checked={depositEnabled} onChange={(event) => setDepositEnabled(event.target.checked)} /> Réserver une place avec un acompte</label>
+            {depositEnabled && <label>Acompte (% du prix)<input type="number" min={1} max={99} step={0.5} value={depositPercent} onChange={(event) => setDepositPercent(event.target.value)} /></label>}
+            {depositEnabled && <small>Comme sur le site mère, l’acompte non remboursable réserve la place quand la session commence dans plus de 10 jours. Le solde est dû 10 jours avant le début : sans lui, l’accès est suspendu mais la place reste gardée. Les montants en XAF sont arrondis à 500 FCFA.</small>}
+          </>}
+        </fieldset>
         <label>Description générale<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} rows={5} placeholder="Présentez la formation, sa promesse et son approche pédagogique." /></label>
         <label>Résumé court<textarea value={shortDescription} onChange={(event) => setShortDescription(event.target.value)} maxLength={500} rows={3} placeholder="Texte court affiché dans l’introduction et sur les cartes du catalogue." /><small>{shortDescription.length}/500 caractères</small></label>
         <label>À la fin de cette formation, l’apprenant sera capable de…<textarea value={objectives} onChange={(event) => setObjectives(event.target.value)} maxLength={10000} rows={6} placeholder={'Concevoir une application complète\nAutomatiser des tâches métier\nCréer une interface professionnelle'} /><small>Un acquis par ligne pour un affichage clair sur le site public.</small></label>
@@ -233,13 +285,13 @@ export function FormationWorkspacePage() {
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
           </label>
           <label>
-            Capacité
-            <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+            Places
+            <input type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} required />
           </label>
           {formation.format_type === 'presentiel' && (
             <label>
-              Campus
-              <input value={campus} onChange={(e) => setCampus(e.target.value)} placeholder="Bonamoussadi" />
+              Lieu
+              <input value={campus} onChange={(e) => setCampus(e.target.value)} required placeholder="Bonamoussadi" />
             </label>
           )}
           <button className="primary-button" disabled={working}>
@@ -288,6 +340,9 @@ function SessionWorkspace({
   const [lessonTitles, setLessonTitles] = useState<Record<number, string>>({})
   const [accessStartDate, setAccessStartDate] = useState(session.start_date)
   const [accessEndDate, setAccessEndDate] = useState(session.end_date)
+  const [editLabel, setEditLabel] = useState(session.label)
+  const [editCapacity, setEditCapacity] = useState(String(session.seat_capacity))
+  const [editCampus, setEditCampus] = useState(session.campus_label ?? '')
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
 
@@ -296,8 +351,31 @@ function SessionWorkspace({
     setAccessEndDate(session.end_date)
   }, [session.start_date, session.end_date])
 
+  useEffect(() => {
+    setEditLabel(session.label)
+    setEditCapacity(String(session.seat_capacity))
+    setEditCampus(session.campus_label ?? '')
+  }, [session.label, session.seat_capacity, session.campus_label])
+
   const assignedTeacherIds = new Set(session.teachers.map((item) => item.teacher_id))
   const invalidAccessPeriod = !accessStartDate || !accessEndDate || accessEndDate < accessStartDate
+  const isOnsite = formation.format_type === 'presentiel'
+  const sessionUnchanged = editLabel.trim() === session.label
+    && accessStartDate === session.start_date
+    && accessEndDate === session.end_date
+    && Number(editCapacity) === session.seat_capacity
+    && (!isOnsite || editCampus.trim() === (session.campus_label ?? ''))
+
+  function saveSession(event: FormEvent) {
+    event.preventDefault()
+    void run(() => updateFormationSession(formation.id, session.id, {
+      label: editLabel.trim(),
+      start_date: accessStartDate,
+      end_date: accessEndDate,
+      seat_capacity: Number(editCapacity),
+      ...(isOnsite ? { campus_label: editCampus.trim() } : {}),
+    }))
+  }
 
   async function run(action: () => Promise<FormationDetail>) {
     setWorking(true)
@@ -322,6 +400,7 @@ function SessionWorkspace({
             {' → '}
             {new Date(session.end_date).toLocaleDateString('fr-FR')}
             {session.seat_capacity > 0 ? ` · ${session.enrollments.length}/${session.seat_capacity} places` : ''}
+            {isOnsite && session.campus_label ? ` · ${session.campus_label}` : ''}
           </p>
         </div>
         <div className="session-workspace-stats">
@@ -338,6 +417,37 @@ function SessionWorkspace({
       </header>
 
       {error && <div className="form-error">{error}</div>}
+
+      {formation.format_type !== 'ligne' && <details className="session-edit-panel">
+        <summary><Pencil size={14} /> Modifier la session</summary>
+        <form className="session-create-grid" onSubmit={saveSession}>
+          <label>
+            Nom de session
+            <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} required minLength={2} />
+          </label>
+          <label>
+            Début
+            <input type="date" value={accessStartDate} onChange={(e) => setAccessStartDate(e.target.value)} required />
+          </label>
+          <label>
+            Fin
+            <input type="date" value={accessEndDate} min={accessStartDate || undefined} onChange={(e) => setAccessEndDate(e.target.value)} required />
+          </label>
+          <label>
+            Places
+            <input type="number" min={1} value={editCapacity} onChange={(e) => setEditCapacity(e.target.value)} required />
+          </label>
+          {isOnsite && (
+            <label>
+              Lieu
+              <input value={editCampus} onChange={(e) => setEditCampus(e.target.value)} required placeholder="Bonamoussadi" />
+            </label>
+          )}
+          <button className="secondary-button" disabled={working || invalidAccessPeriod || sessionUnchanged}>
+            <Save size={14} /> Enregistrer
+          </button>
+        </form>
+      </details>}
 
       {formation.format_type === 'ligne' && <section className="online-access-period">
         <div>

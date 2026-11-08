@@ -48,7 +48,17 @@ type LessonDraft = {
   lesson_type: Lesson['lesson_type']
   content: string
   linked_id?: string
+  linked_kind?: '' | 'quiz' | 'assignment' | 'resource'
   available_at?: string
+}
+
+// A video lesson can carry one complementary activity, as on the mother site.
+function linkedKind(draft: LessonDraft): '' | 'quiz' | 'assignment' | 'resource' {
+  if (draft.lesson_type === 'video') return draft.linked_kind || ''
+  if (['quiz', 'pdf', 'text'].includes(draft.lesson_type)) return 'quiz'
+  if (draft.lesson_type === 'assignment') return 'assignment'
+  if (draft.lesson_type === 'resource') return 'resource'
+  return ''
 }
 
 function payloadForLesson(draft: LessonDraft, orderIndex: number): LessonPayload {
@@ -58,9 +68,9 @@ function payloadForLesson(draft: LessonDraft, orderIndex: number): LessonPayload
     content: draft.lesson_type === 'text' ? value : null,
     video_url: draft.lesson_type === 'video' ? value : null,
     file_url: ['pdf', 'resource'].includes(draft.lesson_type) ? value : null,
-    quiz_id: ['quiz', 'pdf', 'text'].includes(draft.lesson_type) && draft.linked_id ? Number(draft.linked_id) : null,
-    assignment_id: draft.lesson_type === 'assignment' && draft.linked_id ? Number(draft.linked_id) : null,
-    resource_id: draft.lesson_type === 'resource' && draft.linked_id ? Number(draft.linked_id) : null,
+    quiz_id: linkedKind(draft) === 'quiz' && draft.linked_id ? Number(draft.linked_id) : null,
+    assignment_id: linkedKind(draft) === 'assignment' && draft.linked_id ? Number(draft.linked_id) : null,
+    resource_id: linkedKind(draft) === 'resource' && draft.linked_id ? Number(draft.linked_id) : null,
     available_at: draft.available_at ? new Date(draft.available_at).toISOString() : null,
   }
 }
@@ -77,6 +87,7 @@ function draftForLesson(lesson: Lesson): LessonDraft {
     title: lesson.title, lesson_type: lesson.lesson_type,
     content: lesson.lesson_type === 'text' ? lesson.content || '' : lesson.lesson_type === 'video' ? lesson.video_url || '' : lesson.file_url || '',
     linked_id: String(lesson.quiz_id || lesson.assignment_id || lesson.resource_id || ''),
+    linked_kind: lesson.quiz_id ? 'quiz' : lesson.assignment_id ? 'assignment' : lesson.resource_id ? 'resource' : '',
     available_at: localDateTime(lesson.available_at),
   }
 }
@@ -346,6 +357,16 @@ export function TeacherCoursesPage() {
         <option value="">{['quiz', 'assignment'].includes(draft.lesson_type) ? 'Choisir une activité' : 'Aucune activité liée'}</option>
         {(['quiz', 'pdf', 'text'].includes(draft.lesson_type) ? quizzes.filter((quiz) => draft.lesson_type !== 'pdf' || quiz.questions.length === 20) : draft.lesson_type === 'assignment' ? assignments : resources).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
       </select>}
+      {draft.lesson_type === 'video' && <>
+        <select aria-label="Activité complémentaire" value={draft.linked_kind || ''} onChange={(event) => change({ ...draft, linked_kind: event.target.value as LessonDraft['linked_kind'], linked_id: '' })}>
+          <option value="">Sans activité complémentaire</option><option value="quiz">Quiz</option><option value="assignment">Devoir</option><option value="resource">Ressource</option>
+        </select>
+        {draft.linked_kind && <select aria-label="Activité liée" value={draft.linked_id || ''} onChange={(event) => change({ ...draft, linked_id: event.target.value })}>
+          <option value="">Choisir une activité</option>
+          {(draft.linked_kind === 'quiz' ? quizzes : draft.linked_kind === 'assignment' ? assignments : resources).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+        </select>}
+        <small>La vidéo se valide au visionnage ; l’activité complète la leçon sans la conditionner.</small>
+      </>}
       <label>Disponible à partir du <input type="datetime-local" value={draft.available_at || ''} onChange={(event) => change({ ...draft, available_at: event.target.value })} /></label>
     </>
   }

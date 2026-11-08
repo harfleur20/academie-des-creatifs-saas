@@ -3,6 +3,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
@@ -45,6 +46,7 @@ const StudentCoursesPage = lazy(() => import('./pages/StudentCoursesPage').then(
 const StudentGuidedWorkspacePage = lazy(() => import('./pages/StudentGuidedWorkspacePage').then((module) => ({ default: module.StudentGuidedWorkspacePage })))
 const StudentParcoursPage = lazy(() => import('./pages/StudentParcoursPage').then((module) => ({ default: module.StudentParcoursPage })))
 import { TeacherAttendancePage } from './pages/TeacherAttendancePage'
+import { TeacherGradesPage } from './pages/TeacherGradesPage'
 import { TeacherPerformancePage } from './pages/TeacherPerformancePage'
 import { TeacherStudentsPage } from './pages/TeacherStudentsPage'
 import { StudentResultsPage } from './pages/StudentResultsPage'
@@ -83,13 +85,15 @@ import { CharterSettingsPage } from './pages/CharterSettingsPage'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
   const { user, supportMode, loading } = useAuth()
+  const location = useLocation()
 
   if (loading) {
     return <div className="app-loading">Chargement de votre espace…</div>
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    const target = `${location.pathname}${location.search}${location.hash}`
+    return <Navigate to={target === '/app' ? '/login' : `/login?return=${encodeURIComponent(target)}`} replace />
   }
 
   if (user.platform_role === 'super_admin' && !supportMode) {
@@ -268,6 +272,7 @@ export default function App() {
               <Route path="assignments" element={<TeacherAssignmentsPage />} />
               <Route path="quizzes" element={<TeacherQuizzesPage />} />
               <Route path="attendance" element={<TeacherAttendancePage />} />
+              <Route path="grades" element={<TeacherGradesPage />} />
               <Route path="students" element={<TeacherStudentsPage />} />
               <Route path="performance" element={<TeacherPerformancePage />} />
               <Route path="profile" element={<TeacherProfilePage />} />

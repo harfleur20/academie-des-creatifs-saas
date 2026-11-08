@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { BookOpen, CalendarDays, ChevronRight, GraduationCap, MonitorPlay, Users } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
-import { ApiError, getSessionPlanning, getStudentWorkspace, listPublicSchoolFormations, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources, submitCourseDayFeedback,
+import { ApiError, ATTENDANCE_LABELS, getSessionPlanning, getStudentWorkspace, listPublicSchoolFormations, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources, submitCourseDayFeedback,
   type AcademicResource, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz, type StudentWorkspaceSession } from '../lib/api'
 import { liveClassIsOpen } from '../lib/liveWindow'
 
@@ -139,7 +139,7 @@ export function StudentGuidedWorkspacePage() {
           const presenceLabel = !day.report_submitted_at ? 'Présence à confirmer'
             : day.delivery_status === 'not_held' ? 'Séance non tenue'
               : day.delivery_status === 'interrupted' ? 'Séance interrompue'
-                : `${day.delivery_status === 'partial' ? 'Séance partielle · ' : ''}${presence?.status === 'present' ? 'Présent' : presence?.status === 'excused' ? 'Excusé' : 'Absent'}`
+                : `${day.delivery_status === 'partial' ? 'Séance partielle · ' : ''}${ATTENDANCE_LABELS[presence?.status ?? 'absent']}`
           return <div className="guided-list-row" key={day.id}>
             <strong>{day.title}</strong><span>{dateLabel(day.scheduled_at)} · {day.duration_minutes} min</span><small>{presenceLabel}</small>
             {session.format_type === 'live' && day.started_at && !day.report_submitted_at && <small>Cours démarré</small>}

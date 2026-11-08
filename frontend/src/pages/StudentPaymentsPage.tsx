@@ -55,6 +55,12 @@ function aggregateMoney(orders: SchoolOrder[], selector: (order: SchoolOrder) =>
     .join(' · ')
 }
 
+function installmentLabel(order: { deposit_cents: number | null; installment_count: number }, sequence: number) {
+  if (order.deposit_cents == null) return 'Échéance'
+  if (sequence === 1) return 'Acompte'
+  return order.installment_count === 2 ? 'Solde' : `Solde ${sequence - 1}/${order.installment_count - 1}`
+}
+
 export function StudentPaymentsPage() {
   const { activeOrganization } = useTenant()
   const schoolKey = activeOrganization?.slug || ''
@@ -120,8 +126,8 @@ export function StudentPaymentsPage() {
   )
 
   const visibleOrders = useMemo(() => orders.filter((order) => {
-    if (tab === 'installments') return order.payment_mode === 'installments'
-    if (tab === 'single') return order.payment_mode !== 'installments'
+    if (tab === 'installments') return order.installment_count > 1
+    if (tab === 'single') return order.installment_count <= 1
     if (tab === 'pending') return !['paid', 'cancelled', 'refunded'].includes(order.status)
     return true
   }), [orders, tab])
@@ -210,7 +216,9 @@ export function StudentPaymentsPage() {
                       <div className="pay-card__head">
                         <div className="pay-card__head-left">
                           <span className="pay-type-badge">
-                            {order.payment_mode === 'installments'
+                            {order.deposit_cents != null
+                              ? `Acompte + ${order.installment_count - 1} paiement(s)`
+                              : order.payment_mode === 'installments'
                               ? `${order.installment_count}× · Paiement fractionné`
                               : '1× · Paiement unique'}
                           </span>
@@ -262,7 +270,7 @@ export function StudentPaymentsPage() {
                                 </span>
                                 <div className="pay-stepper__info">
                                   <span className="pay-stepper__label">
-                                    {paid ? 'Payée' : cancelled ? 'Annulée' : installment.status === 'late' ? 'En retard' : 'Échéance'}
+                                    {paid ? 'Payée' : cancelled ? 'Annulée' : installment.status === 'late' ? 'En retard' : installmentLabel(order, installment.sequence)}
                                   </span>
                                   <strong className="pay-stepper__amount">{formatSchoolMoney(installment.amount_cents, order.currency)}</strong>
                                   <span className="pay-stepper__date">Prévue le {shortDate(installment.due_at)}</span>
@@ -297,7 +305,7 @@ export function StudentPaymentsPage() {
                       <span className="pay-reminder-item__icon"><CreditCard size={14} /></span>
                       <div className="pay-reminder-item__body">
                         <strong>{order.formation_title}</strong>
-                        <span>{order.session_label} · échéance {installment.sequence}/{order.installments.length}</span>
+                        <span>{order.session_label} · {order.deposit_cents != null ? installmentLabel(order, installment.sequence).toLowerCase() : `échéance ${installment.sequence}/${order.installments.length}`}</span>
                       </div>
                       <div className="pay-reminder-item__right">
                         <strong>{formatSchoolMoney(installment.amount_cents, order.currency)}</strong>

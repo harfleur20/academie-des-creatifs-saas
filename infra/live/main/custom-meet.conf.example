@@ -1,0 +1,10 @@
+# Copiez dans <CONFIG>/web/nginx/custom-meet.conf sur le serveur principal (à valider au premier
+# déploiement multi-relais) : une section par relais supplémentaire, avec son nom (JVB_WS_SERVER_ID)
+# et son IP privée. Les participants d'une classe ouvrent le canal de données de leur relais par ici.
+location ~ ^/colibri-ws/jvb-2/(.*) {
+    proxy_pass http://10.0.0.3:9090/colibri-ws/jvb-2/$1$is_args$args;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    tcp_nodelay on;
+}

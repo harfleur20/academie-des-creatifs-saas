@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import settings
 from app.models.entities import (
     AssignmentRecord,
     AssignmentSubmissionRecord,
@@ -29,6 +30,7 @@ from app.models.entities import (
     StudentOrderRecord,
     UserRecord,
 )
+from app.schemas.academic import QUIZ_PASS_PCT
 from app.schemas.formations import (
     ChapterCreate,
     CourseCreate,
@@ -51,13 +53,15 @@ from app.schemas.formations import (
     LessonRead,
     LessonVersionRead,
 )
+from app.services.assignments import release_assignment
 from app.services.membership_roles import member_has_role
 from app.services.online_formations import ensure_online_content_session
 from app.services.onboarding import get_onboarding_status
 from app.services.pdf_lessons import pdf_asset
+from app.services.pedagogy_access import current_utc
 from app.services.publication import formation_content_issues, formation_publication_issues
 from app.services.school_communications import queue_session_students_event
-from app.services.school_notifications import notify_user
+from app.services.school_notifications import notify_session_students, notify_user
 from app.services.tenancy import TenantContext, scoped_select
 
 
@@ -309,6 +313,8 @@ def _serialize_formation_summary(
         currency=formation.currency,
         allow_installments=formation.allow_installments,
         installment_count=formation.installment_count,
+        reservation_deposit_enabled=formation.reservation_deposit_enabled,
+        reservation_deposit_percent=formation.reservation_deposit_percent,
         is_featured=formation.is_featured,
         featured_order=formation.featured_order,
         status=formation.status,
@@ -319,6 +325,23 @@ def _serialize_formation_summary(
         course_count=course_count,
         created_at=formation.created_at,
     )
+
+
+def _require_no_running_session(db: Session, formation: FormationRecord) -> None:
+    """As on the mother site, a formation cannot be archived while one of its sessions is running."""
+    today = datetime.now(UTC).date()
+    running = db.scalar(select(FormationSessionRecord).where(
+        FormationSessionRecord.organization_id == formation.organization_id,
+        FormationSessionRecord.formation_id == formation.id,
+        FormationSessionRecord.status.not_in(["cancelled", "completed"]),
+        FormationSessionRecord.start_date <= today,
+        FormationSessionRecord.end_date >= today,
+    ).order_by(FormationSessionRecord.start_date))
+    if running is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"La session « {running.label} » est en cours : terminez-la ou annulez-la avant d'archiver la formation.",
+        )
 
 
 def list_formations(
@@ -454,6 +477,8 @@ def create_formation(
         currency=payload.currency.upper(),
         allow_installments=payload.allow_installments,
         installment_count=payload.installment_count,
+        reservation_deposit_enabled=payload.reservation_deposit_enabled,
+        reservation_deposit_percent=payload.reservation_deposit_percent,
         is_featured=payload.is_featured,
         featured_order=payload.featured_order,
         status=payload.status,
@@ -489,6 +514,8 @@ def update_formation(
     if formation is None:
         raise HTTPException(status_code=404, detail="Formation introuvable.")
 
+    if payload.status == "archived" and formation.status != "archived":
+        _require_no_running_session(db, formation)
     previously_published = formation.status == "published"
     previously_complete = not formation_content_issues(formation)
     for key, value in payload.model_dump(exclude_unset=True).items():
@@ -509,6 +536,59 @@ def update_formation(
     return _serialize_formation_summary(db, tenant, formation)
 
 
+def _guided_session_place(
+    formation: FormationRecord,
+    *,
+    campus_label: str | None,
+    seat_capacity: int,
+) -> str | None:
+    """Apply the mother site's live and onsite rules and return the place to store."""
+    place = (campus_label or "").strip() or None
+    if formation.format_type == "ligne":
+        return place
+    if seat_capacity < 1:
+        raise HTTPException(status_code=422, detail="Une session doit proposer au moins une place.")
+    if formation.format_type == "live":
+        return None
+    if place is None:
+        raise HTTPException(status_code=422, detail="Le lieu est obligatoire pour une formation en présentiel.")
+    return place
+
+
+def _occupied_seats(db: Session, organization_id: int, session_id: int) -> int:
+    enrolled = db.scalar(select(func.count(EnrollmentRecord.id)).where(
+        EnrollmentRecord.organization_id == organization_id,
+        EnrollmentRecord.session_id == session_id,
+        EnrollmentRecord.status.in_(["active", "completed", "suspended_payment"]),
+    )) or 0
+    reservation_cutoff = datetime.now(UTC) - timedelta(minutes=settings.commerce_reservation_minutes)
+    reserved = db.scalar(select(func.count(StudentOrderRecord.id)).where(
+        StudentOrderRecord.organization_id == organization_id,
+        StudentOrderRecord.session_id == session_id,
+        StudentOrderRecord.status == "pending",
+        StudentOrderRecord.created_at > reservation_cutoff,
+    )) or 0
+    return int(enrolled) + int(reserved)
+
+
+def _require_course_days_within(
+    db: Session,
+    session: FormationSessionRecord,
+    start_date: date,
+    end_date: date,
+) -> None:
+    scheduled_days = db.scalars(select(SessionCourseDayRecord.scheduled_at).where(
+        SessionCourseDayRecord.organization_id == session.organization_id,
+        SessionCourseDayRecord.session_id == session.id,
+        SessionCourseDayRecord.status != "cancelled",
+    )).all()
+    if any(not start_date <= current_utc(item).date() <= end_date for item in scheduled_days):
+        raise HTTPException(
+            status_code=409,
+            detail="Une séance déjà planifiée se trouve hors des nouvelles dates de la session.",
+        )
+
+
 def create_session(
     db: Session,
     tenant: TenantContext,
@@ -518,13 +598,18 @@ def create_session(
     formation = get_formation_record(db, tenant, formation_id)
     if formation is None:
         raise HTTPException(status_code=404, detail="Formation introuvable.")
+    campus_label = _guided_session_place(
+        formation,
+        campus_label=payload.campus_label,
+        seat_capacity=payload.seat_capacity,
+    )
     record = FormationSessionRecord(
         organization_id=tenant.organization_id,
         formation_id=formation.id,
         label=payload.label.strip(),
         start_date=payload.start_date,
         end_date=payload.end_date,
-        campus_label=payload.campus_label.strip() if payload.campus_label else None,
+        campus_label=campus_label,
         seat_capacity=payload.seat_capacity,
         enrollment_open_at=payload.enrollment_open_at,
         enrollment_close_at=payload.enrollment_close_at,
@@ -555,6 +640,7 @@ def update_session(
     session = _get_scoped(db, tenant, FormationSessionRecord, session_id)
     if session is None or session.formation_id != formation_id:
         raise HTTPException(status_code=404, detail="Session introuvable.")
+    formation = get_formation_record(db, tenant, formation_id)
 
     values = payload.model_dump(exclude_unset=True)
     next_start = values.get("start_date", session.start_date)
@@ -568,12 +654,29 @@ def update_session(
     next_close = values.get("enrollment_close_at", session.enrollment_close_at)
     if next_open and next_close and next_close.replace(tzinfo=next_close.tzinfo or UTC) < next_open.replace(tzinfo=next_open.tzinfo or UTC):
         raise HTTPException(status_code=422, detail="La clôture des inscriptions doit suivre leur ouverture.")
+    if (next_start, next_end) != (session.start_date, session.end_date):
+        _require_course_days_within(db, session, next_start, next_end)
+    next_capacity = values.get("seat_capacity", session.seat_capacity)
+    if (
+        next_capacity != session.seat_capacity
+        and 0 < next_capacity < _occupied_seats(db, tenant.organization_id, session.id)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="La capacité ne peut pas être inférieure aux places déjà occupées ou réservées.",
+        )
+    # Older sessions may miss a place: they stay closable, and must be fixed to reopen.
+    if {"campus_label", "seat_capacity"} & values.keys() or values.get("status", session.status) == "open":
+        values["campus_label"] = _guided_session_place(
+            formation,
+            campus_label=values.get("campus_label", session.campus_label),
+            seat_capacity=next_capacity,
+        )
     for key, value in values.items():
         if isinstance(value, str):
             value = value.strip()
         setattr(session, key, value)
     if session.status == "open":
-        formation = get_formation_record(db, tenant, formation_id)
         issues = formation_publication_issues(db, formation)
         if formation.status != "published" or issues or session.end_date < datetime.now(UTC).date():
             db.rollback()
@@ -872,6 +975,7 @@ def update_course(
         for lesson in lessons:
             _validate_lesson_publication(db, tenant, lesson, session.id)
         for lesson in lessons:
+            _release_linked_assignment(db, tenant, lesson)
             if lesson.publication_status != "published":
                 _ensure_lesson_baseline(db, lesson)
                 lesson.publication_status = "published"
@@ -987,11 +1091,12 @@ def _validate_lesson_links(
         activity = _get_scoped(db, tenant, model, linked_id)
         if activity is None or activity.session_id != session_id:
             raise HTTPException(422, f"{label.capitalize()} lié introuvable dans cette session.")
-        if label == "quiz" and payload.lesson_type not in {"quiz", "pdf", "text"}:
+        # As on the mother site, a video lesson can carry one complementary quiz, assignment or resource.
+        if label == "quiz" and payload.lesson_type not in {"quiz", "pdf", "text", "video"}:
             raise HTTPException(422, "Ce type de leçon ne peut pas valider un quiz.")
-        if label == "assignment" and payload.lesson_type != "assignment":
+        if label == "assignment" and payload.lesson_type not in {"assignment", "video"}:
             raise HTTPException(422, "Le devoir doit être lié à une leçon de type devoir.")
-        if label == "resource" and payload.lesson_type != "resource":
+        if label == "resource" and payload.lesson_type not in {"resource", "video"}:
             raise HTTPException(422, "La ressource doit être liée à une leçon de type ressource.")
         linked_query = select(LessonRecord.id).where(LessonRecord.organization_id == tenant.organization_id, getattr(LessonRecord, f"{label}_id") == linked_id)
         if lesson_id is not None:
@@ -1002,6 +1107,8 @@ def _validate_lesson_links(
             raise HTTPException(409, "Ce quiz a déjà été passé. Créez un nouveau quiz pour cette leçon.")
         if label == "assignment" and (lesson_id is None or db.get(LessonRecord, lesson_id).assignment_id != linked_id) and db.scalar(select(AssignmentSubmissionRecord.id).where(AssignmentSubmissionRecord.organization_id == tenant.organization_id, AssignmentSubmissionRecord.assignment_id == linked_id)) is not None:
             raise HTTPException(409, "Ce devoir a déjà été remis. Créez un nouveau devoir pour cette leçon.")
+    if payload.lesson_type == "video" and sum(item is not None for item in (payload.quiz_id, payload.assignment_id, payload.resource_id)) > 1:
+        raise HTTPException(422, "Une leçon vidéo ne porte qu'une activité complémentaire.")
     if payload.lesson_type == "quiz" and payload.quiz_id is None:
         raise HTTPException(422, "Choisissez un quiz pour cette leçon.")
     if payload.lesson_type == "assignment" and payload.assignment_id is None:
@@ -1013,7 +1120,7 @@ def _validate_lesson_links(
         quiz = _get_scoped(db, tenant, QuizRecord, payload.quiz_id)
         if quiz is None or len(quiz.questions) != 20:
             raise HTTPException(422, "Le quiz de validation PDF doit contenir exactement 20 questions.")
-        quiz.pass_pct = 70
+        quiz.pass_pct = QUIZ_PASS_PCT
         quiz.status = "active"
 
 
@@ -1034,6 +1141,11 @@ def _validate_lesson_publication(db: Session, tenant: TenantContext, lesson: Les
             activity = _get_scoped(db, tenant, model, linked_id)
             if activity is None or activity.session_id != session_id or (kind == "quiz" and activity.status not in {"active", "closed"}):
                 raise HTTPException(422, f"Le {kind} lié doit appartenir à cette session et être disponible.")
+
+
+def _release_linked_assignment(db: Session, tenant: TenantContext, lesson: LessonRecord) -> None:
+    if lesson.assignment_id is not None:
+        release_assignment(db, tenant.organization, _get_scoped(db, tenant, AssignmentRecord, lesson.assignment_id))
 
 
 def _lesson_for_edit(db: Session, tenant: TenantContext, formation_id: int, session_id: int, course_id: int, chapter_id: int, lesson_id: int) -> tuple[CourseRecord, LessonRecord]:
@@ -1119,7 +1231,11 @@ def update_lesson(db: Session, tenant: TenantContext, formation_id: int, session
         except HTTPException:
             db.rollback()
             raise
-    if old_identity != (lesson.lesson_type, lesson.video_url, lesson.file_url, lesson.quiz_id, lesson.assignment_id, lesson.resource_id):
+        _release_linked_assignment(db, tenant, lesson)
+    new_identity = (lesson.lesson_type, lesson.video_url, lesson.file_url, lesson.quiz_id, lesson.assignment_id, lesson.resource_id)
+    # A video lesson is earned by watching it: switching its complementary activity keeps the progress.
+    complementary_only = old_identity[0] == "video" and lesson.lesson_type == "video" and old_identity[:3] == new_identity[:3]
+    if old_identity != new_identity and not complementary_only:
         db.execute(delete(LessonProgressRecord).where(LessonProgressRecord.organization_id == tenant.organization_id, LessonProgressRecord.lesson_id == lesson.id))
     if old_identity[:2] != (lesson.lesson_type, lesson.video_url):
         db.execute(delete(LessonVideoProgressRecord).where(LessonVideoProgressRecord.organization_id == tenant.organization_id, LessonVideoProgressRecord.lesson_id == lesson.id))
@@ -1134,10 +1250,18 @@ def publish_lesson(db: Session, tenant: TenantContext, formation_id: int, sessio
     if course.status != "published":
         raise HTTPException(409, "Publiez d'abord le cours parent.")
     _validate_lesson_publication(db, tenant, lesson, session_id)
+    _release_linked_assignment(db, tenant, lesson)
     if lesson.publication_status != "published":
         _ensure_lesson_baseline(db, lesson)
         lesson.publication_status = "published"
         _record_lesson_version(db, tenant, lesson, "published")
+        if lesson.available_at is None or current_utc(lesson.available_at) <= current_utc():
+            notify_session_students(
+                db, organization_id=tenant.organization_id, session_id=session_id,
+                event_key=f"lesson.published:{lesson.id}", title="Nouvelle leçon disponible",
+                message=f"« {lesson.title} » est disponible dans « {course.title} ».",
+                action_label="Ouvrir le cours", action_path="/app/student/courses",
+            )
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 

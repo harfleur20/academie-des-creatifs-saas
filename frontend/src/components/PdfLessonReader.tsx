@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react'
 import {
   fetchLessonPdf, getLessonPdfProgress, listStudentQuizzes, reportLessonPdfPage, submitStudentQuizAttempt,
-  type LearningLesson, type PdfLessonProgress, type StudentQuiz,
+  type LearningLesson, type PdfLessonProgress, type QuizAttempt, type StudentQuiz, type StudentQuizQuestion,
 } from '../lib/api'
+import { QuizAttemptReview } from './QuizAttemptReview'
 
 const PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.min.mjs'
 const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.149/pdf.worker.min.mjs'
@@ -33,6 +34,7 @@ export function PdfLessonReader({ lesson, onCompleted }: { lesson: LearningLesso
   const [submitting, setSubmitting] = useState(false)
   const [quizError, setQuizError] = useState('')
   const [hasStarted, setHasStarted] = useState(false)
+  const [review, setReview] = useState<{ questions: StudentQuizQuestion[]; attempt: QuizAttempt } | null>(null)
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const autoSubmitted = useRef(false)
 
@@ -147,6 +149,8 @@ export function PdfLessonReader({ lesson, onCompleted }: { lesson: LearningLesso
     setQuizError('')
     try {
       const updated = await submitStudentQuizAttempt(quiz.id, quiz.questions.map((question) => answers[question.id] ?? -1))
+      const attempt = updated.attempts[updated.attempts.length - 1]
+      setReview(attempt ? { questions: quiz.questions, attempt } : null)
       setQuiz(updated)
       setAnswers({})
       setHasStarted(false)
@@ -186,7 +190,9 @@ export function PdfLessonReader({ lesson, onCompleted }: { lesson: LearningLesso
           <p>Seuil de réussite : {quiz.pass_pct} % · {quiz.attempts_remaining} essai(s) disponible(s).</p>
           {quiz.best_score_pct !== null && <p>Meilleur score : {quiz.best_score_pct} %.</p>}
           {quiz.next_attempt_available_at && <p>Prochain cycle le {new Date(quiz.next_attempt_available_at).toLocaleString('fr-FR')}.</p>}
+          {review && !hasStarted && <QuizAttemptReview questions={review.questions} attempt={review.attempt} passPct={quiz.pass_pct} />}
           {quiz.can_attempt && !hasStarted && <button className="primary-button" type="button" onClick={() => {
+            setReview(null)
             setHasStarted(true)
             setSecondsLeft(quiz.duration_minutes ? quiz.duration_minutes * 60 : null)
             setAnswers({})

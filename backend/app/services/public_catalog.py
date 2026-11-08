@@ -32,6 +32,7 @@ from app.services.school_branding import (
     get_or_create_identity_records,
 )
 from app.services.publication import formation_content_issues, site_publication_issues
+from app.services.session_payment_plans import session_installment_dates
 
 
 def get_public_organization(
@@ -254,6 +255,12 @@ def _session_read(
     )
 
 
+def _session_display_order(session: FormationSessionRecord) -> tuple:
+    """As on the mother site, sessions still to start come first, then the ones already running."""
+    today = datetime.now(UTC).date()
+    return (0 if session.start_date > today else 1, session.start_date, session.id)
+
+
 def _public_formation_query(org_id: int):
     return (
         select(FormationRecord)
@@ -278,10 +285,7 @@ def _formation_card(
 ) -> PublicFormationCardRead:
     sessions = [
         _session_read(db, formation, item)
-        for item in sorted(
-            formation.sessions,
-            key=lambda value: (value.start_date, value.id),
-        )
+        for item in sorted(formation.sessions, key=_session_display_order)
         if formation.format_type == "ligne" or item.status not in {"cancelled", "completed"}
     ]
     available = [item for item in sessions if item.can_purchase]
@@ -365,7 +369,7 @@ def public_formation_detail(
     card = _formation_card(db, formation)
     session_reads = [
         _session_read(db, formation, item)
-        for item in sorted(formation.sessions, key=lambda value: (value.start_date, value.id))
+        for item in sorted(formation.sessions, key=_session_display_order)
         if formation.format_type != "ligne" and item.status not in {"cancelled", "completed"}
     ]
     source_session = next(
@@ -401,14 +405,29 @@ def public_formation_detail(
             if assignment.teacher_id not in seen:
                 seen.add(assignment.teacher_id)
                 teacher_names.append(assignment.teacher.full_name)
+    installment_count = formation.installment_count if formation.allow_installments else 1
+    if formation.format_type != "ligne" and source_session is not None and card.next_session is not None:
+        # The highlighted session's length caps the school's instalment count.
+        installment_count = len(session_installment_dates(
+            allow_installments=formation.allow_installments,
+            school_max_count=formation.installment_count,
+            session_start=source_session.start_date,
+            session_end=source_session.end_date,
+            total=card.next_session.current_price_cents,
+            today=datetime.now(UTC).date(),
+        ))
     return PublicFormationDetailRead(
         **card.model_dump(),
         description=formation.description,
         objectives=formation.objectives,
         prerequisites=formation.prerequisites,
         public_program=formation.public_program,
-        allow_installments=formation.allow_installments,
-        installment_count=formation.installment_count,
+        allow_installments=formation.allow_installments and installment_count >= 2,
+        installment_count=installment_count,
+        reservation_deposit_percent=(
+            formation.reservation_deposit_percent
+            if formation.format_type == "live" and formation.reservation_deposit_enabled else None
+        ),
         modules=modules,
         sessions=session_reads,
         teacher_names=teacher_names,

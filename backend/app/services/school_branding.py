@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.entities import (
@@ -109,6 +110,48 @@ def _certification_defaults(org: OrganizationRecord) -> dict:
     }
 
 
+IdentityRecord = (
+    OrganizationPublicSiteRecord
+    | OrganizationLegalProfileRecord
+    | OrganizationCommunicationProfileRecord
+    | OrganizationCertificationProfileRecord
+)
+
+IDENTITY_RECORDS = (
+    (OrganizationPublicSiteRecord, _public_site_defaults),
+    (OrganizationLegalProfileRecord, _legal_defaults),
+    (OrganizationCommunicationProfileRecord, _communication_defaults),
+    (OrganizationCertificationProfileRecord, _certification_defaults),
+)
+
+
+def _find_identity_record(db: Session, model: type[IdentityRecord], organization_id: int) -> IdentityRecord | None:
+    return db.scalar(select(model).where(model.organization_id == organization_id))
+
+
+def _get_or_create_identity_record(
+    db: Session,
+    model: type[IdentityRecord],
+    org: OrganizationRecord,
+    defaults,
+) -> tuple[IdentityRecord, bool]:
+    record = _find_identity_record(db, model, org.id)
+    if record is not None:
+        return record, False
+    try:
+        # The first pages of a new school load in parallel and may all find the record missing.
+        # A savepoint lets the loser keep its pending work and reuse the winner's row.
+        with db.begin_nested():
+            record = model(organization_id=org.id, **defaults(org))
+            db.add(record)
+    except IntegrityError:
+        record = _find_identity_record(db, model, org.id)
+        if record is None:
+            raise
+        return record, False
+    return record, True
+
+
 def get_or_create_identity_records(
     db: Session,
     org: OrganizationRecord,
@@ -118,61 +161,17 @@ def get_or_create_identity_records(
     OrganizationCommunicationProfileRecord,
     OrganizationCertificationProfileRecord,
 ]:
-    site = db.scalar(
-        select(OrganizationPublicSiteRecord).where(
-            OrganizationPublicSiteRecord.organization_id == org.id
-        )
-    )
-    legal = db.scalar(
-        select(OrganizationLegalProfileRecord).where(
-            OrganizationLegalProfileRecord.organization_id == org.id
-        )
-    )
-    comm = db.scalar(
-        select(OrganizationCommunicationProfileRecord).where(
-            OrganizationCommunicationProfileRecord.organization_id == org.id
-        )
-    )
-    cert = db.scalar(
-        select(OrganizationCertificationProfileRecord).where(
-            OrganizationCertificationProfileRecord.organization_id == org.id
-        )
-    )
+    records = []
     created = False
-    if site is None:
-        site = OrganizationPublicSiteRecord(
-            organization_id=org.id,
-            **_public_site_defaults(org),
-        )
-        db.add(site)
-        created = True
-    if legal is None:
-        legal = OrganizationLegalProfileRecord(
-            organization_id=org.id,
-            **_legal_defaults(org),
-        )
-        db.add(legal)
-        created = True
-    if comm is None:
-        comm = OrganizationCommunicationProfileRecord(
-            organization_id=org.id,
-            **_communication_defaults(org),
-        )
-        db.add(comm)
-        created = True
-    if cert is None:
-        cert = OrganizationCertificationProfileRecord(
-            organization_id=org.id,
-            **_certification_defaults(org),
-        )
-        db.add(cert)
-        created = True
+    for model, defaults in IDENTITY_RECORDS:
+        record, inserted = _get_or_create_identity_record(db, model, org, defaults)
+        records.append(record)
+        created = created or inserted
     if created:
         db.commit()
-        db.refresh(site)
-        db.refresh(legal)
-        db.refresh(comm)
-        db.refresh(cert)
+        for record in records:
+            db.refresh(record)
+    site, legal, comm, cert = records
     return site, legal, comm, cert
 
 

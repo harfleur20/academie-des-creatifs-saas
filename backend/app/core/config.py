@@ -166,6 +166,12 @@ class Settings:
     r2_access_key_id: str = os.getenv("R2_ACCESS_KEY_ID", "").strip()
     r2_secret_access_key: str = os.getenv("R2_SECRET_ACCESS_KEY", "").strip()
     r2_public_base_url: str = os.getenv("R2_PUBLIC_BASE_URL", "").rstrip("/")
+    # "jaas" (Jitsi hosted by 8x8) or "jitsi" (self-hosted Jitsi, see infra/live).
+    live_provider: str = os.getenv("LIVE_PROVIDER", "jaas").strip().lower()
+    jitsi_domain: str = os.getenv("JITSI_DOMAIN", "").strip().removeprefix("https://").rstrip("/")
+    jitsi_app_id: str = os.getenv("JITSI_APP_ID", "").strip()
+    jitsi_app_secret: str = os.getenv("JITSI_APP_SECRET", "").strip()
+    jitsi_xmpp_domain: str = os.getenv("JITSI_XMPP_DOMAIN", "meet.jitsi").strip()
     jaas_enabled: bool = _env_bool("JAAS_ENABLED", False)
     jaas_domain: str = os.getenv("JAAS_DOMAIN", "8x8.vc").strip().removeprefix("https://").rstrip("/")
     jaas_app_id: str = os.getenv("JAAS_APP_ID", "").strip()
@@ -210,6 +216,12 @@ class Settings:
             raise RuntimeError("JWT_SECRET_KEY doit être un secret unique d'au moins 32 caractères en production.")
         if self.auth_cookie_samesite not in {"lax", "strict", "none"}:
             raise RuntimeError("AUTH_COOKIE_SAMESITE doit valoir lax, strict ou none.")
+        if self.live_provider not in {"jaas", "jitsi"}:
+            raise RuntimeError("LIVE_PROVIDER doit valoir jaas ou jitsi.")
+        if self.environment == "production" and self.live_provider == "jitsi" and (
+            not self.jitsi_domain or not self.jitsi_app_id or len(self.jitsi_app_secret) < 32
+        ):
+            raise RuntimeError("Le Jitsi auto-hébergé exige JITSI_DOMAIN, JITSI_APP_ID et un JITSI_APP_SECRET d'au moins 32 caractères.")
         if self.environment == "production" and self.jaas_recording_enabled:
             if not all((
                 self.jaas_enabled, self.jaas_app_id, self.jaas_kid,

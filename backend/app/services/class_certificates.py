@@ -26,6 +26,7 @@ from app.models.entities import (
 from app.schemas.academic import (
     CertificateEligibilityRead,
     CertificateRead,
+    ClassmateBadgeRead,
     ClassmateRead,
     DiscussionAuthorRead,
     DiscussionCreate,
@@ -69,6 +70,11 @@ def _author(
         role=role,
         is_current_user=user_id == tenant.user.id,
     )
+
+
+def _classmate_badge(db: Session, tenant: TenantContext, enrollment: EnrollmentRecord) -> ClassmateBadgeRead:
+    badge = badge_for_enrollment(db, tenant, enrollment)
+    return ClassmateBadgeRead(level=badge.level, label=badge.label, ring_pct=badge.ring_pct)
 
 
 def list_student_classes(
@@ -125,7 +131,7 @@ def list_student_classes(
                         avatar_url=users[row.student_id].avatar_url if row.student_id in users else None,
                         student_code=profiles[row.student_id].student_code if row.student_id in profiles else None,
                         is_current_user=row.student_id == tenant.user.id,
-                        badge=badge_for_enrollment(db, tenant, row),
+                        badge=_classmate_badge(db, tenant, row),
                     )
                     for row in classmates
                 ],
@@ -371,6 +377,7 @@ def _certificate_reason(
                 CourseRecord.status == "published",
                 LessonRecord.organization_id == tenant.organization_id,
                 LessonRecord.publication_status == "published",
+                LessonRecord.lesson_type != "video",  # a video lesson's quiz is complementary
                 QuizRecord.organization_id == tenant.organization_id,
             )
         ).all()

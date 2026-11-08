@@ -35,7 +35,57 @@ def _private_key() -> str:
 
 
 def live_provider_configured() -> bool:
+    if settings.live_provider == "jitsi":
+        return bool(settings.jitsi_domain and settings.jitsi_app_id and settings.jitsi_app_secret)
     return bool(settings.jaas_enabled and settings.jaas_app_id and settings.jaas_kid and _private_key())
+
+
+def _jaas_room(room: str, user: dict, *, moderator: bool, current: datetime) -> dict:
+    private_key = _private_key()
+    payload = {
+        "aud": "jitsi", "iss": "chat", "sub": settings.jaas_app_id, "room": room,
+        "nbf": int((current - timedelta(seconds=30)).timestamp()),
+        "exp": int((current + timedelta(minutes=10)).timestamp()),
+        "context": {
+            "features": {"recording": moderator and settings.jaas_recording_enabled, "livestreaming": False, "transcription": False},
+            "user": {**user, "moderator": "true" if moderator else "false"},
+        },
+    }
+    try:
+        token = jwt.encode(payload, private_key, algorithm="RS256", headers={"kid": settings.jaas_kid, "typ": "JWT"})
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(503, "La configuration de la classe live est invalide.") from exc
+    return {
+        "domain": settings.jaas_domain,
+        "room_name": f"{settings.jaas_app_id}/{room}",
+        "external_api_url": f"https://{settings.jaas_domain}/{settings.jaas_app_id}/external_api.js",
+        "token": token,
+    }
+
+
+def _self_hosted_room(room: str, user: dict, *, moderator: bool, current: datetime) -> dict:
+    """A token for the school's own Jitsi (infra/live): shared secret, moderator only for staff.
+
+    Its Prosody runs mod_token_affiliation, which makes the token's moderators owners and every
+    other participant a plain member; Jicofo must not promote anyone else (ENABLE_AUTO_OWNER=0).
+    """
+    payload = {
+        "aud": settings.jitsi_app_id, "iss": settings.jitsi_app_id, "sub": settings.jitsi_xmpp_domain,
+        "room": room,
+        "nbf": int((current - timedelta(seconds=30)).timestamp()),
+        "exp": int((current + timedelta(minutes=10)).timestamp()),
+        "context": {
+            "features": {"recording": False, "livestreaming": False, "transcription": False},
+            "user": {**user, "moderator": moderator, "affiliation": "owner" if moderator else "member"},
+        },
+    }
+    token = jwt.encode(payload, settings.jitsi_app_secret, algorithm="HS256", headers={"typ": "JWT"})
+    return {
+        "domain": settings.jitsi_domain,
+        "room_name": room,
+        "external_api_url": f"https://{settings.jitsi_domain}/external_api.js",
+        "token": token,
+    }
 
 
 def _school_live_identity(db: Session, organization_id: int) -> tuple[str, str | None, str]:
@@ -155,30 +205,19 @@ def join_live_class(
     if current < starts_at - timedelta(minutes=15) or current > ends_at + timedelta(minutes=15):
         raise HTTPException(403, "La salle ouvre 15 minutes avant le cours et ferme 15 minutes après.")
 
-    private_key = _private_key()
-    if not (settings.jaas_enabled and settings.jaas_app_id and settings.jaas_kid and private_key):
+    if not live_provider_configured():
         raise HTTPException(503, "Le service de classes live n'est pas configuré.")
 
     moderator = bool(manager or teacher)
     room = f"school-{tenant.organization_id}-session-{session.id}-day-{day.id}"
-    payload = {
-        "aud": "jitsi", "iss": "chat", "sub": settings.jaas_app_id, "room": room,
-        "nbf": int((current - timedelta(seconds=30)).timestamp()),
-        "exp": int((current + timedelta(minutes=10)).timestamp()),
-        "context": {
-            "features": {"recording": moderator and settings.jaas_recording_enabled, "livestreaming": False, "transcription": False},
-            "user": {
-                "id": f"school-{tenant.organization_id}-user-{tenant.user.id}",
-                "name": tenant.user.full_name,
-                "email": tenant.user.email,
-                "moderator": "true" if moderator else "false",
-            },
-        },
+    user = {
+        "id": f"school-{tenant.organization_id}-user-{tenant.user.id}",
+        "name": tenant.user.full_name,
+        "email": tenant.user.email,
     }
-    try:
-        token = jwt.encode(payload, private_key, algorithm="RS256", headers={"kid": settings.jaas_kid, "typ": "JWT"})
-    except (ValueError, TypeError) as exc:
-        raise HTTPException(503, "La configuration de la classe live est invalide.") from exc
+    provider_room = (_self_hosted_room if settings.live_provider == "jitsi" else _jaas_room)(
+        room, user, moderator=moderator, current=current,
+    )
     school_name, school_logo_url, _ = _school_live_identity(db, tenant.organization_id)
     return {
         "course_day_id": day.id,
@@ -187,10 +226,7 @@ def join_live_class(
         "school_logo_url": school_logo_url,
         "starts_at": starts_at,
         "ends_at": ends_at,
-        "domain": settings.jaas_domain,
-        "room_name": f"{settings.jaas_app_id}/{room}",
-        "external_api_url": f"https://{settings.jaas_domain}/{settings.jaas_app_id}/external_api.js",
-        "token": token,
+        **provider_room,
         "moderator": moderator,
         "started_at": day.started_at,
     }
