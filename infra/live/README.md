@@ -56,6 +56,20 @@ Le script :
 
 Le script peut être relancé : il conserve le `.env` et les mots de passe déjà générés.
 
+## Sur un serveur géré par Coolify
+
+Le proxy Traefik de Coolify garde les ports 80 et 443 et les certificats. Mettez `BEHIND_COOLIFY=1` dans `main.env`, puis lancez le même `install-main.sh` en SSH sur le serveur. Le script :
+- **Ports :** il fait écouter Jitsi en local seulement (`127.0.0.1:8000`), sans son propre HTTPS ni Let's Encrypt.
+- **Proxy :** il relie le conteneur web au réseau `coolify`.
+- **Domaine :** il dépose la route dans `/data/coolify/proxy/dynamic/academie-live.yaml`. Traefik la recharge à chaud et obtient le certificat avec le résolveur `letsencrypt` de Coolify. Si ce dossier n'existe pas, ajoutez le fichier généré depuis Servers > votre serveur > Proxy > Dynamic Configurations.
+- **Limites :** il plafonne le relais vidéo à 2,5 vCPU et 2,5 Go, et Jicofo à 0,5 vCPU et 1,25 Go, pour que le SaaS garde de quoi tourner pendant un cours.
+
+Le port UDP 10000 reste publié directement sur le serveur : ouvrez-le dans le pare-feu de l'hébergeur, Coolify ne le gère pas. Pointez le DNS du domaine du live vers l'IP du serveur. Mettez les variables `LIVE_PROVIDER` et `JITSI_*` dans les variables d'environnement de l'application backend sur Coolify.
+
+**Capacité d'un serveur partagé avec le SaaS (4 vCPU dédiés, 8 Go) :** de l'ordre de 3 à 5 classes de 30 étudiants en même temps, à confirmer en mesurant. Le débit du port compte aussi : environ 80 étudiants connectés à 100 Mbit/s, bien plus à 1 Gbit/s. Au-delà, ajoutez un relais vidéo sur un second serveur (section suivante).
+
+Si une route n'apparaît pas, vérifiez les noms des points d'entrée (`http`, `https`) dans la configuration du proxy de Coolify, et ses journaux (Servers > Proxy > Logs).
+
 ## Raccorder le SaaS
 
 Dans `backend/.env`, puis redémarrez le backend :
