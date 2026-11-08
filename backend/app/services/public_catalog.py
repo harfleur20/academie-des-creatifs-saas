@@ -32,6 +32,7 @@ from app.services.school_branding import (
     get_or_create_identity_records,
 )
 from app.services.publication import formation_content_issues, site_publication_issues
+from app.services.session_lifecycle import enrollment_closes_at
 from app.services.session_payment_plans import session_installment_dates
 
 
@@ -187,6 +188,9 @@ def _session_availability(
         return False, "Les inscriptions ne sont pas encore ouvertes.", None
     if enrollment_close and now > enrollment_close:
         return False, "Les inscriptions sont clôturées.", None
+    if now > enrollment_closes_at(session):
+        # As on the mother site, a session can be joined until five days after its start.
+        return False, f"Les inscriptions sont closes depuis le {enrollment_closes_at(session):%d/%m/%Y}.", None
     if session.end_date < now.date():
         return False, "Cette session est terminée.", None
 

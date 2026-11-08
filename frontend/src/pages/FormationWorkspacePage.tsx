@@ -32,6 +32,15 @@ import {
 } from '../lib/api'
 import { PublicProgramField } from '../components/PublicProgramField'
 
+// As on the mother site: a session is to come, running or over by its dates; its sale is shown alongside.
+function sessionStateLabel(session: { status: string; start_date: string; end_date: string }) {
+  if (session.status === 'cancelled') return 'Annulée'
+  const today = new Date().toISOString().slice(0, 10)
+  if (session.status === 'completed' || session.end_date < today) return 'Terminée'
+  const stage = session.start_date <= today ? 'En cours' : 'À venir'
+  return `${stage} · ${session.status === 'open' ? 'inscriptions ouvertes' : 'inscriptions fermées'}`
+}
+
 export function FormationWorkspacePage() {
   const params = useParams()
   const formationId = Number(params.formationId)
@@ -393,7 +402,7 @@ function SessionWorkspace({
     <article className="app-card session-workspace-card">
       <header className="session-workspace-heading">
         <div>
-          <span className="section-label">{formation.format_type === 'ligne' ? 'Contenu pédagogique' : session.status === 'open' ? 'Inscriptions ouvertes' : session.status === 'planned' ? 'Inscriptions fermées' : session.status}</span>
+          <span className="section-label">{formation.format_type === 'ligne' ? 'Contenu pédagogique' : sessionStateLabel(session)}</span>
           <h2>{formation.format_type === 'ligne' ? formation.title : session.label}</h2>
           <p>
             {new Date(session.start_date).toLocaleDateString('fr-FR')}

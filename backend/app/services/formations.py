@@ -60,6 +60,7 @@ from app.services.onboarding import get_onboarding_status
 from app.services.pdf_lessons import pdf_asset
 from app.services.pedagogy_access import current_utc
 from app.services.program_versions import FROZEN_MESSAGE, ensure_program_frozen, is_frozen_requirement, program_readiness
+from app.services.session_lifecycle import notify_session_change
 from app.services.publication import formation_content_issues, formation_publication_issues
 from app.services.school_communications import queue_session_students_event
 from app.services.school_notifications import notify_session_students, notify_user
@@ -656,6 +657,7 @@ def update_session(
     formation = get_formation_record(db, tenant, formation_id)
 
     values = payload.model_dump(exclude_unset=True)
+    before_change = (session.label, session.start_date, session.end_date, session.campus_label, session.status == "cancelled")
     next_start = values.get("start_date", session.start_date)
     next_end = values.get("end_date", session.end_date)
     if next_end < next_start:
@@ -697,6 +699,13 @@ def update_session(
         if session.price_override_cents == 0:
             db.rollback()
             raise HTTPException(status_code=422, detail="Le prix de la session doit être supérieur à zéro.")
+    after_change = (session.label, session.start_date, session.end_date, session.campus_label, session.status == "cancelled")
+    if after_change != before_change:
+        # Opening or closing the sale is not a change for the enrolled students; dates, place, name and cancellation are.
+        notify_session_change(
+            db, org=tenant.organization, session=session, formation=formation,
+            change_key=datetime.now(UTC).strftime("%Y%m%d%H%M%S%f"),
+        )
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 
