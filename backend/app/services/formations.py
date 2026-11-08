@@ -59,6 +59,7 @@ from app.services.online_formations import ensure_online_content_session
 from app.services.onboarding import get_onboarding_status
 from app.services.pdf_lessons import pdf_asset
 from app.services.pedagogy_access import current_utc
+from app.services.program_versions import FROZEN_MESSAGE, ensure_program_frozen, is_frozen_requirement, program_readiness
 from app.services.publication import formation_content_issues, formation_publication_issues
 from app.services.school_communications import queue_session_students_event
 from app.services.school_notifications import notify_session_students, notify_user
@@ -148,6 +149,18 @@ def _serialize_course(course: CourseRecord) -> CourseRead:
         ],
         created_at=course.created_at,
     )
+
+
+def _with_program_status(db: Session, formation: FormationRecord, session: FormationSessionRecord) -> SessionRead:
+    read = _serialize_session(session)
+    if formation.format_type not in {"live", "presentiel"}:
+        return read
+    version = ensure_program_frozen(db, session, formation)
+    if version is not None:
+        read.program_frozen_at = version.frozen_at
+    elif session.status != "cancelled":
+        read.program_missing = list(program_readiness(db, session, formation).missing)
+    return read
 
 
 def _serialize_session(session: FormationSessionRecord) -> SessionRead:
@@ -439,7 +452,7 @@ def get_formation_detail(
     return FormationDetailRead(
         **summary.model_dump(),
         sessions=[
-            _serialize_session(item)
+            _with_program_status(db, formation, item)
             for item in sorted(
                 visible_sessions,
                 key=lambda item: (item.start_date, item.id),
@@ -964,6 +977,10 @@ def update_course(
         _require_member(db, tenant, user_id=values["teacher_id"], role="teacher")
 
     previous_status = course.status
+    if previous_status == "published" and values.get("status") not in (None, "published"):
+        course_lesson_ids = db.scalars(select(LessonRecord.id).join(ChapterRecord, ChapterRecord.id == LessonRecord.chapter_id).where(ChapterRecord.course_id == course.id)).all()
+        if any(is_frozen_requirement(db, course.session_id, "lesson_ids", lesson_id) for lesson_id in course_lesson_ids):
+            raise HTTPException(409, FROZEN_MESSAGE)
     if values.get("status") == "published" and previous_status != "published":
         lessons = list(db.scalars(
             select(LessonRecord)
@@ -1222,6 +1239,13 @@ def update_lesson(db: Session, tenant: TenantContext, formation_id: int, session
     if lesson.lesson_type == "pdf" and lesson.file_url != payload.file_url and lesson.quiz_id == payload.quiz_id and payload.quiz_id is not None and db.scalar(select(QuizAttemptRecord.id).where(QuizAttemptRecord.organization_id == tenant.organization_id, QuizAttemptRecord.quiz_id == payload.quiz_id)) is not None:
         raise HTTPException(409, "Créez un nouveau quiz pour remplacer un PDF déjà évalué.")
     _validate_lesson_links(db, tenant, session_id, payload, lesson_id=lesson.id)
+    if is_frozen_requirement(db, session_id, "lesson_ids", lesson.id):
+        def _structure(values):
+            return tuple((value.strip() or None) if isinstance(value, str) else (current_utc(value) if isinstance(value, datetime) else value) for value in values)
+        before = _structure((lesson.lesson_type, lesson.video_url, lesson.file_url, lesson.quiz_id, lesson.assignment_id, lesson.resource_id, lesson.order_index, lesson.available_at))
+        after = _structure((payload.lesson_type, payload.video_url, payload.file_url, payload.quiz_id, payload.assignment_id, payload.resource_id, payload.order_index, payload.available_at))
+        if before != after:
+            raise HTTPException(409, FROZEN_MESSAGE + " Pour une leçon figée : le titre et le texte.")
     for field in ("title", "order_index", "lesson_type", "content", "video_url", "file_url", "quiz_id", "assignment_id", "resource_id", "available_at"):
         value = getattr(payload, field)
         setattr(lesson, field, value.strip() if isinstance(value, str) else value)

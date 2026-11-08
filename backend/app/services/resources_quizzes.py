@@ -44,6 +44,7 @@ from app.models.entities import LessonPdfProgressRecord
 from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, linked_lesson_gate, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.school_notifications import notify_session_students
+from app.services.program_versions import FROZEN_MESSAGE, is_frozen_requirement
 from app.services.tenancy import TenantContext
 
 
@@ -333,6 +334,8 @@ def set_quiz_status(
             "Cette évaluation appartient à un autre professeur.",
         )
     previous_status = quiz.status
+    if status_value == "draft" and previous_status != "draft" and is_frozen_requirement(db, quiz.session_id, "quiz_ids", quiz.id):
+        raise HTTPException(409, FROZEN_MESSAGE)
     quiz.status = status_value
     if status_value == "active" and previous_status != "active":
         session = get_session(db, tenant, quiz.session_id)

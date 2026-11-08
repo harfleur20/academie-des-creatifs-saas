@@ -1077,6 +1077,8 @@ export type Course = {
 }
 
 export type FormationSession = {
+  program_frozen_at?: string | null
+  program_missing?: string[]
   id: number
   label: string
   start_date: string

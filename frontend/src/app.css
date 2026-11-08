@@ -7711,3 +7711,6 @@
 
 .school-deposit-terms p { margin: 8px 0 4px; color: #596a80; font-size: 11px; line-height: 1.6; }
 .school-deposit-terms label { align-items: flex-start; font-size: 11px; }
+
+.session-program-status { display: block; margin-top: 6px; color: #9a6400; font-size: 11px; line-height: 1.45; }
+.session-program-status.is-frozen { color: #4a6076; }

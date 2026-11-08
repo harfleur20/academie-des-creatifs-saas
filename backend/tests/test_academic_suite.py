@@ -12,6 +12,7 @@ from reportlab.pdfgen import canvas
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
+from program_helpers import frozen_program
 from app.db.base import Base
 from app.core.config import settings
 from app.models.entities import (
@@ -979,6 +980,7 @@ def test_guided_certificate_requires_school_validation() -> None:
     db = build_db()
     org, teacher, student, _, session, enrollment, _, lesson, day = seed(db)
     db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.add(frozen_program(session))  # frozen before its only course day was cancelled
     day.status = "cancelled"
     db.commit()
     student_tenant = ctx(db, org, student)

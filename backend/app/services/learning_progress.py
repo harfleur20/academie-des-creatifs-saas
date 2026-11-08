@@ -58,6 +58,7 @@ from app.services.badge_rules import (
 )
 from app.services.grades import grade_average_pct
 from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
+from app.services.program_versions import badge_floor, ensure_program_frozen
 from app.services.tenancy import TenantContext
 from app.services.training_notifications import clear_absence, notify_absence
 
@@ -974,6 +975,22 @@ def badge_for_enrollment(
             final_project_validated=False,
             missing_requirements=["Session non démarrée"],
         )
+    version = ensure_program_frozen(db, session, formation) if guided else None
+    if guided and version is None:
+        # As on the mother site, no badge is computed until the started program is complete and frozen.
+        return BadgeRead(
+            level="aventurier",
+            label=BADGE_LABELS["aventurier"],
+            score_pct=0.0,
+            next_level="debutant",
+            lesson_progress_pct=0.0,
+            assignment_progress_pct=None,
+            quiz_progress_pct=None,
+            attendance_pct=None,
+            grade_average_pct=None,
+            final_project_validated=False,
+            missing_requirements=["Le programme de la session est en préparation : le badge sera calculé dès qu'il sera complet."],
+        )
     total_lessons, completed_lessons, lesson_pct = _badge_lesson_progress(db, tenant, enrollment, formation, session)
     total_assignments, submitted_assignments, validated_assignments, has_final, final_valid = _badge_assignment_stats(
         db, tenant, enrollment, formation, session
@@ -1018,6 +1035,18 @@ def badge_for_enrollment(
         ),
     )
     level = badge_level(stats)
+    if version is not None:
+        level = badge_floor(
+            db, enrollment=enrollment, version=version, level=level, score_pct=badge_score(stats),
+            evidence={
+                "lessons": [completed_lessons, total_lessons],
+                "assignments": [submitted_assignments, validated_assignments, total_assignments],
+                "quizzes": [passed_quizzes, total_quizzes],
+                "attendance": [attendance_present, attendance_total],
+                "grade_average_pct": grade_pct,
+                "final_project_validated": final_valid,
+            },
+        )
     next_level = NEXT_BADGE.get(level)
 
     return BadgeRead(

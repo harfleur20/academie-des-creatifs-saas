@@ -1082,6 +1082,38 @@ class LessonVideoProgressRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class SessionProgramVersionRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    """The guided session's program, frozen when the session starts, as on the mother site."""
+
+    __tablename__ = "session_program_versions"
+    __table_args__ = (
+        UniqueConstraint("session_id", "version", name="uq_session_program_version"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    frozen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    requirements_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class BadgeAwardRecord(OrganizationOwnedMixin, Base):
+    """A badge level once reached: the displayed badge never goes below it."""
+
+    __tablename__ = "badge_awards"
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", "level", name="uq_badge_award_enrollment_level"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    program_version_id: Mapped[int | None] = mapped_column(ForeignKey("session_program_versions.id", ondelete="SET NULL"), nullable=True)
+    level: Mapped[str] = mapped_column(String(24), nullable=False)
+    score_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    evidence_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    awarded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class AttendanceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "attendance"
     __table_args__ = (
