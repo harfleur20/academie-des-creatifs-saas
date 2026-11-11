@@ -1846,6 +1846,8 @@ export type StudentQuizQuestion = {
   order_index: number
   text: string
   options: string[]
+  selection_mode?: 'single' | 'multiple'
+  points?: number
 }
 
 export type QuizAttempt = {
@@ -1853,8 +1855,10 @@ export type QuizAttempt = {
   attempt_number: number
   score_pct: number
   submitted_at: string
-  submitted_answers: number[]
-  correct_answers: number[]
+  /** Options ticked per question, in the student's order; empty when unanswered. */
+  submitted_answers: number[][]
+  /** Right options per question: one, or several for a multiple-answer question. */
+  correct_answers: number[][]
 }
 
 export type StudentQuiz = {

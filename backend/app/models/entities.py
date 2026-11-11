@@ -1030,6 +1030,9 @@ class QuizQuestionRecord(OrganizationOwnedMixin, Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     options: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     correct_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    selection_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="single")
+    correct_indices: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+    points: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
 
     quiz: Mapped["QuizRecord"] = relationship(back_populates="questions")
 

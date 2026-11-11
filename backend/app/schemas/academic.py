@@ -38,10 +38,22 @@ class ResourceRead(BaseModel):
 class QuizQuestionCreate(BaseModel):
     text: str = Field(min_length=2, max_length=2000)
     options: list[str] = Field(min_length=2, max_length=8)
-    correct_index: int = Field(ge=0)
+    correct_index: int = Field(default=0, ge=0)
+    # As on the mother site: one or several right answers, and points per question.
+    selection_mode: Literal["single", "multiple"] = "single"
+    correct_indices: list[int] | None = None
+    points: float = Field(default=1.0, gt=0, le=100)
 
     @model_validator(mode="after")
     def validate_correct_index(self):
+        if self.selection_mode == "multiple":
+            indices = sorted(set(self.correct_indices or []))
+            if not indices or any(index < 0 or index >= len(self.options) for index in indices):
+                raise ValueError("Cochez au moins une bonne réponse parmi les options.")
+            self.correct_indices = indices
+            self.correct_index = indices[0]
+        else:
+            self.correct_indices = None
         if self.correct_index >= len(self.options):
             raise ValueError("La bonne réponse doit correspondre à une option.")
         return self
@@ -67,6 +79,9 @@ class TeacherQuizQuestionRead(BaseModel):
     text: str
     options: list[str]
     correct_index: int
+    selection_mode: Literal["single", "multiple"] = "single"
+    correct_indices: list[int] = Field(default_factory=list)
+    points: float = 1.0
 
 
 class TeacherQuizRead(BaseModel):
@@ -91,6 +106,8 @@ class StudentQuizQuestionRead(BaseModel):
     order_index: int
     text: str
     options: list[str]
+    selection_mode: Literal["single", "multiple"] = "single"
+    points: float = 1.0
 
 
 class QuizAttemptRead(BaseModel):
@@ -99,8 +116,8 @@ class QuizAttemptRead(BaseModel):
     score_pct: float
     submitted_at: datetime
     # The student's own correction, as on the mother site: one entry per question, -1 when unanswered.
-    submitted_answers: list[int] = Field(default_factory=list)
-    correct_answers: list[int] = Field(default_factory=list)
+    submitted_answers: list[list[int]] = Field(default_factory=list)
+    correct_answers: list[list[int]] = Field(default_factory=list)
 
 
 class StudentQuizRead(BaseModel):
@@ -129,7 +146,8 @@ class StudentQuizRead(BaseModel):
 
 
 class QuizAttemptPayload(BaseModel):
-    answers: list[int] = Field(min_length=1)
+    # One entry per question: an option index (-1 when unanswered) or, for multiple answers, a list.
+    answers: list[int | list[int]] = Field(min_length=1)
 
 
 class QuizResultAttemptRead(BaseModel):

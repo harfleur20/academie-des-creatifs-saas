@@ -45,6 +45,8 @@ from app.services.pedagogy_access import current_utc, dashboard_type, guided_act
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.school_notifications import notify_session_students
 from app.services.program_versions import FROZEN_MESSAGE, is_frozen_requirement
+from app.services.quiz_scoring import correct_answers, normalize_answer, question_points, stored_answer
+from app.services.quiz_scoring import score_pct as quiz_score_pct
 from app.services.tenancy import TenantContext
 
 
@@ -228,6 +230,9 @@ def _teacher_quiz_view(
                 text=question.text,
                 options=list(question.options or []),
                 correct_index=question.correct_index,
+                selection_mode=question.selection_mode or "single",
+                correct_indices=correct_answers(question),
+                points=question_points(question),
             )
             for question in row.questions
         ],
@@ -299,6 +304,9 @@ def create_quiz(
                 text=question.text.strip(),
                 options=[item.strip() for item in question.options],
                 correct_index=question.correct_index,
+                selection_mode=question.selection_mode,
+                correct_indices=question.correct_indices,
+                points=question.points,
             )
         )
 
@@ -452,6 +460,8 @@ def _student_quiz_view(
                 order_index=question.order_index,
                 text=question.text,
                 options=list(question.options or []),
+                selection_mode=question.selection_mode or "single",
+                points=question_points(question),
             )
             for question in quiz.questions
         ] if not locked else [],
@@ -461,8 +471,8 @@ def _student_quiz_view(
                 attempt_number=item.attempt_number,
                 score_pct=item.score_pct,
                 submitted_at=item.submitted_at,
-                submitted_answers=[int(answer) for answer in (item.answers or []) if isinstance(answer, int | float)],
-                correct_answers=[question.correct_index for question in quiz.questions],
+                submitted_answers=[stored_answer(question, answer) for question, answer in zip(quiz.questions, item.answers or [])],
+                correct_answers=[correct_answers(question) for question in quiz.questions],
             )
             for item in attempts
         ],
@@ -540,22 +550,15 @@ def submit_quiz_attempt(
     if len(payload.answers) != len(questions):
         raise HTTPException(422, "Toutes les questions doivent recevoir une réponse.")
 
-    correct = 0
-    for index, question in enumerate(questions):
-        answer = payload.answers[index]
-        if answer < -1 or answer >= len(question.options or []):
-            raise HTTPException(422, "Une réponse ne correspond pas aux options proposées.")
-        if answer >= 0 and answer == question.correct_index:
-            correct += 1
-
-    score_pct = round((correct / len(questions)) * 100, 1) if questions else 0.0
+    picked = [normalize_answer(question, answer) for question, answer in zip(questions, payload.answers)]
+    score_pct = quiz_score_pct(questions, picked)
     attempts = _attempts_for(db, tenant, quiz.id, enrollment.id)
     row = QuizAttemptRecord(
         organization_id=tenant.organization_id,
         quiz_id=quiz.id,
         enrollment_id=enrollment.id,
         attempt_number=len(attempts) + 1,
-        answers=list(payload.answers),
+        answers=picked,
         score_pct=score_pct,
         submitted_at=datetime.now(UTC),
     )
