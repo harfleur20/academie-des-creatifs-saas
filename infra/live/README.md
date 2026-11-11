@@ -16,7 +16,7 @@ Relais vidéo supplémentaires (vidéo et canal de données en UDP 10000, en dir
 ```
 
 - **Accès :** seuls les jetons signés par le SaaS ouvrent une salle (`ENABLE_AUTH=1`, `AUTH_TYPE=jwt`, sans invités).
-- **Modérateur :** le jeton donne ce rôle au professeur de la séance et à l'équipe de l'école. Les étudiants ne sont que membres. C'est le rôle du module officiel `mod_token_affiliation`, livré dans l'image Prosody, avec `ENABLE_AUTO_OWNER=0` pour que Jicofo ne promeuve personne d'autre.
+- **Modérateur :** le jeton donne ce rôle au professeur de la séance et à l'équipe de l'école. Les étudiants ne sont que membres. C'est le rôle du module officiel `mod_token_affiliation`, livré dans l'image Prosody. Jicofo ne doit promouvoir personne d'autre : `ENABLE_AUTO_OWNER=0` l'empêche de nommer le premier arrivé, et `JICOFO_ENABLE_AUTH=0` l'empêche de nommer tous les participants authentifiés, c'est-à-dire tous ceux qui ont un jeton. L'accès reste protégé par Prosody, qui exige le jeton.
 - **Répartition :** Jicofo répartit les classes entre les relais connectés. Une classe reste entière sur un seul relais.
 - **Canal de données :** dans la version figée, il passe en SCTP dans la connexion vidéo de chaque relais. Le serveur principal ne relaie donc rien vers les relais, à part XMPP.
 
