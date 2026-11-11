@@ -1,0 +1,17 @@
+# Relais TURN (coturn), ajouté au docker-compose officiel par install-main.sh.
+# Réseau de l'hôte, comme le recommande l'image : sa plage de ports de relais ne passe pas par Docker.
+services:
+  coturn:
+    image: coturn/coturn:4.18.0-r0
+    restart: unless-stopped
+    network_mode: host
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    volumes:
+      - ../turn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    tmpfs:
+      - /var/lib/coturn
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M

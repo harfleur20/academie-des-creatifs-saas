@@ -609,6 +609,12 @@
   font-size: 13px;
   line-height: 1.55;
 }
+.dsh-quiz-question__hint {
+  margin: -6px 0 10px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 600;
+}
 .dsh-quiz-options { display: grid; gap: 7px; }
 .dsh-quiz-option {
   display: flex;

@@ -255,6 +255,9 @@ class SessionRead(BaseModel):
     enrollments: list[EnrollmentRead]
     courses: list[CourseRead]
     created_at: datetime
+    # Guided sessions only: when the program was frozen, or what it still misses to be.
+    program_frozen_at: datetime | None = None
+    program_missing: list[str] = Field(default_factory=list)
 
 
 class FormationDetailRead(FormationSummaryRead):

@@ -1,5 +1,5 @@
-# Route du live dans le proxy Traefik de Coolify (configuration dynamique).
-# install-main.sh remplace __DOMAIN__ et copie ce fichier dans /data/coolify/proxy/dynamic/.
+# Routes du live dans le proxy Traefik de Coolify (configuration dynamique).
+# install-main.sh remplace __DOMAIN__ et __TURN_DOMAIN__, puis copie ce fichier dans /data/coolify/proxy/dynamic/.
 http:
   routers:
     academie-live-http:
@@ -26,3 +26,20 @@ http:
       loadBalancer:
         servers:
           - url: http://academie-live-web:8000
+
+# Relais TURN en TLS sur 443 : Traefik déchiffre la connexion du domaine TURN et la transmet en TCP
+# à coturn, qui écoute sur le port 3478 de l'hôte (réseau de l'hôte).
+tcp:
+  routers:
+    academie-turn:
+      rule: HostSNI(`__TURN_DOMAIN__`)
+      entryPoints:
+        - https
+      service: academie-turn
+      tls:
+        certResolver: letsencrypt
+  services:
+    academie-turn:
+      loadBalancer:
+        servers:
+          - address: host.docker.internal:3478

@@ -12,6 +12,7 @@ from app.models.entities import (
     EnrollmentRecord,
     FormationRecord,
     FormationSessionRecord,
+    LiveRoomPresenceRecord,
     SessionCourseDayRecord,
     SessionTeacherRecord,
     UserRecord,
@@ -33,6 +34,9 @@ from app.services.school_notifications import notify_session_students
 from app.services.live_classes import live_provider_configured
 from app.services.tenancy import TenantContext
 from app.services.training_notifications import notify_absence
+
+# As on the mother site, a student entering the live room this long after the start is late.
+LIVE_LATE_AFTER = timedelta(minutes=15)
 
 
 def _aware(value: datetime) -> datetime:
@@ -650,10 +654,12 @@ def submit_course_day_report(
     if day.report_submitted_at is not None:
         raise HTTPException(409, "Le rapport de cette séance est déjà remis.")
     current = _aware(now or datetime.now(UTC))
-    if current < _aware(day.scheduled_at) + timedelta(minutes=day.duration_minutes):
-        raise HTTPException(409, "Le rapport s'ouvre à la fin de la séance.")
+    # As on the mother site's end-live: a started live class can be closed at any time,
+    # a course day that never started only once its scheduled end has passed.
+    if day.started_at is None and current < _aware(day.scheduled_at) + timedelta(minutes=day.duration_minutes):
+        raise HTTPException(409, "Le rapport d'une séance non démarrée s'ouvre à sa fin prévue.")
     if payload.delivery_status in {"held", "partial", "interrupted"}:
-        enrollment_ids = set(db.scalars(select(EnrollmentRecord.id).where(
+        student_by_enrollment = dict(db.execute(select(EnrollmentRecord.id, EnrollmentRecord.student_id).where(
             EnrollmentRecord.organization_id == tenant.organization_id,
             EnrollmentRecord.session_id == session.id,
             EnrollmentRecord.status.in_(["active", "completed"]),
@@ -662,14 +668,23 @@ def submit_course_day_report(
             AttendanceRecord.organization_id == tenant.organization_id,
             AttendanceRecord.course_day_id == day.id,
         )).all())
-        # As on the mother site, the report records unmarked students as absent;
-        # the teacher can still correct attendance for 24 h.
-        for enrollment_id in sorted(enrollment_ids - marked_ids):
+        # As on the mother site, students who entered the live room are present, or late when
+        # they came in more than 15 minutes after the course started; the others are absent.
+        # The teacher can still correct attendance for 24 h.
+        first_entry = dict(db.execute(select(
+            LiveRoomPresenceRecord.user_id, func.min(LiveRoomPresenceRecord.first_joined_at),
+        ).where(
+            LiveRoomPresenceRecord.organization_id == tenant.organization_id,
+            LiveRoomPresenceRecord.course_day_id == day.id,
+        ).group_by(LiveRoomPresenceRecord.user_id)).all())
+        late_after = _aware(day.started_at or day.scheduled_at) + LIVE_LATE_AFTER
+        for enrollment_id in sorted(set(student_by_enrollment) - marked_ids):
+            entered_at = first_entry.get(student_by_enrollment[enrollment_id])
             db.add(AttendanceRecord(
                 organization_id=tenant.organization_id,
                 course_day_id=day.id,
                 enrollment_id=enrollment_id,
-                status="absent",
+                status="absent" if entered_at is None else "late" if _aware(entered_at) > late_after else "present",
                 marked_by_user_id=tenant.user.id,
                 marked_at=current,
             ))

@@ -12,6 +12,7 @@ from app.services.pedagogy_access import current_utc, dashboard_type, guided_act
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.school_notifications import notify_user
 from app.services.training_notifications import email_new_submission
+from app.services.program_versions import FROZEN_MESSAGE, is_frozen_requirement
 from app.services.tenancy import TenantContext
 
 def _utc(v:datetime)->datetime: return v.astimezone(UTC).replace(tzinfo=None) if v.tzinfo else v
@@ -48,6 +49,8 @@ def _check_due_date(s,day,due_date):
     due=_utc(due_date)
     if due<start or due>end: raise HTTPException(422,"La date limite doit rester dans les dates de la session.")
 def _delete_blocked_reason(db,a):
+    if is_frozen_requirement(db,a.session_id,"final_project_ids" if a.is_final_project else "assignment_ids",a.id):
+        return "Un devoir du programme figé de la session ne peut pas être supprimé."
     if db.scalar(select(LessonRecord.id).where(LessonRecord.organization_id==a.organization_id,LessonRecord.assignment_id==a.id)) is not None:
         return "Un devoir associé à une leçon ne peut pas être supprimé."
     if db.scalar(select(AssignmentSubmissionRecord.id).where(AssignmentSubmissionRecord.organization_id==a.organization_id,AssignmentSubmissionRecord.assignment_id==a.id)) is not None:
@@ -152,6 +155,10 @@ def update_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentUpdate
     day=None
     if day_id: day=_own_course_day(db,tenant,a.session_id,day_id) if day_changed else db.get(SessionCourseDayRecord,day_id)
     if day_changed or _utc(due)!=_utc(a.due_date): _check_due_date(s,day,due)
+    if is_frozen_requirement(db,a.session_id,"final_project_ids" if a.is_final_project else "assignment_ids",a.id):
+        kind_changed=p.is_final_project is not None and p.is_final_project!=a.is_final_project
+        if day_changed or _utc(due)!=_utc(a.due_date) or kind_changed: raise HTTPException(409,FROZEN_MESSAGE+" Pour un devoir figé : le titre, les consignes et le texte de la fiche TP.")
+        if "brief" in p.model_fields_set and _rubric(a.brief_json)!=_rubric(p.brief.model_dump() if p.brief else None): raise HTTPException(409,"La structure et le barème du TP sont figés : créez un nouveau devoir pour les changer.")
     before=(a.title,a.instructions,a.brief_json,_utc(a.due_date),a.course_day_id,a.is_final_project)
     if p.title is not None: a.title=p.title.strip()
     if p.instructions is not None: a.instructions=p.instructions.strip()
@@ -161,6 +168,10 @@ def update_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentUpdate
     if a.publication_status=="published" and before!=(a.title,a.instructions,a.brief_json,_utc(a.due_date),a.course_day_id,a.is_final_project):
         queue_session_students_event(db,org=tenant.organization,session_id=a.session_id,event_key="student.assignment.updated",context=_event_context(db,a))
     db.commit(); db.refresh(a); return _teacher_view(db,tenant,a)
+
+def _rubric(brief):
+    if not brief: return None
+    return (len(brief.get("deliverables",[])),len(brief.get("steps",[])),tuple(round(float(item.get("points",0)),2) for item in brief.get("evaluation_criteria",[])))
 
 def delete_assignment(db:Session,tenant:TenantContext,aid:int):
     a=_owned_assignment(db,tenant,aid)

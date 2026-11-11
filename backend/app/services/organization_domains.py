@@ -27,6 +27,10 @@ RESERVED_SUBDOMAINS = {
     "status",
     "help",
     "support",
+    # The SaaS itself and the self-hosted live (infra/live) share the base domain with the schools.
+    "ecoles",
+    "live",
+    "turn",
 }
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -86,7 +90,7 @@ def update_subdomain(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Sous-domaine invalide.",
             )
-        if normalized in RESERVED_SUBDOMAINS:
+        if normalized in RESERVED_SUBDOMAINS or normalized in settings.saas_reserved_subdomains:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Ce sous-domaine est réservé.",

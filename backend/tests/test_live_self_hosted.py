@@ -96,3 +96,38 @@ def test_production_accepts_a_complete_self_hosted_setup(self_hosted, monkeypatc
     monkeypatch.setattr(settings, "jwt_secret_key", "k" * 40)
     monkeypatch.setattr(settings, "jaas_recording_enabled", False)
     settings.validate_production_security()
+
+
+def test_jitsi_gets_each_room_its_school_identity(self_hosted) -> None:
+    from fastapi import Response
+
+    from app.api.routes.planning import read_self_hosted_room_branding
+
+    db, org, _teacher, _student, session, day = live_school()
+    org.logo_url = "https://ecole.test/logo.png"
+    org.primary_color = "#1f2559"
+    db.commit()
+    response = Response()
+    room = f"school-{org.id}-session-{session.id}-day-{day.id}"
+    assert read_self_hosted_room_branding(response, room, db) == {
+        "backgroundColor": "#1f2559", "logoImageUrl": "https://ecole.test/logo.png",
+    }
+    # Jitsi asks from its own domain, without cookies.
+    assert response.headers["access-control-allow-origin"] == "https://live.ecole.test"
+
+    for forged in (f"school-{org.id + 1}-session-{session.id}-day-{day.id}", "autre-salle", f"academie-live/{room}"):
+        with pytest.raises(HTTPException) as missing:
+            read_self_hosted_room_branding(Response(), forged, db)
+        assert missing.value.status_code == 404
+
+
+def test_room_identity_is_off_without_the_self_hosted_live(self_hosted, monkeypatch) -> None:
+    from fastapi import Response
+
+    from app.api.routes.planning import read_self_hosted_room_branding
+
+    db, org, _teacher, _student, session, day = live_school()
+    monkeypatch.setattr(settings, "live_provider", "jaas")
+    with pytest.raises(HTTPException) as off:
+        read_self_hosted_room_branding(Response(), f"school-{org.id}-session-{session.id}-day-{day.id}", db)
+    assert off.value.status_code == 404

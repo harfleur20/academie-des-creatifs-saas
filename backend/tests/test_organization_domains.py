@@ -67,6 +67,18 @@ def test_reserved_subdomain_is_rejected() -> None:
     assert exc.value.status_code == 409
 
 
+@pytest.mark.parametrize("subdomain", ["ecoles", "live", "turn", "blog"])
+def test_the_saas_live_and_other_sites_subdomains_stay_reserved(monkeypatch, subdomain) -> None:
+    monkeypatch.setattr(settings, "saas_reserved_subdomains", frozenset({"blog"}))
+    db = build_db()
+    _, tenant = seed(db)
+
+    with pytest.raises(HTTPException) as exc:
+        update_subdomain(db, tenant, subdomain=subdomain)
+
+    assert exc.value.status_code == 409
+
+
 def test_custom_domain_verification_uses_txt(monkeypatch) -> None:
     db = build_db()
     _, tenant = seed(db)

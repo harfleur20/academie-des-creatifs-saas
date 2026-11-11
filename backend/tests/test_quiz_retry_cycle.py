@@ -103,9 +103,50 @@ def test_each_attempt_comes_with_its_own_correction() -> None:
     view = submit_quiz_attempt(db, ctx(db, org, student), quiz.id, QuizAttemptPayload(answers=[1, -1]))
     attempt = view.attempts[-1]
     assert attempt.score_pct == 50
-    assert attempt.submitted_answers == [1, -1]  # -1: left unanswered
-    assert attempt.correct_answers == [1, 2]
+    assert attempt.submitted_answers == [[1], []]  # []: left unanswered
+    assert attempt.correct_answers == [[1], [2]]
     assert student_view(db, ctx(db, org, classmate), quiz.id).attempts == []
+
+
+MULTIPLE = QuizQuestionCreate(
+    text="Couleurs primaires ?", options=["Rouge", "Vert", "Bleu", "Jaune"],
+    selection_mode="multiple", correct_indices=[2, 0, 3], points=3,
+)
+
+
+@pytest.mark.parametrize(("ticked", "expected_pct"), [
+    ([0, 2, 3], 75.0),  # 3 points of 3, plus the single question's 0 of 1
+    ([0, 2], 50.0),  # one share per right answer ticked
+    ([0, 1], 0.0),  # a wrong answer takes a share back
+    ([1], 0.0),  # never below zero
+    ([], 0.0),
+])
+def test_a_multiple_answer_question_earns_a_share_per_right_answer(ticked, expected_pct) -> None:
+    db, tenant, quiz_id, _ = active_quiz([MULTIPLE, QUESTION])
+    view = submit_quiz_attempt(db, tenant, quiz_id, QuizAttemptPayload(answers=[ticked, 0]))
+    attempt = view.attempts[-1]
+    assert attempt.score_pct == expected_pct
+    assert attempt.correct_answers == [[0, 2, 3], [1]]
+    assert attempt.submitted_answers[0] == ticked
+
+
+def test_points_weigh_each_question() -> None:
+    heavy = QuizQuestionCreate(text="Lourde ?", options=["A", "B"], correct_index=0, points=3)
+    db, tenant, quiz_id, _ = active_quiz([heavy, QUESTION])
+    view = submit_quiz_attempt(db, tenant, quiz_id, QuizAttemptPayload(answers=[0, 0]))
+    assert view.attempts[-1].score_pct == 75.0
+
+
+def test_a_single_answer_question_keeps_only_one_ticked_option() -> None:
+    db, tenant, quiz_id, _ = active_quiz()
+    view = submit_quiz_attempt(db, tenant, quiz_id, QuizAttemptPayload(answers=[[1, 0]]))
+    assert view.attempts[-1].submitted_answers == [[1]]
+    assert view.passed
+
+
+def test_a_multiple_answer_question_needs_a_right_answer() -> None:
+    with pytest.raises(ValidationError):
+        QuizQuestionCreate(text="Aucune ?", options=["A", "B"], selection_mode="multiple", correct_indices=[])
 
 
 def test_a_quiz_is_passed_at_eighty_percent_at_least() -> None:

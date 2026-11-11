@@ -1077,6 +1077,8 @@ export type Course = {
 }
 
 export type FormationSession = {
+  program_frozen_at?: string | null
+  program_missing?: string[]
   id: number
   label: string
   start_date: string
@@ -1505,8 +1507,42 @@ export type LiveRoom = {
   started_at: string | null
 }
 
-export const joinLiveClass = (courseDayId: number) =>
-  request<LiveRoom>(`/planning/course-days/${courseDayId}/live/join`, { method: 'POST' })
+/** The live room before entering: waiting room until opens_at, then the welcome card. */
+export type LiveRoomInfo = {
+  course_day_id: number
+  title: string
+  formation_title: string
+  session_label: string
+  formation_image_url: string | null
+  school_name: string
+  school_logo_url: string | null
+  school_primary_color: string | null
+  starts_at: string
+  ends_at: string
+  opens_at: string
+  closes_at: string
+  started_at: string | null
+  moderator: boolean
+  responsible_teacher: boolean
+}
+
+export const fetchLiveRoomInfo = (courseDayId: number) =>
+  request<LiveRoomInfo>(`/planning/course-days/${courseDayId}/live`)
+
+/** This browser in live classes: a student keeps one device at a time, as on the mother site. */
+export type LiveDevice = { id: string; label: string }
+
+const liveDeviceHeaders = (device: LiveDevice) => ({ 'X-Live-Device-Id': device.id, 'X-Live-Device-Label': device.label })
+
+export const joinLiveClass = (courseDayId: number, device: LiveDevice) =>
+  request<LiveRoom>(`/planning/course-days/${courseDayId}/live/join`, { method: 'POST', headers: liveDeviceHeaders(device) })
+
+export const heartbeatLiveClass = (courseDayId: number, device: LiveDevice) =>
+  request<void>(`/planning/course-days/${courseDayId}/live/heartbeat`, { method: 'POST', headers: liveDeviceHeaders(device) })
+
+/** Frees the device at once; keepalive lets it leave with a closing page. */
+export const leaveLiveClass = (courseDayId: number, device: LiveDevice) =>
+  request<void>(`/planning/course-days/${courseDayId}/live/leave`, { method: 'POST', headers: liveDeviceHeaders(device), keepalive: true })
 
 export const startLiveClass = (courseDayId: number) =>
   request<{ course_day_id: number; started_at: string }>(`/planning/course-days/${courseDayId}/live/start`, { method: 'POST' })
@@ -1820,6 +1856,9 @@ export type TeacherQuizQuestion = {
   text: string
   options: string[]
   correct_index: number
+  selection_mode?: 'single' | 'multiple'
+  correct_indices?: number[]
+  points?: number
 }
 
 export type TeacherQuiz = {
@@ -1844,6 +1883,8 @@ export type StudentQuizQuestion = {
   order_index: number
   text: string
   options: string[]
+  selection_mode?: 'single' | 'multiple'
+  points?: number
 }
 
 export type QuizAttempt = {
@@ -1851,8 +1892,10 @@ export type QuizAttempt = {
   attempt_number: number
   score_pct: number
   submitted_at: string
-  submitted_answers: number[]
-  correct_answers: number[]
+  /** Options ticked per question, in the student's order; empty when unanswered. */
+  submitted_answers: number[][]
+  /** Right options per question: one, or several for a multiple-answer question. */
+  correct_answers: number[][]
 }
 
 export type StudentQuiz = {
@@ -1909,6 +1952,9 @@ export const createTeacherQuiz = (
       text: string
       options: string[]
       correct_index: number
+      selection_mode?: 'single' | 'multiple'
+      correct_indices?: number[]
+      points?: number
     }>
   },
 ) =>
@@ -1932,7 +1978,8 @@ export const getTeacherQuizResults = (quizId: number) =>
 export const listStudentQuizzes = () =>
   request<StudentQuiz[]>('/academic/student/quizzes')
 
-export const submitStudentQuizAttempt = (quizId: number, answers: number[]) =>
+/** One entry per question: an option (-1 when unanswered), or the options ticked for a multiple-answer question. */
+export const submitStudentQuizAttempt = (quizId: number, answers: Array<number | number[]>) =>
   request<StudentQuiz>('/academic/student/quizzes/' + quizId + '/attempt', {
     method: 'POST',
     body: JSON.stringify({ answers }),

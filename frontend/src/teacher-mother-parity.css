@@ -865,3 +865,29 @@
     flex-wrap: wrap;
   }
 }
+
+.teacher-question-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.teacher-question-settings label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.teacher-question-settings input[type="number"] {
+  width: 76px;
+}
+
+.teacher-question-help {
+  color: #667085;
+  font-size: 11.5px;
+  line-height: 1.45;
+}

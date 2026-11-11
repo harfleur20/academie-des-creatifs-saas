@@ -1,9 +1,11 @@
 # Ajouté au docker-compose officiel quand BEHIND_COOLIFY=1 :
-# - le conteneur web rejoint le réseau de Coolify, d'où son proxy Traefik le sert sur le domaine du live ;
+# - le conteneur web rejoint le réseau de Coolify, d'où son proxy Traefik le sert sur le domaine du live.
+#   Il ne publie aucun port sur le serveur : le port 8000 y est déjà pris par le tableau de bord de Coolify ;
 # - le relais vidéo et Jicofo sont plafonnés pour qu'un cours chargé ne ralentisse pas le SaaS,
 #   qui tourne sur le même serveur. Ajustez ces limites après mesure.
 services:
   web:
+    ports: !reset []
     networks:
       meet.jitsi:
       coolify:

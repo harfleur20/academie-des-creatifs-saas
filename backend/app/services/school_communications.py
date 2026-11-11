@@ -107,6 +107,10 @@ SCHOOL_MESSAGE_TEMPLATES: dict[str, SchoolMessageTemplate] = {
         "Nouvel inscrit",
         "Bonjour {recipient_name},\n{student_name} rejoint la session {session_label} de {formation_title}.",
     ),
+    "student.session.updated": SchoolMessageTemplate(
+        "Changement de votre session",
+        "Bonjour {recipient_name},\nla session {session_label} de {formation_title} a changé. {change_summary}",
+    ),
     "student.assignment.reviewed": SchoolMessageTemplate(
         "Votre devoir a été corrigé",
         "Bonjour {recipient_name},\nvotre devoir « {assignment_title} » a été corrigé.\nNote : {score_label}.",

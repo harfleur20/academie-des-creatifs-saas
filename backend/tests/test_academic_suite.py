@@ -12,6 +12,7 @@ from reportlab.pdfgen import canvas
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
+from program_helpers import frozen_program
 from app.db.base import Base
 from app.core.config import settings
 from app.models.entities import (
@@ -74,7 +75,7 @@ from app.services.learning_progress import (
     sync_lesson_video_progress,
     teacher_performance,
 )
-from app.services.live_classes import join_live_class, start_live_class
+from app.services.live_classes import join_live_class, live_class_info, start_live_class
 from app.api.routes.planning import read_jaas_room_branding
 from app.api.routes import academic as academic_routes
 from app.services.planning import get_session_planning, list_course_day_feedback, list_school_course_day_reports, submit_course_day_feedback, submit_course_day_report, update_course_day
@@ -469,6 +470,38 @@ def test_lesson_versions_restore_content_and_keep_school_boundary() -> None:
     assert hidden.value.status_code == 404
 
 
+def test_the_live_room_shows_its_class_before_it_opens(monkeypatch) -> None:
+    monkeypatch.setattr("app.services.live_classes.require_teacher_ready", lambda db, tenant: None)
+    db = build_db()
+    org, teacher, student, classmate, session, _, _, _, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.commit()
+
+    info = live_class_info(db, ctx(db, org, student), day.id)
+    assert info["formation_title"] == session.formation.title and info["session_label"] == session.label
+    assert info["opens_at"] == info["starts_at"] - timedelta(minutes=15)
+    assert info["closes_at"] == info["ends_at"] + timedelta(minutes=15)
+    assert not info["moderator"] and not info["responsible_teacher"]
+    teacher_info = live_class_info(db, ctx(db, org, teacher), day.id)
+    assert teacher_info["moderator"] and teacher_info["responsible_teacher"]
+
+    db.delete(db.scalar(select(EnrollmentRecord).where(
+        EnrollmentRecord.session_id == session.id, EnrollmentRecord.student_id == classmate.id,
+    )))
+    db.commit()
+    with pytest.raises(HTTPException) as outsider:
+        live_class_info(db, ctx(db, org, classmate), day.id)
+    assert outsider.value.status_code == 403
+
+    start_live_class(db, ctx(db, org, teacher), day.id, now=datetime(2025, 1, 10, 9, 0, tzinfo=UTC))
+    submit_course_day_report(db, ctx(db, org, teacher), day.id, CourseDayReportSubmit(
+        delivery_status="held", summary="Cours tenu jusqu'au bout",
+    ), now=datetime(2025, 1, 10, 10, 0, tzinfo=UTC))
+    with pytest.raises(HTTPException) as closed:
+        live_class_info(db, ctx(db, org, student), day.id)
+    assert closed.value.status_code == 404
+
+
 def test_live_class_join_requires_own_school_membership_and_course_window(monkeypatch) -> None:
     db = build_db()
     org, teacher, student, classmate, session, _, _, _, day = seed(db)
@@ -590,6 +623,24 @@ def test_live_class_start_is_teacher_owned_and_time_gated() -> None:
     with pytest.raises(HTTPException) as locked:
         update_course_day(db, teacher_tenant, day.id, CourseDayUpdate(title="Changed"))
     assert locked.value.status_code == 409
+
+
+def test_a_started_live_class_can_be_ended_before_its_scheduled_end(monkeypatch) -> None:
+    # Teacher readiness has its own tests; this fixture's teacher predates onboarding.
+    monkeypatch.setattr("app.services.live_classes.require_teacher_ready", lambda db, tenant: None)
+    db = build_db()
+    org, teacher, _, _, session, _, _, _, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.commit()
+    teacher_tenant = ctx(db, org, teacher)
+    start_live_class(db, teacher_tenant, day.id, now=datetime(2025, 1, 10, 9, 0, tzinfo=UTC))
+    planning = submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(
+        delivery_status="partial", summary="Cours écourté par une coupure",
+    ), now=datetime(2025, 1, 10, 9, 30, tzinfo=UTC))
+    assert planning.course_days[0].report_submitted_at is not None
+    with pytest.raises(HTTPException) as closed:
+        join_live_class(db, teacher_tenant, day.id, now=datetime(2025, 1, 10, 9, 31, tzinfo=UTC))
+    assert closed.value.status_code == 404
 
 
 def test_guided_badge_waits_for_course_day_report_and_finalized_attendance() -> None:
@@ -979,6 +1030,7 @@ def test_guided_certificate_requires_school_validation() -> None:
     db = build_db()
     org, teacher, student, _, session, enrollment, _, lesson, day = seed(db)
     db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.add(frozen_program(session))  # frozen before its only course day was cancelled
     day.status = "cancelled"
     db.commit()
     student_tenant = ctx(db, org, student)

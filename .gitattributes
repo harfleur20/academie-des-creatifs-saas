@@ -1,2 +1,4 @@
 # Scripts run on Linux servers keep LF line endings.
 *.sh text eol=lf
+# So does the live server setup, copied as is to the server (env files, coturn and Traefik templates).
+infra/live/** text eol=lf

@@ -160,7 +160,8 @@ def test_payment_reminders_seven_days_then_one_day_before_once_the_previous_is_p
         OrderInstallmentRecord.order_id == checkout.order_id, OrderInstallmentRecord.sequence == 2,
     ))
     now = datetime.now(UTC)
-    second.due_at = now + timedelta(days=7, hours=1)
+    # Reminders go by the school's calendar day (J-7, J-1): whole days keep the test true at any hour.
+    second.due_at = now + timedelta(days=7)
     db.commit()
     assert process_payment_reminders(db, now=now) == 0  # the first instalment is not paid yet
 
@@ -175,7 +176,7 @@ def test_payment_reminders_seven_days_then_one_day_before_once_the_previous_is_p
     assert process_payment_reminders(db, now=now) == 0
     assert emails(db, "student.payment.reminder", user.email) == 1
     assert process_payment_reminders(db, now=now + timedelta(days=3)) == 0
-    assert process_payment_reminders(db, now=now + timedelta(days=6, hours=2)) == 1
+    assert process_payment_reminders(db, now=now + timedelta(days=6)) == 1  # the day before
 
 
 def test_a_lesson_published_on_its_own_is_announced_when_open() -> None:

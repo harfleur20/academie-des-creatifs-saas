@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from program_helpers import frozen_program
 from app.db.base import Base
 from app.models.entities import (
     AssignmentRecord,
@@ -141,6 +142,7 @@ def school(format_type="live"):
     )
     db.add(session)
     db.flush()
+    db.add(frozen_program(session))
     enrollment = EnrollmentRecord(organization_id=org.id, session_id=session.id, student_id=student.id, status="active")
     db.add_all([
         enrollment,

@@ -1,7 +1,8 @@
 // Ajouté à la configuration générée par l'image web de docker-jitsi-meet.
 // Les salles s'ouvrent dans la page du SaaS : pas d'accueil Jitsi ni de liens vers l'application mobile.
+// La page du SaaS a son propre accueil (micro, caméra) : celui de Jitsi est désactivé.
 config.defaultLanguage = 'fr';
-config.prejoinConfig = { enabled: true };
+config.prejoinConfig = { enabled: false };
 config.disableDeepLinking = true;
 config.enableWelcomePage = false;
 config.enableClosePage = false;

@@ -12,7 +12,7 @@ Permettre à une école, un centre de formation, un formateur ou un organisme de
 - Backend : FastAPI, Python
 - Base de données : PostgreSQL 16
 - ORM / migrations : SQLAlchemy, Alembic
-- Déploiement : Docker, Coolify
+- Déploiement : Docker, Coolify ([docs/DEPLOIEMENT_COOLIFY.md](docs/DEPLOIEMENT_COOLIFY.md))
 - Paiement : TaraMoney + mode démo local
 - Email : Brevo
 - WhatsApp : Wapino

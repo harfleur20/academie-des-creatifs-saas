@@ -15,10 +15,14 @@ from app.schemas.planning import (
     CourseDayFeedbackReviewRead,
     SchoolCourseDayReportRead,
     SessionPlanningRead,
+    LiveRoomInfoRead,
     LiveRoomRead,
     LiveStartRead,
 )
-from app.services.live_classes import jaas_room_branding, join_live_class, start_live_class
+from app.services.live_classes import (
+    heartbeat_live_class, jaas_room_branding, join_live_class, leave_live_class, live_class_info,
+    self_hosted_room_branding, start_live_class,
+)
 from app.services.planning import (
     create_course_day,
     get_session_planning,
@@ -52,6 +56,25 @@ def read_jaas_room_branding(
     return branding
 
 
+@router.get("/live/room-branding")
+def read_self_hosted_room_branding(
+    response: Response,
+    conference_fqn: str = Query(alias="conferenceFqn", max_length=512),
+    db: Session = Depends(get_db),
+):
+    """The self-hosted Jitsi (BRANDING_DATA_URL in infra/live) asks this from the browser, without cookies.
+
+    Only a school's public identity is returned: its color and logo.
+    """
+    if settings.jitsi_domain:
+        response.headers["Access-Control-Allow-Origin"] = f"https://{settings.jitsi_domain}"
+    branding = self_hosted_room_branding(db, conference_fqn)
+    if branding is None:
+        raise HTTPException(404, "Salle live introuvable.")
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return branding
+
+
 @router.get("/reports", response_model=list[SchoolCourseDayReportRead])
 def read_school_course_day_reports(
     db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
@@ -59,15 +82,46 @@ def read_school_course_day_reports(
     return list_school_course_day_reports(db, tenant)
 
 
+@router.get("/course-days/{course_day_id}/live", response_model=LiveRoomInfoRead)
+def read_course_day_live(
+    course_day_id: int, db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return live_class_info(db, tenant, course_day_id)
+
+
 @router.post("/course-days/{course_day_id}/live/join", response_model=LiveRoomRead)
 def join_course_day_live(
     course_day_id: int,
     response: Response,
+    x_live_device_id: str = Header(default="", max_length=256),
+    x_live_device_label: str = Header(default="", max_length=512),
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     response.headers["Cache-Control"] = "private, no-store"
-    return join_live_class(db, tenant, course_day_id)
+    return join_live_class(db, tenant, course_day_id, device_id=x_live_device_id, device_label=x_live_device_label)
+
+
+@router.post("/course-days/{course_day_id}/live/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
+def heartbeat_course_day_live(
+    course_day_id: int,
+    x_live_device_id: str = Header(default="", max_length=256),
+    x_live_device_label: str = Header(default="", max_length=512),
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    heartbeat_live_class(db, tenant, course_day_id, device_id=x_live_device_id, device_label=x_live_device_label)
+
+
+@router.post("/course-days/{course_day_id}/live/leave", status_code=status.HTTP_204_NO_CONTENT)
+def leave_course_day_live(
+    course_day_id: int,
+    x_live_device_id: str = Header(default="", max_length=256),
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    leave_live_class(db, tenant, course_day_id, device_id=x_live_device_id)
 
 
 @router.post("/course-days/{course_day_id}/live/start", response_model=LiveStartRead)

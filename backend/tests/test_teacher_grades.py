@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from program_helpers import frozen_program
 from app.api.dependencies import get_tenant_context
 from app.db.base import Base
 from app.db.session import get_db
@@ -64,6 +65,7 @@ def school(format_type="live", *, ended=False):
     )
     db.add(session)
     db.flush()
+    db.add(frozen_program(session))
     enrollment = EnrollmentRecord(organization_id=org.id, session_id=session.id, student_id=student.id, status="active")
     db.add_all([
         enrollment,

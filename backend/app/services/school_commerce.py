@@ -64,6 +64,7 @@ from app.services.session_payment_plans import (
     split_amounts,
 )
 from app.services.tara_money import create_payment_link, verify_payment
+from app.services.session_lifecycle import enrollment_closes_at
 from app.services.training_notifications import notify_new_enrollment
 
 
@@ -733,7 +734,7 @@ def create_checkout(
                     session.status != "open"
                     or session.end_date < now.date()
                     or (session.enrollment_open_at and now < _aware(session.enrollment_open_at))
-                    or (session.enrollment_close_at and now > _aware(session.enrollment_close_at))
+                    or now > enrollment_closes_at(session)
                 )
             )
         )

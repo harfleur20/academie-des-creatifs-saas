@@ -1030,6 +1030,9 @@ class QuizQuestionRecord(OrganizationOwnedMixin, Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     options: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     correct_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    selection_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="single")
+    correct_indices: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+    points: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
 
     quiz: Mapped["QuizRecord"] = relationship(back_populates="questions")
 
@@ -1082,6 +1085,38 @@ class LessonVideoProgressRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class SessionProgramVersionRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    """The guided session's program, frozen when the session starts, as on the mother site."""
+
+    __tablename__ = "session_program_versions"
+    __table_args__ = (
+        UniqueConstraint("session_id", "version", name="uq_session_program_version"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("formation_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    frozen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    requirements_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class BadgeAwardRecord(OrganizationOwnedMixin, Base):
+    """A badge level once reached: the displayed badge never goes below it."""
+
+    __tablename__ = "badge_awards"
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", "level", name="uq_badge_award_enrollment_level"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), nullable=False, index=True)
+    program_version_id: Mapped[int | None] = mapped_column(ForeignKey("session_program_versions.id", ondelete="SET NULL"), nullable=True)
+    level: Mapped[str] = mapped_column(String(24), nullable=False)
+    score_pct: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    evidence_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    awarded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class AttendanceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "attendance"
     __table_args__ = (
@@ -1096,6 +1131,28 @@ class AttendanceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="present")
     marked_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     marked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class LiveRoomPresenceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    """A student's device in one live class: first entry, last heartbeat and departure.
+
+    As on the mother site, it keeps a student on one device at a time and prefills the
+    attendance of the students who entered the room when the course is closed.
+    """
+    __tablename__ = "live_room_presences"
+    __table_args__ = (
+        UniqueConstraint("course_day_id", "user_id", "device_id", name="uq_live_room_presences_day_user_device"),
+        Index("ix_live_room_presences_user_seen", "user_id", "last_seen_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_day_id: Mapped[int] = mapped_column(ForeignKey("session_course_days.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    device_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    device_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    first_joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class GradeRecord(OrganizationOwnedMixin, TimestampMixin, Base):

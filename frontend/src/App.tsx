@@ -253,6 +253,15 @@ export default function App() {
               <Route path="settings" element={<SchoolSettingsPage />} />
             </Route>
 
+            {/* The live class is full screen, outside the space's layout, as on the mother site. */}
+            <Route
+              path="/app/teacher/live/:courseDayId"
+              element={<RequireSchoolUser><RequireWorkspace space="teacher"><RequireTeacherReady><LiveClassPage space="teacher" /></RequireTeacherReady></RequireWorkspace></RequireSchoolUser>}
+            />
+            <Route
+              path="/app/student/live/:courseDayId"
+              element={<RequireSchoolUser><RequireWorkspace space="student"><RequireStudentReady><LiveClassPage space="student" /></RequireStudentReady></RequireWorkspace></RequireSchoolUser>}
+            />
             <Route
               path="/app/teacher/setup"
               element={<RequireSchoolUser><RequireWorkspace space="teacher"><TeacherSetupPage /></RequireWorkspace></RequireSchoolUser>}
@@ -266,7 +275,6 @@ export default function App() {
               <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="sessions" element={<TeacherSessionsPage />} />
               <Route path="sessions/:sessionId" element={<TeacherSessionPlanningPage />} />
-              <Route path="live/:courseDayId" element={<LiveClassPage space="teacher" />} />
               <Route path="courses" element={<TeacherCoursesPage />} />
               <Route path="resources" element={<TeacherResourcesPage />} />
               <Route path="assignments" element={<TeacherAssignmentsPage />} />
@@ -292,7 +300,6 @@ export default function App() {
               <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="formations" element={<StudentParcoursPage />} />
               <Route path="sessions/:sessionId" element={<StudentSessionPlanningPage />} />
-              <Route path="live/:courseDayId" element={<LiveClassPage space="student" />} />
               <Route path="planning" element={<StudentPlanningPage />} />
               <Route path="courses" element={<StudentCoursesPage />} />
               <Route path="classic/:enrollmentId" element={<StudentCoursesPage mode="classic" />} />
