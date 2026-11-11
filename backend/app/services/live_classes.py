@@ -110,7 +110,23 @@ def jaas_room_branding(db: Session, conference: str) -> dict | None:
     )
     if match is None:
         return None
-    organization_id, session_id, day_id = map(int, match.groups())
+    return _room_branding(db, *map(int, match.groups()))
+
+
+def self_hosted_room_branding(db: Session, conference: str) -> dict | None:
+    """The school's identity for one room of the self-hosted Jitsi, fetched by Jitsi itself.
+
+    Jitsi shows the returned logo in place of its own, and nothing when there is none.
+    """
+    if settings.live_provider != "jitsi":
+        return None
+    match = re.fullmatch(r"school-(\d+)-session-(\d+)-day-(\d+)", conference)
+    if match is None:
+        return None
+    return _room_branding(db, *map(int, match.groups()))
+
+
+def _room_branding(db: Session, organization_id: int, session_id: int, day_id: int) -> dict | None:
     day = db.scalar(select(SessionCourseDayRecord).where(
         SessionCourseDayRecord.id == day_id,
         SessionCourseDayRecord.session_id == session_id,

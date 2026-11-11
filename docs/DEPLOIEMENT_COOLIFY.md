@@ -113,7 +113,7 @@ Le cookie de connexion est alors posé sur `.academiecreatif.com` et partagé pa
 
 Selon ce que vous testez :
 
-- **Live :** `LIVE_PROVIDER=jitsi`, `JITSI_DOMAIN=live.academiecreatif.com`, `JITSI_APP_ID=academie-live`, `JITSI_APP_SECRET` (le `JWT_APP_SECRET` d'`infra/live`), `JITSI_XMPP_DOMAIN=meet.jitsi`. Voir [infra/live/README.md](../infra/live/README.md).
+- **Live :** `LIVE_PROVIDER=jitsi`, `JITSI_DOMAIN=live.academiecreatif.com`, `JITSI_APP_ID=academie-live`, `JITSI_APP_SECRET` (le `JWT_APP_SECRET` d'`infra/live`), `JITSI_XMPP_DOMAIN=meet.jitsi`. Dans le `main.env` d'`infra/live`, mettez `BRANDING_DATA_URL=https://ecoles.academiecreatif.com/api/v1/planning/live/room-branding` et `LIVE_HOME_URL=https://ecoles.academiecreatif.com`. Voir [infra/live/README.md](../infra/live/README.md).
 - **Emails :** `BREVO_API_KEY`, `SMTP_FROM` (adresse d'expédition validée dans Brevo), `SMTP_FROM_NAME`, `SUPPORT_EMAIL`.
 - **Paiements :** les variables `TARAMONEY_*`. Le mode démo est refusé en production.
 - **Connexion Google :** `GOOGLE_CLIENT_ID`, avec le même identifiant en argument de build `VITE_GOOGLE_CLIENT_ID`.

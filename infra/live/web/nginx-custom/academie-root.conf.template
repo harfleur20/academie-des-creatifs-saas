@@ -1,0 +1,6 @@
+# L'adresse du live seule renvoie vers le SaaS : les classes ne s'ouvrent que depuis sa page.
+# install-main.sh remplace __LIVE_HOME_URL__ (LIVE_HOME_URL de main.env) et copie ce fichier
+# dans <CONFIG>/web/nginx-custom/, que le serveur web de Jitsi inclut.
+location = / {
+    return 302 __LIVE_HOME_URL__;
+}

@@ -19,7 +19,9 @@ from app.schemas.planning import (
     LiveRoomRead,
     LiveStartRead,
 )
-from app.services.live_classes import jaas_room_branding, join_live_class, live_class_info, start_live_class
+from app.services.live_classes import (
+    jaas_room_branding, join_live_class, live_class_info, self_hosted_room_branding, start_live_class,
+)
 from app.services.planning import (
     create_course_day,
     get_session_planning,
@@ -50,6 +52,25 @@ def read_jaas_room_branding(
     branding = jaas_room_branding(db, conference)
     if branding is None:
         raise HTTPException(404, "Salle live introuvable.")
+    return branding
+
+
+@router.get("/live/room-branding")
+def read_self_hosted_room_branding(
+    response: Response,
+    conference_fqn: str = Query(alias="conferenceFqn", max_length=512),
+    db: Session = Depends(get_db),
+):
+    """The self-hosted Jitsi (BRANDING_DATA_URL in infra/live) asks this from the browser, without cookies.
+
+    Only a school's public identity is returned: its color and logo.
+    """
+    if settings.jitsi_domain:
+        response.headers["Access-Control-Allow-Origin"] = f"https://{settings.jitsi_domain}"
+    branding = self_hosted_room_branding(db, conference_fqn)
+    if branding is None:
+        raise HTTPException(404, "Salle live introuvable.")
+    response.headers["Cache-Control"] = "public, max-age=300"
     return branding
 
 

@@ -68,6 +68,12 @@ La vidéo passe normalement en UDP 10000. Certains réseaux le bloquent : résea
 - **Sécurité :** coturn refuse de relayer vers les adresses privées. Un participant ne peut donc pas s'en servir pour atteindre la base de données ou Coolify.
 - **Réseau :** coturn utilise le réseau de l'hôte, comme le recommande son image. Il joint le relais vidéo du même serveur par l'IP publique de ce serveur. Vérifiez que cette IP est bien portée par sa carte réseau (`ip addr`) : c'est le cas chez la plupart des hébergeurs de VPS.
 
+## Identité de l'école dans la salle
+
+- **Logo et couleur :** pour chaque classe, Jitsi demande au SaaS (`BRANDING_DATA_URL`) la couleur de fond et le logo de l'école. Il affiche ce logo à la place du sien, et aucun logo si l'école n'en a pas. Le logo doit être une adresse publique en `https`. Le SaaS ne répond qu'avec ces informations publiques, et seulement au domaine du live (`JITSI_DOMAIN`).
+- **Accueil :** la page du SaaS a son propre écran d'accueil (micro, caméra) et sa barre d'outils réduite. L'accueil de Jitsi est donc désactivé (`ENABLE_PREJOIN_PAGE=0`).
+- **Adresse seule :** `https://live.votre-domaine/` renvoie vers `LIVE_HOME_URL`, puisque les classes ne s'ouvrent que depuis le SaaS.
+
 ## Sur un serveur géré par Coolify
 
 Le proxy Traefik de Coolify garde les ports 80 et 443 et les certificats. Mettez `BEHIND_COOLIFY=1` dans `main.env`, puis lancez le même `install-main.sh` en SSH sur le serveur. Le script :

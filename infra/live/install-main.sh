@@ -127,11 +127,22 @@ CONFIG_DIR="$(env_value CONFIG)"
 CONFIG_DIR="${CONFIG_DIR/#\~/$HOME}"
 mkdir -p "$CONFIG_DIR"/{web,transcripts,prosody/config,prosody/prosody-plugins-custom,jicofo,jvb,jigasi,jibri}
 cp "$HERE/web/custom-config.js" "$CONFIG_DIR/web/custom-config.js"
+# L'adresse du live seule renvoie vers le SaaS (LIVE_HOME_URL), sinon elle ouvrirait une salle au hasard.
+LIVE_HOME_URL="$(env_value LIVE_HOME_URL)"
+mkdir -p "$CONFIG_DIR/web/nginx-custom"
+if [ -n "$LIVE_HOME_URL" ]; then
+  sed "s|__LIVE_HOME_URL__|${LIVE_HOME_URL}|g" "$HERE/web/nginx-custom/academie-root.conf.template" \
+    > "$CONFIG_DIR/web/nginx-custom/academie-root.conf"
+else
+  rm -f "$CONFIG_DIR/web/nginx-custom/academie-root.conf"
+fi
 # mod_token_affiliation (modérateur seulement si le jeton le demande) est livré dans l'image
 # Prosody de la même version : main.env l'active, rien à télécharger.
 
 docker compose pull
 docker compose up -d
+# Le serveur web ne relit custom-config.js et nginx-custom qu'au démarrage.
+docker compose restart web
 
 PUBLIC_URL="$(env_value PUBLIC_URL)"
 if [ "$BEHIND_COOLIFY" = "1" ]; then
