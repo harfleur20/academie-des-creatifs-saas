@@ -4976,7 +4976,6 @@
 .live-room__join-class { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 62px; border: none; border-radius: 14px; background: var(--live-gradient); color: #fff; font: inherit; font-size: 1.05rem; font-weight: 900; letter-spacing: .02em; cursor: pointer; box-shadow: 0 0 0 1px color-mix(in srgb, var(--live-accent-text) 35%, transparent), 0 20px 48px color-mix(in srgb, var(--live-accent) 30%, transparent); transition: transform .18s ease; }
 .live-room__join-class:hover { transform: translateY(-2px); }
 .live-room__join-class:disabled { opacity: .62; cursor: wait; transform: none; box-shadow: none; }
-.live-room__join-logo { width: auto; height: 26px; flex-shrink: 0; border-radius: 5px; background: #fff; object-fit: contain; }
 .live-room__error { margin: 0 !important; color: #fca5a5 !important; font-size: .88rem !important; }
 .live-room-confirm { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; }
 .live-room-confirm__backdrop { position: absolute; inset: 0; border: none; background: rgba(5, 7, 18, .72); backdrop-filter: blur(6px); cursor: default; }

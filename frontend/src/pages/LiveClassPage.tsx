@@ -261,7 +261,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
           </div>
           {joinError && <p className="live-room__error" role="alert">{joinError}</p>}
           <button type="button" className="live-room__join-class" disabled={joining} onClick={() => void enterClass()}>
-            {info.school_logo_url ? <img src={info.school_logo_url} alt="" className="live-room__join-logo" /> : <Video size={20} />}
+            <Video size={22} aria-hidden="true" />
             {joining ? 'Ouverture…' : 'Rejoindre la classe'}
           </button>
         </div>}
