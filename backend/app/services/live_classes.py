@@ -10,7 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
-from app.models.entities import EnrollmentRecord, FormationSessionRecord, OrganizationPublicSiteRecord, OrganizationRecord, SessionCourseDayRecord, SessionTeacherRecord
+from app.models.entities import (
+    EnrollmentRecord, FormationSessionRecord, LiveRoomPresenceRecord, OrganizationPublicSiteRecord, OrganizationRecord,
+    SessionCourseDayRecord, SessionTeacherRecord, UserRecord,
+)
 from app.services.live_recordings import _source_url
 from app.services.teacher_readiness import require_teacher_ready
 from app.services.tenancy import TenantContext
@@ -186,8 +189,8 @@ ROOM_CLOSES_AFTER = timedelta(minutes=15)
 
 def _live_class_access(
     db: Session, tenant: TenantContext, course_day_id: int,
-) -> tuple[SessionCourseDayRecord, FormationSessionRecord, bool, bool]:
-    """The open live course day and whether the caller manages it or teaches it, else 403/404."""
+) -> tuple[SessionCourseDayRecord, FormationSessionRecord, bool, bool, bool]:
+    """The open live course day and whether the caller manages it, teaches it or attends it, else 403/404."""
     day = db.scalar(select(SessionCourseDayRecord).where(
         SessionCourseDayRecord.id == course_day_id,
         SessionCourseDayRecord.organization_id == tenant.organization_id,
@@ -223,12 +226,12 @@ def _live_class_access(
         raise HTTPException(403, "Le mode support ne peut pas rejoindre une classe live.")
     if teacher:
         require_teacher_ready(db, tenant)
-    return day, session, manager, teacher
+    return day, session, manager, teacher, student
 
 
 def live_class_info(db: Session, tenant: TenantContext, course_day_id: int) -> dict:
     """What the live room shows before anyone enters: its waiting room, then its welcome card."""
-    day, session, manager, teacher = _live_class_access(db, tenant, course_day_id)
+    day, session, manager, teacher, _ = _live_class_access(db, tenant, course_day_id)
     starts_at = _aware(day.scheduled_at)
     ends_at = starts_at + timedelta(minutes=day.duration_minutes)
     school_name, school_logo_url, school_primary_color = _school_live_identity(db, tenant.organization_id)
@@ -253,8 +256,9 @@ def live_class_info(db: Session, tenant: TenantContext, course_day_id: int) -> d
 
 def join_live_class(
     db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None,
+    device_id: str | None = None, device_label: str | None = None,
 ) -> dict:
-    day, session, manager, teacher = _live_class_access(db, tenant, course_day_id)
+    day, session, manager, teacher, student = _live_class_access(db, tenant, course_day_id)
 
     current = _aware(now or datetime.now(UTC))
     starts_at = _aware(day.scheduled_at)
@@ -264,6 +268,8 @@ def join_live_class(
 
     if not live_provider_configured():
         raise HTTPException(503, "Le service de classes live n'est pas configuré.")
+    if student and not (manager or teacher):
+        _hold_live_device(db, tenant, day, device_id, device_label, current)
 
     moderator = bool(manager or teacher)
     room = f"school-{tenant.organization_id}-session-{session.id}-day-{day.id}"
@@ -287,3 +293,77 @@ def join_live_class(
         "moderator": moderator,
         "started_at": _aware(day.started_at) if day.started_at else None,
     }
+
+
+# As on the mother site, a student keeps one device in live classes at a time: another
+# device that sent a heartbeat less than 90 seconds ago, without leaving, holds the place.
+LIVE_ACTIVE_DEVICE_TTL = timedelta(seconds=90)
+DEVICE_TAKEN = (
+    "Votre compte étudiant est déjà connecté à un live sur un autre appareil. "
+    "Quittez cette salle ou réessayez dans environ 90 secondes."
+)
+
+
+def _device_id(value: str | None, user_id: int) -> str:
+    safe = "".join(char for char in (value or "").strip() if char.isalnum() or char in "-_.")
+    return safe[:128] or f"user-{user_id}"
+
+
+def _hold_live_device(
+    db: Session, tenant: TenantContext, day: SessionCourseDayRecord,
+    device_id: str | None, device_label: str | None, current: datetime,
+) -> None:
+    device = _device_id(device_id, tenant.user.id)
+    # Serializes two devices joining at the same time for one account (PostgreSQL).
+    db.scalar(select(UserRecord.id).where(UserRecord.id == tenant.user.id).with_for_update())
+    taken = db.scalar(select(LiveRoomPresenceRecord.id).where(
+        LiveRoomPresenceRecord.user_id == tenant.user.id,
+        LiveRoomPresenceRecord.device_id != device,
+        LiveRoomPresenceRecord.left_at.is_(None),
+        LiveRoomPresenceRecord.last_seen_at >= current - LIVE_ACTIVE_DEVICE_TTL,
+    ).limit(1))
+    if taken is not None:
+        db.rollback()
+        raise HTTPException(409, DEVICE_TAKEN)
+    presence = db.scalar(select(LiveRoomPresenceRecord).where(
+        LiveRoomPresenceRecord.course_day_id == day.id,
+        LiveRoomPresenceRecord.user_id == tenant.user.id,
+        LiveRoomPresenceRecord.device_id == device,
+    ))
+    label = (device_label or "").strip()[:160] or None
+    if presence is None:
+        db.add(LiveRoomPresenceRecord(
+            organization_id=tenant.organization_id, course_day_id=day.id, user_id=tenant.user.id,
+            device_id=device, device_label=label, first_joined_at=current, last_seen_at=current,
+        ))
+    else:
+        presence.last_seen_at = current
+        presence.left_at = None
+        presence.device_label = label or presence.device_label
+    db.commit()
+
+
+def heartbeat_live_class(
+    db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None,
+    device_id: str | None = None, device_label: str | None = None,
+) -> None:
+    """Keeps a student's device in the room; a closed class or another device ends it (404, 409)."""
+    day, _session, manager, teacher, student = _live_class_access(db, tenant, course_day_id)
+    if student and not (manager or teacher):
+        _hold_live_device(db, tenant, day, device_id, device_label, _aware(now or datetime.now(UTC)))
+
+
+def leave_live_class(
+    db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None,
+    device_id: str | None = None,
+) -> None:
+    """Frees the device at once, even once the class is closed."""
+    presence = db.scalar(select(LiveRoomPresenceRecord).where(
+        LiveRoomPresenceRecord.organization_id == tenant.organization_id,
+        LiveRoomPresenceRecord.course_day_id == course_day_id,
+        LiveRoomPresenceRecord.user_id == tenant.user.id,
+        LiveRoomPresenceRecord.device_id == _device_id(device_id, tenant.user.id),
+    ))
+    if presence is not None and presence.left_at is None:
+        presence.left_at = _aware(now or datetime.now(UTC))
+        db.commit()

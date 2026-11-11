@@ -1133,6 +1133,28 @@ class AttendanceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     marked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class LiveRoomPresenceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    """A student's device in one live class: first entry, last heartbeat and departure.
+
+    As on the mother site, it keeps a student on one device at a time and prefills the
+    attendance of the students who entered the room when the course is closed.
+    """
+    __tablename__ = "live_room_presences"
+    __table_args__ = (
+        UniqueConstraint("course_day_id", "user_id", "device_id", name="uq_live_room_presences_day_user_device"),
+        Index("ix_live_room_presences_user_seen", "user_id", "last_seen_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_day_id: Mapped[int] = mapped_column(ForeignKey("session_course_days.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    device_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    device_label: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    first_joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class GradeRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     __tablename__ = "grades"
     __table_args__ = (

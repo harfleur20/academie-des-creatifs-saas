@@ -1529,8 +1529,20 @@ export type LiveRoomInfo = {
 export const fetchLiveRoomInfo = (courseDayId: number) =>
   request<LiveRoomInfo>(`/planning/course-days/${courseDayId}/live`)
 
-export const joinLiveClass = (courseDayId: number) =>
-  request<LiveRoom>(`/planning/course-days/${courseDayId}/live/join`, { method: 'POST' })
+/** This browser in live classes: a student keeps one device at a time, as on the mother site. */
+export type LiveDevice = { id: string; label: string }
+
+const liveDeviceHeaders = (device: LiveDevice) => ({ 'X-Live-Device-Id': device.id, 'X-Live-Device-Label': device.label })
+
+export const joinLiveClass = (courseDayId: number, device: LiveDevice) =>
+  request<LiveRoom>(`/planning/course-days/${courseDayId}/live/join`, { method: 'POST', headers: liveDeviceHeaders(device) })
+
+export const heartbeatLiveClass = (courseDayId: number, device: LiveDevice) =>
+  request<void>(`/planning/course-days/${courseDayId}/live/heartbeat`, { method: 'POST', headers: liveDeviceHeaders(device) })
+
+/** Frees the device at once; keepalive lets it leave with a closing page. */
+export const leaveLiveClass = (courseDayId: number, device: LiveDevice) =>
+  request<void>(`/planning/course-days/${courseDayId}/live/leave`, { method: 'POST', headers: liveDeviceHeaders(device), keepalive: true })
 
 export const startLiveClass = (courseDayId: number) =>
   request<{ course_day_id: number; started_at: string }>(`/planning/course-days/${courseDayId}/live/start`, { method: 'POST' })

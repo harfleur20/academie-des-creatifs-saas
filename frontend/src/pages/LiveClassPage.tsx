@@ -3,9 +3,24 @@ import { LogOut, Mic, MicOff, Video, VideoOff, X } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
-  ApiError, fetchLiveRoomInfo, joinLiveClass, startLiveClass, submitCourseDayReport,
-  type LiveRoom, type LiveRoomInfo,
+  ApiError, fetchLiveRoomInfo, heartbeatLiveClass, joinLiveClass, leaveLiveClass, startLiveClass, submitCourseDayReport,
+  type LiveDevice, type LiveRoom, type LiveRoomInfo,
 } from '../lib/api'
+
+const DEVICE_KEY = 'academie_live_device_id'
+
+/** This browser's lasting identifier: the server keeps a student on one device at a time. */
+function liveDevice(): LiveDevice {
+  let id = ''
+  try { id = window.localStorage.getItem(DEVICE_KEY) ?? '' } catch { /* storage blocked */ }
+  if (!id) {
+    id = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    try { window.localStorage.setItem(DEVICE_KEY, id) } catch { /* kept for this page only */ }
+  }
+  return { id, label: navigator.userAgent.slice(0, 160) }
+}
+
+const HEARTBEAT_MS = 30_000
 
 type JitsiApi = { dispose: () => void; addEventListener: (event: string, listener: () => void) => void }
 
@@ -65,6 +80,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
   const stage = useRef<HTMLDivElement>(null)
   const meeting = useRef<JitsiApi | null>(null)
   const joinedRoom = useRef<LiveRoom | null>(null)
+  const device = useRef<LiveDevice>(liveDevice())
   const [info, setInfo] = useState<LiveRoomInfo | null>(null)
   const [error, setError] = useState('')
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -125,6 +141,34 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     return () => { api.dispose(); meeting.current = null }
   }, [entered]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // While in the room, the device keeps its place; another device or the end of the course closes it.
+  useEffect(() => {
+    const courseDay = joinedRoom.current?.course_day_id
+    if (!entered || !courseDay) return
+    let stopped = false
+    const beat = () => {
+      heartbeatLiveClass(courseDay, device.current).catch((caught) => {
+        if (stopped || !(caught instanceof ApiError) || ![403, 404, 409].includes(caught.status)) return
+        meeting.current?.dispose()
+        meeting.current = null
+        setEntered(false)
+        setError(caught.message)
+      })
+    }
+    const leaveRoom = () => { leaveLiveClass(courseDay, device.current).catch(() => undefined) }
+    const onVisible = () => { if (document.visibilityState === 'visible') beat() }
+    const interval = window.setInterval(beat, HEARTBEAT_MS)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pagehide', leaveRoom)
+    return () => {
+      stopped = true
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pagehide', leaveRoom)
+      leaveRoom()
+    }
+  }, [entered])
+
   if (error) {
     return <div className="live-room live-room--error">
       <p>{error}</p>
@@ -149,7 +193,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     setJoining(true)
     setJoinError('')
     try {
-      const room = await joinLiveClass(info.course_day_id)
+      const room = await joinLiveClass(info.course_day_id, device.current)
       await loadJitsiScript(room.external_api_url)
       if (!window.JitsiMeetExternalAPI) throw new Error('Le lecteur de classe live est indisponible.')
       joinedRoom.current = room
@@ -288,7 +332,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
         <button type="button" className="live-room-confirm__close" aria-label="Fermer" onClick={() => setEndOpen(false)}><X size={18} /></button>
         <div className="live-room-end__head">
           <h2 id="live-room-end-title">Terminer le cours</h2>
-          <p>Le compte rendu clôture la séance et la salle. Les étudiants non marqués présents seront comptés absents ; vous pourrez corriger les présences pendant 24 heures.</p>
+          <p>Le compte rendu clôture la séance et la salle. Les étudiants entrés en salle sont marqués présents, ou en retard au-delà de 15 minutes après le début ; les autres absents. Vous pourrez corriger les présences pendant 24 heures.</p>
         </div>
         <div className="live-room-end__status-row">
           <span className="live-room-end__status-label">Déroulement <em>*</em></span>

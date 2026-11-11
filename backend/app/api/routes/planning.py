@@ -20,7 +20,8 @@ from app.schemas.planning import (
     LiveStartRead,
 )
 from app.services.live_classes import (
-    jaas_room_branding, join_live_class, live_class_info, self_hosted_room_branding, start_live_class,
+    heartbeat_live_class, jaas_room_branding, join_live_class, leave_live_class, live_class_info,
+    self_hosted_room_branding, start_live_class,
 )
 from app.services.planning import (
     create_course_day,
@@ -93,11 +94,34 @@ def read_course_day_live(
 def join_course_day_live(
     course_day_id: int,
     response: Response,
+    x_live_device_id: str = Header(default="", max_length=256),
+    x_live_device_label: str = Header(default="", max_length=512),
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     response.headers["Cache-Control"] = "private, no-store"
-    return join_live_class(db, tenant, course_day_id)
+    return join_live_class(db, tenant, course_day_id, device_id=x_live_device_id, device_label=x_live_device_label)
+
+
+@router.post("/course-days/{course_day_id}/live/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
+def heartbeat_course_day_live(
+    course_day_id: int,
+    x_live_device_id: str = Header(default="", max_length=256),
+    x_live_device_label: str = Header(default="", max_length=512),
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    heartbeat_live_class(db, tenant, course_day_id, device_id=x_live_device_id, device_label=x_live_device_label)
+
+
+@router.post("/course-days/{course_day_id}/live/leave", status_code=status.HTTP_204_NO_CONTENT)
+def leave_course_day_live(
+    course_day_id: int,
+    x_live_device_id: str = Header(default="", max_length=256),
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    leave_live_class(db, tenant, course_day_id, device_id=x_live_device_id)
 
 
 @router.post("/course-days/{course_day_id}/live/start", response_model=LiveStartRead)
