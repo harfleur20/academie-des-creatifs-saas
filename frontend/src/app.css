@@ -4934,7 +4934,7 @@
 .teacher-lesson-history { display: grid; flex-basis: 100%; min-width: 0; gap: 6px; padding: 9px; border: 1px solid #e3e8ef; border-radius: 8px; background: #f8fafc; }
 .teacher-lesson-history > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .teacher-lesson-history > div + div { border-top: 1px solid #e3e8ef; padding-top: 6px; }
-.live-class-stage { width: 100%; min-height: min(72vh, 760px); overflow: hidden; border-radius: 14px; background: #101828; }
+.live-class-stage { width: 100%; height: min(72vh, 760px); min-height: 360px; overflow: hidden; border-radius: 14px; background: #101828; }
 .live-class-page .app-page-header { margin-bottom: 16px; }
 .live-class-school-logo { width: 52px; height: 52px; object-fit: contain; flex: none; }
 .live-class-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
