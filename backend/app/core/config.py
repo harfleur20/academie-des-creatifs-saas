@@ -159,6 +159,13 @@ class Settings:
         "SAAS_CNAME_TARGET",
         "",
     ).strip().lower().strip(".")
+    # Other subdomains of SAAS_BASE_DOMAIN already in use (another site's), comma-separated:
+    # no school can take them.
+    saas_reserved_subdomains: frozenset[str] = frozenset(
+        item.strip().lower() for item in os.getenv("SAAS_RESERVED_SUBDOMAINS", "").split(",") if item.strip()
+    )
+    # Built frontend (frontend/dist) served by the backend itself, as one origin per school domain.
+    frontend_dist_dir: str = os.getenv("FRONTEND_DIST_DIR", "").strip()
     storage_provider: str = os.getenv("STORAGE_PROVIDER", "local").strip().lower()
     r2_endpoint_url: str = os.getenv("R2_ENDPOINT_URL", "").rstrip("/")
     r2_bucket_name: str = os.getenv("R2_BUCKET_NAME", "").strip()

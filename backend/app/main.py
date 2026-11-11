@@ -1,6 +1,7 @@
 from pathlib import Path
 import posixpath
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
@@ -46,3 +47,33 @@ def health() -> dict[str, str]:
         "service": "academie-des-creatifs-saas",
         "version": settings.app_version,
     }
+
+
+def serve_frontend(target: FastAPI, dist_dir: str) -> bool:
+    """Serve the built frontend from the API's own origin, on every school domain.
+
+    Its files are served as they are, and index.html answers every other path so the
+    app's routes load. API and upload paths keep their own 404. Registered last, after
+    every other route.
+    """
+    dist = Path(dist_dir).resolve() if dist_dir else None
+    if dist is None or not (dist / "index.html").is_file():
+        return False
+    index_html = dist / "index.html"
+    backend_roots = {settings.api_prefix.strip("/").split("/")[0], "uploads"}
+
+    @target.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+    def frontend(full_path: str) -> FileResponse:
+        if full_path.split("/", 1)[0] in backend_roots:
+            raise HTTPException(status_code=404, detail="Not Found")
+        candidate = (dist / full_path).resolve()
+        if full_path and candidate.is_file() and candidate.is_relative_to(dist):
+            # Vite fingerprints the files in assets/: they never change under the same name.
+            cache = "public, max-age=31536000, immutable" if full_path.startswith("assets/") else "no-cache"
+            return FileResponse(candidate, headers={"Cache-Control": cache})
+        return FileResponse(index_html, headers={"Cache-Control": "no-cache"})
+
+    return True
+
+
+serve_frontend(app, settings.frontend_dist_dir)
