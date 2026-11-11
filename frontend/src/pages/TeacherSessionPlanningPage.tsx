@@ -254,11 +254,14 @@ export function TeacherSessionPlanningPage() {
                   !planning.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link className="secondary-button" to={`/app/teacher/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>
                 )}
                 {day.report_submitted_at && <small>Rapport remis · {day.delivery_status === 'held' ? 'Séance tenue' : day.delivery_status === 'partial' ? 'Séance partielle' : day.delivery_status === 'not_held' ? 'Séance non tenue' : 'Séance interrompue'}</small>}
-                {day.report_submitted_at && day.report_summary && <p>{day.report_summary}</p>}
-                {day.report_submitted_at && day.report_difficulties && <p><strong>Difficultés :</strong> {day.report_difficulties}</p>}
-                {day.report_submitted_at && day.report_homework && <p><strong>Travail à faire :</strong> {day.report_homework}</p>}
-                {day.report_submitted_at && day.report_attendance_notes && <p><strong>Présences :</strong> {day.report_attendance_notes}</p>}
-                {day.feedback_count > 0 && <button className="secondary-button" type="button" onClick={() => void showFeedback(day.id)}>{day.feedback_count} avis · {day.average_rating}/5</button>}
+                {day.report_submitted_at && (day.report_summary || day.report_difficulties || day.report_homework || day.report_attendance_notes) && <div className="planning-day-report">
+                  <span className="planning-day-report__label">Compte rendu</span>
+                  {day.report_summary && <p>{day.report_summary}</p>}
+                  {day.report_difficulties && <p><strong>Difficultés :</strong> {day.report_difficulties}</p>}
+                  {day.report_homework && <p><strong>Travail à faire :</strong> {day.report_homework}</p>}
+                  {day.report_attendance_notes && <p><strong>Présences :</strong> {day.report_attendance_notes}</p>}
+                </div>}
+                {day.feedback_count > 0 && <button className="secondary-button planning-day-feedback" type="button" onClick={() => void showFeedback(day.id)}>{day.feedback_count} avis · {day.average_rating}/5</button>}
                 {feedbackDayId === day.id && <div className="course-day-feedback-list">{feedbackRows.map((feedback) => <p key={feedback.id}><strong>{feedback.student_name}</strong> · {feedback.rating}/5 · {feedback.delivery_status === 'held' ? 'séance tenue' : feedback.delivery_status === 'partial' ? 'partielle' : 'non tenue'}{feedback.comment && <span> — {feedback.comment}</span>}</p>)}</div>}
                 {day.can_edit && day.status !== 'cancelled' && Date.now() >= new Date(day.scheduled_at).getTime() + day.duration_minutes * 60_000 && <button className="secondary-button" type="button" onClick={() => {
                   setReportDayId(day.id); setReportStatus('held'); setReportSummary('')
@@ -270,7 +273,9 @@ export function TeacherSessionPlanningPage() {
                   <label>Difficultés rencontrées<textarea maxLength={2500} value={reportDifficulties} onChange={(event) => setReportDifficulties(event.target.value)} /></label>
                   <label>Travail à faire<textarea maxLength={2500} value={reportHomework} onChange={(event) => setReportHomework(event.target.value)} /></label>
                   <label>Notes sur les présences<textarea maxLength={2500} value={reportAttendanceNotes} onChange={(event) => setReportAttendanceNotes(event.target.value)} /></label>
-                  {reportStatus !== 'not_held' && <small>Les étudiants non marqués dans « Présences » seront enregistrés absents. Vous pourrez corriger les présences pendant 24 h après ce rapport.</small>}
+                  {reportStatus !== 'not_held' && <small>{planning.format_type === 'live'
+                    ? 'Les étudiants entrés en salle live sont marqués présents, ou en retard au-delà de 15 minutes ; les autres étudiants non marqués dans « Présences » seront enregistrés absents.'
+                    : 'Les étudiants non marqués dans « Présences » seront enregistrés absents.'} Vous pourrez corriger les présences pendant 24 h après ce rapport.</small>}
                   <div><button className="primary-button" type="submit" disabled={working || reportSummary.trim().length < 10}>Remettre le rapport</button><button className="secondary-button" type="button" onClick={() => setReportDayId(null)}>Annuler</button></div>
                 </form>}
                 {day.can_edit && day.status !== 'cancelled' && !day.started_at && (
