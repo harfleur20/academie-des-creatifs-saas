@@ -16,6 +16,10 @@ if grep -q '^JWT_APP_SECRET=change-me' "$HERE/main.env"; then
   echo "JWT_APP_SECRET n'est pas défini dans main.env (openssl rand -hex 32)." >&2
   exit 1
 fi
+if ! grep -q '^TURN_DOMAIN=.' "$HERE/main.env"; then
+  echo "TURN_DOMAIN n'est pas défini dans main.env (domaine du relais TURN)." >&2
+  exit 1
+fi
 
 # Applique un fichier de réglages : chaque clé remplace sa ligne (même commentée) ou s'ajoute.
 apply_env() {
@@ -75,6 +79,39 @@ COOLIFY
   cp "$HERE/coolify/docker-compose.coolify.yml" docker-compose.coolify.yml
   COMPOSE_FILES+=(-f docker-compose.coolify.yml)
 fi
+# Relais TURN : les participants dont le réseau bloque l'UDP passent par TCP 3478, ou par TLS sur 443
+# derrière Coolify. Prosody leur donne des accès temporaires signés avec TURN_CREDENTIALS.
+TURN_DOMAIN="$(env_value TURN_DOMAIN)"
+if ! grep -q '^TURN_CREDENTIALS=.' .env; then
+  echo "TURN_CREDENTIALS=$(openssl rand -hex 32)" > .env.turn
+  apply_env .env.turn
+fi
+# TLS sur 443 seulement derrière Coolify : sans lui, ce port est pris par le serveur web de Jitsi.
+TURNS_HOST=""
+if [ "$BEHIND_COOLIFY" = "1" ]; then TURNS_HOST="$TURN_DOMAIN"; fi
+cat > .env.turn <<TURN
+TURN_HOST=$TURN_DOMAIN
+TURN_PORT=3478
+TURN_TRANSPORT=tcp
+TURNS_HOST=$TURNS_HOST
+TURNS_PORT=443
+TURN
+apply_env .env.turn
+rm -f .env.turn
+PUBLIC_IP="$(env_value JVB_ADVERTISE_IPS)"
+PUBLIC_IP="${PUBLIC_IP%%,*}"
+PUBLIC_IP="${PUBLIC_IP%%#*}"
+mkdir -p "$TARGET/turn"
+chmod 700 "$TARGET/turn"
+sed -e "s/__TURN_DOMAIN__/${TURN_DOMAIN}/g" \
+    -e "s/__PUBLIC_IP__/${PUBLIC_IP}/g" \
+    -e "s/__TURN_SECRET__/$(env_value TURN_CREDENTIALS)/g" \
+    "$HERE/turn/turnserver.conf.template" > "$TARGET/turn/turnserver.conf"
+# Lisible par l'utilisateur nobody du conteneur ; le dossier reste fermé aux autres comptes du serveur.
+chmod 644 "$TARGET/turn/turnserver.conf"
+cp "$HERE/turn/docker-compose.turn.yml" docker-compose.turn.yml
+COMPOSE_FILES+=(-f docker-compose.turn.yml)
+
 if [ -f "$HERE/main/docker-compose.override.yml" ] && [ -n "$(env_value XMPP_PRIVATE_IP)" ]; then
   # Des relais vidéo supplémentaires rejoignent Prosody par le réseau privé.
   cp "$HERE/main/docker-compose.override.yml" docker-compose.override.yml
@@ -96,7 +133,8 @@ if [ "$BEHIND_COOLIFY" = "1" ]; then
   DOMAIN="${PUBLIC_URL#https://}"
   DOMAIN="${DOMAIN%%/*}"
   ROUTE="$TARGET/academie-live.traefik.yaml"
-  sed "s/__DOMAIN__/${DOMAIN}/g" "$HERE/coolify/academie-live.traefik.yaml.template" > "$ROUTE"
+  sed -e "s/__TURN_DOMAIN__/${TURN_DOMAIN}/g" -e "s/__DOMAIN__/${DOMAIN}/g" \
+    "$HERE/coolify/academie-live.traefik.yaml.template" > "$ROUTE"
   if [ -d "$COOLIFY_DYNAMIC_DIR" ]; then
     cp "$ROUTE" "$COOLIFY_DYNAMIC_DIR/academie-live.yaml"
     echo "Route ajoutée au proxy de Coolify : $COOLIFY_DYNAMIC_DIR/academie-live.yaml"
