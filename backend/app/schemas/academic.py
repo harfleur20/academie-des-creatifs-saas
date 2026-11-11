@@ -281,6 +281,9 @@ class AttendanceRowRead(BaseModel):
     student_id: int
     student_name: str
     status: AttendanceStatus | None
+    # Live classes: what shows the student followed, for the teacher to check the prefilled attendance.
+    live_minutes: int | None = None
+    live_roll_calls_answered: int | None = None
 
 
 class AttendanceMarkPayload(BaseModel):
@@ -301,6 +304,7 @@ class AttendanceCourseDayRead(BaseModel):
     delivery_status: str | None
     report_submitted_at: datetime | None
     rows: list[AttendanceRowRead]
+    live_roll_calls: int | None = None
 
 
 class StudentAttendanceRead(BaseModel):

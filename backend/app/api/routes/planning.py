@@ -15,13 +15,15 @@ from app.schemas.planning import (
     CourseDayFeedbackReviewRead,
     SchoolCourseDayReportRead,
     SessionPlanningRead,
+    LiveHeartbeatRead,
+    LiveRollCallRead,
     LiveRoomInfoRead,
     LiveRoomRead,
     LiveStartRead,
 )
 from app.services.live_classes import (
-    heartbeat_live_class, jaas_room_branding, join_live_class, leave_live_class, live_class_info,
-    self_hosted_room_branding, start_live_class,
+    answer_roll_call, heartbeat_live_class, jaas_room_branding, join_live_class, leave_live_class, live_class_info,
+    self_hosted_room_branding, start_live_class, start_roll_call,
 )
 from app.services.planning import (
     create_course_day,
@@ -103,7 +105,7 @@ def join_course_day_live(
     return join_live_class(db, tenant, course_day_id, device_id=x_live_device_id, device_label=x_live_device_label)
 
 
-@router.post("/course-days/{course_day_id}/live/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/course-days/{course_day_id}/live/heartbeat", response_model=LiveHeartbeatRead)
 def heartbeat_course_day_live(
     course_day_id: int,
     x_live_device_id: str = Header(default="", max_length=256),
@@ -111,7 +113,7 @@ def heartbeat_course_day_live(
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    heartbeat_live_class(db, tenant, course_day_id, device_id=x_live_device_id, device_label=x_live_device_label)
+    return heartbeat_live_class(db, tenant, course_day_id, device_id=x_live_device_id, device_label=x_live_device_label)
 
 
 @router.post("/course-days/{course_day_id}/live/leave", status_code=status.HTTP_204_NO_CONTENT)
@@ -122,6 +124,22 @@ def leave_course_day_live(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     leave_live_class(db, tenant, course_day_id, device_id=x_live_device_id)
+
+
+@router.post("/course-days/{course_day_id}/live/roll-call", response_model=LiveRollCallRead)
+def start_course_day_roll_call(
+    course_day_id: int, db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return start_roll_call(db, tenant, course_day_id)
+
+
+@router.post("/course-days/{course_day_id}/live/roll-call/{roll_call_id}/answer", status_code=status.HTTP_204_NO_CONTENT)
+def answer_course_day_roll_call(
+    course_day_id: int, roll_call_id: int, db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    answer_roll_call(db, tenant, course_day_id, roll_call_id)
 
 
 @router.post("/course-days/{course_day_id}/live/start", response_model=LiveStartRead)

@@ -1537,8 +1537,24 @@ const liveDeviceHeaders = (device: LiveDevice) => ({ 'X-Live-Device-Id': device.
 export const joinLiveClass = (courseDayId: number, device: LiveDevice) =>
   request<LiveRoom>(`/planning/course-days/${courseDayId}/live/join`, { method: 'POST', headers: liveDeviceHeaders(device) })
 
+/** The latest roll call: open for two minutes; the teacher also gets how many answered. */
+export type LiveRollCall = {
+  id: number
+  started_at: string
+  closes_at: string
+  open: boolean
+  answered: boolean
+  answers_count: number | null
+}
+
 export const heartbeatLiveClass = (courseDayId: number, device: LiveDevice) =>
-  request<void>(`/planning/course-days/${courseDayId}/live/heartbeat`, { method: 'POST', headers: liveDeviceHeaders(device) })
+  request<{ roll_call: LiveRollCall | null }>(`/planning/course-days/${courseDayId}/live/heartbeat`, { method: 'POST', headers: liveDeviceHeaders(device) })
+
+export const startLiveRollCall = (courseDayId: number) =>
+  request<LiveRollCall>(`/planning/course-days/${courseDayId}/live/roll-call`, { method: 'POST' })
+
+export const answerLiveRollCall = (courseDayId: number, rollCallId: number) =>
+  request<void>(`/planning/course-days/${courseDayId}/live/roll-call/${rollCallId}/answer`, { method: 'POST' })
 
 /** Frees the device at once; keepalive lets it leave with a closing page. */
 export const leaveLiveClass = (courseDayId: number, device: LiveDevice) =>
@@ -2094,7 +2110,11 @@ export type AttendanceCourseDay = {
     student_id: number
     student_name: string
     status: AttendanceStatus | null
+    /** Live classes: minutes in the room and roll calls answered, to check the prefilled attendance. */
+    live_minutes?: number | null
+    live_roll_calls_answered?: number | null
   }>
+  live_roll_calls?: number | null
 }
 
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused'

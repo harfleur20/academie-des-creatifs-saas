@@ -59,6 +59,7 @@ from app.services.badge_rules import (
 from app.services.grades import grade_average_pct
 from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, learning_is_open, lesson_access, require_learning_open, session_ends_at, session_starts_at
 from app.services.program_versions import badge_floor, ensure_program_frozen
+from app.services.live_classes import live_attendance_evidence
 from app.services.tenancy import TenantContext
 from app.services.training_notifications import clear_absence, notify_absence
 
@@ -483,9 +484,12 @@ def _course_day_attendance(
             )
         ).all()
     )
+    live = formation_for_session(db, tenant, day.session_id).format_type == "live"
+    evidence, roll_calls = live_attendance_evidence(db, tenant.organization_id, day.id) if live else ({}, 0)
     rows: list[AttendanceRowRead] = []
     for enrollment in enrollments:
         student = db.get(UserRecord, enrollment.student_id)
+        proof = evidence.get(enrollment.student_id)
         attendance = db.scalar(
             select(AttendanceRecord).where(
                 AttendanceRecord.organization_id == tenant.organization_id,
@@ -499,6 +503,8 @@ def _course_day_attendance(
                 student_id=enrollment.student_id,
                 student_name=student.full_name if student else "—",
                 status=attendance.status if attendance else None,
+                live_minutes=(proof.seconds_in_room // 60 if proof else 0) if live else None,
+                live_roll_calls_answered=(proof.roll_calls_answered if proof else 0) if live else None,
             )
         )
 
@@ -517,6 +523,7 @@ def _course_day_attendance(
         delivery_status=day.delivery_status,
         report_submitted_at=day.report_submitted_at,
         rows=rows,
+        live_roll_calls=roll_calls if live else None,
     )
 
 
