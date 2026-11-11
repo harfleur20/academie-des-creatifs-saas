@@ -1,26 +1,23 @@
-import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Video } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
-import { ApiError, joinLiveClass, startLiveClass, type LiveRoom } from '../lib/api'
-import { useTenant } from '../app/TenantContext'
+import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from 'react'
+import { LogOut, Mic, MicOff, Video, VideoOff, X } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
+import {
+  ApiError, fetchLiveRoomInfo, joinLiveClass, startLiveClass, submitCourseDayReport,
+  type LiveRoom, type LiveRoomInfo,
+} from '../lib/api'
+
+type JitsiApi = { dispose: () => void; addEventListener: (event: string, listener: () => void) => void }
 
 declare global {
   interface Window {
-    JitsiMeetExternalAPI?: new (domain: string, options: {
-      roomName: string
-      jwt: string
-      parentNode: HTMLElement
-      width: string
-      height: string
-      configOverwrite: Record<string, unknown>
-      lang?: string
-    }) => { dispose: () => void }
+    JitsiMeetExternalAPI?: new (domain: string, options: Record<string, unknown>) => JitsiApi
   }
 }
 
 const scripts = new Map<string, Promise<void>>()
 
-function loadJaasScript(src: string): Promise<void> {
+function loadJitsiScript(src: string): Promise<void> {
   const previous = scripts.get(src)
   if (previous) return previous
   const loading = new Promise<void>((resolve, reject) => {
@@ -35,78 +32,304 @@ function loadJaasScript(src: string): Promise<void> {
   return loading
 }
 
+// As on the mother site, the class keeps a short toolbar. The teacher also gets the
+// participants pane, to mute or remove someone.
+const STUDENT_TOOLBAR = ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'tileview', 'fullscreen', 'hangup']
+const TEACHER_TOOLBAR = ['microphone', 'camera', 'desktop', 'chat', 'raisehand', 'participants-pane', 'tileview', 'fullscreen', 'hangup']
+
+type DeliveryStatus = 'held' | 'partial' | 'interrupted' | 'not_held'
+const DELIVERY_STATUSES: { value: DeliveryStatus; label: string }[] = [
+  { value: 'held', label: 'Cours tenu' },
+  { value: 'partial', label: 'Partiel' },
+  { value: 'interrupted', label: 'Interrompu' },
+  { value: 'not_held', label: 'Non tenu' },
+]
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function formatWait(ms: number) {
+  const total = Math.max(0, Math.ceil(ms / 1000))
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = String(total % 60).padStart(2, '0')
+  return hours > 0 ? `${hours}h ${String(minutes).padStart(2, '0')}min ${seconds}s` : `${minutes}min ${seconds}s`
+}
+
+/** The live class, full screen as on the mother site: waiting room, welcome card, then the room. */
 export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
-  const { activeOrganization } = useTenant()
   const { courseDayId } = useParams()
-  const container = useRef<HTMLDivElement>(null)
-  const [room, setRoom] = useState<LiveRoom | null>(null)
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const stage = useRef<HTMLDivElement>(null)
+  const meeting = useRef<JitsiApi | null>(null)
+  const joinedRoom = useRef<LiveRoom | null>(null)
+  const [info, setInfo] = useState<LiveRoomInfo | null>(null)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  const [withAudio, setWithAudio] = useState(false)
+  const [withVideo, setWithVideo] = useState(true)
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState('')
+  const [entered, setEntered] = useState(false)
   const [starting, setStarting] = useState(false)
-  const [nowMs, setNowMs] = useState(Date.now())
+  const [leaveOpen, setLeaveOpen] = useState(false)
+  const [endOpen, setEndOpen] = useState(false)
+  const [ending, setEnding] = useState(false)
+  const [endError, setEndError] = useState('')
+  const [draft, setDraft] = useState({ delivery_status: 'held' as DeliveryStatus, summary: '', difficulties: '', homework: '', attendance_notes: '' })
+  const backPath = space === 'teacher' ? '/app/teacher/sessions' : '/app/student/formations'
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNowMs(Date.now()), 10_000)
+    const id = Number(courseDayId)
+    if (!Number.isInteger(id) || id < 1) { setError('Séance introuvable.'); return }
+    let cancelled = false
+    fetchLiveRoomInfo(id)
+      .then((loaded) => { if (!cancelled) setInfo(loaded) })
+      .catch((caught) => { if (!cancelled) setError(caught instanceof ApiError ? caught.message : 'Classe live introuvable.') })
+    return () => { cancelled = true }
+  }, [courseDayId])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1000)
     return () => window.clearInterval(interval)
   }, [])
 
-  async function startCourse() {
-    if (!room) return
-    setStarting(true)
-    setError('')
+  // The room mounts once the welcome card has handed over a token.
+  useEffect(() => {
+    const room = joinedRoom.current
+    if (!entered || !room || !stage.current || !window.JitsiMeetExternalAPI) return
+    const toolbar = room.moderator ? TEACHER_TOOLBAR : STUDENT_TOOLBAR
+    const api = new window.JitsiMeetExternalAPI(room.domain, {
+      roomName: room.room_name,
+      jwt: room.token,
+      parentNode: stage.current,
+      width: '100%',
+      height: '100%',
+      lang: 'fr',
+      configOverwrite: {
+        startWithAudioMuted: !withAudio,
+        startWithVideoMuted: !withVideo,
+        toolbarButtons: toolbar,
+        disablePolls: !room.moderator,
+        disableInviteFunctions: true,
+        disableDeepLinking: true,
+        readOnlyName: true,
+        hideConferenceSubject: true,
+      },
+      interfaceConfigOverwrite: { TOOLBAR_BUTTONS: toolbar, DEFAULT_BACKGROUND: '#0f0f1a' },
+    })
+    api.addEventListener('readyToClose', () => { api.dispose(); navigate(backPath) })
+    meeting.current = api
+    return () => { api.dispose(); meeting.current = null }
+  }, [entered]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (error) {
+    return <div className="live-room live-room--error">
+      <p>{error}</p>
+      <button type="button" className="live-room__leave" onClick={() => navigate(backPath)}>Retour</button>
+    </div>
+  }
+
+  const opensMs = info ? Date.parse(info.opens_at) : Number.NaN
+  const closesMs = info ? Date.parse(info.closes_at) : Number.NaN
+  const startsMs = info ? Date.parse(info.starts_at) : Number.NaN
+  const endsMs = info ? Date.parse(info.ends_at) : Number.NaN
+  const phase = !info ? 'loading' : entered ? 'live' : nowMs < opensMs ? 'waiting' : nowMs > closesMs ? 'closed' : 'welcome'
+  const canStart = Boolean(info?.responsible_teacher && !info.started_at && nowMs >= startsMs)
+  const canEnd = Boolean(info?.responsible_teacher && (info.started_at || nowMs >= endsMs))
+  const accent = { '--live-accent': info?.school_primary_color || '#2dd4bf' } as CSSProperties
+  const welcomeBackground = info?.formation_image_url
+    ? { '--prejoin-bg': `url(${JSON.stringify(info.formation_image_url)})` } as CSSProperties
+    : undefined
+
+  async function enterClass() {
+    if (!info) return
+    setJoining(true)
+    setJoinError('')
     try {
-      const result = await startLiveClass(room.course_day_id)
-      setRoom((current) => current ? { ...current, started_at: result.started_at } : current)
+      const room = await joinLiveClass(info.course_day_id)
+      await loadJitsiScript(room.external_api_url)
+      if (!window.JitsiMeetExternalAPI) throw new Error('Le lecteur de classe live est indisponible.')
+      joinedRoom.current = room
+      setEntered(true)
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Démarrage du cours impossible.')
+      setJoinError(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Impossible de rejoindre la classe.')
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  async function startCourse() {
+    if (!info) return
+    setStarting(true)
+    try {
+      const started = await startLiveClass(info.course_day_id)
+      setInfo({ ...info, started_at: started.started_at })
+    } catch (caught) {
+      setJoinError(caught instanceof ApiError ? caught.message : 'Démarrage du cours impossible.')
     } finally {
       setStarting(false)
     }
   }
 
-  useEffect(() => {
-    const id = Number(courseDayId)
-    if (!Number.isInteger(id) || id < 1) { setError('Séance introuvable.'); setLoading(false); return }
-    let cancelled = false
-    let meeting: { dispose: () => void } | null = null
-    setLoading(true)
-    setError('')
-    setRoom(null)
-    void joinLiveClass(id).then(async (joined) => {
-      if (cancelled) return
-      setRoom(joined)
-      await loadJaasScript(joined.external_api_url)
-      if (cancelled || !container.current) return
-      if (!window.JitsiMeetExternalAPI) throw new Error('Le lecteur de classe live est indisponible.')
-      meeting = new window.JitsiMeetExternalAPI(joined.domain, {
-        roomName: joined.room_name,
-        jwt: joined.token,
-        parentNode: container.current,
-        width: '100%',
-        height: '100%',
-        lang: 'fr',
-        configOverwrite: {
-          prejoinConfig: { enabled: true },
-          subject: `${joined.school_name} · ${joined.title}`,
-        },
-      })
-    }).catch((caught) => {
-      if (!cancelled) setError(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Impossible de rejoindre la classe live.')
-    }).finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true; meeting?.dispose() }
-  }, [courseDayId, activeOrganization?.id])
+  function leave() {
+    meeting.current?.dispose()
+    meeting.current = null
+    navigate(backPath)
+  }
 
-  return <main className="app-page live-class-page">
-    <Link className="planning-back-link" to={space === 'teacher' ? '/app/teacher/sessions' : '/app/student/formations'}><ArrowLeft size={15}/> Retour aux sessions</Link>
-    <header className="app-page-header"><div><span className="page-kicker">Classe en direct · {room?.school_name || activeOrganization?.name || 'Votre école'}</span><h1>{room?.title || 'Votre cours live'}</h1><p>{room ? new Date(room.starts_at).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' }) : 'Connexion à la salle sécurisée'}</p></div>{room?.school_logo_url ? <img className="live-class-school-logo" src={room.school_logo_url} alt={`Logo de ${room.school_name}`} /> : <Video size={22}/>}</header>
-    {error && <div className="form-error">{error}</div>}
-    {loading && <div className="page-state">Ouverture de la classe live de {activeOrganization?.name || 'votre école'}…</div>}
-    {room && <div className="live-class-controls">
-      {room.started_at ? <p>Cours démarré à {new Date(room.started_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.</p> : space === 'teacher' ? <>
-        <p>La salle de {room.school_name} est ouverte. Démarrez le cours à l'heure prévue lorsque vous êtes prêt.</p>
-        <button className="primary-button" type="button" disabled={starting || nowMs < new Date(room.starts_at).getTime()} onClick={() => void startCourse()}>Démarrer le cours</button>
-      </> : <p>La salle de {room.school_name} est ouverte. Le professeur n'a pas encore démarré le cours.</p>}
+  async function endCourse(event: FormEvent) {
+    event.preventDefault()
+    if (!info) return
+    setEnding(true)
+    setEndError('')
+    try {
+      await submitCourseDayReport(info.course_day_id, {
+        delivery_status: draft.delivery_status,
+        summary: draft.summary.trim(),
+        difficulties: draft.difficulties.trim() || undefined,
+        homework: draft.homework.trim() || undefined,
+        attendance_notes: draft.attendance_notes.trim() || undefined,
+      })
+      leave()
+    } catch (caught) {
+      setEndError(caught instanceof ApiError ? caught.message : 'Clôture du cours impossible.')
+    } finally {
+      setEnding(false)
+    }
+  }
+
+  return <div className="live-room" style={accent}>
+    <header className="live-room__bar">
+      <div className="live-room__bar-left">
+        {info?.school_logo_url && <img className="live-room__school-logo" src={info.school_logo_url} alt={`Logo de ${info.school_name}`} />}
+        <span className={`live-room__badge${phase === 'live' ? '' : ' live-room__badge--waiting'}`}>
+          {phase === 'live' ? 'EN DIRECT' : phase === 'waiting' ? 'ATTENTE' : 'ACCUEIL'}
+        </span>
+        {info ? <>
+          <strong className="live-room__title">{info.formation_title}</strong>
+          <span className="live-room__label">{info.session_label} · {info.title}</span>
+          <span className="live-room__date">{formatDate(info.starts_at)}</span>
+        </> : <span className="live-room__loading">Connexion en cours…</span>}
+      </div>
+      <div className="live-room__bar-actions">
+        {canStart && <button type="button" className="live-room__end" disabled={starting} onClick={() => void startCourse()}>
+          {starting ? 'Démarrage…' : 'Démarrer le cours'}
+        </button>}
+        {canEnd && <button type="button" className="live-room__end" onClick={() => setEndOpen(true)}>Terminer le cours</button>}
+        <button type="button" className="live-room__leave" onClick={() => (phase === 'live' ? setLeaveOpen(true) : leave())}>Quitter</button>
+      </div>
+    </header>
+
+    {phase === 'live' ? <div className="live-room__stage" ref={stage} aria-label="Salle de classe en direct" /> : (
+      <div className="live-room__stage live-room__stage--waiting" style={phase === 'welcome' ? welcomeBackground : undefined}>
+        {phase === 'loading' && <p className="live-room__loading">Ouverture de la classe…</p>}
+        {info && phase === 'waiting' && <div className="live-room__waiting-card">
+          <span className="live-room__waiting-kicker">Salle d'attente</span>
+          <h1>{info.formation_title}</h1>
+          <p>La salle de {info.school_name} ouvre le {formatDate(info.opens_at)}, 15 minutes avant le cours. Vous passerez à l'accueil de la classe automatiquement.</p>
+          <strong className="live-room__waiting-countdown">{formatWait(opensMs - nowMs)}</strong>
+        </div>}
+        {info && phase === 'closed' && <div className="live-room__waiting-card">
+          <span className="live-room__waiting-kicker">Salle fermée</span>
+          <h1>{info.formation_title}</h1>
+          <p>La salle ferme 15 minutes après la fin du cours.</p>
+        </div>}
+        {info && phase === 'welcome' && <div className="live-room__waiting-card live-room__prejoin-card">
+          <span className="live-room__waiting-kicker">Accueil de la classe</span>
+          <h1>{info.formation_title}</h1>
+          <p>
+            {user?.full_name
+              ? <>Vous rejoignez la classe de {info.school_name} en tant que <span className="live-room__name-chip">{user.full_name}</span>.</>
+              : `Préparez votre entrée dans la classe de ${info.school_name}.`}
+          </p>
+          {!info.started_at && <p className="live-room__prejoin-hint">
+            {info.responsible_teacher
+              ? "Démarrez le cours à l'heure prévue avec le bouton en haut de la page."
+              : "Le professeur n'a pas encore démarré le cours. Vous pouvez déjà entrer."}
+          </p>}
+          <hr className="live-room__prejoin-divider" />
+          <div className="live-room__prejoin-controls" aria-label="Options avant de rejoindre la classe">
+            <button type="button" className={`live-room__prejoin-toggle${withAudio ? ' is-active' : ''}`} aria-pressed={withAudio} onClick={() => setWithAudio((value) => !value)}>
+              {withAudio ? <Mic size={20} /> : <MicOff size={20} />}<span>{withAudio ? 'Micro ouvert' : 'Micro coupé'}</span>
+            </button>
+            <button type="button" className={`live-room__prejoin-toggle${withVideo ? ' is-active' : ''}`} aria-pressed={withVideo} onClick={() => setWithVideo((value) => !value)}>
+              {withVideo ? <Video size={20} /> : <VideoOff size={20} />}<span>{withVideo ? 'Caméra ouverte' : 'Caméra coupée'}</span>
+            </button>
+          </div>
+          {joinError && <p className="live-room__error" role="alert">{joinError}</p>}
+          <button type="button" className="live-room__join-class" disabled={joining} onClick={() => void enterClass()}>
+            {info.school_logo_url ? <img src={info.school_logo_url} alt="" className="live-room__join-logo" /> : <Video size={20} />}
+            {joining ? 'Ouverture…' : 'Rejoindre la classe'}
+          </button>
+        </div>}
+      </div>
+    )}
+
+    {leaveOpen && <div className="live-room-confirm" role="dialog" aria-modal="true" aria-labelledby="live-room-leave-title">
+      <button type="button" className="live-room-confirm__backdrop" aria-label="Rester dans la classe" onClick={() => setLeaveOpen(false)} />
+      <div className="live-room-confirm__panel">
+        <button type="button" className="live-room-confirm__close" aria-label="Fermer" onClick={() => setLeaveOpen(false)}><X size={18} /></button>
+        <span className="live-room-confirm__icon"><LogOut size={22} /></span>
+        <h2 id="live-room-leave-title">Voulez-vous quitter le live ?</h2>
+        <p>Vous pourrez revenir tant que la salle est encore ouverte.</p>
+        <div className="live-room-confirm__actions">
+          <button type="button" className="live-room-confirm__cancel" onClick={() => setLeaveOpen(false)}>Rester</button>
+          <button type="button" className="live-room-confirm__leave" onClick={leave}>Oui, quitter</button>
+        </div>
+      </div>
     </div>}
-    <div ref={container} className="live-class-stage" aria-label="Salle de classe en direct" />
-  </main>
+
+    {endOpen && info && <div className="live-room-confirm live-room-end" role="dialog" aria-modal="true" aria-labelledby="live-room-end-title">
+      <button type="button" className="live-room-confirm__backdrop" aria-label="Annuler la fin du cours" onClick={() => setEndOpen(false)} />
+      <form className="live-room-confirm__panel live-room-end__panel" onSubmit={(event) => void endCourse(event)}>
+        <button type="button" className="live-room-confirm__close" aria-label="Fermer" onClick={() => setEndOpen(false)}><X size={18} /></button>
+        <div className="live-room-end__head">
+          <h2 id="live-room-end-title">Terminer le cours</h2>
+          <p>Le compte rendu clôture la séance et la salle. Les étudiants non marqués présents seront comptés absents ; vous pourrez corriger les présences pendant 24 heures.</p>
+        </div>
+        <div className="live-room-end__status-row">
+          <span className="live-room-end__status-label">Déroulement <em>*</em></span>
+          <div className="live-room-end__status-pills" role="group" aria-label="Déroulement du cours">
+            {DELIVERY_STATUSES.map(({ value, label }) => <button
+              key={value}
+              type="button"
+              className={`live-room-end__status-pill live-room-end__status-pill--${value}${draft.delivery_status === value ? ' is-active' : ''}`}
+              aria-pressed={draft.delivery_status === value}
+              onClick={() => setDraft((current) => ({ ...current, delivery_status: value }))}
+            >{label}</button>)}
+          </div>
+        </div>
+        <div className="live-room-end__fields">
+          <label className="live-room-end__field live-room-end__field--full">
+            <span>Résumé du cours <em>*</em></span>
+            <textarea required minLength={10} rows={3} value={draft.summary} placeholder="Notions vues, démonstration, exercices réalisés…"
+              onChange={(event) => setDraft((current) => ({ ...current, summary: event.target.value }))} />
+          </label>
+          <label className="live-room-end__field">
+            <span>Difficultés rencontrées</span>
+            <textarea rows={2} value={draft.difficulties} placeholder="Technique, compréhension, rythme…"
+              onChange={(event) => setDraft((current) => ({ ...current, difficulties: event.target.value }))} />
+          </label>
+          <label className="live-room-end__field">
+            <span>Devoirs ou suite</span>
+            <textarea rows={2} value={draft.homework} placeholder="Travail à faire, ressources à consulter…"
+              onChange={(event) => setDraft((current) => ({ ...current, homework: event.target.value }))} />
+          </label>
+          <label className="live-room-end__field live-room-end__field--full">
+            <span>Notes de présence</span>
+            <textarea rows={2} value={draft.attendance_notes} placeholder="Retards, absences justifiées, remarques…"
+              onChange={(event) => setDraft((current) => ({ ...current, attendance_notes: event.target.value }))} />
+          </label>
+        </div>
+        {endError && <p className="live-room__error" role="alert">{endError}</p>}
+        <div className="live-room-confirm__actions">
+          <button type="button" className="live-room-confirm__cancel" onClick={() => setEndOpen(false)}>Annuler</button>
+          <button type="submit" className="live-room-confirm__leave" disabled={ending}>{ending ? 'Clôture…' : 'Clôturer le cours'}</button>
+        </div>
+      </form>
+    </div>}
+  </div>
 }

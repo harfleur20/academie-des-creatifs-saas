@@ -650,8 +650,10 @@ def submit_course_day_report(
     if day.report_submitted_at is not None:
         raise HTTPException(409, "Le rapport de cette séance est déjà remis.")
     current = _aware(now or datetime.now(UTC))
-    if current < _aware(day.scheduled_at) + timedelta(minutes=day.duration_minutes):
-        raise HTTPException(409, "Le rapport s'ouvre à la fin de la séance.")
+    # As on the mother site's end-live: a started live class can be closed at any time,
+    # a course day that never started only once its scheduled end has passed.
+    if day.started_at is None and current < _aware(day.scheduled_at) + timedelta(minutes=day.duration_minutes):
+        raise HTTPException(409, "Le rapport d'une séance non démarrée s'ouvre à sa fin prévue.")
     if payload.delivery_status in {"held", "partial", "interrupted"}:
         enrollment_ids = set(db.scalars(select(EnrollmentRecord.id).where(
             EnrollmentRecord.organization_id == tenant.organization_id,

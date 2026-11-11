@@ -15,10 +15,11 @@ from app.schemas.planning import (
     CourseDayFeedbackReviewRead,
     SchoolCourseDayReportRead,
     SessionPlanningRead,
+    LiveRoomInfoRead,
     LiveRoomRead,
     LiveStartRead,
 )
-from app.services.live_classes import jaas_room_branding, join_live_class, start_live_class
+from app.services.live_classes import jaas_room_branding, join_live_class, live_class_info, start_live_class
 from app.services.planning import (
     create_course_day,
     get_session_planning,
@@ -57,6 +58,14 @@ def read_school_course_day_reports(
     db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
 ):
     return list_school_course_day_reports(db, tenant)
+
+
+@router.get("/course-days/{course_day_id}/live", response_model=LiveRoomInfoRead)
+def read_course_day_live(
+    course_day_id: int, db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return live_class_info(db, tenant, course_day_id)
 
 
 @router.post("/course-days/{course_day_id}/live/join", response_model=LiveRoomRead)

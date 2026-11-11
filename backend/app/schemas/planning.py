@@ -95,6 +95,25 @@ class LiveRoomRead(BaseModel):
     started_at: datetime | None
 
 
+class LiveRoomInfoRead(BaseModel):
+    """The live room before entering: waiting room until opens_at, then the welcome card."""
+    course_day_id: int
+    title: str
+    formation_title: str
+    session_label: str
+    formation_image_url: str | None
+    school_name: str
+    school_logo_url: str | None
+    school_primary_color: str | None
+    starts_at: datetime
+    ends_at: datetime
+    opens_at: datetime
+    closes_at: datetime
+    started_at: datetime | None
+    moderator: bool
+    responsible_teacher: bool
+
+
 class LiveStartRead(BaseModel):
     course_day_id: int
     started_at: datetime

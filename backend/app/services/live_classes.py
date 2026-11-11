@@ -161,12 +161,17 @@ def start_live_class(
     if day.started_at is None:
         day.started_at = current
         db.commit()
-    return {"course_day_id": day.id, "started_at": day.started_at}
+    return {"course_day_id": day.id, "started_at": _aware(day.started_at)}
 
 
-def join_live_class(
-    db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None,
-) -> dict:
+ROOM_OPENS_BEFORE = timedelta(minutes=15)
+ROOM_CLOSES_AFTER = timedelta(minutes=15)
+
+
+def _live_class_access(
+    db: Session, tenant: TenantContext, course_day_id: int,
+) -> tuple[SessionCourseDayRecord, FormationSessionRecord, bool, bool]:
+    """The open live course day and whether the caller manages it or teaches it, else 403/404."""
     day = db.scalar(select(SessionCourseDayRecord).where(
         SessionCourseDayRecord.id == course_day_id,
         SessionCourseDayRecord.organization_id == tenant.organization_id,
@@ -177,8 +182,12 @@ def join_live_class(
         FormationSessionRecord.id == day.session_id,
         FormationSessionRecord.organization_id == tenant.organization_id,
     ))
-    if session is None or session.formation.format_type != "live" or session.status == "cancelled" or day.status == "cancelled" or day.report_submitted_at is not None:
+    if session is None or session.formation.format_type != "live":
         raise HTTPException(404, "Classe live introuvable.")
+    if session.status == "cancelled" or day.status == "cancelled":
+        raise HTTPException(404, "Cette classe live est annulée.")
+    if day.report_submitted_at is not None:
+        raise HTTPException(404, "Ce cours est terminé : sa salle est fermée.")
 
     manager = bool(tenant.organization_roles.intersection({"owner", "admin", "manager", "super_admin"}))
     teacher = tenant.has_role("teacher") and db.scalar(select(SessionTeacherRecord.id).where(
@@ -198,11 +207,43 @@ def join_live_class(
         raise HTTPException(403, "Le mode support ne peut pas rejoindre une classe live.")
     if teacher:
         require_teacher_ready(db, tenant)
+    return day, session, manager, teacher
+
+
+def live_class_info(db: Session, tenant: TenantContext, course_day_id: int) -> dict:
+    """What the live room shows before anyone enters: its waiting room, then its welcome card."""
+    day, session, manager, teacher = _live_class_access(db, tenant, course_day_id)
+    starts_at = _aware(day.scheduled_at)
+    ends_at = starts_at + timedelta(minutes=day.duration_minutes)
+    school_name, school_logo_url, school_primary_color = _school_live_identity(db, tenant.organization_id)
+    return {
+        "course_day_id": day.id,
+        "title": day.title,
+        "formation_title": session.formation.title,
+        "session_label": session.label,
+        "formation_image_url": session.formation.cover_image_url,
+        "school_name": school_name,
+        "school_logo_url": school_logo_url,
+        "school_primary_color": school_primary_color,
+        "starts_at": starts_at,
+        "ends_at": ends_at,
+        "opens_at": starts_at - ROOM_OPENS_BEFORE,
+        "closes_at": ends_at + ROOM_CLOSES_AFTER,
+        "started_at": _aware(day.started_at) if day.started_at else None,
+        "moderator": bool(manager or teacher),
+        "responsible_teacher": bool(teacher and day.teacher_id == tenant.user.id),
+    }
+
+
+def join_live_class(
+    db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None,
+) -> dict:
+    day, session, manager, teacher = _live_class_access(db, tenant, course_day_id)
 
     current = _aware(now or datetime.now(UTC))
     starts_at = _aware(day.scheduled_at)
     ends_at = starts_at + timedelta(minutes=day.duration_minutes)
-    if current < starts_at - timedelta(minutes=15) or current > ends_at + timedelta(minutes=15):
+    if current < starts_at - ROOM_OPENS_BEFORE or current > ends_at + ROOM_CLOSES_AFTER:
         raise HTTPException(403, "La salle ouvre 15 minutes avant le cours et ferme 15 minutes après.")
 
     if not live_provider_configured():
@@ -228,5 +269,5 @@ def join_live_class(
         "ends_at": ends_at,
         **provider_room,
         "moderator": moderator,
-        "started_at": day.started_at,
+        "started_at": _aware(day.started_at) if day.started_at else None,
     }

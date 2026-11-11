@@ -1507,6 +1507,28 @@ export type LiveRoom = {
   started_at: string | null
 }
 
+/** The live room before entering: waiting room until opens_at, then the welcome card. */
+export type LiveRoomInfo = {
+  course_day_id: number
+  title: string
+  formation_title: string
+  session_label: string
+  formation_image_url: string | null
+  school_name: string
+  school_logo_url: string | null
+  school_primary_color: string | null
+  starts_at: string
+  ends_at: string
+  opens_at: string
+  closes_at: string
+  started_at: string | null
+  moderator: boolean
+  responsible_teacher: boolean
+}
+
+export const fetchLiveRoomInfo = (courseDayId: number) =>
+  request<LiveRoomInfo>(`/planning/course-days/${courseDayId}/live`)
+
 export const joinLiveClass = (courseDayId: number) =>
   request<LiveRoom>(`/planning/course-days/${courseDayId}/live/join`, { method: 'POST' })
 
