@@ -4106,6 +4106,47 @@
   opacity: .55;
 }
 
+/* The report, the feedback and the closing form run under the card, across its full width. */
+.planning-day-report,
+.planning-day-card > .planning-day-feedback,
+.planning-day-card > .course-day-feedback-list,
+.planning-day-card > .course-day-report-form {
+  grid-column: 1 / -1;
+}
+
+.planning-day-card > .planning-day-feedback {
+  justify-self: start;
+}
+
+.planning-day-report {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid #e3e8ef;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.planning-day-report__label {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.planning-day-report p {
+  margin: 0;
+  color: #475467;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.planning-day-report strong {
+  color: #344054;
+}
+
 .planning-day-date {
   width: 52px;
   height: 58px;
@@ -5997,8 +6038,8 @@
 }
 
 .tenant-role-brand__logo {
-  width: 46px;
-  height: 46px;
+  width: 54px;
+  height: 54px;
   flex: 0 0 auto;
   object-fit: contain;
 }
@@ -7186,7 +7227,7 @@
 }
 .school-logo-placeholder svg { width: 52%; height: 52%; stroke-width: 2.2; }
 .school-switcher-logo { width: 24px; height: 24px; }
-.tenant-role-brand .school-logo-placeholder { width: 46px; height: 46px; }
+.tenant-role-brand .school-logo-placeholder { width: 54px; height: 54px; }
 .brand-preview .school-logo-placeholder { color: var(--preview-secondary); }
 .brand-preview-sidebar .school-logo-placeholder { width: 38px; height: 38px; }
 .brand-preview-body .school-logo-placeholder { width: 64px; height: 64px; }
