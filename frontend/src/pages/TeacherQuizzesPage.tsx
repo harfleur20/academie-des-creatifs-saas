@@ -26,10 +26,14 @@ import {
 } from '../lib/tenantIntegrationApi'
 import { initialTeacherSessionId } from '../lib/teacherSession'
 
+// As on the mother site: one or several right answers, and points per question.
 type DraftQuestion = {
   text: string
   options: [string, string, string, string]
   correct_index: number
+  selection_mode: 'single' | 'multiple'
+  correct_indices: number[]
+  points: string
 }
 
 type CreationMode = 'manual' | 'ai'
@@ -38,6 +42,9 @@ const emptyQuestion = (): DraftQuestion => ({
   text: '',
   options: ['', '', '', ''],
   correct_index: 0,
+  selection_mode: 'single',
+  correct_indices: [],
+  points: '1',
 })
 
 function fourOptions(options: string[]): [string, string, string, string] {
@@ -128,6 +135,9 @@ export function TeacherQuizzesPage() {
         text: question.text,
         options: fourOptions(question.options),
         correct_index: Math.max(0, Math.min(3, question.correct_index)),
+        selection_mode: 'single',
+        correct_indices: [],
+        points: '1',
       })))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de générer le quiz.')
@@ -139,13 +149,28 @@ export function TeacherQuizzesPage() {
   async function create(event: FormEvent) {
     event.preventDefault()
     if (!sessionId) return
-    const normalized = questions.map((question) => ({
-      text: question.text.trim(),
-      options: question.options.map((option) => option.trim()).filter(Boolean),
-      correct_index: question.correct_index,
-    }))
+    const normalized = questions.map((question) => {
+      const multiple = question.selection_mode === 'multiple'
+      const correctIndices = [...question.correct_indices].sort((a, b) => a - b)
+      return {
+        text: question.text.trim(),
+        options: question.options.map((option) => option.trim()).filter(Boolean),
+        correct_index: multiple ? correctIndices[0] ?? 0 : question.correct_index,
+        selection_mode: question.selection_mode,
+        correct_indices: multiple ? correctIndices : undefined,
+        points: Number(question.points.replace(',', '.')),
+      }
+    })
     if (normalized.some((question) => question.text.length < 2 || question.options.length < 4 || question.correct_index >= question.options.length)) {
       setError('Chaque question doit avoir au moins quatre réponses et une bonne réponse valide.')
+      return
+    }
+    if (normalized.some((question) => question.selection_mode === 'multiple' && !question.correct_indices?.length)) {
+      setError('Cochez au moins une bonne réponse pour chaque question à plusieurs réponses.')
+      return
+    }
+    if (normalized.some((question) => !(question.points > 0 && question.points <= 100))) {
+      setError('Chaque question vaut entre 0,5 et 100 points.')
       return
     }
 
@@ -253,7 +278,35 @@ export function TeacherQuizzesPage() {
                     <article key={questionIndex}>
                       <div className="teacher-question-head"><strong>Question {questionIndex + 1}</strong>{questions.length > 1 && <button className="dsh-icon-btn" type="button" onClick={() => setQuestions((current) => current.filter((_, index) => index !== questionIndex))}><X size={13} /></button>}</div>
                       <input value={question.text} onChange={(event) => changeQuestion(questionIndex, { text: event.target.value })} placeholder="Votre question" />
-                      <div className="teacher-question-options">{question.options.map((option, optionIndex) => <label className={question.correct_index === optionIndex ? 'is-correct' : ''} key={optionIndex}><input type="radio" name={`correct-${questionIndex}`} checked={question.correct_index === optionIndex} onChange={() => changeQuestion(questionIndex, { correct_index: optionIndex })} /><input value={option} onChange={(event) => changeOption(questionIndex, optionIndex, event.target.value)} placeholder={`Réponse ${optionIndex + 1}`} /></label>)}</div>
+                      <div className="teacher-question-settings">
+                        <label>Réponses
+                          <select value={question.selection_mode} onChange={(event) => changeQuestion(questionIndex, {
+                            selection_mode: event.target.value as DraftQuestion['selection_mode'],
+                            correct_indices: event.target.value === 'multiple' ? [question.correct_index] : [],
+                          })}>
+                            <option value="single">Une bonne réponse</option>
+                            <option value="multiple">Plusieurs bonnes réponses</option>
+                          </select>
+                        </label>
+                        <label>Points<input type="number" min="0.5" max="100" step="0.5" value={question.points} onChange={(event) => changeQuestion(questionIndex, { points: event.target.value })} /></label>
+                      </div>
+                      <div className="teacher-question-options">{question.options.map((option, optionIndex) => {
+                        const multiple = question.selection_mode === 'multiple'
+                        const correct = multiple ? question.correct_indices.includes(optionIndex) : question.correct_index === optionIndex
+                        return <label className={correct ? 'is-correct' : ''} key={optionIndex}>
+                          <input
+                            type={multiple ? 'checkbox' : 'radio'}
+                            name={`correct-${questionIndex}`}
+                            aria-label={`Réponse ${optionIndex + 1} correcte`}
+                            checked={correct}
+                            onChange={() => changeQuestion(questionIndex, multiple
+                              ? { correct_indices: correct ? question.correct_indices.filter((value) => value !== optionIndex) : [...question.correct_indices, optionIndex] }
+                              : { correct_index: optionIndex })}
+                          />
+                          <input value={option} onChange={(event) => changeOption(questionIndex, optionIndex, event.target.value)} placeholder={`Réponse ${optionIndex + 1}`} />
+                        </label>
+                      })}</div>
+                      {question.selection_mode === 'multiple' && <small className="teacher-question-help">Chaque bonne réponse cochée rapporte une part des points, chaque mauvaise en retire autant, sans descendre sous zéro.</small>}
                     </article>
                   ))}
                 </div>

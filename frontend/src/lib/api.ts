@@ -1856,6 +1856,9 @@ export type TeacherQuizQuestion = {
   text: string
   options: string[]
   correct_index: number
+  selection_mode?: 'single' | 'multiple'
+  correct_indices?: number[]
+  points?: number
 }
 
 export type TeacherQuiz = {
@@ -1949,6 +1952,9 @@ export const createTeacherQuiz = (
       text: string
       options: string[]
       correct_index: number
+      selection_mode?: 'single' | 'multiple'
+      correct_indices?: number[]
+      points?: number
     }>
   },
 ) =>
@@ -1972,7 +1978,8 @@ export const getTeacherQuizResults = (quizId: number) =>
 export const listStudentQuizzes = () =>
   request<StudentQuiz[]>('/academic/student/quizzes')
 
-export const submitStudentQuizAttempt = (quizId: number, answers: number[]) =>
+/** One entry per question: an option (-1 when unanswered), or the options ticked for a multiple-answer question. */
+export const submitStudentQuizAttempt = (quizId: number, answers: Array<number | number[]>) =>
   request<StudentQuiz>('/academic/student/quizzes/' + quizId + '/attempt', {
     method: 'POST',
     body: JSON.stringify({ answers }),

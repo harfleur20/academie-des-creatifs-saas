@@ -47,7 +47,8 @@ export function StudentQuizzesPage() {
   const [active, setActive] = useState<StudentQuiz | null>(null)
   const [result, setResult] = useState<StudentQuiz | null>(null)
   const [review, setReview] = useState<Review | null>(null)
-  const [answers, setAnswers] = useState<Record<number, number>>({})
+  // Options ticked per question: one for a single-answer question, several for a multiple-answer one.
+  const [answers, setAnswers] = useState<Record<number, number[]>>({})
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
@@ -123,7 +124,7 @@ export function StudentQuizzesPage() {
 
   async function submit(autoSubmit = false) {
     if (!active) return
-    if (!autoSubmit && active.questions.some((question) => answers[question.id] === undefined)) {
+    if (!autoSubmit && active.questions.some((question) => !answers[question.id]?.length)) {
       setError('Répondez à toutes les questions avant de soumettre.')
       return
     }
@@ -131,7 +132,9 @@ export function StudentQuizzesPage() {
     setWorking(true)
     setError('')
     try {
-      const answerList = active.questions.map((question) => answers[question.id] ?? -1)
+      const answerList = active.questions.map((question) => question.selection_mode === 'multiple'
+        ? answers[question.id] ?? []
+        : answers[question.id]?.[0] ?? -1)
       const updated = await submitStudentQuizAttempt(active.id, answerList)
       window.localStorage.removeItem(timerStorageKey(active))
       setItems((current) => current.map((item) => item.id === updated.id ? updated : item))
@@ -275,18 +278,31 @@ export function StudentQuizzesPage() {
               {active.questions.map((question, index) => (
                 <article className="dsh-quiz-question" key={question.id}>
                   <p className="dsh-quiz-question__text"><strong>{index + 1}.</strong> {question.text}</p>
+                  {(question.selection_mode === 'multiple' || (question.points ?? 1) !== 1) && <p className="dsh-quiz-question__hint">
+                    {question.selection_mode === 'multiple' && 'Plusieurs réponses possibles.'}
+                    {(question.points ?? 1) !== 1 && ` ${question.points} points.`}
+                  </p>}
                   <div className="dsh-quiz-options">
-                    {question.options.map((option, optionIndex) => (
-                      <label className={`dsh-quiz-option${answers[question.id] === optionIndex ? ' is-selected' : ''}`} key={optionIndex}>
-                        <input
-                          type="radio"
-                          name={`student-q-${question.id}`}
-                          checked={answers[question.id] === optionIndex}
-                          onChange={() => setAnswers((current) => ({ ...current, [question.id]: optionIndex }))}
-                        />
-                        <span>{option}</span>
-                      </label>
-                    ))}
+                    {question.options.map((option, optionIndex) => {
+                      const multiple = question.selection_mode === 'multiple'
+                      const ticked = answers[question.id]?.includes(optionIndex) ?? false
+                      return (
+                        <label className={`dsh-quiz-option${ticked ? ' is-selected' : ''}`} key={optionIndex}>
+                          <input
+                            type={multiple ? 'checkbox' : 'radio'}
+                            name={`student-q-${question.id}`}
+                            checked={ticked}
+                            onChange={() => setAnswers((current) => {
+                              const picked = current[question.id] ?? []
+                              const next = !multiple ? [optionIndex]
+                                : picked.includes(optionIndex) ? picked.filter((value) => value !== optionIndex) : [...picked, optionIndex]
+                              return { ...current, [question.id]: next }
+                            })}
+                          />
+                          <span>{option}</span>
+                        </label>
+                      )
+                    })}
                   </div>
                 </article>
               ))}
