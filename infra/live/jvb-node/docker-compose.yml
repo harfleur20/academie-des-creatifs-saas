@@ -6,13 +6,13 @@ services:
     image: ghcr.io/jitsi/jvb:${JITSI_IMAGE_VERSION:-stable-11248-3}
     restart: unless-stopped
     ports:
+      # Vidéo et canal de données (SCTP) en direct avec les participants.
       - "${JVB_PORT:-10000}:${JVB_PORT:-10000}/udp"
-      # WebSocket du relais, joignable seulement depuis le serveur principal (réseau privé).
-      - "${JVB_PRIVATE_IP}:9090:9090"
+      # Statistiques du relais, consultables depuis ce serveur seulement.
+      - "127.0.0.1:8080:8080"
     environment:
       - XMPP_SERVER
       - XMPP_PORT
-      - XMPP_DOMAIN
       - XMPP_AUTH_DOMAIN
       - XMPP_INTERNAL_MUC_DOMAIN
       - JVB_AUTH_USER
@@ -20,6 +20,4 @@ services:
       - JVB_BREWERY_MUC
       - JVB_PORT
       - JVB_ADVERTISE_IPS
-      - JVB_WS_SERVER_ID
-      - PUBLIC_URL
       - TZ

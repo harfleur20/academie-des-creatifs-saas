@@ -8,15 +8,16 @@ Les classes live du SaaS peuvent tourner sur un Jitsi hébergé par l'école plu
 Navigateur (page live du SaaS)
    │ HTTPS 443 : interface, signalisation (WebSocket XMPP)
    ▼
-Serveur principal : web (nginx) · Prosody (XMPP) · Jicofo (chef d'orchestre) · relais vidéo jvb-1
+Serveur principal : web (nginx) · Prosody (XMPP) · Jicofo (chef d'orchestre) · premier relais vidéo
    │ XMPP 5222, réseau privé seulement
    ▼
-Relais vidéo supplémentaires : jvb-2, jvb-3… (vidéo UDP 10000 en direct avec les participants)
+Relais vidéo supplémentaires (vidéo et canal de données en UDP 10000, en direct avec les participants)
 ```
 
 - **Accès :** seuls les jetons signés par le SaaS ouvrent une salle (`ENABLE_AUTH=1`, `AUTH_TYPE=jwt`, sans invités).
-- **Modérateur :** le jeton donne ce rôle au professeur de la séance et à l'équipe de l'école. Les étudiants ne sont que membres. C'est le rôle du module officiel `mod_token_affiliation`, avec `ENABLE_AUTO_OWNER=0` pour que Jicofo ne promeuve personne d'autre.
+- **Modérateur :** le jeton donne ce rôle au professeur de la séance et à l'équipe de l'école. Les étudiants ne sont que membres. C'est le rôle du module officiel `mod_token_affiliation`, livré dans l'image Prosody, avec `ENABLE_AUTO_OWNER=0` pour que Jicofo ne promeuve personne d'autre.
 - **Répartition :** Jicofo répartit les classes entre les relais connectés. Une classe reste entière sur un seul relais.
+- **Canal de données :** dans la version figée, il passe en SCTP dans la connexion vidéo de chaque relais. Le serveur principal ne relaie donc rien vers les relais, à part XMPP.
 
 ## Dimensionnement de départ (plus de 10 classes simultanées)
 
@@ -36,7 +37,7 @@ Pour démarrer : un serveur principal et un relais supplémentaire, puis un rela
 - **Réseau privé :** les serveurs sont reliés par un réseau privé (réseau privé de l'hébergeur ou WireGuard).
 - **DNS :** un enregistrement A `live.votre-domaine` vers l'IP publique du serveur principal.
 - **Pare-feu du serveur principal :** TCP 80 et 443, et UDP 10000 ouverts à tous. TCP 5222 n'est ouvert que sur l'IP privée, aux relais.
-- **Pare-feu d'un relais :** UDP 10000 ouvert à tous. TCP 9090 n'est ouvert que sur l'IP privée, au serveur principal.
+- **Pare-feu d'un relais :** UDP 10000 ouvert à tous, rien d'autre. Le relais se connecte lui-même au serveur principal.
 
 ## Installer le serveur principal
 
@@ -52,7 +53,7 @@ Le script :
 - télécharge la version officielle de `docker-jitsi-meet`, figée sur `stable-11248-3` (modifiable avec `JITSI_RELEASE`) ;
 - génère ses mots de passe internes et applique `main.env` ;
 - copie `web/custom-config.js` (français, pas de pair-à-pair, vidéo limitée à 720p) ;
-- installe le module `mod_token_affiliation` et démarre les conteneurs.
+- démarre les conteneurs.
 
 Le script peut être relancé : il conserve le `.env` et les mots de passe déjà générés.
 
@@ -89,25 +90,23 @@ En production, le backend refuse de démarrer si le secret fait moins de 32 cara
 1. **Ouverture :** ouvrez une séance live comme professeur. La salle s'ouvre et vous êtes modérateur (vous pouvez couper le micro d'un participant).
 2. **Rôle étudiant :** rejoignez-la comme étudiant dans un autre navigateur. L'étudiant n'est pas modérateur, même s'il entre avant le professeur.
 3. **Sans jeton :** `https://live.votre-domaine/une-salle` doit refuser l'accès.
-4. **Bande passante :** pendant un cours, l'API de statistiques du relais (`/colibri/stats` sur le port 8080 du conteneur `jvb`, non publié) donne le nombre de participants et le débit.
+4. **Bande passante :** pendant un cours, l'API de statistiques du relais donne le nombre de participants et le débit. Elle n'est joignable que depuis le serveur du relais : `curl -s http://127.0.0.1:8080/colibri/stats`.
 
 ## Ajouter un relais vidéo
 
-1. **Serveur principal :**
-   - dans `main.env`, décommentez `XMPP_PRIVATE_IP` avec son IP privée, puis relancez `install-main.sh` ;
-   - copiez `main/custom-meet.conf.example` dans `<CONFIG>/web/nginx/custom-meet.conf`, avec une section par relais, puis redémarrez le conteneur web.
+1. **Serveur principal :** dans `main.env`, décommentez `XMPP_PRIVATE_IP` avec son IP privée, puis relancez `install-main.sh`.
 2. **Nouveau serveur :** copiez `jvb-node/`, puis `cp jvb-node.env.example .env`.
-   - Renseignez l'IP privée du serveur principal, `JVB_AUTH_PASSWORD` (celui du `.env` du serveur principal), ses IP publique et privée, et un nom unique `JVB_WS_SERVER_ID` (`jvb-2`, `jvb-3`…).
+   - Renseignez l'IP privée du serveur principal, `JVB_AUTH_PASSWORD` (celui du `.env` du serveur principal) et l'IP publique du relais.
    - Lancez `docker compose up -d`.
 3. **Contrôle :** le relais apparaît dans les journaux de Jicofo (`docker compose logs jicofo | grep -i bridge`).
 
-**À valider au premier déploiement multi-relais :** la connexion XMPP d'un relais distant et le routage `/colibri-ws/<nom>/` suivent les déploiements publiés par d'autres projets, pas la documentation officielle de docker-jitsi-meet, qui ne décrit pas ce cas. Testez une classe sur chaque relais : la vidéo doit passer, et la console du navigateur ne doit pas signaler de canal de données fermé.
+**À valider au premier déploiement multi-relais :** cette configuration n'a pas encore tourné. Testez une classe sur chaque relais : la vidéo doit passer, et la console du navigateur ne doit pas signaler de canal de données fermé.
 
 ## Exploitation
 
-- **Mise à jour :** changez `JITSI_RELEASE`, supprimez le dossier `docker-jitsi-meet` dans `/opt/academie-live` (le `.env` est à sauvegarder avant), puis relancez le script. Faites-le entre deux journées de cours.
+- **Mise à jour :** changez `JITSI_RELEASE`, supprimez le dossier `docker-jitsi-meet` dans `/opt/academie-live` (le `.env` est à sauvegarder avant), puis relancez le script. Mettez la même version dans `JITSI_IMAGE_VERSION` sur chaque relais. Faites-le entre deux journées de cours.
 - **Sauvegarde :** le `.env` du serveur principal et le dossier `CONFIG`.
-- **Secrets :** ne publiez jamais 5222 ni 9090 sur une IP publique. Changer `JWT_APP_SECRET` impose de mettre à jour `JITSI_APP_SECRET` dans le SaaS au même moment.
+- **Secrets :** ne publiez jamais 5222 sur une IP publique. Changer `JWT_APP_SECRET` impose de mettre à jour `JITSI_APP_SECRET` dans le SaaS au même moment.
 
 ## Replays (plus tard)
 
@@ -116,6 +115,5 @@ L'enregistrement passera par Jibri : un enregistreur par cours enregistré en m�
 ## Sources
 
 - [Guide officiel Docker de Jitsi](https://jitsi.github.io/handbook/docs/devops-guide/devops-guide-docker/)
-- [Module `mod_token_affiliation`](https://github.com/jitsi/jitsi-meet/blob/master/resources/prosody-plugins/mod_token_affiliation.lua)
-- [Versions de docker-jitsi-meet](https://github.com/jitsi/docker-jitsi-meet/releases)
-- Relais multiples, exemples de déploiement : [matrix-docker-ansible-deploy](https://git.cqre.net/cqrenet/matrix-docker-ansible-deploy/commit/61f1357bfc56984d472762bd6da05a9b5b283993), [OpenDev](https://gitea09.opendev.org:3081/opendev/system-config/commit/fa9aca784dfa031f93fb5ee9dca222120ba05ad5)
+- [Module `mod_token_affiliation` de la version figée](https://github.com/jitsi/jitsi-meet/blob/stable/jitsi-meet_11248/resources/prosody-plugins/mod_token_affiliation.lua)
+- [Versions de docker-jitsi-meet](https://github.com/jitsi/docker-jitsi-meet/releases), et son [journal des changements](https://github.com/jitsi/docker-jitsi-meet/blob/stable-11248-3/CHANGELOG.md) (canal de données en SCTP par défaut)

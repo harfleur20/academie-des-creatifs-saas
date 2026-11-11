@@ -1,6 +1,6 @@
 # Ajouté au docker-compose officiel quand XMPP_PRIVATE_IP est défini dans main.env :
-# les relais vidéo supplémentaires rejoignent Prosody (XMPP) et exposent leurs WebSockets
-# uniquement sur le réseau privé. Ne publiez jamais 5222 sur l'IP publique.
+# les relais vidéo supplémentaires rejoignent Prosody (XMPP) par le réseau privé.
+# Ne publiez jamais 5222 sur l'IP publique.
 services:
   prosody:
     ports:

@@ -85,9 +85,8 @@ CONFIG_DIR="$(env_value CONFIG)"
 CONFIG_DIR="${CONFIG_DIR/#\~/$HOME}"
 mkdir -p "$CONFIG_DIR"/{web,transcripts,prosody/config,prosody/prosody-plugins-custom,jicofo,jvb,jigasi,jibri}
 cp "$HERE/web/custom-config.js" "$CONFIG_DIR/web/custom-config.js"
-# Module officiel de Jitsi : modérateur seulement si le jeton le demande.
-curl -fsSL -o "$CONFIG_DIR/prosody/prosody-plugins-custom/mod_token_affiliation.lua" \
-  "https://raw.githubusercontent.com/jitsi/jitsi-meet/master/resources/prosody-plugins/mod_token_affiliation.lua"
+# mod_token_affiliation (modérateur seulement si le jeton le demande) est livré dans l'image
+# Prosody de la même version : main.env l'active, rien à télécharger.
 
 docker compose "${COMPOSE_FILES[@]}" pull
 docker compose "${COMPOSE_FILES[@]}" up -d
