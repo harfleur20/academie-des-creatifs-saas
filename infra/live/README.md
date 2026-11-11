@@ -71,8 +71,8 @@ La vidéo passe normalement en UDP 10000. Certains réseaux le bloquent : résea
 ## Sur un serveur géré par Coolify
 
 Le proxy Traefik de Coolify garde les ports 80 et 443 et les certificats. Mettez `BEHIND_COOLIFY=1` dans `main.env`, puis lancez le même `install-main.sh` en SSH sur le serveur. Le script :
-- **Ports :** il fait écouter Jitsi en local seulement (`127.0.0.1:8000`), sans son propre HTTPS ni Let's Encrypt.
-- **Proxy :** il relie le conteneur web au réseau `coolify`.
+- **Ports :** le conteneur web de Jitsi ne publie aucun port, et tourne sans son propre HTTPS ni Let's Encrypt. Les ports 8000 (tableau de bord de Coolify) et 8080 (tableau de bord de Traefik) restent libres : les statistiques du relais vidéo passent sur `127.0.0.1:18080`.
+- **Proxy :** il relie le conteneur web au réseau `coolify`, par lequel Traefik le joint en HTTP.
 - **Domaines :** il dépose les routes du live et du TURN dans `/data/coolify/proxy/dynamic/academie-live.yaml`. Traefik les recharge à chaud et obtient les deux certificats avec le résolveur `letsencrypt` de Coolify. Il joint coturn par `host.docker.internal`, que Coolify déclare dans son proxy. Si ce dossier n'existe pas, ajoutez le fichier généré depuis Servers > votre serveur > Proxy > Dynamic Configurations.
 - **Limites :** il plafonne le relais vidéo à 2,5 vCPU et 2,5 Go, et Jicofo à 0,5 vCPU et 1,25 Go, pour que le SaaS garde de quoi tourner pendant un cours.
 
@@ -101,7 +101,7 @@ En production, le backend refuse de démarrer si le secret fait moins de 32 cara
 1. **Ouverture :** ouvrez une séance live comme professeur. La salle s'ouvre et vous êtes modérateur (vous pouvez couper le micro d'un participant).
 2. **Rôle étudiant :** rejoignez-la comme étudiant dans un autre navigateur. L'étudiant n'est pas modérateur, même s'il entre avant le professeur.
 3. **Sans jeton :** `https://live.votre-domaine/une-salle` doit refuser l'accès.
-4. **Bande passante :** pendant un cours, l'API de statistiques du relais donne le nombre de participants et le débit. Elle n'est joignable que depuis le serveur du relais : `curl -s http://127.0.0.1:8080/colibri/stats`.
+4. **Bande passante :** pendant un cours, l'API de statistiques du relais donne le nombre de participants et le débit. Elle n'est joignable que depuis le serveur du relais : `curl -s http://127.0.0.1:8080/colibri/stats` (port 18080 sur un serveur Coolify).
 5. **Relais TURN :** sur le serveur, créez un accès de test valable une heure :
 
    ```bash
@@ -125,8 +125,10 @@ En production, le backend refuse de démarrer si le secret fait moins de 32 cara
 
 ## Exploitation
 
+- **Commandes :** lancez les commandes `docker compose` (journaux, redémarrage) depuis `/opt/academie-live/docker-jitsi-meet`. Le `.env` de ce dossier désigne les bons fichiers (`COMPOSE_FILE`), y compris ceux de Coolify et du TURN.
 - **Mise à jour :** changez `JITSI_RELEASE`, supprimez le dossier `docker-jitsi-meet` dans `/opt/academie-live` (le `.env` est à sauvegarder avant), puis relancez le script. Mettez la même version dans `JITSI_IMAGE_VERSION` sur chaque relais. Faites-le entre deux journées de cours.
 - **Sauvegarde :** le `.env` du serveur principal (il contient aussi le secret TURN) et le dossier `CONFIG`.
+- **Retrait :** remettez `LIVE_PROVIDER=jaas` dans le backend, puis lancez `docker compose down` dans `/opt/academie-live/docker-jitsi-meet` et supprimez `/data/coolify/proxy/dynamic/academie-live.yaml`. Le SaaS et Coolify ne sont pas touchés.
 - **Secrets :** ne publiez jamais 5222 sur une IP publique. Changer `JWT_APP_SECRET` impose de mettre à jour `JITSI_APP_SECRET` dans le SaaS au même moment.
 
 ## Replays (plus tard)
