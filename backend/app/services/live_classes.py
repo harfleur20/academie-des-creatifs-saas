@@ -18,6 +18,7 @@ from app.models.entities import (
 )
 from app.services.live_recordings import _source_url
 from app.services.teacher_readiness import require_teacher_ready
+from app.services.plan_limits import require_feature
 from app.services.tenancy import TenantContext
 
 
@@ -270,6 +271,8 @@ def join_live_class(
 
     if not live_provider_configured():
         raise HTTPException(503, "Le service de classes live n'est pas configuré.")
+    # Live classes come with some plans only (a school that moved down to Starter, say).
+    require_feature(db, tenant.organization_id, "live")
     if student and not (manager or teacher):
         _hold_live_device(db, tenant, day, device_id, device_label, current)
 

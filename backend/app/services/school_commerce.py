@@ -53,6 +53,7 @@ from app.services.school_branding import (
     get_or_create_identity_records,
 )
 from app.services.school_communications import queue_school_event
+from app.services.school_revenue import record_sale
 from app.services.school_notifications import dismiss_event, notify_school_managers, notify_user
 from app.services.school_profiles import ensure_student_profile
 from app.services.session_payment_plans import (
@@ -509,6 +510,8 @@ def _apply_installment_payment(
     dismiss_event(db, organization_id=org.id, event_key=f"payment.due:{installment.id}")
     dismiss_event(db, organization_id=org.id, event_key=f"payment.overdue:{installment.id}")
     db.flush()
+    # The school is credited with the payment, net of the platform's commission.
+    record_sale(db, org, order, installment, paid_time)
 
     order.paid_cents = int(
         db.scalar(

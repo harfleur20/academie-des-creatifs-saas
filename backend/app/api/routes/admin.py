@@ -3,7 +3,13 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_super_admin
 from app.db.session import get_db
-from app.models.entities import UserRecord
+from sqlalchemy import select
+
+from app.models.entities import AddonRecord, OrganizationRecord, UserRecord
+from app.schemas.revenue import AdminAddonUpdate, AdminPayoutProcess, AdminPayoutRead, PayoutRead
+from app.schemas.subscriptions import AddonRead
+from app.services.plan_limits import admin_update_addon
+from app.services.school_revenue import admin_list_payouts, process_payout
 from app.schemas.admin import (
     AdminActionPayload,
     AdminCommercialAccessPayload,
@@ -224,3 +230,59 @@ def admin_start_support_session(
         organization_id=organization_id,
         reason=payload.reason,
     )
+
+
+@router.get("/addons", response_model=list[AddonRead])
+def admin_addons(db: Session = Depends(get_db), _: UserRecord = Depends(get_super_admin)):
+    return list(db.scalars(select(AddonRecord).order_by(AddonRecord.sort_order)).all())
+
+
+@router.patch("/addons/{code}", response_model=AddonRead)
+def admin_patch_addon(
+    code: str,
+    payload: AdminAddonUpdate,
+    reason: str = Query(min_length=3, max_length=500),
+    db: Session = Depends(get_db),
+    current_admin: UserRecord = Depends(get_super_admin),
+):
+    return admin_update_addon(db, actor=current_admin, code=code, values=payload.model_dump(exclude_unset=True), reason=reason)
+
+
+def _admin_payout_read(payout, organization) -> AdminPayoutRead:
+    return AdminPayoutRead.model_validate({
+        **PayoutRead.model_validate(payout).model_dump(),
+        "organization_id": organization.id,
+        "organization_name": organization.name,
+    })
+
+
+@router.get("/payouts", response_model=list[AdminPayoutRead])
+def admin_payouts(
+    status_filter: str | None = Query(default=None, alias="status"),
+    db: Session = Depends(get_db),
+    _: UserRecord = Depends(get_super_admin),
+):
+    return [_admin_payout_read(payout, org) for payout, org in admin_list_payouts(db, status_filter=status_filter)]
+
+
+@router.post("/payouts/{payout_id}/paid", response_model=AdminPayoutRead)
+def admin_mark_payout_paid(
+    payout_id: int,
+    payload: AdminPayoutProcess,
+    db: Session = Depends(get_db),
+    current_admin: UserRecord = Depends(get_super_admin),
+):
+    payout = process_payout(db, current_admin, payout_id, paid=True,
+                            transfer_reference=payload.transfer_reference, note=payload.note)
+    return _admin_payout_read(payout, db.get(OrganizationRecord, payout.organization_id))
+
+
+@router.post("/payouts/{payout_id}/reject", response_model=AdminPayoutRead)
+def admin_reject_payout(
+    payout_id: int,
+    payload: AdminPayoutProcess,
+    db: Session = Depends(get_db),
+    current_admin: UserRecord = Depends(get_super_admin),
+):
+    payout = process_payout(db, current_admin, payout_id, paid=False, note=payload.note)
+    return _admin_payout_read(payout, db.get(OrganizationRecord, payout.organization_id))

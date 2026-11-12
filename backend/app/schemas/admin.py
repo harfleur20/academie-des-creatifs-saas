@@ -100,6 +100,7 @@ class AdminPlanUpdate(BaseModel):
     trial_days: int | None = Field(default=None, ge=0, le=365)
     is_public: bool | None = None
     is_active: bool | None = None
+    sales_commission_bps: int | None = Field(default=None, ge=0, le=5000)
 
 
 class AdminPlanRead(BaseModel):
@@ -113,6 +114,7 @@ class AdminPlanRead(BaseModel):
     trial_days: int
     is_public: bool
     is_active: bool
+    sales_commission_bps: int = 800
     entitlements: list[AdminEntitlementUpdate]
 
 

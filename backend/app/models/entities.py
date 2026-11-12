@@ -261,6 +261,8 @@ class PlanRecord(TimestampMixin, Base):
     trial_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Share of each student payment the platform keeps, in basis points (800 = 8 %).
+    sales_commission_bps: Mapped[int] = mapped_column(Integer, nullable=False, default=800, server_default="800")
 
     entitlements: Mapped[list["PlanEntitlementRecord"]] = relationship(
         back_populates="plan",
@@ -285,6 +287,25 @@ class PlanEntitlementRecord(TimestampMixin, Base):
     limit_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     plan: Mapped["PlanRecord"] = relationship(back_populates="entitlements")
+
+
+class AddonRecord(TimestampMixin, Base):
+    """What a school pays per unit beyond its plan, or a service coming later."""
+
+    __tablename__ = "addons"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # The plan quota it extends (students, teachers, active_formations), or none.
+    feature_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    unit_label: Mapped[str] = mapped_column(String(40), nullable=False, default="unité")
+    unit_price_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="XAF")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")  # active, coming_soon, inactive
+    plan_codes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class SubscriptionRecord(TimestampMixin, Base):
@@ -361,6 +382,8 @@ class BillingInvoiceRecord(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # Plan, then add-ons billed per unit: [{label, quantity, unit_amount_cents, amount_cents}].
+    lines: Mapped[list | None] = mapped_column(JSON, nullable=True)
     organization_id: Mapped[int] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
@@ -418,6 +441,7 @@ class BillingPaymentAttemptRecord(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lines: Mapped[list | None] = mapped_column(JSON, nullable=True)
     organization_id: Mapped[int] = mapped_column(
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
@@ -1573,3 +1597,42 @@ class SchoolNotificationRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     action_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SchoolLedgerEntryRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    """What a school is owed: each student payment, net of the platform's commission."""
+
+    __tablename__ = "school_ledger_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # sale, adjustment
+    gross_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    commission_bps: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    commission_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Credited to the school (negative for a debit).
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    order_id: Mapped[int | None] = mapped_column(ForeignKey("student_orders.id", ondelete="SET NULL"), nullable=True)
+    installment_id: Mapped[int | None] = mapped_column(ForeignKey("order_installments.id", ondelete="SET NULL"), nullable=True, unique=True)
+    description: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SchoolPayoutRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    """A school asks for what it is owed; the platform transfers it and marks it paid."""
+
+    __tablename__ = "school_payouts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    method: Mapped[str] = mapped_column(String(24), nullable=False)  # mobile_money, bank
+    destination: Mapped[str] = mapped_column(String(255), nullable=False)
+    account_name: Mapped[str] = mapped_column(String(180), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="requested")  # requested, paid, rejected, cancelled
+    requested_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    processed_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    transfer_reference: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)

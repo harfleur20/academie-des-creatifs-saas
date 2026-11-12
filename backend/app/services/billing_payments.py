@@ -14,6 +14,7 @@ from app.models.entities import (
     PlanRecord,
     SubscriptionRecord,
 )
+from app.services.plan_limits import quote
 from app.services.subscriptions import (
     aware_utc,
     configured_plan_price,
@@ -147,6 +148,7 @@ def _mark_or_create_paid_invoice(
         open_invoice.payment_attempt_id = attempt.id
         open_invoice.status = "paid"
         open_invoice.amount_cents = attempt.amount_cents
+        open_invoice.lines = attempt.lines
         open_invoice.currency = attempt.currency
         open_invoice.paid_at = paid_at
         open_invoice.due_at = None
@@ -161,6 +163,7 @@ def _mark_or_create_paid_invoice(
         invoice_number=_invoice_number(paid_at, attempt.id),
         status="paid",
         amount_cents=attempt.amount_cents,
+        lines=attempt.lines,
         currency=attempt.currency,
         billing_interval=attempt.billing_interval,
         period_start=period_start_value,
@@ -314,6 +317,7 @@ def create_demo_payment_attempt(
     require_demo_payments_enabled()
     _require_billing_admin(tenant)
     plan = _get_plan(db, plan_code=plan_code)
+    billed = quote(db, tenant.organization_id, plan, billing_interval)
 
     attempt = BillingPaymentAttemptRecord(
         organization_id=tenant.organization_id,
@@ -322,7 +326,8 @@ def create_demo_payment_attempt(
         provider="demo",
         provider_reference=f"DEMO-{tenant.organization_id}-{uuid4().hex}",
         status="pending",
-        amount_cents=_demo_price_for_plan(plan, billing_interval),
+        amount_cents=billed.total_cents if billed else _demo_price_for_plan(plan, billing_interval),
+        lines=billed.line_dicts() if billed else None,
         currency=plan.currency,
     )
     db.add(attempt)
@@ -399,6 +404,9 @@ def create_tara_payment_attempt(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Le tarif de ce forfait n'est pas encore configuré.",
         )
+    # The plan, then each add-on the school uses beyond the quotas of this plan.
+    billed = quote(db, tenant.organization_id, plan, billing_interval)
+    amount = billed.total_cents
 
     reference = f"SAAS-{tenant.organization_id}-{uuid4().hex[:24]}"
     attempt = BillingPaymentAttemptRecord(
@@ -409,6 +417,7 @@ def create_tara_payment_attempt(
         provider_reference=reference,
         status="pending",
         amount_cents=amount,
+        lines=billed.line_dicts(),
         currency="XAF",
     )
     db.add(attempt)

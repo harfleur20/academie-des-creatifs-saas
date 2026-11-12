@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
@@ -60,12 +60,13 @@ def list_formations_route(
 )
 def create_formation_route(
     payload: FormationCreate,
+    accept_addon: bool = Query(False, description="La direction accepte l'option facturée à l'unité au-delà du forfait."),
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     require_organization_roles(tenant, "owner", "admin", "manager")
     try:
-        return create_formation(db, tenant, payload)
+        return create_formation(db, tenant, payload, accept_addon=accept_addon)
     except FormationConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -87,11 +88,12 @@ def get_formation_route(
 def update_formation_route(
     formation_id: int,
     payload: FormationUpdate,
+    accept_addon: bool = Query(False, description="La direction accepte l'option facturée à l'unité au-delà du forfait."),
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     require_organization_roles(tenant, "owner", "admin", "manager")
-    return update_formation(db, tenant, formation_id, payload)
+    return update_formation(db, tenant, formation_id, payload, accept_addon=accept_addon)
 
 
 @router.post(

@@ -20,6 +20,7 @@ from app.services.tenancy import TenantContext
 
 
 ACTIVE_SUBSCRIPTION_STATUSES = {"trialing", "active"}
+TRIAL_PLAN_CODES = ("pro", "starter")
 
 
 @dataclass(frozen=True)
@@ -90,9 +91,13 @@ def _create_open_renewal_invoice(
     grace_end: datetime,
     now: datetime,
 ) -> BillingInvoiceRecord | None:
+    from app.services.plan_limits import quote
+
     price = configured_plan_price(subscription.plan, subscription.billing_interval)
     if price is None or price <= 0:
         return None
+    # The plan, then each add-on the school uses beyond its quotas.
+    billed = quote(db, subscription.organization_id, subscription.plan, subscription.billing_interval)
 
     existing = db.scalar(
         select(BillingInvoiceRecord).where(
@@ -110,7 +115,8 @@ def _create_open_renewal_invoice(
         payment_attempt_id=None,
         invoice_number=f"INV-{now:%Y%m%d}-{subscription.id}-{uuid4().hex[:8].upper()}",
         status="open",
-        amount_cents=price,
+        amount_cents=billed.total_cents,
+        lines=billed.line_dicts(),
         currency=subscription.plan.currency,
         billing_interval=subscription.billing_interval,
         period_start=period_start_value,
@@ -328,12 +334,12 @@ def start_default_trial(
     *,
     organization_id: int,
 ) -> SubscriptionRecord | None:
-    plan = db.scalar(
-        select(PlanRecord).where(
-            PlanRecord.code == "starter",
-            PlanRecord.is_active.is_(True),
-        )
-    )
+    # A new school tries everything, live classes included: Pro when it exists, else Starter.
+    plan = None
+    for code in TRIAL_PLAN_CODES:
+        plan = db.scalar(select(PlanRecord).where(PlanRecord.code == code, PlanRecord.is_active.is_(True)))
+        if plan is not None:
+            break
     if plan is None:
         return None
 
