@@ -212,10 +212,17 @@ def _criteria(level: str, stats: BadgeStats) -> list[_Criterion]:
             ))
     if has_full_evidence(stats, "quizzes"):
         required = _required_count(stats.total_quizzes, rule["quizzes"])
-        criteria.append(_Criterion(
-            stats.passed_quizzes, required,
-            f"réussissez {required} quiz sur {stats.total_quizzes}",
-        ))
+        if level == "debutant":
+            # Like a TP handed in, a quiz tried is the effort a first level asks for.
+            criteria.append(_Criterion(
+                stats.attempted_quizzes, required,
+                f"tentez {required} quiz sur {stats.total_quizzes}",
+            ))
+        else:
+            criteria.append(_Criterion(
+                stats.passed_quizzes, required,
+                f"réussissez {required} quiz sur {stats.total_quizzes}",
+            ))
     if has_full_evidence(stats, "live"):
         required = _required_count(stats.attendance_total, rule["live"])
         criteria.append(_Criterion(

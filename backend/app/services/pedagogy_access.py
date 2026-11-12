@@ -48,6 +48,25 @@ def learning_is_open(
     return current_utc(now) >= session_starts_at(session)
 
 
+WORK_CLOSED_MESSAGE = "La session est terminée : les devoirs et les quiz ne se rendent plus."
+
+
+def guided_work_closed(
+    formation: FormationRecord,
+    session: FormationSessionRecord,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """Live and presentiel: once the session is over, TPs and quizzes take no more work.
+
+    Until then a student can still hand in a late TP or retake a quiz; teachers can still
+    review afterwards. Online formations stay open.
+    """
+    if dashboard_type(formation) != "guided":
+        return False
+    return session.status == "completed" or current_utc(now) >= session_ends_at(session)
+
+
 def require_learning_open(
     formation: FormationRecord,
     session: FormationSessionRecord,

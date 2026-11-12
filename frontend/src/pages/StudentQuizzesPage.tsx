@@ -27,6 +27,9 @@ function quizStatus(quiz: StudentQuiz) {
   if (quiz.passed) {
     return <span className="dsh-badge dsh-badge--green"><CheckCircle2 size={12} /> Réussi · {quiz.best_score_pct}%</span>
   }
+  if (quiz.work_closed) {
+    return <span className="dsh-badge dsh-badge--gray"><LockKeyhole size={12} /> Session terminée</span>
+  }
   if (quiz.pdf_reading_locked) {
     return <span className="dsh-badge dsh-badge--gray"><LockKeyhole size={12} /> Lecture PDF requise</span>
   }

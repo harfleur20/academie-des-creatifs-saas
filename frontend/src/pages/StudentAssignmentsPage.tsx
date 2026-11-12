@@ -44,6 +44,9 @@ function assignmentBadge(assignment: StudentAssignment) {
   if (assignment.student_status === 'submitted') {
     return <span className="dsh-badge dsh-badge--yellow"><Upload size={12} /> Rendu</span>
   }
+  if (assignment.student_status === 'late' && assignment.submissions_closed) {
+    return <span className="dsh-badge dsh-badge--gray"><XCircle size={12} /> Non rendu · session terminée</span>
+  }
   if (assignment.student_status === 'late') {
     return <span className="dsh-badge dsh-badge--red"><XCircle size={12} /> En retard</span>
   }
@@ -132,7 +135,7 @@ export function StudentAssignmentsPage() {
   }
 
   const openAssignments = items.filter((item) =>
-    !item.is_locked && ['pending', 'submitted', 'late'].includes(item.student_status),
+    !item.is_locked && !item.submissions_closed && ['pending', 'submitted', 'late'].includes(item.student_status),
   ).length
 
   return (
@@ -160,7 +163,7 @@ export function StudentAssignmentsPage() {
         ) : (
           <div className="dsh-list">
             {items.map((assignment) => {
-              const canSubmit = !assignment.is_locked && assignment.student_status !== 'reviewed'
+              const canSubmit = !assignment.is_locked && !assignment.submissions_closed && assignment.student_status !== 'reviewed'
 
               return (
                 <article

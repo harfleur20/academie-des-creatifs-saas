@@ -89,6 +89,8 @@ class StudentAssignmentRead(BaseModel):
     is_locked:bool=False; available_at:datetime|None=None
     student_status:AssignmentStudentStatus; submitted_at:datetime|None; file_url:str|None
     is_reviewed:bool; review_score:float|None; review_max_score:float; comment_count:int
+    # Live and presentiel: the session is over, nothing more can be handed in.
+    submissions_closed:bool=False
 
 class AssignmentSubmit(BaseModel):
     file_url:str=Field(min_length=1,max_length=1024)

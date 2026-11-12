@@ -15,15 +15,24 @@ Code : `backend/app/services/badge_rules.py` (décision), `backend/app/services/
 
 | Activité | Compte tout de suite si… | Sinon, compte (échue) quand… |
 | --- | --- | --- |
-| Quiz | l'étudiant le réussit | le professeur le clôt, ou 7 jours après son ouverture |
+| Quiz | l'étudiant le réussit | le professeur le clôt, ou 7 jours après son ouverture (en live et présentiel : au plus tard à la fin de la session) |
 | TP | l'étudiant le rend | sa date limite passe |
 | Séance | – | son rapport est déposé (séance tenue ou partielle) |
 | Contenu (leçon) | toujours | – |
 
-- Un nouveau quiz ou TP ne change rien au badge avant son échéance. Il apparaît dans « À faire pour progresser » sur la page Progression de l'étudiant (les 3 plus proches), avec sa date.
+- Un nouveau quiz ou TP ne change rien au badge avant son échéance. Il apparaît dans « À faire pour progresser » sur la page Progression de l'étudiant, avec sa date.
 - Un TP rendu mais pas encore corrigé compte comme rendu. Il ne pèse pas sur la part « validée » tant que le professeur ne l'a pas corrigé.
 - Une absence excusée sort du décompte des séances.
 - Les séances annulées, non tenues ou interrompues ne comptent pas, ni les activités qui leur sont rattachées (parcours guidés).
+
+## Rattraper
+
+Un travail échu n'est pas perdu : l'étudiant n'a rien à demander pour le rattraper.
+
+- **TP en retard** : il peut encore le rendre. Le professeur voit « Remis en retard », avec la vraie date. Le badge le compte comme un TP rendu à l'heure, puis comme validé une fois corrigé.
+- **Quiz raté ou oublié** : il peut le repasser tant que le professeur ne l'a pas clôturé. Il a 3 essais, puis 8 h d'attente, puis 3 nouveaux essais.
+- « À faire pour progresser » liste d'abord ce qui est **à rattraper** (le plus ancien d'abord), puis ce qui arrive : 3 de chaque au plus.
+- **En live et en présentiel, le rattrapage ferme à la fin de la session.** L'étudiant ne peut plus rendre de TP ni passer de quiz, et sa page l'indique. Les quiz encore ouverts deviennent échus, et le professeur peut toujours corriger. Les formations en ligne restent ouvertes.
 
 ## Le score
 
@@ -50,15 +59,17 @@ Avec un seul quiz échu, le pilier évaluation pèse un tiers de son poids. À p
 
 Sur un parcours guidé (live ou présentiel), un niveau demande tous ses critères :
 
-| Niveau | Score | Contenus | TP | Quiz réussis | Séances suivies | Moyenne | Preuves |
+| Niveau | Score | Contenus | TP | Quiz | Séances suivies | Moyenne | Preuves |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Débutant | 25 % | 25 % | 25 % rendus | 25 % | 25 % | – | 1 |
-| Intermédiaire | 50 % | 50 % | 50 % validés | 50 % | 50 % | 10/20 | 3 |
-| Semi-pro | 75 % | 75 % | 75 % validés | 70 % | 70 % | 12/20 | 5 |
-| Professionnel | 90 % | 100 % | 100 % validés | 80 % | 80 % | 16/20 | 5 |
+| Débutant | 25 % | 25 % | 25 % rendus | 25 % tentés | 25 % | – | 1 |
+| Intermédiaire | 50 % | 50 % | 50 % validés | 50 % réussis | 50 % | 10/20 | 3 |
+| Semi-pro | 75 % | 75 % | 75 % validés | 70 % réussis | 70 % | 12/20 | 5 |
+| Professionnel | 90 % | 100 % | 100 % validés | 80 % réussis | 80 % | 16/20 | 5 |
 
 - Les critères TP, quiz et séances ne s'appliquent qu'à partir du seuil de leur catégorie (2 TP, 3 quiz, 4 séances échus). En dessous, la catégorie ne fait que peser dans le score.
 - « Validés » se calcule sur les TP corrigés. Un TP en attente de correction ne fait baisser personne.
+- Pour Débutant, un quiz **tenté** suffit, comme un TP rendu : c'est l'effort qui compte. Les niveaux suivants demandent des quiz **réussis** (80 % au quiz).
+- Les nombres demandés sont arrondis à l'unité supérieure, comme sur le site mère. Avec 3 quiz, Semi-pro et Professionnel demandent donc les 3 : un quiz raté se rattrape (voir plus haut).
 - Les **preuves** sont les séances suivies, les quiz réussis, les TP rendus et les notes saisies par le professeur. Les leçons n'en sont pas : sinon, elles pourraient remplacer les séances.
 - Le niveau **Professionnel** demande en plus :
   - la fin de la session et la validation des séances ;
@@ -76,7 +87,9 @@ Sur un parcours classique (en ligne, non guidé), seul le score global compte ju
 | La même, plus un TP rendu en attente de correction | Semi-pro |
 | 3 lives sur 8 et un quiz réussi | Débutant |
 | Un seul live suivi, rien d'autre | Débutant |
-| 3 quiz échus, aucun réussi | Aventurier (le critère quiz s'applique) |
+| La même, 3 quiz échus jamais tentés | Aventurier (le critère quiz s'applique) |
+| La même, 3 quiz tentés, aucun réussi | Débutant |
+| La même, 2 quiz réussis sur 3 | Intermédiaire, jusqu'au rattrapage du 3e |
 
 ## La présence en live est vérifiée
 
@@ -116,4 +129,4 @@ Tests : `backend/tests/test_badge_fairness.py`, `test_badge_rules.py`, `test_liv
 
 ## Écart assumé avec le site mère
 
-Sur le site mère, un quiz ou un TP compte dès qu'il est accessible, et une catégorie bloque un niveau dès son premier élément. Un seul quiz raté peut donc retenir un étudiant assidu, et publier une activité fait baisser tout le monde jusqu'à ce qu'elle soit faite. Le SaaS garde les seuils et les poids du site mère, mais compte à l'échéance et pèse en proportion des preuves.
+Sur le site mère, un quiz ou un TP compte dès qu'il est accessible, et une catégorie bloque un niveau dès son premier élément. Un seul quiz raté peut donc retenir un étudiant assidu, et publier une activité fait baisser tout le monde jusqu'à ce qu'elle soit faite. Le SaaS garde les seuils, les poids et l'arrondi du site mère, mais compte à l'échéance et pèse en proportion des preuves. Il accepte aussi un quiz tenté pour Débutant, et ferme le rattrapage à la fin des sessions live et présentiel.

@@ -41,7 +41,7 @@ from app.services.grades import upsert_grade
 from app.services.lesson_completion import complete_activity_lessons
 from app.services.pdf_lessons import PDF_READING_PCT, pdf_asset, pdf_lesson_for_quiz, viewed_pct
 from app.models.entities import LessonPdfProgressRecord
-from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, linked_lesson_gate, session_starts_at
+from app.services.pedagogy_access import WORK_CLOSED_MESSAGE, current_utc, dashboard_type, guided_activity_available, guided_work_closed, linked_lesson_gate, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.school_notifications import notify_session_students
 from app.services.program_versions import FROZEN_MESSAGE, is_frozen_requirement
@@ -436,11 +436,13 @@ def _student_quiz_view(
         activity_open = activity_open and not pdf_reading_locked
     locked = not activity_open or quiz.status != "active"
     attempts_remaining, next_attempt_available_at = (0, None) if passed else quiz_attempt_gate(attempts, now)
+    work_closed = guided_work_closed(formation, session, now=now)
     can_attempt = (
         quiz.status == "active"
         and scheduled_open
         and activity_open
         and attempts_remaining > 0
+        and not work_closed
     )
     return StudentQuizRead(
         id=quiz.id,
@@ -485,6 +487,7 @@ def _student_quiz_view(
         next_attempt_available_at=next_attempt_available_at,
         pdf_reading_pct=pdf_reading_pct,
         pdf_reading_locked=pdf_reading_locked,
+        work_closed=work_closed,
     )
 
 
@@ -545,6 +548,8 @@ def submit_quiz_attempt(
     enrollment = require_student_enrollment(db, tenant, quiz.session_id)
     db.get(EnrollmentRecord, enrollment.id, populate_existing=True, with_for_update=True)
     view = _student_quiz_view(db, tenant, quiz, enrollment)
+    if view.work_closed:
+        raise HTTPException(409, WORK_CLOSED_MESSAGE)
     if not view.can_attempt:
         raise HTTPException(409, "Cette évaluation n'accepte pas de nouvelle tentative.")
 

@@ -8,7 +8,7 @@ from app.schemas.assignments import *
 from app.services.grades import upsert_grade
 from app.services.assets import validate_submission_asset
 from app.services.lesson_completion import complete_activity_lessons
-from app.services.pedagogy_access import current_utc, dashboard_type, guided_activity_available, linked_lesson_gate, session_starts_at
+from app.services.pedagogy_access import WORK_CLOSED_MESSAGE, current_utc, dashboard_type, guided_activity_available, guided_work_closed, linked_lesson_gate, session_starts_at
 from app.services.school_communications import queue_school_event, queue_session_students_event
 from app.services.school_notifications import notify_user
 from app.services.training_notifications import email_new_submission
@@ -109,6 +109,7 @@ def _student_view(db,a,e,s,now):
         review_score=s.review_score if s else None,
         review_max_score=s.review_max_score if s else 20,
         comment_count=_count_comments(db, a.id, e.id),
+        submissions_closed=guided_work_closed(formation, session, now=now),
     )
 
 def assignment_open_for_students(db,session,formation,a,*,now=None):
@@ -193,6 +194,8 @@ def submit_assignment(db:Session,tenant:TenantContext,aid:int,p:AssignmentSubmit
     a=_published_assignment(db,tenant,aid); e=_enrollment(db,tenant,a.session_id)
     if not e: raise HTTPException(403,"Vous n'êtes pas inscrit à cette session.")
     now=datetime.now(UTC)
+    session=_session(db,tenant,a.session_id)
+    if guided_work_closed(db.get(FormationRecord,session.formation_id),session,now=now): raise HTTPException(409,WORK_CLOSED_MESSAGE)
     if not _student_assignment_open(db,tenant,a,now): raise HTTPException(409,"Ce devoir n'est pas encore disponible.")
     validate_submission_asset(p.file_url, tenant.organization_id, tenant.user.id)
     sub=db.scalar(select(AssignmentSubmissionRecord).where(AssignmentSubmissionRecord.organization_id==tenant.organization_id,AssignmentSubmissionRecord.assignment_id==aid,AssignmentSubmissionRecord.enrollment_id==e.id))

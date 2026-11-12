@@ -104,8 +104,12 @@ export function StudentProgressPage() {
                   <strong>À faire pour progresser</strong>
                   <ul>
                     {item.badge.upcoming.map((work) => (
-                      <li key={`${work.kind}-${work.title}-${work.due_at}`}>
-                        {work.kind === 'quiz' ? 'Quiz' : 'TP'} « {work.title} » avant le {new Date(work.due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                      <li className={work.overdue ? 'progress-upcoming__late' : undefined} key={`${work.kind}-${work.title}-${work.due_at}`}>
+                        {work.overdue
+                          ? work.kind === 'quiz'
+                            ? <>Quiz « {work.title} » : à rattraper</>
+                            : <>TP « {work.title} » : en retard, vous pouvez encore le rendre</>
+                          : <>{work.kind === 'quiz' ? 'Quiz' : 'TP'} « {work.title} » avant le {new Date(work.due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</>}
                       </li>
                     ))}
                   </ul>
