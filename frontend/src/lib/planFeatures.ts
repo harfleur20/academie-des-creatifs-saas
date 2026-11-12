@@ -5,7 +5,7 @@ const FEATURE_LABELS: Record<string, (limit: number | null) => string> = {
   students: (limit) => (limit === null ? 'Étudiants illimités' : `${limit.toLocaleString('fr-FR')} étudiants actifs`),
   teachers: (limit) => (limit === null ? 'Professeurs illimités' : `${limit} professeurs`),
   active_formations: (limit) => (limit === null ? 'Formations illimitées' : `${limit} formations publiées`),
-  live: () => 'Cours en live dans la plateforme',
+  live: (limit) => limit === null ? 'Cours en live inclus' : `Cours en live inclus · ${limit} étudiants max par classe`,
   custom_domain: () => 'Votre propre nom de domaine',
   priority_support: () => 'Accompagnement prioritaire',
   automations: () => 'Relances et rappels automatiques',

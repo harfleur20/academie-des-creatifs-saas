@@ -6,7 +6,10 @@ from sqlalchemy import select
 from test_academic_suite import build_db, ctx, seed
 
 from app.core.config import settings
-from app.models.entities import AttendanceRecord, FormationRecord, LiveRoomPresenceRecord
+from app.models.entities import (
+    AttendanceRecord, FormationRecord, LiveRoomPresenceRecord, PlanEntitlementRecord, PlanRecord,
+    SubscriptionRecord,
+)
 from app.schemas.planning import CourseDayReportSubmit
 from app.services.live_classes import (
     LiveEvidence, answer_roll_call, heartbeat_live_class, join_live_class, leave_live_class, prefill_live_status,
@@ -55,6 +58,38 @@ def test_a_student_keeps_one_device_in_live_classes() -> None:
 
     leave_live_class(db, tenant, day.id, now=START + timedelta(minutes=4), device_id="phone")
     join(db, tenant, day, "laptop", 4)  # leaving frees the place at once
+
+
+def test_a_live_room_enforces_the_plan_student_limit() -> None:
+    db, org, _teacher, student, classmate, *_rest, day = live_school()
+    plan = PlanRecord(
+        code="starter",
+        name="Starter",
+        description="",
+        currency="XAF",
+        monthly_price_cents=15_000,
+        annual_price_cents=150_000,
+        trial_days=14,
+        is_public=True,
+        is_active=True,
+        entitlements=[PlanEntitlementRecord(feature_key="live", enabled=True, limit_value=1)],
+    )
+    db.add(plan)
+    db.flush()
+    db.add(SubscriptionRecord(
+        organization_id=org.id,
+        plan_id=plan.id,
+        status="active",
+        billing_interval="monthly",
+        started_at=START,
+    ))
+    db.commit()
+
+    join(db, ctx(db, org, student), day, "phone", 1)
+    with pytest.raises(HTTPException) as full:
+        join(db, ctx(db, org, classmate), day, "laptop", 1)
+    assert full.value.status_code == 409
+    assert "limite de 1 étudiant" in full.value.detail
 
 
 def test_a_silent_device_frees_the_place_after_90_seconds() -> None:

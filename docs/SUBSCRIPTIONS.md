@@ -36,11 +36,15 @@ Exemples possibles :
 - `students` + limite ;
 - `teachers` + limite ;
 - `active_formations` + limite ;
+- `live` + nombre maximal d'étudiants connectés par classe ;
 - `custom_domain` ;
 - `automations` ;
 - `advanced_reporting`.
 
 Aucun quota commercial n'est codé en dur dans l'interface.
+
+Les trois forfaits publics incluent les classes live : 10 étudiants par classe en Starter,
+50 en Pro et 100 en Business. Cette limite est vérifiée côté serveur au moment de rejoindre la salle.
 
 ### subscriptions
 

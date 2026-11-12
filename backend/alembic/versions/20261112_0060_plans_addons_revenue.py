@@ -24,22 +24,22 @@ depends_on: Sequence[str] | None = None
 PLANS = {
     # code: (description, monthly, annual, commission in basis points, entitlements)
     "starter": (
-        "Pour les formateurs et les petites écoles, en ligne et en présentiel.",
+        "Pour les formateurs et les petites écoles, avec des lives jusqu’à 10 étudiants.",
         15_000, 150_000, 800,
         [("students", True, 50), ("teachers", True, 2), ("active_formations", True, 3),
-         ("live", False, None), ("custom_domain", False, None)],
+         ("live", True, 10), ("custom_domain", False, None)],
     ),
     "pro": (
-        "Pour les écoles qui donnent des cours en live, avec leur propre domaine.",
+        "Pour les écoles qui accueillent jusqu’à 50 étudiants par live.",
         35_000, 350_000, 500,
         [("students", True, 300), ("teachers", True, 10), ("active_formations", True, None),
-         ("live", True, None), ("custom_domain", True, None)],
+         ("live", True, 50), ("custom_domain", True, None)],
     ),
     "business": (
-        "Pour les écoles avec plusieurs équipes et beaucoup d'étudiants.",
+        "Pour les écoles avec plusieurs équipes et des lives jusqu’à 100 étudiants.",
         75_000, 750_000, 300,
         [("students", True, None), ("teachers", True, None), ("active_formations", True, None),
-         ("live", True, None), ("custom_domain", True, None), ("priority_support", True, None)],
+         ("live", True, 100), ("custom_domain", True, None), ("priority_support", True, None)],
     ),
 }
 

@@ -17,8 +17,9 @@ from app.models.entities import (
     SessionCourseDayRecord, SessionTeacherRecord, UserRecord,
 )
 from app.services.live_recordings import _source_url
+from app.services.plan_limits import allowance, require_feature
+from app.services.subscriptions import get_effective_plan
 from app.services.teacher_readiness import require_teacher_ready
-from app.services.plan_limits import require_feature
 from app.services.tenancy import TenantContext
 
 
@@ -188,6 +189,7 @@ def start_live_class(
 
 ROOM_OPENS_BEFORE = timedelta(minutes=15)
 ROOM_CLOSES_AFTER = timedelta(minutes=15)
+LIVE_ACTIVE_DEVICE_TTL = timedelta(seconds=90)
 
 
 def _live_class_access(
@@ -271,9 +273,29 @@ def join_live_class(
 
     if not live_provider_configured():
         raise HTTPException(503, "Le service de classes live n'est pas configuré.")
-    # Live classes come with some plans only (a school that moved down to Starter, say).
+    # Check the plan before issuing a room token, including its per-class student cap.
     require_feature(db, tenant.organization_id, "live")
     if student and not (manager or teacher):
+        limit = allowance(get_effective_plan(db, tenant.organization_id), "live").limit
+        if limit is not None:
+            # Serialize joins to this room so simultaneous requests cannot exceed the plan cap.
+            db.scalar(select(SessionCourseDayRecord.id).where(
+                SessionCourseDayRecord.id == day.id,
+                SessionCourseDayRecord.organization_id == tenant.organization_id,
+            ).with_for_update())
+            active_students = db.scalar(select(func.count(func.distinct(LiveRoomPresenceRecord.user_id))).where(
+                LiveRoomPresenceRecord.organization_id == tenant.organization_id,
+                LiveRoomPresenceRecord.course_day_id == day.id,
+                LiveRoomPresenceRecord.user_id != tenant.user.id,
+                LiveRoomPresenceRecord.left_at.is_(None),
+                LiveRoomPresenceRecord.last_seen_at >= current - LIVE_ACTIVE_DEVICE_TTL,
+            )) or 0
+            if active_students >= limit:
+                db.rollback()
+                raise HTTPException(
+                    409,
+                    f"Cette classe a atteint la limite de {limit} étudiants en live prévue par votre forfait.",
+                )
         _hold_live_device(db, tenant, day, device_id, device_label, current)
 
     moderator = bool(manager or teacher)
@@ -302,7 +324,6 @@ def join_live_class(
 
 # As on the mother site, a student keeps one device in live classes at a time: another
 # device that sent a heartbeat less than 90 seconds ago, without leaving, holds the place.
-LIVE_ACTIVE_DEVICE_TTL = timedelta(seconds=90)
 DEVICE_TAKEN = (
     "Votre compte étudiant est déjà connecté à un live sur un autre appareil. "
     "Quittez cette salle ou réessayez dans environ 90 secondes."

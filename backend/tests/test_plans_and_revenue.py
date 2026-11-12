@@ -126,7 +126,7 @@ def test_a_school_beyond_its_students_quota_pays_each_extra_student():
     usage = billing_usage(db, org.id)
     students = next(item for item in usage["metrics"] if item["feature_key"] == "students")
     assert (students["current"], students["limit"], students["extra"], students["extra_amount_cents"]) == (52, 50, 2, 600)
-    assert usage["commission_bps"] == 800 and usage["live_included"] is False
+    assert usage["commission_bps"] == 800 and usage["live_included"] is True
 
 
 def test_the_renewal_invoice_lists_the_plan_and_the_add_ons():
@@ -175,14 +175,20 @@ def test_without_an_add_on_the_school_moves_up_a_plan():
     assert "Passez au forfait supérieur" in refused.value.detail
 
 
-def test_live_classes_and_custom_domains_come_with_pro():
+def test_every_plan_includes_live_classes_with_a_per_class_student_limit():
     db = build_db()
     grid_plans = plans(db)
-    starter, _ = school(db, grid_plans["starter"])
-    pro, _ = school(db, grid_plans["pro"])
-    with pytest.raises(HTTPException) as live:
-        require_feature(db, starter.id, "live")
-    assert live.value.detail == "Les cours en live sont inclus à partir du forfait Pro."
+    organizations = {}
+    for code, limit in {"starter": 10, "pro": 50, "business": 100}.items():
+        org, _ = school(db, grid_plans[code])
+        organizations[code] = org
+        entitlement = next(item for item in grid_plans[code].entitlements if item.feature_key == "live")
+        assert entitlement.enabled is True
+        assert entitlement.limit_value == limit
+        require_feature(db, org.id, "live")
+
+    starter = organizations["starter"]
+    pro = organizations["pro"]
     with pytest.raises(HTTPException) as domain:
         require_feature(db, starter.id, "custom_domain")
     assert domain.value.detail == "Le domaine personnalisé est inclus à partir du forfait Pro."
