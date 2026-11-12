@@ -16,6 +16,7 @@ import {
   Store,
   UserRoundCog,
   Users,
+  Wallet,
 } from 'lucide-react'
 import { MessageNavIcon } from './MessageNavIcon'
 import { SchoolWorkspaceLayout } from './SchoolWorkspaceLayout'
@@ -68,6 +69,7 @@ export function AppLayout() {
           icon: <ShoppingCart size={18} />,
           items: [
             { to: '/app/manage/commerce', label: 'Commerce', icon: <ShoppingCart size={18} /> },
+            { to: '/app/manage/revenue', label: 'Revenus & retraits', icon: <Wallet size={18} /> },
             { to: '/app/manage/promotions', label: 'Promotions', icon: <BadgePercent size={18} /> },
             { to: '/app/manage/site-public', label: 'Site public', icon: <Store size={18} /> },
           ],

@@ -19,6 +19,8 @@ import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
 import { TeamPage } from './pages/TeamPage'
 import { SchoolSettingsPage } from './pages/SchoolSettingsPage'
 import { BillingPage } from './pages/BillingPage'
+import { SchoolRevenuePage } from './pages/SchoolRevenuePage'
+import { AdminPayoutsPage } from './pages/AdminPayoutsPage'
 import { SchoolReportsPage } from './pages/SchoolReportsPage'
 import { SchoolConnectPage } from './pages/SchoolConnectPage'
 import { AdminLayout } from './admin/AdminLayout'
@@ -248,6 +250,7 @@ export default function App() {
               <Route path="team" element={<TeamPage />} />
               <Route path="charters" element={<CharterSettingsPage />} />
               <Route path="billing" element={<BillingPage />} />
+              <Route path="revenue" element={<SchoolRevenuePage />} />
               <Route path="profile" element={<ManageProfilePage />} />
               <Route path="support" element={<SupportPage space="manage" />} />
               <Route path="settings" element={<SchoolSettingsPage />} />
@@ -331,6 +334,7 @@ export default function App() {
               <Route path="schools" element={<AdminSchoolsPage />} />
               <Route path="schools/:schoolId" element={<AdminSchoolDetailPage />} />
               <Route path="plans" element={<AdminPlansPage />} />
+              <Route path="payouts" element={<AdminPayoutsPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

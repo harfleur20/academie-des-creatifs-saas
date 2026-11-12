@@ -75,8 +75,108 @@ export type Plan = {
   annual_price_cents: number | null
   trial_days: number
   is_public: boolean
+  /** Share of each student payment the platform keeps, in basis points (800 = 8 %). */
+  sales_commission_bps?: number
   entitlements: PlanEntitlement[]
 }
+
+export type BillingLine = { label: string; quantity: number; unit_amount_cents: number; amount_cents: number }
+
+export type Addon = {
+  code: string
+  name: string
+  description: string
+  feature_key: string | null
+  unit_label: string
+  unit_price_cents: number | null
+  currency: string
+  status: 'active' | 'coming_soon' | 'inactive'
+  plan_codes: string[]
+}
+
+export type BillingUsage = {
+  plan_code: string | null
+  plan_name: string | null
+  billing_interval: 'monthly' | 'annual'
+  commission_bps: number
+  live_included: boolean
+  custom_domain_included: boolean
+  metrics: Array<{
+    feature_key: string
+    label: string
+    current: number
+    limit: number | null
+    extra: number
+    unit_price_cents: number | null
+    extra_amount_cents: number
+  }>
+  next_payment: { currency: string; lines: BillingLine[]; total_cents: number } | null
+}
+
+export const listAddons = () => request<Addon[]>('/billing/addons', { organizationId: null })
+export const getBillingUsage = () => request<BillingUsage>('/billing/usage')
+
+export type RevenueSummary = {
+  currency: string
+  gross_cents: number
+  commission_cents: number
+  earned_cents: number
+  paid_out_cents: number
+  pending_payout_cents: number
+  available_cents: number
+  commission_bps: number
+  min_payout_cents: number
+}
+
+export type LedgerEntry = {
+  id: number
+  kind: string
+  gross_cents: number
+  commission_bps: number
+  commission_cents: number
+  amount_cents: number
+  currency: string
+  description: string
+  occurred_at: string
+}
+
+export type Payout = {
+  id: number
+  amount_cents: number
+  currency: string
+  method: 'mobile_money' | 'bank'
+  destination: string
+  account_name: string
+  status: 'requested' | 'paid' | 'rejected' | 'cancelled'
+  requested_at: string
+  processed_at: string | null
+  transfer_reference: string | null
+  note: string | null
+}
+
+export type AdminPayout = Payout & { organization_id: number; organization_name: string }
+
+export const getRevenueSummary = () => request<RevenueSummary>('/revenue/summary')
+export const listLedgerEntries = () => request<LedgerEntry[]>('/revenue/entries')
+export const listPayouts = () => request<Payout[]>('/revenue/payouts')
+export const requestPayout = (payload: { amount_cents: number; method: Payout['method']; destination: string; account_name: string }) =>
+  request<Payout>('/revenue/payouts', { method: 'POST', body: JSON.stringify(payload) })
+export const cancelPayout = (payoutId: number) =>
+  request<Payout>(`/revenue/payouts/${payoutId}/cancel`, { method: 'POST' })
+
+export const listAdminPayouts = (status?: Payout['status']) =>
+  request<AdminPayout[]>(`/admin/payouts${status ? `?status=${status}` : ''}`, { organizationId: null })
+export const markAdminPayoutPaid = (payoutId: number, payload: { transfer_reference: string; note?: string }) =>
+  request<AdminPayout>(`/admin/payouts/${payoutId}/paid`, { method: 'POST', body: JSON.stringify(payload), organizationId: null })
+export const rejectAdminPayout = (payoutId: number, note: string) =>
+  request<AdminPayout>(`/admin/payouts/${payoutId}/reject`, { method: 'POST', body: JSON.stringify({ note }), organizationId: null })
+export const listAdminAddons = () => request<Addon[]>('/admin/addons', { organizationId: null })
+export const updateAdminAddon = (
+  code: string,
+  payload: Partial<Pick<Addon, 'name' | 'description' | 'unit_price_cents' | 'status' | 'plan_codes'>>,
+  reason: string,
+) =>
+  request<Addon>(`/admin/addons/${code}?reason=${encodeURIComponent(reason)}`, { method: 'PATCH', body: JSON.stringify(payload), organizationId: null })
 
 export type Subscription = {
   id: number
@@ -111,10 +211,29 @@ export type SupportModeState = {
 
 export class ApiError extends Error {
   status: number
+  /** Machine-readable reason, when the server gives one (e.g. addon_required). */
+  code: string | null
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code: string | null = null) {
     super(message)
     this.status = status
+    this.code = code
+  }
+}
+
+/**
+ * Beyond its plan, adding a teacher or publishing a formation costs an add-on per unit:
+ * the server says so (409 addon_required), the school confirms the price, and the call is sent again.
+ */
+async function withAddonConsent<T>(call: (acceptAddon: boolean) => Promise<T>): Promise<T> {
+  try {
+    return await call(false)
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.code !== 'addon_required') throw error
+    if (!window.confirm(`${error.message}\n\nAccepter l’option et continuer ?`)) {
+      throw new ApiError(error.status, 'Ajout annulé : votre forfait reste inchangé.', 'addon_declined')
+    }
+    return call(true)
   }
 }
 
@@ -257,13 +376,18 @@ async function request<T>(
 
   if (!response.ok) {
     let message = `La requête a échoué (HTTP ${response.status}).`
+    let code: string | null = null
     try {
       const body = await response.json()
       if (typeof body?.detail === 'string') message = body.detail
+      else if (typeof body?.detail?.message === 'string') {
+        message = body.detail.message
+        code = typeof body.detail.code === 'string' ? body.detail.code : null
+      }
     } catch {
       // Keep generic message.
     }
-    throw new ApiError(response.status, message)
+    throw new ApiError(response.status, message, code)
   }
 
   if (response.status === 204) {
@@ -418,26 +542,28 @@ export const getOrganizationAccessProfile = () =>
 export const listMembers = () =>
   request<Member[]>('/organizations/current/members')
 
+const addonQuery = (accept: boolean) => (accept ? '?accept_addon=true' : '')
+
 export const updateMember = (
   memberId: number,
   payload: { role?: Member['role']; status?: Member['status'] },
 ) =>
-  request<Member>(`/organizations/current/members/${memberId}`, {
+  withAddonConsent((accept) => request<Member>(`/organizations/current/members/${memberId}${addonQuery(accept)}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
-  })
+  }))
 
 export const updateMemberFunctionalRoles = (
   memberId: number,
   functionalRoles: Array<'teacher' | 'student'>,
 ) =>
-  request<Member>(
-    `/organizations/current/members/${memberId}/functional-roles`,
+  withAddonConsent((accept) => request<Member>(
+    `/organizations/current/members/${memberId}/functional-roles${addonQuery(accept)}`,
     {
       method: 'PUT',
       body: JSON.stringify({ functional_roles: functionalRoles }),
     },
-  )
+  ))
 
 export const listInvitations = () =>
   request<Invitation[]>('/organizations/current/invitations')
@@ -446,10 +572,10 @@ export const createInvitation = (payload: {
   email: string
   role: Invitation['role']
 }) =>
-  request<Invitation>('/organizations/current/invitations', {
+  withAddonConsent((accept) => request<Invitation>(`/organizations/current/invitations${addonQuery(accept)}`, {
     method: 'POST',
     body: JSON.stringify(payload),
-  })
+  }))
 
 export const renewInvitation = (invitationId: number) =>
   request<Invitation>(`/organizations/current/invitations/${invitationId}/renew`, {
@@ -532,6 +658,8 @@ export type BillingInvoice = {
   invoice_number: string
   status: 'open' | 'paid' | 'void'
   amount_cents: number
+  /** Plan, then add-ons billed per unit. */
+  lines?: BillingLine[] | null
   currency: string
   billing_interval: 'monthly' | 'annual'
   period_start: string
@@ -847,6 +975,7 @@ export type AdminPlan = {
   trial_days: number
   is_public: boolean
   is_active: boolean
+  sales_commission_bps: number
   entitlements: AdminPlanEntitlement[]
 }
 
@@ -1126,13 +1255,13 @@ export const createFormation = (payload: {
   featured_order?: number
   status?: 'draft' | 'published'
 }) =>
-  request<FormationSummary>('/formations', {
+  withAddonConsent((accept) => request<FormationSummary>(`/formations${addonQuery(accept)}`, {
     method: 'POST',
     body: JSON.stringify({
       ...payload,
       description: payload.description ?? '',
     }),
-  })
+  }))
 
 export const updateFormation = (
   formationId: number,
@@ -1145,10 +1274,10 @@ export const updateFormation = (
     'is_featured' | 'featured_order' | 'status'
   >>,
 ) =>
-  request<FormationSummary>(`/formations/${formationId}`, {
+  withAddonConsent((accept) => request<FormationSummary>(`/formations/${formationId}${addonQuery(accept)}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
-  })
+  }))
 
 export const createFormationSession = (
   formationId: number,
