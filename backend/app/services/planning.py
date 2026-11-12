@@ -32,7 +32,7 @@ from app.services.school_communications import queue_session_students_event
 from app.services.school_notifications import notify_session_students
 from app.services.live_classes import live_attendance_evidence, live_course_window, live_provider_configured, prefill_live_status
 from app.services.tenancy import TenantContext
-from app.services.training_notifications import notify_absence
+from app.services.training_notifications import notify_absence, notify_attendance_risks
 
 
 
@@ -700,5 +700,6 @@ def submit_course_day_report(
             AttendanceRecord.status == "absent",
         )).all():
             notify_absence(db, org=tenant.organization, day=day, enrollment=db.get(EnrollmentRecord, row.enrollment_id))
+        notify_attendance_risks(db, org=tenant.organization, session=session, day=day)
     db.commit()
     return get_session_planning(db, tenant, session.id)

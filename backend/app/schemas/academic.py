@@ -453,6 +453,9 @@ class TeacherPerformanceSessionRead(BaseModel):
     attendance_rate_pct: float | None
     quiz_average_score_pct: float | None
     pending_reviews_count: int
+    # Too few due quizzes and TPs for evaluation to weigh in the badges, and students falling behind.
+    badge_hint: str | None = None
+    low_attendance_count: int = 0
 
 
 class TeacherPerformanceRead(BaseModel):

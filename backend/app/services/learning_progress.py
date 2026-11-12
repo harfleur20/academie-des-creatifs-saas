@@ -51,6 +51,7 @@ from app.services.academic_access import (
     require_teacher_assignment,
 )
 from app.services.badge_rules import (
+    EVIDENCE_THRESHOLDS,
     BadgeStats,
     badge_basis_note,
     badge_level,
@@ -64,7 +65,12 @@ from app.services.pedagogy_access import current_utc, dashboard_type, guided_act
 from app.services.program_versions import badge_floor, ensure_program_frozen
 from app.services.live_classes import live_attendance_evidence
 from app.services.tenancy import TenantContext
-from app.services.training_notifications import clear_absence, notify_absence
+from app.services.training_notifications import (
+    ATTENDANCE_ALERT_MIN_CLASSES,
+    ATTENDANCE_ALERT_RATE,
+    clear_absence,
+    notify_absence,
+)
 
 
 VIDEO_COMPLETION_PCT = 80.0
@@ -1209,6 +1215,26 @@ def student_progress(
     return [progress_for_enrollment(db, tenant, enrollment) for enrollment in enrollments]
 
 
+def _evaluation_hint(
+    db: Session,
+    tenant: TenantContext,
+    formation: FormationRecord,
+    session: FormationSessionRecord,
+    enrollments: list[EnrollmentRecord],
+) -> str | None:
+    """Tells the teacher when too few quizzes and TPs are due for evaluation to weigh in the badges."""
+    if dashboard_type(formation) != "guided" or not enrollments:
+        return None
+    quizzes = _badge_quiz_stats(db, tenant, enrollments[0])
+    work = _badge_assignment_stats(db, tenant, enrollments[0], formation, session)
+    if quizzes.due >= EVIDENCE_THRESHOLDS["quizzes"] or work.due >= EVIDENCE_THRESHOLDS["assignments"]:
+        return None
+    return (
+        f"Moins de {EVIDENCE_THRESHOLDS['quizzes']} quiz et de {EVIDENCE_THRESHOLDS['assignments']} TP échus : "
+        "l'évaluation pèse peu dans les badges et le niveau Professionnel reste fermé. Publiez des quiz ou des TP."
+    )
+
+
 def teacher_performance(
     db: Session,
     tenant: TenantContext,
@@ -1249,10 +1275,13 @@ def teacher_performance(
         session_progress = round(sum(progress_values) / len(progress_values), 1) if progress_values else 0.0
 
         attendance_rates: list[float] = []
+        low_attendance = 0
         for enrollment in enrollments:
             total, present = _attendance_stats(db, tenant, enrollment)
             if total:
                 attendance_rates.append((present / total) * 100)
+            if total >= ATTENDANCE_ALERT_MIN_CLASSES and present / total < ATTENDANCE_ALERT_RATE:
+                low_attendance += 1
         attendance_rate = (
             round(sum(attendance_rates) / len(attendance_rates), 1)
             if attendance_rates
@@ -1301,6 +1330,8 @@ def teacher_performance(
                 attendance_rate_pct=attendance_rate,
                 quiz_average_score_pct=quiz_average,
                 pending_reviews_count=pending_reviews,
+                badge_hint=_evaluation_hint(db, tenant, formation, session, enrollments),
+                low_attendance_count=low_attendance,
             )
         )
 

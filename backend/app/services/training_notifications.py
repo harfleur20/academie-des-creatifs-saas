@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.entities import (
+    AttendanceRecord,
     EnrollmentRecord,
     FormationRecord,
     FormationSessionRecord,
@@ -290,3 +291,80 @@ def email_new_submission(db: Session, *, org: OrganizationRecord, teacher_id: in
     queue_school_event(db, org=org, user=teacher, event_key="teacher.assignment.submitted", context={
         "student_name": student.full_name, "assignment_title": assignment_title, "session_label": session_label,
     })
+
+
+# A student falling behind on classes: two absences in a row, or under 60 % once at least
+# three classes were held. The student and the course's teacher are told, once per class.
+ATTENDANCE_ALERT_MIN_CLASSES = 3
+ATTENDANCE_ALERT_RATE = 0.6
+
+
+@dataclass(frozen=True)
+class AttendanceRisk:
+    streak: bool
+    low_rate: bool
+    rate_pct: int
+
+
+def attendance_risk(attended: list[bool]) -> AttendanceRisk | None:
+    """From a student's held classes in order (excused ones left out), whether the last one raised a risk."""
+    if not attended:
+        return None
+    streak = len(attended) >= 2 and not attended[-1] and not attended[-2]
+    rate = sum(attended) / len(attended)
+    before = attended[:-1]
+    crossed = len(attended) >= ATTENDANCE_ALERT_MIN_CLASSES and rate < ATTENDANCE_ALERT_RATE and (
+        len(before) < ATTENDANCE_ALERT_MIN_CLASSES or sum(before) / len(before) >= ATTENDANCE_ALERT_RATE
+    )
+    if not (streak or crossed):
+        return None
+    return AttendanceRisk(streak=streak, low_rate=crossed, rate_pct=round(rate * 100))
+
+
+def notify_attendance_risks(db: Session, *, org: OrganizationRecord, session: FormationSessionRecord, day: SessionCourseDayRecord) -> None:
+    """After a course report, warn the students who are falling behind on classes, and their teacher."""
+    days = list(db.scalars(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.organization_id == org.id,
+        SessionCourseDayRecord.session_id == session.id,
+        SessionCourseDayRecord.status != "cancelled",
+        SessionCourseDayRecord.report_submitted_at.is_not(None),
+        SessionCourseDayRecord.delivery_status.in_(["held", "partial"]),
+    ).order_by(SessionCourseDayRecord.scheduled_at, SessionCourseDayRecord.id)).all())
+    if not days or days[-1].id != day.id:
+        return  # a late report on an older class: the latest one already decided
+    day_ids = [item.id for item in days]
+    enrollments = db.scalars(select(EnrollmentRecord).where(
+        EnrollmentRecord.organization_id == org.id,
+        EnrollmentRecord.session_id == session.id,
+        EnrollmentRecord.status.in_(["active", "completed"]),
+    )).all()
+    for enrollment in enrollments:
+        marks = dict(db.execute(select(AttendanceRecord.course_day_id, AttendanceRecord.status).where(
+            AttendanceRecord.organization_id == org.id,
+            AttendanceRecord.enrollment_id == enrollment.id,
+            AttendanceRecord.course_day_id.in_(day_ids),
+        )).all())
+        attended = [marks.get(day_id) in {"present", "late"} for day_id in day_ids if marks.get(day_id) != "excused"]
+        risk = attendance_risk(attended)
+        student = db.get(UserRecord, enrollment.student_id)
+        if risk is None or student is None or student.status != "active":
+            continue
+        event_key = f"attendance.risk:{enrollment.id}:{day.id}"
+        reason = "a manqué deux séances de suite" if risk.streak else f"suit {risk.rate_pct} % des séances"
+        if not _already_sent(db, org.id, student.id, event_key):
+            notify_user(
+                db, organization_id=org.id, user_id=student.id, event_key=event_key, audience="student",
+                title="Votre assiduité baisse",
+                message=(
+                    ("Vous avez manqué deux séances de suite" if risk.streak else f"Vous avez suivi {risk.rate_pct} % des séances")
+                    + f" de {session.label}. Votre présence compte pour votre badge : rejoignez la prochaine séance."
+                ),
+                category="planning", tone="warning", action_label="Voir mes présences", action_path="/app/student/results",
+            )
+        if day.teacher_id and not _already_sent(db, org.id, day.teacher_id, event_key):
+            notify_user(
+                db, organization_id=org.id, user_id=day.teacher_id, event_key=event_key, audience="teacher",
+                title="Un étudiant décroche",
+                message=f"{student.full_name} {reason} ({session.label}).",
+                category="planning", tone="warning", action_label="Voir les présences", action_path="/app/teacher/attendance",
+            )

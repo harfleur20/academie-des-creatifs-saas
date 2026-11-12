@@ -2215,6 +2215,10 @@ export type StudentBadge = {
   final_project_validated: boolean
   missing_requirements: string[]
   ring_pct: number
+  /** What the badge rests on while quizzes or TPs are still few. */
+  basis_note?: string | null
+  /** Open work not due yet: done in time, it counts for the badge. */
+  upcoming?: Array<{ kind: 'quiz' | 'assignment'; title: string; due_at: string }>
 }
 
 export type StudentProgress = {
@@ -2251,6 +2255,8 @@ export type TeacherPerformance = {
     progress_pct: number
     attendance_rate_pct: number | null
     quiz_average_score_pct: number | null
+    badge_hint?: string | null
+    low_attendance_count?: number
     pending_reviews_count: number
   }>
 }
