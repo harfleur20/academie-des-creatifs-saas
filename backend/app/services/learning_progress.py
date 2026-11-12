@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
@@ -31,6 +32,7 @@ from app.schemas.academic import (
     AttendanceMarkPayload,
     AttendanceRowRead,
     BadgeRead,
+    BadgeUpcomingRead,
     ChapterReaderRead,
     CourseReaderRead,
     GradeRead,
@@ -50,6 +52,7 @@ from app.services.academic_access import (
 )
 from app.services.badge_rules import (
     BadgeStats,
+    badge_basis_note,
     badge_level,
     badge_ring_pct,
     badge_score,
@@ -69,6 +72,9 @@ VIDEO_HEARTBEAT_SEEK_TOLERANCE_SECONDS = 2.5
 VIDEO_HEARTBEAT_MAX_GAP_SECONDS = 15.0
 VIDEO_MAX_PLAYBACK_RATE = 2.0
 BADGE_PASSING_QUIZ_PCT = 80.0
+# A quiz left open counts against a student for the badge this long after it opened.
+QUIZ_DUE_AFTER = timedelta(days=7)
+UPCOMING_SHOWN = 3
 ATTENDANCE_CORRECTION_HOURS = 24
 ATTENDED_STATUSES = frozenset({"present", "late"})
 
@@ -916,6 +922,58 @@ def _badge_lesson_progress(
     return len(lesson_ids), len(completed), pct
 
 
+@dataclass(frozen=True)
+class _WorkStats:
+    """Quizzes or TPs as the badge counts them: due ones, plus what the student already did."""
+    total: int
+    done: int
+    due: int
+    validated: int = 0
+    attempted: int = 0
+    awaiting_review: int = 0
+    has_final: bool = False
+    final_valid: bool = False
+    upcoming: list[BadgeUpcomingRead] = field(default_factory=list)
+
+
+def _badge_quiz_stats(
+    db: Session,
+    tenant: TenantContext,
+    enrollment: EnrollmentRecord,
+    now: datetime | None = None,
+) -> _WorkStats:
+    """A quiz counts once passed, or once due: closed by the teacher, or open for 7 days."""
+    current = current_utc(now)
+    quizzes = [
+        quiz for quiz in db.scalars(select(QuizRecord).where(
+            QuizRecord.organization_id == tenant.organization_id,
+            QuizRecord.session_id == enrollment.session_id,
+            QuizRecord.status.in_(["active", "closed"]),
+        )).all()
+        if _linked_activity_is_published(db, tenant, "quiz", quiz.id)
+    ]
+    quizzes = _guided_badge_quizzes(db, tenant, enrollment, quizzes)
+    total = attempted = passed = due_count = 0
+    upcoming: list[BadgeUpcomingRead] = []
+    for quiz in quizzes:
+        scores = list(db.scalars(select(QuizAttemptRecord.score_pct).where(
+            QuizAttemptRecord.organization_id == tenant.organization_id,
+            QuizAttemptRecord.quiz_id == quiz.id,
+            QuizAttemptRecord.enrollment_id == enrollment.id,
+        )).all())
+        is_passed = bool(scores) and max(scores) >= BADGE_PASSING_QUIZ_PCT
+        due_at = current_utc(quiz.opened_at or quiz.scheduled_at or quiz.created_at) + QUIZ_DUE_AFTER
+        is_due = quiz.status == "closed" or due_at <= current
+        due_count += is_due
+        if is_due or is_passed:
+            total += 1
+            attempted += bool(scores)
+            passed += is_passed
+        elif quiz.status == "active":
+            upcoming.append(BadgeUpcomingRead(kind="quiz", title=quiz.title, due_at=due_at))
+    return _WorkStats(total=total, done=passed, due=due_count, attempted=attempted, upcoming=upcoming)
+
+
 def _final_project_passed(submission: AssignmentSubmissionRecord | None) -> bool:
     return bool(
         submission is not None
@@ -932,7 +990,8 @@ def _badge_assignment_stats(
     enrollment: EnrollmentRecord,
     formation: FormationRecord,
     session: FormationSessionRecord,
-) -> tuple[int, int, int, bool, bool]:
+    now: datetime | None = None,
+) -> "_WorkStats":
     guided = dashboard_type(formation) == "guided"
     standard: list[AssignmentRecord] = []
     finals: list[AssignmentRecord] = []
@@ -954,10 +1013,22 @@ def _badge_assignment_stats(
             AssignmentSubmissionRecord.enrollment_id == enrollment.id,
         )).all()
     }
-    submitted = [item for item in standard if item.id in submissions]
+    current = current_utc(now)
+    due = [item for item in standard if current_utc(item.due_date) <= current]
+    # Only what is due, or what the student already handed in, counts.
+    counted = [item for item in standard if item in due or item.id in submissions]
+    submitted = [item for item in counted if item.id in submissions]
     validated = [item for item in submitted if submissions[item.id].is_reviewed]
     final_valid = bool(finals) and all(_final_project_passed(submissions.get(item.id)) for item in finals)
-    return len(standard), len(submitted), len(validated), bool(finals), final_valid
+    upcoming = [
+        BadgeUpcomingRead(kind="assignment", title=item.title, due_at=current_utc(item.due_date))
+        for item in standard if item not in due and item.id not in submissions
+    ]
+    return _WorkStats(
+        total=len(counted), done=len(submitted), validated=len(validated), due=len(due),
+        awaiting_review=len(submitted) - len(validated), has_final=bool(finals), final_valid=final_valid,
+        upcoming=upcoming,
+    )
 
 
 def badge_for_enrollment(
@@ -999,12 +1070,11 @@ def badge_for_enrollment(
             missing_requirements=["Le programme de la session est en préparation : le badge sera calculé dès qu'il sera complet."],
         )
     total_lessons, completed_lessons, lesson_pct = _badge_lesson_progress(db, tenant, enrollment, formation, session)
-    total_assignments, submitted_assignments, validated_assignments, has_final, final_valid = _badge_assignment_stats(
-        db, tenant, enrollment, formation, session
-    )
-    total_quizzes, attempted_quizzes, passed_quizzes, _quiz_average = _quiz_stats(
-        db, tenant, enrollment, badge=True
-    )
+    work = _badge_assignment_stats(db, tenant, enrollment, formation, session)
+    quizzes = _badge_quiz_stats(db, tenant, enrollment)
+    total_assignments, submitted_assignments, validated_assignments = work.total, work.done, work.validated
+    has_final, final_valid = work.has_final, work.final_valid
+    total_quizzes, attempted_quizzes, passed_quizzes = quizzes.total, quizzes.attempted, quizzes.done
     attendance_total, attendance_present = _attendance_stats(db, tenant, enrollment)
     grade_pct = grade_average_pct(
         db,
@@ -1040,6 +1110,14 @@ def badge_for_enrollment(
         professional_eligible=not guided or (
             session.status != "cancelled" and current >= session_ends_at(session) and not unresolved_days
         ),
+        due_quizzes=quizzes.due,
+        due_assignments=work.due,
+        awaiting_review_assignments=work.awaiting_review,
+        teacher_grades=int(db.scalar(select(func.count(GradeRecord.id)).where(
+            GradeRecord.organization_id == tenant.organization_id,
+            GradeRecord.enrollment_id == enrollment.id,
+            GradeRecord.source_type == "manual",
+        )) or 0),
     )
     level = badge_level(stats)
     if version is not None:
@@ -1047,8 +1125,8 @@ def badge_for_enrollment(
             db, enrollment=enrollment, version=version, level=level, score_pct=badge_score(stats),
             evidence={
                 "lessons": [completed_lessons, total_lessons],
-                "assignments": [submitted_assignments, validated_assignments, total_assignments],
-                "quizzes": [passed_quizzes, total_quizzes],
+                "assignments": [submitted_assignments, validated_assignments, total_assignments, work.due],
+                "quizzes": [passed_quizzes, total_quizzes, quizzes.due],
                 "attendance": [attendance_present, attendance_total],
                 "grade_average_pct": grade_pct,
                 "final_project_validated": final_valid,
@@ -1071,6 +1149,8 @@ def badge_for_enrollment(
         final_project_validated=final_valid,
         missing_requirements=missing_requirements(next_level, stats) if next_level else [],
         ring_pct=badge_ring_pct(level, next_level, stats),
+        basis_note=badge_basis_note(stats),
+        upcoming=sorted(work.upcoming + quizzes.upcoming, key=lambda item: item.due_at)[:UPCOMING_SHOWN],
     )
 
 

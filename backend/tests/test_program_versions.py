@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import func, select
-from test_academic_suite import build_db, ctx, seed
+from test_academic_suite import pass_quizzes, build_db, ctx, seed
 
 from app.models.entities import (
     BadgeAwardRecord,
@@ -65,6 +65,7 @@ def test_an_incomplete_program_holds_the_badge_and_says_what_is_missing() -> Non
 def test_a_badge_once_reached_does_not_go_down_when_new_work_is_published() -> None:
     db, org, teacher, student, session, enrollment, lesson, _day, place = live_school()
     mark_lesson_complete(db, student, lesson.id)
+    pass_quizzes(db, org, teacher.user, session, enrollment, count=1)  # a first piece of evidence
     before = student_progress(db, student)[0].badge
     assert before.level != "aventurier"
     for index in range(4):

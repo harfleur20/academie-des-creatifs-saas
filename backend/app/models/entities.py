@@ -1009,6 +1009,8 @@ class QuizRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     pass_pct: Mapped[float] = mapped_column(Float, nullable=False, default=80)
+    # When students could first take it: a quiz counts against them for the badge 7 days later.
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     teacher: Mapped["UserRecord | None"] = relationship()
     questions: Mapped[list["QuizQuestionRecord"]] = relationship(

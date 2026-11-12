@@ -317,6 +317,13 @@ class StudentAttendanceRead(BaseModel):
 BadgeLevel = Literal["aventurier", "debutant", "intermediaire", "semi_pro", "professionnel"]
 
 
+class BadgeUpcomingRead(BaseModel):
+    """An open activity not yet due: done in time, it counts for the badge."""
+    kind: Literal["quiz", "assignment"]
+    title: str
+    due_at: datetime
+
+
 class BadgeRead(BaseModel):
     level: BadgeLevel
     label: str
@@ -330,6 +337,9 @@ class BadgeRead(BaseModel):
     final_project_validated: bool
     missing_requirements: list[str] = []
     ring_pct: float = 0.0
+    # What the badge rests on while quizzes or TPs are too few, and what can still raise it.
+    basis_note: str | None = None
+    upcoming: list[BadgeUpcomingRead] = []
 
 
 class ClassmateBadgeRead(BaseModel):

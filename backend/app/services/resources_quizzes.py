@@ -345,6 +345,8 @@ def set_quiz_status(
     if status_value == "draft" and previous_status != "draft" and is_frozen_requirement(db, quiz.session_id, "quiz_ids", quiz.id):
         raise HTTPException(409, FROZEN_MESSAGE)
     quiz.status = status_value
+    if status_value == "active" and quiz.opened_at is None:
+        quiz.opened_at = datetime.now(UTC)
     if status_value == "active" and previous_status != "active":
         session = get_session(db, tenant, quiz.session_id)
         queue_session_students_event(
