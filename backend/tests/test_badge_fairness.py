@@ -1,7 +1,7 @@
 """The badge weighs the evidence there is (docs/BADGES.md): scenarios and the two guarantees."""
 import random
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from test_academic_suite import build_db, ctx, seed
@@ -38,9 +38,21 @@ def test_scenarios(name, stats, level):
 
 
 def test_a_category_with_enough_items_gates_again():
-    stats = replace(LIVE_CLASS, total_quizzes=3, attempted_quizzes=3, passed_quizzes=0)
-    assert badge_level(stats) == "aventurier"
-    assert "réussissez 1 quiz sur 3" in missing_requirements("debutant", stats)
+    untouched = replace(LIVE_CLASS, total_quizzes=3, attempted_quizzes=0, passed_quizzes=0)
+    assert badge_level(untouched) == "aventurier"
+    assert "tentez 1 quiz sur 3" in missing_requirements("debutant", untouched)
+
+    # Tried but failed: the effort earns Débutant, like a TP handed in; passing comes next.
+    tried = replace(untouched, attempted_quizzes=3)
+    assert badge_level(tried) == "debutant"
+    assert "réussissez 2 quiz sur 3" in missing_requirements("intermediaire", tried)
+
+
+def test_one_failed_quiz_out_of_three_waits_for_its_retake():
+    # Rounded up as on the mother site: with 3 quizzes, Semi-pro needs all 3, so the quiz is retaken.
+    failed_one = replace(LIVE_CLASS, total_quizzes=3, attempted_quizzes=3, passed_quizzes=2)
+    assert badge_level(failed_one) == "intermediaire"
+    assert badge_level(replace(failed_one, passed_quizzes=3)) == "semi_pro"
 
 
 def test_professional_needs_real_evaluations():
@@ -130,6 +142,7 @@ def test_publishing_a_quiz_changes_nothing_before_it_is_due():
     db = build_db()
     org, teacher, student, _classmate, session, enrollment, _ce, lesson, _day = seed(db)
     db.get(FormationRecord, session.formation_id).format_type = "live"
+    session.end_date = date.today() + timedelta(days=30)  # still running: work is not due yet
     db.commit()
     tenant = ctx(db, org, student)
     mark_lesson_complete(db, tenant, lesson.id)
@@ -165,4 +178,5 @@ def test_an_open_quiz_left_aside_counts_once_due():
     db.commit()
     badge = badge_for_enrollment(db, tenant, enrollment)
     assert badge.quiz_progress_pct == 0
-    assert badge.upcoming == []
+    # Still open: listed as work to catch up on.
+    assert [(item.title, item.overdue) for item in badge.upcoming] == [("Quiz oublié", True)]

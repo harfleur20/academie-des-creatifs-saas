@@ -1673,6 +1673,8 @@ export type StudentAssignment = {
   review_score: number | null
   review_max_score: number
   comment_count: number
+  /** Live and presentiel: the session is over, nothing more can be handed in. */
+  submissions_closed?: boolean
 }
 
 export type AssignmentSubmission = {
@@ -1937,6 +1939,8 @@ export type StudentQuiz = {
   next_attempt_available_at: string | null
   pdf_reading_pct: number | null
   pdf_reading_locked: boolean
+  /** Live and presentiel: the session is over, no more attempts. */
+  work_closed?: boolean
 }
 
 export type TeacherQuizResults = {
@@ -2218,7 +2222,7 @@ export type StudentBadge = {
   /** What the badge rests on while quizzes or TPs are still few. */
   basis_note?: string | null
   /** Open work not due yet: done in time, it counts for the badge. */
-  upcoming?: Array<{ kind: 'quiz' | 'assignment'; title: string; due_at: string }>
+  upcoming?: Array<{ kind: 'quiz' | 'assignment'; title: string; due_at: string; overdue?: boolean }>
 }
 
 export type StudentProgress = {

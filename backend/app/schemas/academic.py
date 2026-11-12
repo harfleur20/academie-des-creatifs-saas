@@ -143,6 +143,8 @@ class StudentQuizRead(BaseModel):
     next_attempt_available_at: datetime | None = None
     pdf_reading_pct: float | None = None
     pdf_reading_locked: bool = False
+    # Live and presentiel: the session is over, no more attempts.
+    work_closed: bool = False
 
 
 class QuizAttemptPayload(BaseModel):
@@ -318,10 +320,12 @@ BadgeLevel = Literal["aventurier", "debutant", "intermediaire", "semi_pro", "pro
 
 
 class BadgeUpcomingRead(BaseModel):
-    """An open activity not yet due: done in time, it counts for the badge."""
+    """Work the student can still do for the badge: not due yet, or late but still open."""
     kind: Literal["quiz", "assignment"]
     title: str
     due_at: datetime
+    # Past its due date: a TP still to hand in, or a quiz still to pass.
+    overdue: bool = False
 
 
 class BadgeRead(BaseModel):
