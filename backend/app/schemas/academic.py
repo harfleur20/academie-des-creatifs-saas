@@ -281,6 +281,9 @@ class AttendanceRowRead(BaseModel):
     student_id: int
     student_name: str
     status: AttendanceStatus | None
+    # Live classes: what shows the student followed, for the teacher to check the prefilled attendance.
+    live_minutes: int | None = None
+    live_roll_calls_answered: int | None = None
 
 
 class AttendanceMarkPayload(BaseModel):
@@ -301,6 +304,7 @@ class AttendanceCourseDayRead(BaseModel):
     delivery_status: str | None
     report_submitted_at: datetime | None
     rows: list[AttendanceRowRead]
+    live_roll_calls: int | None = None
 
 
 class StudentAttendanceRead(BaseModel):
@@ -311,6 +315,13 @@ class StudentAttendanceRead(BaseModel):
 
 
 BadgeLevel = Literal["aventurier", "debutant", "intermediaire", "semi_pro", "professionnel"]
+
+
+class BadgeUpcomingRead(BaseModel):
+    """An open activity not yet due: done in time, it counts for the badge."""
+    kind: Literal["quiz", "assignment"]
+    title: str
+    due_at: datetime
 
 
 class BadgeRead(BaseModel):
@@ -326,6 +337,9 @@ class BadgeRead(BaseModel):
     final_project_validated: bool
     missing_requirements: list[str] = []
     ring_pct: float = 0.0
+    # What the badge rests on while quizzes or TPs are too few, and what can still raise it.
+    basis_note: str | None = None
+    upcoming: list[BadgeUpcomingRead] = []
 
 
 class ClassmateBadgeRead(BaseModel):
@@ -439,6 +453,9 @@ class TeacherPerformanceSessionRead(BaseModel):
     attendance_rate_pct: float | None
     quiz_average_score_pct: float | None
     pending_reviews_count: int
+    # Too few due quizzes and TPs for evaluation to weigh in the badges, and students falling behind.
+    badge_hint: str | None = None
+    low_attendance_count: int = 0
 
 
 class TeacherPerformanceRead(BaseModel):

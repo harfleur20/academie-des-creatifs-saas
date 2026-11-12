@@ -1,7 +1,24 @@
-"""Badge decision aligned on the mother site's rules.
+"""Badge decision: the mother site's rules, made fair to the evidence available.
 
 Guided paths (live, presentiel) must clear every criterion of a level, while the
 classic path only needs its weighted score below the Professional level.
+
+On top of the mother site's rules, the badge only weighs what there is to weigh
+(see docs/BADGES.md):
+
+- Fair: nothing counts against a student before its due date, nor while a teacher
+  has not reviewed the work; what the student did counts at once.
+- Proportionate: a category with few due items (quizzes, TPs, live classes) does not
+  gate any level and weighs in proportion; the other categories, live classes first,
+  carry the badge.
+- Proven: each level needs a minimum of evidence, and Professional needs real
+  evaluations.
+
+Two properties hold and are tested: a student's own action (passing a quiz, handing
+in or getting a TP reviewed, attending a class, finishing a lesson) never lowers their
+score or level; publishing an activity changes nothing before it is due. They hold
+because a category's weight and gating only depend on its due items, never on what
+the student did early.
 """
 
 from dataclasses import dataclass
@@ -21,6 +38,13 @@ LEVEL_RULES = {
     "professionnel": {"score": 90.0, "content": 100.0, "assignments": 100.0, "quizzes": 80.0, "live": 80.0, "grade": 80.0},
 }
 
+# Below these numbers of due items, a category does not gate any level and only weighs
+# in proportion (one due quiz out of three weighs a third of the evaluation).
+EVIDENCE_THRESHOLDS = {"quizzes": 3, "assignments": 2, "live": 4}
+# Evidence a guided student needs for each level: classes attended, quizzes passed, TPs handed
+# in and the teacher's own grades. Lessons are not evidence: they could stand in for the classes.
+LEVEL_MIN_EVIDENCE = {"debutant": 1, "intermediaire": 3, "semi_pro": 5, "professionnel": 5}
+
 
 @dataclass(frozen=True)
 class BadgeStats:
@@ -29,6 +53,7 @@ class BadgeStats:
     total_lessons: int
     completed_lessons: int
     lesson_progress_pct: float
+    # Quizzes and TPs that count: the due ones and the ones the student already did.
     total_assignments: int
     submitted_assignments: int
     validated_assignments: int
@@ -41,6 +66,13 @@ class BadgeStats:
     has_final_project: bool
     final_project_validated: bool
     professional_eligible: bool
+    # Items past their due date; None when every counted item is due.
+    due_quizzes: int | None = None
+    due_assignments: int | None = None
+    # TPs handed in that the teacher has not reviewed yet: they do not count against validation.
+    awaiting_review_assignments: int = 0
+    # Grades the teacher entered (not the automatic ones of quizzes and TPs, counted already).
+    teacher_grades: int = 0
 
 
 @dataclass(frozen=True)
@@ -66,6 +98,38 @@ def _percent(done: int, total: int) -> float:
     return round(done / total * 100, 1)
 
 
+def due_count(stats: BadgeStats, category: str) -> int:
+    if category == "quizzes":
+        return stats.total_quizzes if stats.due_quizzes is None else stats.due_quizzes
+    if category == "assignments":
+        return stats.total_assignments if stats.due_assignments is None else stats.due_assignments
+    return stats.attendance_total
+
+
+def has_full_evidence(stats: BadgeStats, category: str) -> bool:
+    return due_count(stats, category) >= EVIDENCE_THRESHOLDS[category]
+
+
+def _confidence(stats: BadgeStats, category: str) -> float:
+    """How much a category weighs: its due items against the threshold.
+
+    Work done ahead of any due item weighs like one due item, so it counts at once; it
+    is all done, so it cannot lower the score. How much of it there is never changes
+    the weight, which keeps a student's action from shifting weight onto a weak category.
+    """
+    due = due_count(stats, category)
+    total = stats.total_quizzes if category == "quizzes" else stats.total_assignments if category == "assignments" else due
+    return min(1.0, max(due, 1 if total > due else 0) / EVIDENCE_THRESHOLDS[category])
+
+
+def evidence_count(stats: BadgeStats) -> int:
+    return stats.attendance_present + stats.passed_quizzes + stats.submitted_assignments + stats.teacher_grades
+
+
+def _reviewable_assignments(stats: BadgeStats) -> int:
+    return max(0, stats.total_assignments - stats.awaiting_review_assignments)
+
+
 def quiz_mastery_pct(stats: BadgeStats) -> float | None:
     if stats.total_quizzes <= 0:
         return None
@@ -77,12 +141,12 @@ def quiz_mastery_pct(stats: BadgeStats) -> float | None:
 def _production_pct(stats: BadgeStats) -> float | None:
     assignment_pct = None
     if stats.total_assignments > 0:
-        # A submitted TP shows effort; a reviewed TP is the stronger evidence.
-        assignment_pct = round(
-            _percent(stats.submitted_assignments, stats.total_assignments) * 0.4
-            + _percent(stats.validated_assignments, stats.total_assignments) * 0.6,
-            1,
-        )
+        submitted_pct = _percent(stats.submitted_assignments, stats.total_assignments)
+        reviewable = _reviewable_assignments(stats)
+        # A submitted TP shows effort; a reviewed TP is the stronger evidence. Until the
+        # teacher reviews anything, handing in is all the student can do.
+        validated_pct = _percent(stats.validated_assignments, reviewable) if reviewable else submitted_pct
+        assignment_pct = round(submitted_pct * 0.4 + validated_pct * 0.6, 1)
     # On guided paths the final project only gates Professional, so that it does
     # not hold back the early levels months before it is due.
     if stats.guided or not stats.has_final_project:
@@ -94,19 +158,30 @@ def _production_pct(stats: BadgeStats) -> float | None:
 
 
 def badge_score(stats: BadgeStats) -> float:
-    evaluation = [value for value in (quiz_mastery_pct(stats), stats.grade_average_pct) if value is not None]
+    quiz = quiz_mastery_pct(stats)
+    evaluation = [value for value in (quiz, stats.grade_average_pct) if value is not None]
+    production = _production_pct(stats)
+    # (value, confidence): a pillar with few due items weighs in proportion.
     pillars = {
-        "content": stats.lesson_progress_pct if stats.total_lessons > 0 else None,
-        "evaluation": round(sum(evaluation) / len(evaluation), 1) if evaluation else None,
-        "production": _production_pct(stats),
-        "live": _percent(stats.attendance_present, stats.attendance_total) if stats.attendance_total > 0 else None,
+        "content": (stats.lesson_progress_pct, 1.0) if stats.total_lessons > 0 else None,
+        "evaluation": (
+            round(sum(evaluation) / len(evaluation), 1),
+            1.0 if stats.grade_average_pct is not None else _confidence(stats, "quizzes"),
+        ) if evaluation else None,
+        "production": (
+            production,
+            1.0 if not stats.guided and stats.has_final_project else _confidence(stats, "assignments"),
+        ) if production is not None else None,
+        "live": (
+            _percent(stats.attendance_present, stats.attendance_total), _confidence(stats, "live"),
+        ) if stats.attendance_total > 0 else None,
     }
     weights = LIVE_PILLAR_WEIGHTS if stats.format_type == "live" else PILLAR_WEIGHTS
-    active = {name: value for name, value in pillars.items() if value is not None}
-    total_weight = sum(weights[name] for name in active)
+    active = {name: pillar for name, pillar in pillars.items() if pillar is not None}
+    total_weight = sum(weights[name] * confidence for name, (_value, confidence) in active.items())
     if total_weight <= 0:
         return 0.0
-    return round(sum(value * weights[name] for name, value in active.items()) / total_weight, 1)
+    return round(sum(value * weights[name] * confidence for name, (value, confidence) in active.items()) / total_weight, 1)
 
 
 def _criteria(level: str, stats: BadgeStats) -> list[_Criterion]:
@@ -121,25 +196,27 @@ def _criteria(level: str, stats: BadgeStats) -> list[_Criterion]:
             stats.completed_lessons, required,
             f"terminez {required} contenu(s) obligatoire(s) sur {stats.total_lessons}",
         ))
-    if stats.total_assignments > 0:
-        required = _required_count(stats.total_assignments, rule["assignments"])
+    if has_full_evidence(stats, "assignments"):
         if level == "debutant":
+            required = _required_count(stats.total_assignments, rule["assignments"])
             criteria.append(_Criterion(
                 stats.submitted_assignments, required,
                 f"rendez {required} TP sur {stats.total_assignments}",
             ))
-        else:
+        elif _reviewable_assignments(stats):
+            reviewable = _reviewable_assignments(stats)
+            required = _required_count(reviewable, rule["assignments"])
             criteria.append(_Criterion(
                 stats.validated_assignments, required,
-                f"faites corriger et valider {required} TP sur {stats.total_assignments}",
+                f"faites corriger et valider {required} TP sur {reviewable}",
             ))
-    if stats.total_quizzes > 0:
+    if has_full_evidence(stats, "quizzes"):
         required = _required_count(stats.total_quizzes, rule["quizzes"])
         criteria.append(_Criterion(
             stats.passed_quizzes, required,
             f"réussissez {required} quiz sur {stats.total_quizzes}",
         ))
-    if stats.attendance_total > 0:
+    if has_full_evidence(stats, "live"):
         required = _required_count(stats.attendance_total, rule["live"])
         criteria.append(_Criterion(
             stats.attendance_present, required,
@@ -150,6 +227,12 @@ def _criteria(level: str, stats: BadgeStats) -> list[_Criterion]:
             stats.grade_average_pct, rule["grade"],
             f"obtenez une moyenne d'au moins {int(rule['grade'] / 5)}/20",
         ))
+    if stats.guided:
+        needed = LEVEL_MIN_EVIDENCE[level]
+        criteria.append(_Criterion(
+            evidence_count(stats), needed,
+            f"cumulez {needed} preuve(s) : séances suivies, quiz réussis, TP rendus ou notes du professeur",
+        ))
     if level == "professionnel":
         if not stats.professional_eligible:
             criteria.append(_Criterion(0, 1, "attendez la fin de la session et la validation des séances"))
@@ -157,6 +240,12 @@ def _criteria(level: str, stats: BadgeStats) -> list[_Criterion]:
             criteria.append(_Criterion(
                 1 if stats.final_project_validated else 0, 1,
                 "validez le projet final avec au moins 80%",
+            ))
+        if not (has_full_evidence(stats, "quizzes") or has_full_evidence(stats, "assignments")):
+            criteria.append(_Criterion(
+                0, 1,
+                f"le niveau Professionnel demande au moins {EVIDENCE_THRESHOLDS['quizzes']} quiz "
+                f"ou {EVIDENCE_THRESHOLDS['assignments']} TP échus",
             ))
     return criteria
 
@@ -187,3 +276,20 @@ def badge_ring_pct(level: str, next_level: str | None, stats: BadgeStats) -> flo
     start = 0.0 if level == "aventurier" else LEVEL_RULES[level]["score"]
     end = LEVEL_RULES[next_level]["score"]
     return max(0.0, min(99.0, round((badge_score(stats) - start) / (end - start) * 100)))
+
+
+def badge_basis_note(stats: BadgeStats) -> str | None:
+    """What the badge rests on when quizzes or TPs are still too few to weigh fully."""
+    if not stats.guided:
+        return None
+    thin = [label for category, label in (("quizzes", "de quiz"), ("assignments", "de TP")) if not has_full_evidence(stats, category)]
+    if not thin:
+        return None
+    sources = []
+    if stats.attendance_total > 0:
+        sources.append("vos présences en live" if stats.format_type == "live" else "vos présences aux séances")
+    if stats.total_lessons > 0:
+        sources.append("vos contenus")
+    if not sources:
+        return f"Peu {' et '.join(thin)} échus à ce stade : votre badge se construira avec vos prochaines activités."
+    return f"Peu {' et '.join(thin)} échus à ce stade : votre badge repose surtout sur {' et '.join(sources)}."

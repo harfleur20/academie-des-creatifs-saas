@@ -114,6 +114,20 @@ class LiveRoomInfoRead(BaseModel):
     responsible_teacher: bool
 
 
+class LiveRollCallRead(BaseModel):
+    """The latest roll call: open for two minutes; the teacher also sees how many answered."""
+    id: int
+    started_at: datetime
+    closes_at: datetime
+    open: bool
+    answered: bool
+    answers_count: int | None = None
+
+
+class LiveHeartbeatRead(BaseModel):
+    roll_call: LiveRollCallRead | None = None
+
+
 class LiveStartRead(BaseModel):
     course_day_id: int
     started_at: datetime

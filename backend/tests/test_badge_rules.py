@@ -110,8 +110,8 @@ def test_missing_requirements_explain_the_next_level():
 
 def test_readiness_averages_the_criteria_of_the_level():
     stats = replace(COMPLETE, validated_assignments=0)
-    # Score, lessons, quizzes and attendance are met; assignments are not.
-    assert level_readiness_pct("intermediaire", stats) == 80.0
+    # Score, lessons, quizzes, attendance and evidence are met; assignments are not.
+    assert level_readiness_pct("intermediaire", stats) == 83.3
 
 
 def school(format_type="live"):
@@ -225,7 +225,8 @@ def test_badge_counts_reviewed_assignments_separately():
     db.commit()
     tenant = tenant_for(db, org, student)
     unreviewed = badge_for_enrollment(db, tenant, enrollment)
-    assert unreviewed.score_pct == 40.0
+    # Handed in ahead of its due date and waiting for the teacher: it counts fully at once.
+    assert unreviewed.score_pct == 100.0
     assert unreviewed.assignment_progress_pct == 100
 
     submission.is_reviewed = True

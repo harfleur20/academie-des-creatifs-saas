@@ -1,10 +1,10 @@
 import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from 'react'
-import { LogOut, Mic, MicOff, Video, VideoOff, X } from 'lucide-react'
+import { Hand, LogOut, Mic, MicOff, Video, VideoOff, X } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import {
-  ApiError, fetchLiveRoomInfo, heartbeatLiveClass, joinLiveClass, leaveLiveClass, startLiveClass, submitCourseDayReport,
-  type LiveDevice, type LiveRoom, type LiveRoomInfo,
+  ApiError, answerLiveRollCall, fetchLiveRoomInfo, heartbeatLiveClass, joinLiveClass, leaveLiveClass, startLiveClass,
+  startLiveRollCall, submitCourseDayReport, type LiveDevice, type LiveRollCall, type LiveRoom, type LiveRoomInfo,
 } from '../lib/api'
 
 const DEVICE_KEY = 'academie_live_device_id'
@@ -21,6 +21,8 @@ function liveDevice(): LiveDevice {
 }
 
 const HEARTBEAT_MS = 30_000
+// While a roll call is open, the teacher's count of answers refreshes faster.
+const ROLL_CALL_REFRESH_MS = 10_000
 
 type JitsiApi = { dispose: () => void; addEventListener: (event: string, listener: () => void) => void }
 
@@ -95,6 +97,8 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
   const [ending, setEnding] = useState(false)
   const [endError, setEndError] = useState('')
   const [draft, setDraft] = useState({ delivery_status: 'held' as DeliveryStatus, summary: '', difficulties: '', homework: '', attendance_notes: '' })
+  const [rollCall, setRollCall] = useState<LiveRollCall | null>(null)
+  const [rollCallBusy, setRollCallBusy] = useState(false)
   const backPath = space === 'teacher' ? '/app/teacher/sessions' : '/app/student/formations'
 
   useEffect(() => {
@@ -147,7 +151,9 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     if (!entered || !courseDay) return
     let stopped = false
     const beat = () => {
-      heartbeatLiveClass(courseDay, device.current).catch((caught) => {
+      heartbeatLiveClass(courseDay, device.current).then((result) => {
+        if (!stopped) setRollCall(result?.roll_call ?? null)
+      }).catch((caught) => {
         if (stopped || !(caught instanceof ApiError) || ![403, 404, 409].includes(caught.status)) return
         meeting.current?.dispose()
         meeting.current = null
@@ -168,6 +174,16 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
       leaveRoom()
     }
   }, [entered])
+
+  // The teacher sees the answers come in while the roll call is open.
+  useEffect(() => {
+    const courseDay = joinedRoom.current?.course_day_id
+    if (!entered || !courseDay || !rollCall?.open || rollCall.answers_count === null) return
+    const interval = window.setInterval(() => {
+      heartbeatLiveClass(courseDay, device.current).then((result) => setRollCall(result?.roll_call ?? null)).catch(() => undefined)
+    }, ROLL_CALL_REFRESH_MS)
+    return () => window.clearInterval(interval)
+  }, [entered, rollCall?.open, rollCall?.answers_count === null]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) {
     return <div className="live-room live-room--error">
@@ -218,6 +234,32 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     }
   }
 
+  async function callRoll() {
+    if (!info) return
+    setRollCallBusy(true)
+    try {
+      setRollCall(await startLiveRollCall(info.course_day_id))
+    } catch (caught) {
+      setJoinError(caught instanceof ApiError ? caught.message : "Impossible de lancer l'appel.")
+    } finally {
+      setRollCallBusy(false)
+    }
+  }
+
+  async function answerRoll() {
+    if (!info || !rollCall) return
+    setRollCallBusy(true)
+    try {
+      await answerLiveRollCall(info.course_day_id, rollCall.id)
+      setRollCall({ ...rollCall, answered: true })
+    } catch (caught) {
+      setRollCall(null)
+      setJoinError(caught instanceof ApiError ? caught.message : "Votre réponse à l'appel n'a pas été enregistrée.")
+    } finally {
+      setRollCallBusy(false)
+    }
+  }
+
   function leave() {
     meeting.current?.dispose()
     meeting.current = null
@@ -259,6 +301,12 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
         </> : <span className="live-room__loading">Connexion en cours…</span>}
       </div>
       <div className="live-room__bar-actions">
+        {phase === 'live' && info?.responsible_teacher && info.started_at && (rollCall?.open
+          ? <span className="live-room__roll-call-status" role="status">Appel en cours · {rollCall.answers_count ?? 0} réponse(s) · {formatWait(Date.parse(rollCall.closes_at) - nowMs)}</span>
+          : <>
+            {rollCall && <span className="live-room__roll-call-status">Dernier appel : {rollCall.answers_count ?? 0} réponse(s)</span>}
+            <button type="button" className="live-room__end" disabled={rollCallBusy} onClick={() => void callRoll()}><Hand size={14} aria-hidden="true" /> Faire l'appel</button>
+          </>)}
         {canStart && <button type="button" className="live-room__end" disabled={starting} onClick={() => void startCourse()}>
           {starting ? 'Démarrage…' : 'Démarrer le cours'}
         </button>}
@@ -311,6 +359,16 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
         </div>}
       </div>
     )}
+
+    {phase === 'live' && rollCall?.open && rollCall.answers_count === null && !rollCall.answered && <div className="live-room-confirm" role="alertdialog" aria-modal="true" aria-labelledby="live-room-roll-call-title">
+      <div className="live-room-confirm__backdrop" aria-hidden="true" />
+      <div className="live-room-confirm__panel">
+        <span className="live-room-confirm__icon live-room-roll-call__icon"><Hand size={22} /></span>
+        <h2 id="live-room-roll-call-title">Le professeur fait l'appel</h2>
+        <p>Confirmez que vous suivez le cours. Il reste {formatWait(Date.parse(rollCall.closes_at) - nowMs)}.</p>
+        <button type="button" className="live-room__join-class" disabled={rollCallBusy} onClick={() => void answerRoll()}>Je suis là</button>
+      </div>
+    </div>}
 
     {leaveOpen && <div className="live-room-confirm" role="dialog" aria-modal="true" aria-labelledby="live-room-leave-title">
       <button type="button" className="live-room-confirm__backdrop" aria-label="Rester dans la classe" onClick={() => setLeaveOpen(false)} />

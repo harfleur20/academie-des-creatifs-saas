@@ -106,6 +106,22 @@ def build_db() -> Session:
     return Session(engine, expire_on_commit=False)
 
 
+def pass_quizzes(db: Session, org, teacher, session, enrollment, count: int = 5) -> None:
+    """Real evaluations: closed quizzes the student passed. Professional needs them."""
+    for number in range(count):
+        quiz = QuizRecord(
+            organization_id=org.id, session_id=session.id, teacher_id=teacher.id,
+            title=f"Évaluation {number + 1}", status="closed",
+        )
+        db.add(quiz)
+        db.flush()
+        db.add(QuizAttemptRecord(
+            organization_id=org.id, quiz_id=quiz.id, enrollment_id=enrollment.id,
+            attempt_number=1, answers=[], score_pct=100, submitted_at=datetime(2025, 1, 10, tzinfo=UTC),
+        ))
+    db.commit()
+
+
 def seed(db: Session):
     org = OrganizationRecord(name="School", slug="school")
     teacher = UserRecord(email="teacher@test.dev", full_name="Teacher", status="active")
@@ -651,6 +667,8 @@ def test_guided_badge_waits_for_course_day_report_and_finalized_attendance() -> 
     teacher_tenant = ctx(db, org, teacher)
     student_tenant = ctx(db, org, student)
     mark_lesson_complete(db, student_tenant, lesson.id)
+    assert student_progress(db, student_tenant)[0].badge.level == "aventurier"  # a lesson is no evidence
+    pass_quizzes(db, org, teacher, session, enrollment)
     assert student_progress(db, student_tenant)[0].badge.level == "semi_pro"
     with pytest.raises(HTTPException) as too_early:
         submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(delivery_status="held", summary="Cours terminé normalement"), now=datetime(2025, 1, 10, 9, 30, tzinfo=UTC))
@@ -686,12 +704,13 @@ def test_guided_badge_waits_for_course_day_report_and_finalized_attendance() -> 
 
 def test_non_held_course_day_does_not_count_as_student_absence() -> None:
     db = build_db()
-    org, teacher, student, _, session, _, _, lesson, day = seed(db)
+    org, teacher, student, _, session, enrollment, _, lesson, day = seed(db)
     db.get(FormationRecord, session.formation_id).format_type = "live"
     db.commit()
     teacher_tenant = ctx(db, org, teacher)
     student_tenant = ctx(db, org, student)
     mark_lesson_complete(db, student_tenant, lesson.id)
+    pass_quizzes(db, org, teacher, session, enrollment)
 
     planning = submit_course_day_report(db, teacher_tenant, day.id, CourseDayReportSubmit(
         delivery_status="not_held", summary="La séance n'a pas pu avoir lieu.",
@@ -933,6 +952,9 @@ def test_lesson_progress_badge_and_certificate_are_real() -> None:
 
     progress = student_progress(db, student_tenant)[0]
     assert progress.lesson_progress_pct == 100
+    assert progress.badge.level == "semi_pro"  # Professional needs real evaluations
+    pass_quizzes(db, org, teacher, session, enrollment)
+    progress = student_progress(db, student_tenant)[0]
     assert progress.badge.level == "professionnel"
 
     certificate = issue_certificate(db, student_tenant, enrollment.id)
@@ -1035,6 +1057,7 @@ def test_guided_certificate_requires_school_validation() -> None:
     db.commit()
     student_tenant = ctx(db, org, student)
     mark_lesson_complete(db, student_tenant, lesson.id)
+    pass_quizzes(db, org, teacher, session, enrollment)
     assert student_progress(db, student_tenant)[0].badge.level == "professionnel"
 
     before = certificate_eligibility(db, student_tenant, enrollment.id)
@@ -1071,8 +1094,9 @@ def test_badge_weights_standard_assignments_and_final_project_separately() -> No
     assert progress.total_assignments == 2
     assert progress.badge.assignment_progress_pct == 100
     assert progress.badge.final_project_validated is False
-    # A submitted but unreviewed TP weighs 40 %, then 70 % of production next to the final project.
-    assert progress.badge.score_pct == 9.3
+    # The TP waits for the teacher's review, so it counts as handed in (70 % of production next to
+    # the final project); the only past class, missed, weighs a quarter of the live share.
+    assert progress.badge.score_pct == 27.5
 
 
 def test_badge_quiz_mastery_requires_eighty_percent() -> None:
@@ -1085,6 +1109,7 @@ def test_badge_quiz_mastery_requires_eighty_percent() -> None:
     quiz = QuizRecord(
         organization_id=org.id, session_id=session.id, teacher_id=teacher.id,
         title="Quiz PDF", status="active", pass_pct=70,
+        opened_at=datetime.now(UTC) - timedelta(days=8),  # open for over 7 days: due
     )
     db.add(quiz)
     db.flush()
@@ -1103,7 +1128,11 @@ def test_badge_quiz_mastery_requires_eighty_percent() -> None:
         attempt_number=2, answers=[], score_pct=80, submitted_at=datetime.now(UTC),
     ))
     db.commit()
-    assert student_progress(db, tenant)[0].badge.level == "professionnel"
+    badge = student_progress(db, tenant)[0].badge
+    assert badge.quiz_progress_pct == 100
+    # One passed quiz is too little to certify a professional level.
+    assert badge.level == "semi_pro"
+    assert any("Professionnel demande au moins 3 quiz" in item for item in badge.missing_requirements)
 
 
 def test_professional_badge_rounds_required_quizzes_up() -> None:
@@ -1229,6 +1258,12 @@ def test_guided_badge_counts_assignment_after_its_course_day_opens() -> None:
     assert badge_for_enrollment(db, student_tenant, enrollment).assignment_progress_pct is None
 
     day.scheduled_at = datetime.now(UTC) - timedelta(days=1)
+    db.commit()
+    opened = badge_for_enrollment(db, student_tenant, enrollment)
+    assert opened.assignment_progress_pct is None  # open, not due yet: it can only help
+    assert [item.title for item in opened.upcoming] == ["Travail de la séance"]
+
+    assignment.due_date = datetime.now(UTC) - timedelta(hours=1)
     db.commit()
     assert badge_for_enrollment(db, student_tenant, enrollment).assignment_progress_pct == 0
 

@@ -98,6 +98,19 @@ export function StudentProgressPage() {
                 </div>
               </div>
 
+              {item.badge.basis_note && <p className="progress-basis">{item.badge.basis_note}</p>}
+              {item.badge.upcoming && item.badge.upcoming.length > 0 && (
+                <div className="progress-upcoming">
+                  <strong>À faire pour progresser</strong>
+                  <ul>
+                    {item.badge.upcoming.map((work) => (
+                      <li key={`${work.kind}-${work.title}-${work.due_at}`}>
+                        {work.kind === 'quiz' ? 'Quiz' : 'TP'} « {work.title} » avant le {new Date(work.due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {nextLevel && (
                 <div className="progress-next">
                   <StudentLevelBadge

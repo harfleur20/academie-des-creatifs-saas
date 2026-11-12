@@ -1009,6 +1009,8 @@ class QuizRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     pass_pct: Mapped[float] = mapped_column(Float, nullable=False, default=80)
+    # When students could first take it: a quiz counts against them for the badge 7 days later.
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     teacher: Mapped["UserRecord | None"] = relationship()
     questions: Mapped[list["QuizQuestionRecord"]] = relationship(
@@ -1153,6 +1155,31 @@ class LiveRoomPresenceRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     first_joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Time actually spent in the room: each heartbeat credits at most a minute since the previous one.
+    seconds_in_room: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class LiveRollCallRecord(OrganizationOwnedMixin, TimestampMixin, Base):
+    """A roll call the teacher runs during a live class: students answer "Je suis là" in time."""
+    __tablename__ = "live_roll_calls"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_day_id: Mapped[int] = mapped_column(ForeignKey("session_course_days.id", ondelete="CASCADE"), nullable=False, index=True)
+    started_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    closes_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class LiveRollCallAnswerRecord(OrganizationOwnedMixin, Base):
+    __tablename__ = "live_roll_call_answers"
+    __table_args__ = (
+        UniqueConstraint("roll_call_id", "user_id", name="uq_live_roll_call_answers_call_user"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    roll_call_id: Mapped[int] = mapped_column(ForeignKey("live_roll_calls.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class GradeRecord(OrganizationOwnedMixin, TimestampMixin, Base):

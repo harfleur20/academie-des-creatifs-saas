@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import re
 
 import jwt
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.models.entities import (
-    EnrollmentRecord, FormationSessionRecord, LiveRoomPresenceRecord, OrganizationPublicSiteRecord, OrganizationRecord,
+    EnrollmentRecord, FormationSessionRecord, LiveRollCallAnswerRecord, LiveRollCallRecord, LiveRoomPresenceRecord,
+    OrganizationPublicSiteRecord, OrganizationRecord,
     SessionCourseDayRecord, SessionTeacherRecord, UserRecord,
 )
 from app.services.live_recordings import _source_url
@@ -309,6 +311,17 @@ def _device_id(value: str | None, user_id: int) -> str:
     return safe[:128] or f"user-{user_id}"
 
 
+# Each heartbeat credits the time since the previous one, at most a minute: a dropped
+# connection or a closed tab is not counted as time in the room.
+HEARTBEAT_CREDIT_MAX = timedelta(seconds=60)
+
+
+def _credit_time_in_room(presence: LiveRoomPresenceRecord, current: datetime) -> None:
+    if presence.left_at is None:
+        gap = (current - _aware(presence.last_seen_at)).total_seconds()
+        presence.seconds_in_room = (presence.seconds_in_room or 0) + int(max(0.0, min(gap, HEARTBEAT_CREDIT_MAX.total_seconds())))
+
+
 def _hold_live_device(
     db: Session, tenant: TenantContext, day: SessionCourseDayRecord,
     device_id: str | None, device_label: str | None, current: datetime,
@@ -335,8 +348,10 @@ def _hold_live_device(
         db.add(LiveRoomPresenceRecord(
             organization_id=tenant.organization_id, course_day_id=day.id, user_id=tenant.user.id,
             device_id=device, device_label=label, first_joined_at=current, last_seen_at=current,
+            seconds_in_room=0,
         ))
     else:
+        _credit_time_in_room(presence, current)
         presence.last_seen_at = current
         presence.left_at = None
         presence.device_label = label or presence.device_label
@@ -346,11 +361,17 @@ def _hold_live_device(
 def heartbeat_live_class(
     db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None,
     device_id: str | None = None, device_label: str | None = None,
-) -> None:
-    """Keeps a student's device in the room; a closed class or another device ends it (404, 409)."""
+) -> dict:
+    """Keeps a student's device in the room and tells the room about the roll call.
+
+    A closed class or another device ends the student's room (404, 409).
+    """
     day, _session, manager, teacher, student = _live_class_access(db, tenant, course_day_id)
-    if student and not (manager or teacher):
-        _hold_live_device(db, tenant, day, device_id, device_label, _aware(now or datetime.now(UTC)))
+    current = _aware(now or datetime.now(UTC))
+    student_only = bool(student and not (manager or teacher))
+    if student_only:
+        _hold_live_device(db, tenant, day, device_id, device_label, current)
+    return {"roll_call": _roll_call_view(db, tenant, day, current, student_only=student_only)}
 
 
 def leave_live_class(
@@ -365,5 +386,153 @@ def leave_live_class(
         LiveRoomPresenceRecord.device_id == _device_id(device_id, tenant.user.id),
     ))
     if presence is not None and presence.left_at is None:
-        presence.left_at = _aware(now or datetime.now(UTC))
+        current = _aware(now or datetime.now(UTC))
+        _credit_time_in_room(presence, current)
+        presence.last_seen_at = current
+        presence.left_at = current
         db.commit()
+
+
+# The teacher's roll call: students have two minutes to answer "Je suis là".
+ROLL_CALL_WINDOW = timedelta(minutes=2)
+ROLL_CALL_GRACE = timedelta(seconds=15)  # an answer sent just before the end still arrives
+
+
+def _latest_roll_call(db: Session, organization_id: int, day_id: int) -> LiveRollCallRecord | None:
+    return db.scalar(select(LiveRollCallRecord).where(
+        LiveRollCallRecord.organization_id == organization_id,
+        LiveRollCallRecord.course_day_id == day_id,
+    ).order_by(LiveRollCallRecord.started_at.desc(), LiveRollCallRecord.id.desc()).limit(1))
+
+
+def _roll_call_view(
+    db: Session, tenant: TenantContext, day: SessionCourseDayRecord, current: datetime, *, student_only: bool,
+) -> dict | None:
+    call = _latest_roll_call(db, tenant.organization_id, day.id)
+    if call is None:
+        return None
+    is_open = current <= _aware(call.closes_at)
+    if student_only and not is_open:
+        return None
+    answered = db.scalar(select(LiveRollCallAnswerRecord.id).where(
+        LiveRollCallAnswerRecord.roll_call_id == call.id,
+        LiveRollCallAnswerRecord.user_id == tenant.user.id,
+    )) is not None
+    answers = None if student_only else int(db.scalar(select(func.count(LiveRollCallAnswerRecord.id)).where(
+        LiveRollCallAnswerRecord.roll_call_id == call.id,
+    )) or 0)
+    return {
+        "id": call.id,
+        "started_at": _aware(call.started_at),
+        "closes_at": _aware(call.closes_at),
+        "open": is_open,
+        "answered": answered,
+        "answers_count": answers,
+    }
+
+
+def start_roll_call(db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None) -> dict:
+    day, _session, _manager, teacher, _student = _live_class_access(db, tenant, course_day_id)
+    if not (teacher and day.teacher_id == tenant.user.id):
+        raise HTTPException(403, "Seul le professeur responsable peut faire l'appel.")
+    if day.started_at is None:
+        raise HTTPException(409, "Démarrez le cours avant de faire l'appel.")
+    current = _aware(now or datetime.now(UTC))
+    latest = _latest_roll_call(db, tenant.organization_id, day.id)
+    if latest is None or current > _aware(latest.closes_at):
+        db.add(LiveRollCallRecord(
+            organization_id=tenant.organization_id, course_day_id=day.id, started_by_user_id=tenant.user.id,
+            started_at=current, closes_at=current + ROLL_CALL_WINDOW,
+        ))
+        db.commit()
+    return _roll_call_view(db, tenant, day, current, student_only=False)
+
+
+def answer_roll_call(
+    db: Session, tenant: TenantContext, course_day_id: int, roll_call_id: int, *, now: datetime | None = None,
+) -> None:
+    day, _session, _manager, _teacher, student = _live_class_access(db, tenant, course_day_id)
+    if not student:
+        raise HTTPException(403, "Seuls les étudiants répondent à l'appel.")
+    call = db.scalar(select(LiveRollCallRecord).where(
+        LiveRollCallRecord.id == roll_call_id,
+        LiveRollCallRecord.organization_id == tenant.organization_id,
+        LiveRollCallRecord.course_day_id == day.id,
+    ))
+    if call is None:
+        raise HTTPException(404, "Appel introuvable.")
+    current = _aware(now or datetime.now(UTC))
+    if current > _aware(call.closes_at) + ROLL_CALL_GRACE:
+        raise HTTPException(409, "L'appel est terminé.")
+    if db.scalar(select(LiveRollCallAnswerRecord.id).where(
+        LiveRollCallAnswerRecord.roll_call_id == call.id,
+        LiveRollCallAnswerRecord.user_id == tenant.user.id,
+    )) is None:
+        db.add(LiveRollCallAnswerRecord(
+            organization_id=tenant.organization_id, roll_call_id=call.id, user_id=tenant.user.id, answered_at=current,
+        ))
+        db.commit()
+
+
+@dataclass(frozen=True)
+class LiveEvidence:
+    """What shows that a student followed one live class."""
+    entered_at: datetime | None
+    seconds_in_room: int
+    roll_calls_answered: int
+
+
+def live_attendance_evidence(db: Session, organization_id: int, day_id: int) -> tuple[dict[int, LiveEvidence], int]:
+    """Each student's evidence for one course day, by user id, and the number of roll calls held."""
+    presences: dict[int, tuple[datetime | None, int]] = {}
+    for user_id, entered_at, seconds in db.execute(select(
+        LiveRoomPresenceRecord.user_id,
+        func.min(LiveRoomPresenceRecord.first_joined_at),
+        func.sum(LiveRoomPresenceRecord.seconds_in_room),
+    ).where(
+        LiveRoomPresenceRecord.organization_id == organization_id,
+        LiveRoomPresenceRecord.course_day_id == day_id,
+    ).group_by(LiveRoomPresenceRecord.user_id)).all():
+        presences[user_id] = (_aware(entered_at) if entered_at else None, int(seconds or 0))
+    call_ids = list(db.scalars(select(LiveRollCallRecord.id).where(
+        LiveRollCallRecord.organization_id == organization_id,
+        LiveRollCallRecord.course_day_id == day_id,
+    )).all())
+    answered: dict[int, int] = {}
+    if call_ids:
+        for user_id, count in db.execute(select(
+            LiveRollCallAnswerRecord.user_id, func.count(LiveRollCallAnswerRecord.id),
+        ).where(LiveRollCallAnswerRecord.roll_call_id.in_(call_ids)).group_by(LiveRollCallAnswerRecord.user_id)).all():
+            answered[user_id] = int(count)
+    evidence = {}
+    for user_id in set(presences) | set(answered):
+        entered_at, seconds = presences.get(user_id, (None, 0))
+        evidence[user_id] = LiveEvidence(entered_at=entered_at, seconds_in_room=seconds, roll_calls_answered=answered.get(user_id, 0))
+    return evidence, len(call_ids)
+
+
+# A student is present when they spent at least half of the course in the room, and late
+# when they came in more than 15 minutes after it started (as on the mother site).
+LIVE_PRESENT_MIN_SHARE = 0.5
+LIVE_LATE_AFTER = timedelta(minutes=15)
+
+
+def live_course_window(day: SessionCourseDayRecord, current: datetime) -> tuple[datetime, datetime]:
+    """When the course actually ran: from its start to its closing, at most until the room closes."""
+    start = _aware(day.started_at or day.scheduled_at)
+    room_closes = _aware(day.scheduled_at) + timedelta(minutes=day.duration_minutes) + ROOM_CLOSES_AFTER
+    end = min(_aware(current), room_closes)
+    return start, max(end, start + timedelta(minutes=1))
+
+
+def prefill_live_status(
+    evidence: LiveEvidence | None, roll_calls: int, start: datetime, end: datetime,
+) -> str:
+    """The attendance a live class suggests; the teacher can still correct it for 24 h."""
+    if evidence is None or evidence.entered_at is None:
+        return "absent"
+    if roll_calls and evidence.roll_calls_answered == 0:
+        return "absent"  # the screen was open, nobody answered the roll call
+    if evidence.seconds_in_room < (end - start).total_seconds() * LIVE_PRESENT_MIN_SHARE:
+        return "absent"
+    return "late" if evidence.entered_at > start + LIVE_LATE_AFTER else "present"

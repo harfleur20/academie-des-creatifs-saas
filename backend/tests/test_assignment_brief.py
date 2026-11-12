@@ -143,7 +143,9 @@ def test_a_tp_counts_exactly_like_an_assignment_once_published():
     assert progress_for_enrollment(db, tenant, enrollment).total_assignments == 1
     publish_assignment(db, teacher_tenant, sheet.id)
     assert progress_for_enrollment(db, tenant, enrollment).total_assignments == 2
-    assert badge_for_enrollment(db, tenant, enrollment).assignment_progress_pct == 0.0
+    # Both are open and not due yet: the badge lists them alike as work that can raise it.
+    upcoming = badge_for_enrollment(db, tenant, enrollment).upcoming
+    assert sorted((item.kind, item.title) for item in upcoming) == [("assignment", "Devoir libre"), ("assignment", "TP structuré")]
 
 
 def test_brief_api_round_trip():

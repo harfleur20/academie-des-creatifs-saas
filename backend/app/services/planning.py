@@ -12,7 +12,6 @@ from app.models.entities import (
     EnrollmentRecord,
     FormationRecord,
     FormationSessionRecord,
-    LiveRoomPresenceRecord,
     SessionCourseDayRecord,
     SessionTeacherRecord,
     UserRecord,
@@ -31,12 +30,10 @@ from app.schemas.planning import (
 )
 from app.services.school_communications import queue_session_students_event
 from app.services.school_notifications import notify_session_students
-from app.services.live_classes import live_provider_configured
+from app.services.live_classes import live_attendance_evidence, live_course_window, live_provider_configured, prefill_live_status
 from app.services.tenancy import TenantContext
-from app.services.training_notifications import notify_absence
+from app.services.training_notifications import notify_absence, notify_attendance_risks
 
-# As on the mother site, a student entering the live room this long after the start is late.
-LIVE_LATE_AFTER = timedelta(minutes=15)
 
 
 def _aware(value: datetime) -> datetime:
@@ -668,23 +665,22 @@ def submit_course_day_report(
             AttendanceRecord.organization_id == tenant.organization_id,
             AttendanceRecord.course_day_id == day.id,
         )).all())
-        # As on the mother site, students who entered the live room are present, or late when
-        # they came in more than 15 minutes after the course started; the others are absent.
-        # The teacher can still correct attendance for 24 h.
-        first_entry = dict(db.execute(select(
-            LiveRoomPresenceRecord.user_id, func.min(LiveRoomPresenceRecord.first_joined_at),
-        ).where(
-            LiveRoomPresenceRecord.organization_id == tenant.organization_id,
-            LiveRoomPresenceRecord.course_day_id == day.id,
-        ).group_by(LiveRoomPresenceRecord.user_id)).all())
-        late_after = _aware(day.started_at or day.scheduled_at) + LIVE_LATE_AFTER
+        # Live classes prefill from what shows the student followed: half of the course in the
+        # room, an answer to the roll call when there was one, late after 15 minutes. Other
+        # formats, and students with nothing recorded, are absent. The teacher can still correct
+        # attendance for 24 h.
+        live = session.formation.format_type == "live"
+        evidence, roll_calls = live_attendance_evidence(db, tenant.organization_id, day.id) if live else ({}, 0)
+        course_start, course_end = live_course_window(day, current)
         for enrollment_id in sorted(set(student_by_enrollment) - marked_ids):
-            entered_at = first_entry.get(student_by_enrollment[enrollment_id])
+            status = prefill_live_status(
+                evidence.get(student_by_enrollment[enrollment_id]), roll_calls, course_start, course_end,
+            ) if live else "absent"
             db.add(AttendanceRecord(
                 organization_id=tenant.organization_id,
                 course_day_id=day.id,
                 enrollment_id=enrollment_id,
-                status="absent" if entered_at is None else "late" if _aware(entered_at) > late_after else "present",
+                status=status,
                 marked_by_user_id=tenant.user.id,
                 marked_at=current,
             ))
@@ -704,5 +700,6 @@ def submit_course_day_report(
             AttendanceRecord.status == "absent",
         )).all():
             notify_absence(db, org=tenant.organization, day=day, enrollment=db.get(EnrollmentRecord, row.enrollment_id))
+        notify_attendance_risks(db, org=tenant.organization, session=session, day=day)
     db.commit()
     return get_session_planning(db, tenant, session.id)
