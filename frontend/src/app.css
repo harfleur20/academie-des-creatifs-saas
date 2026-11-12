@@ -7857,3 +7857,5 @@
 .performance-hints { display: grid; gap: 4px; padding: 0 10px 10px; }
 .performance-hints p { margin: 0; padding: 6px 9px; border-radius: 7px; background: #fff8eb; color: #8a5a00; font-size: 10px; line-height: 1.45; }
 .progress-upcoming__late { color: #b42318; }
+/* Attendance day: the report note and the lock reason each on their own line. */
+.attendance-day-card > header small { display: block; margin-top: 4px; }

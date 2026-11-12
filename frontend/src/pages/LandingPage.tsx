@@ -1,526 +1,499 @@
-import { useEffect } from 'react'
-import { BrandLogo } from '../brand/BrandLogo'
-import '../landing-motion.css'
-import '../landing-performance.css'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   ArrowRight,
   Award,
-  BarChart3,
-  BookOpenCheck,
+  BellRing,
   CalendarDays,
   Check,
-  ChevronRight,
+  ClipboardCheck,
   CreditCard,
-  GraduationCap,
-  LayoutDashboard,
-  PlayCircle,
-  QrCode,
+  FileText,
+  Globe,
+  LayoutGrid,
+  MapPin,
+  MonitorPlay,
+  Palette,
   Radio,
-  ShieldCheck,
-  Sparkles,
-  Users,
+  Smartphone,
+  Tag,
+  Timer,
 } from 'lucide-react'
+import { BrandLogo } from '../brand/BrandLogo'
+import { listPlans, type Plan, type PlanEntitlement } from '../lib/api'
+import '../landing.css'
 
-const features = [
+const REGISTER_URL = '/login?mode=register'
+const LOGIN_URL = '/login'
+
+/** Screenshots of the platform, taken on a fictional demo school (Studio Kora). */
+const SHOTS = {
+  dashboard: '/landing/dashboard-prof.webp',
+  progress: '/landing/progression-mobile.webp',
+  siteHome: '/landing/site-accueil.webp',
+  catalogue: '/landing/site-catalogue.webp',
+  siteCheckout: '/landing/site-formation-mobile.webp',
+  attendance: '/landing/presences-live.webp',
+  management: '/landing/pilotage-direction.webp',
+}
+
+type Feature = {
+  id: string
+  title: string
+  text: string
+  points: string[]
+  visual: ReactNode
+}
+
+/** What a school's own website does for it: the part of the product that brings in students. */
+const SITE_POINTS = [
+  { icon: Globe, title: 'À votre adresse', text: 'votre-ecole.academiecreatif.com dès la création, ou votre propre nom de domaine.' },
+  { icon: Palette, title: 'À vos couleurs', text: 'Logo, couleurs, polices, bandeau d’annonce et page de présentation.' },
+  { icon: LayoutGrid, title: 'Catalogue et sessions', text: 'Programme, prochaines sessions, places restantes et prix en FCFA.' },
+  { icon: CreditCard, title: 'Paiement en ligne', text: 'Mobile Money ou carte, en une fois ou en plusieurs échéances.' },
+  { icon: Tag, title: 'Promotions', text: 'Réductions et codes promo pour remplir vos prochaines sessions.' },
+  { icon: FileText, title: 'Pages légales', text: 'Mentions légales, CGV, confidentialité et remboursement intégrés.' },
+]
+
+const FORMATS = [
+  { icon: Radio, title: 'En live', text: 'La classe se tient dans la plateforme, à vos couleurs.' },
+  { icon: MonitorPlay, title: 'En ligne', text: 'Des parcours que vos étudiants suivent à leur rythme.' },
+  { icon: MapPin, title: 'En présentiel', text: 'Planning, présences et comptes rendus de séance.' },
+]
+
+const STEPS = [
+  { title: 'Créez votre école', text: 'Nom, logo, couleurs et adresse en ligne : votre espace est prêt en quelques minutes.' },
+  { title: 'Publiez vos formations', text: 'Programme, sessions, prix et échéances de paiement, puis vos professeurs.' },
+  { title: 'Accueillez vos étudiants', text: 'Ils s’inscrivent et paient en ligne, suivent les cours et vous suivez leurs progrès.' },
+]
+
+const FAQ = [
   {
-    icon: BookOpenCheck,
-    title: 'Formations & sessions',
-    text: 'Créez vos formations, cohortes, modules, cours et parcours depuis un seul espace.',
+    question: 'Mes étudiants peuvent-ils payer par Mobile Money ?',
+    answer: 'Oui. Les paiements passent par Tara Money, en FCFA : Mobile Money ou carte bancaire, en une fois ou en plusieurs échéances. Les retards de paiement sont suivis pour vous.',
   },
   {
-    icon: Users,
-    title: 'Équipe pédagogique',
-    text: 'Administrez vos professeurs, intervenants et étudiants avec des rôles adaptés.',
+    question: 'Mon école aura-t-elle sa propre adresse ?',
+    answer: 'Dès sa création, votre école a son site en votre-ecole.academiecreatif.com, avec votre logo et vos couleurs. Vous pouvez aussi y brancher votre propre nom de domaine.',
   },
   {
-    icon: CalendarDays,
-    title: 'Planning intelligent',
-    text: 'Planifiez les journées, cours et séances avec une vue claire de toute votre école.',
+    question: 'Faut-il installer une application pour les cours en live ?',
+    answer: 'Non. La classe s’ouvre dans le navigateur, sur ordinateur comme sur téléphone, sans rien installer. Le professeur garde la main : micros, appel, fin du cours.',
   },
   {
-    icon: Radio,
-    title: 'Présentiel, live & hybride',
-    text: 'Pilotez des formations physiques, en ligne ou hybrides sans multiplier les outils.',
+    question: 'Comment savoir si un étudiant a vraiment suivi le cours ?',
+    answer: 'La plateforme mesure le temps passé dans la salle et le professeur peut faire l’appel en un clic. Au rapport de séance, les présences sont proposées à partir de ces preuves, et le professeur peut les corriger.',
   },
   {
-    icon: BarChart3,
-    title: 'Suivi pédagogique',
-    text: 'Mesurez la progression, l’assiduité, les évaluations et l’activité des apprenants.',
+    question: 'Les données de mon école sont-elles séparées des autres ?',
+    answer: 'Oui. Chaque école a son espace isolé : ses formations, ses étudiants, ses paiements et ses documents ne sont visibles que par son équipe.',
   },
   {
-    icon: ShieldCheck,
-    title: 'Votre espace, vos données',
-    text: 'Chaque école dispose de son environnement isolé, sécurisé et administrable.',
+    question: 'Puis-je essayer avant de payer ?',
+    answer: 'Oui. Créer votre école lance une période d’essai gratuite, sans moyen de paiement à fournir. Vous choisissez un forfait quand vous êtes prêt.',
   },
 ]
 
-const plans = [
-  {
-    name: 'Starter',
-    price: 'Pour démarrer',
-    description: 'Pour les formateurs et petites structures.',
-    items: ['École personnalisée', 'Formations & sessions', 'Professeurs & étudiants', 'Cours et évaluations'],
-  },
-  {
-    name: 'Pro',
-    price: 'Pour grandir',
-    description: 'Pour les écoles qui veulent automatiser leur fonctionnement.',
-    items: ['Tout Starter', 'Automatisations', 'Reporting avancé', 'Domaine personnalisé'],
-    featured: true,
-  },
-  {
-    name: 'Business',
-    price: 'Sur mesure',
-    description: 'Pour les organismes avec plusieurs équipes et de gros volumes.',
-    items: ['Tout Pro', 'Multi-administrateurs', 'White-label avancé', 'Accompagnement prioritaire'],
-  },
-]
+const FEATURE_LABELS: Record<string, (limit: number | null) => string> = {
+  students: (limit) => (limit === null ? 'Étudiants illimités' : `Jusqu’à ${limit.toLocaleString('fr-FR')} étudiants`),
+  teachers: (limit) => (limit === null ? 'Professeurs illimités' : `Jusqu’à ${limit} professeurs`),
+  active_formations: (limit) => (limit === null ? 'Formations illimitées' : `${limit} formations actives`),
+  custom_domain: () => 'Votre propre nom de domaine',
+  automations: () => 'Relances et rappels automatiques',
+  advanced_reporting: () => 'Rapports avancés',
+}
 
-function useLandingMotion() {
+function entitlementLabel(item: PlanEntitlement) {
+  const label = FEATURE_LABELS[item.feature_key]
+  if (label) return label(item.limit_value)
+  const name = item.feature_key.replace(/_/g, ' ')
+  const text = name.charAt(0).toUpperCase() + name.slice(1)
+  return item.limit_value === null ? text : `${text} : ${item.limit_value}`
+}
+
+function formatPrice(amount: number, currency: string) {
+  // XAF has no subunit: amounts are stored in whole francs.
+  if (currency.toUpperCase() === 'XAF') {
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(amount)
+  }
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount / 100)
+}
+
+/** Fades sections in as they scroll into view; everything stays visible without it. */
+function useReveal() {
   useEffect(() => {
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const revealElements = Array.from(document.querySelectorAll<HTMLElement>('[data-landing-reveal]'))
-
-    if (reduceMotion || typeof IntersectionObserver === 'undefined') {
-      revealElements.forEach((element) => element.classList.add('is-visible'))
-      return undefined
+    const items = Array.from(document.querySelectorAll<HTMLElement>('.lp-reveal'))
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce || typeof IntersectionObserver === 'undefined') return undefined
+    document.documentElement.classList.add('lp-motion')
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-in')
+          observer.unobserve(entry.target)
+        }
+      })
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 })
+    items.forEach((item) => observer.observe(item))
+    return () => {
+      observer.disconnect()
+      document.documentElement.classList.remove('lp-motion')
     }
-
-    revealElements.forEach((element, index) => {
-      element.style.setProperty('--reveal-delay', `${Math.min(index % 4, 3) * 45}ms`)
-    })
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible')
-            observer.unobserve(entry.target)
-          }
-        })
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -3% 0px' },
-    )
-
-    revealElements.forEach((element) => observer.observe(element))
-    return () => observer.disconnect()
   }, [])
 }
 
-function BrandMark() {
+function Browser({ src, alt, address, eager = false }: { src: string; alt: string; address: string; eager?: boolean }) {
   return (
-    <div className="brand">
-      <BrandLogo className="platform-brand-logo" />
-      <span>
-        Académie <strong>SaaS</strong>
-      </span>
-    </div>
+    <figure className="lp-browser">
+      <div className="lp-browser__bar" aria-hidden="true">
+        <span /><span /><span />
+        <em>{address}</em>
+      </div>
+      <img
+        src={src}
+        alt={alt}
+        width={1600}
+        height={1000}
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+        {...(eager ? { fetchPriority: 'high' as const } : {})}
+      />
+    </figure>
   )
 }
 
-function DashboardPreview() {
+function Phone({ src, alt, className = '' }: { src: string; alt: string; className?: string }) {
   return (
-    <div className="dashboard-shell landing-product-stage">
-      <div className="landing-orbit landing-orbit-one" />
-
-      <div className="dashboard-window landing-depth landing-depth-main">
-        <aside className="preview-sidebar">
-          <div className="preview-logo"><BrandLogo /></div>
-          <span className="preview-dot active" />
-          <span className="preview-dot" />
-          <span className="preview-dot" />
-          <span className="preview-dot" />
-        </aside>
-
-        <div className="preview-content">
-          <div className="preview-topbar">
-            <div>
-              <p>Bonjour Clarisse</p>
-              <strong>Tableau de bord</strong>
-            </div>
-            <div className="preview-avatar">CM</div>
-          </div>
-
-          <div className="metric-grid">
-            <div className="metric-card">
-              <span>Étudiants</span>
-              <strong>248</strong>
-              <small>+12 ce mois</small>
-            </div>
-            <div className="metric-card">
-              <span>Formations</span>
-              <strong>12</strong>
-              <small>8 actives</small>
-            </div>
-            <div className="metric-card">
-              <span>Progression</span>
-              <strong>84%</strong>
-              <small>+6,4%</small>
-            </div>
-          </div>
-
-          <div className="preview-main-grid">
-            <div className="chart-card">
-              <div className="card-title-row">
-                <strong>Activité de l’école</strong>
-                <span>30 jours</span>
-              </div>
-              <div className="chart">
-                <span style={{ height: '34%' }} />
-                <span style={{ height: '48%' }} />
-                <span style={{ height: '42%' }} />
-                <span style={{ height: '68%' }} />
-                <span style={{ height: '58%' }} />
-                <span style={{ height: '78%' }} />
-                <span style={{ height: '88%' }} />
-              </div>
-            </div>
-
-            <div className="schedule-card">
-              <strong>Aujourd’hui</strong>
-              <div className="schedule-item">
-                <span className="schedule-time">09:00</span>
-                <span>
-                  <b>Design graphique</b>
-                  <small>Module 4 · Live</small>
-                </span>
-              </div>
-              <div className="schedule-item">
-                <span className="schedule-time">14:30</span>
-                <span>
-                  <b>Motion Design</b>
-                  <small>Session octobre</small>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="floating-card floating-students landing-float-card landing-float-students landing-depth landing-depth-near">
-        <Users size={18} />
-        <div>
-          <small>Nouveaux inscrits</small>
-          <strong>+32</strong>
-        </div>
-      </div>
-
-      <div className="floating-card floating-live landing-float-card landing-float-live landing-depth landing-depth-far">
-        <span className="landing-live-pulse" />
-        <Radio size={18} />
-        <div>
-          <small>Live en cours</small>
-          <strong>28 participants</strong>
-        </div>
-      </div>
-
-      <div className="landing-float-card landing-float-payment landing-depth landing-depth-mid">
-        <span className="landing-card-icon"><CreditCard size={18} /></span>
-        <div>
-          <small>Paiements ce mois</small>
-          <strong>8 560 €</strong>
-          <span className="landing-positive">+32%</span>
-        </div>
-      </div>
-
-      <div className="landing-float-card landing-float-certificate landing-depth landing-depth-near">
-        <div className="landing-certificate-seal"><Award size={19} /></div>
-        <small>Certificat délivré</small>
-        <strong>Marketing Digital</strong>
-        <span>Lucas Bernard</span>
-      </div>
-
-      <div className="landing-float-card landing-float-course landing-depth landing-depth-far">
-        <div className="landing-course-cover">
-          <PlayCircle size={30} />
-        </div>
-        <div className="landing-course-copy">
-          <small>Formation en ligne</small>
-          <strong>Motion Design</strong>
-          <div className="landing-progress"><span /></div>
-          <em>73% terminé</em>
-        </div>
-      </div>
-
-      <div className="landing-float-card landing-float-qr landing-depth landing-depth-mid">
-        <div className="landing-qr-symbol"><QrCode size={34} /></div>
-        <div>
-          <small>Événement présentiel</small>
-          <strong>Accès validé</strong>
-          <span>Billet sécurisé</span>
-        </div>
-      </div>
-    </div>
+    <figure className={`lp-phone ${className}`}>
+      <img src={src} alt={alt} width={520} height={1125} loading="lazy" decoding="async" />
+    </figure>
   )
 }
 
-function ProductScenes() {
+const FEATURES: Feature[] = [
+  {
+    id: 'live',
+    title: 'Des cours en direct, et des présences qui ne mentent pas',
+    text: 'La classe s’ouvre dans la plateforme, sans lien à partager. Vous savez qui était là, et combien de temps.',
+    points: [
+      'Un seul appareil par étudiant, salle réservée aux inscrits',
+      'Temps passé dans la salle et appel en un clic',
+      'Présences pré-remplies au rapport de séance',
+    ],
+    visual: <Browser src={SHOTS.attendance} alt="Présences d’une séance live avec le temps passé dans la salle" address="studio-kora.academiecreatif.com/app/teacher/attendance" />,
+  },
+  {
+    id: 'suivi',
+    title: 'Un suivi qui donne envie d’aller jusqu’au bout',
+    text: 'Quiz, devoirs corrigés, notes et badges de progression : chaque étudiant voit où il en est et ce qui le fera progresser.',
+    points: [
+      'Quiz corrigés automatiquement, devoirs notés par le professeur',
+      'Badges de progression, d’Aventurier à Professionnel',
+      'Certificats vérifiables en ligne en fin de parcours',
+    ],
+    visual: (
+      <div className="lp-feature__phone-stage">
+        <Phone src={SHOTS.progress} alt="Page de progression d’une étudiante sur téléphone" />
+        <div className="lp-chip lp-chip--badge"><Award size={16} /> Niveau Intermédiaire atteint</div>
+        <div className="lp-chip lp-chip--quiz"><ClipboardCheck size={16} /> Quiz réussi · 100 %</div>
+      </div>
+    ),
+  },
+  {
+    id: 'pilotage',
+    title: 'Toute votre école d’un coup d’œil',
+    text: 'Inscriptions, paiements, professeurs, sessions et comptes rendus : la direction voit ce qui avance et ce qui demande son attention.',
+    points: [
+      'Paiements encaissés et échéances en retard',
+      'Comptes rendus de séance de chaque professeur',
+      'Alertes quand un étudiant décroche',
+    ],
+    visual: <Browser src={SHOTS.management} alt="Tableau de bord de la direction d’une école" address="studio-kora.academiecreatif.com/app/manage" />,
+  },
+]
+
+function Pricing() {
+  const [plans, setPlans] = useState<Plan[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [annual, setAnnual] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    listPlans()
+      .then((items) => { if (active) setPlans(items.filter((plan) => plan.is_public)) })
+      .catch(() => { if (active) setFailed(true) })
+    return () => { active = false }
+  }, [])
+
+  const hasAnnual = Boolean(plans?.some((plan) => plan.annual_price_cents !== null))
+  const trialDays = plans?.find((plan) => plan.code === 'starter')?.trial_days ?? plans?.[0]?.trial_days ?? 0
+
   return (
-    <section className="section landing-scenes-section" id="experience">
-      <div className="container">
-        <div className="section-heading centered" data-landing-reveal>
-          <div className="eyebrow">
-            <Sparkles size={16} />
-            Une plateforme qui prend vie
-          </div>
-          <h2>Chaque moment de votre école, dans le même produit.</h2>
+    <section className="lp-section lp-pricing" id="tarifs">
+      <div className="lp-container">
+        <header className="lp-heading lp-heading--center lp-reveal">
+          <h2>Un forfait pour chaque étape de votre école</h2>
           <p>
-            Retrouvez les briques essentielles du SaaS : formation, live, planning et suivi,
-            réunies dans une expérience cohérente.
+            {trialDays > 0
+              ? `Commencez par ${trialDays} jours d’essai gratuit, sans moyen de paiement. Changez de forfait quand votre école grandit.`
+              : 'Commencez gratuitement et changez de forfait quand votre école grandit.'}
           </p>
-        </div>
-
-        <div className="landing-scenes-grid landing-scenes-grid-two">
-          <article className="landing-scene landing-scene-course" data-landing-reveal>
-            <div className="landing-scene-head">
-              <span className="landing-scene-icon"><BookOpenCheck size={20} /></span>
-              <div>
-                <small>GESTION DE FORMATION</small>
-                <strong>Construisez vos parcours</strong>
-              </div>
+          {hasAnnual && (
+            <div className="lp-toggle" role="group" aria-label="Période de facturation">
+              <button type="button" className={annual ? '' : 'is-active'} onClick={() => setAnnual(false)}>Mensuel</button>
+              <button type="button" className={annual ? 'is-active' : ''} onClick={() => setAnnual(true)}>Annuel</button>
             </div>
-            <div className="landing-course-board">
-              <div className="landing-course-board-top">
-                <span>Motion Design · Octobre 2026</span>
-                <b>En cours</b>
-              </div>
-              {['Introduction & fondamentaux', 'Animation typographique', 'Projet client'].map((item, index) => (
-                <div className="landing-lesson-row" key={item}>
-                  <span>{index + 1}</span>
-                  <div>
-                    <strong>{item}</strong>
-                    <small>{index === 2 ? 'Projet · 2 ressources' : 'Cours · Quiz · Ressources'}</small>
+          )}
+        </header>
+
+        {failed || (plans !== null && plans.length === 0) ? (
+          <p className="lp-pricing__empty">Les forfaits seront publiés très bientôt. Vous pouvez déjà créer votre école et l’essayer gratuitement.</p>
+        ) : (
+          <div className="lp-plans">
+            {(plans ?? [null, null, null]).map((plan, index) => {
+              if (plan === null) return <article className="lp-plan lp-plan--loading" key={index} aria-hidden="true" />
+              const amount = annual ? plan.annual_price_cents : plan.monthly_price_cents
+              const featured = plan.code === 'pro'
+              const features = plan.entitlements.filter((item) => item.enabled)
+              return (
+                <article className={`lp-plan lp-reveal${featured ? ' lp-plan--featured' : ''}`} key={plan.id}>
+                  {featured && <span className="lp-plan__flag">Recommandé</span>}
+                  <h3>{plan.name}</h3>
+                  <p className="lp-plan__desc">{plan.description}</p>
+                  <div className="lp-plan__price">
+                    {amount === null
+                      ? <strong className="lp-plan__soon">Tarif bientôt disponible</strong>
+                      : <><strong>{formatPrice(amount, plan.currency)}</strong><span>{annual ? '/ an' : '/ mois'}</span></>}
                   </div>
-                  <em>{index < 2 ? '✓' : '→'}</em>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="landing-scene landing-scene-live" data-landing-reveal>
-            <div className="landing-scene-head">
-              <span className="landing-scene-icon"><Radio size={20} /></span>
-              <div>
-                <small>LIVE & PLANNING</small>
-                <strong>Pilotez vos sessions</strong>
-              </div>
-            </div>
-            <div className="landing-live-board">
-              <div className="landing-live-screen">
-                <span className="landing-live-badge">LIVE</span>
-                <div className="landing-live-avatar">FK</div>
-                <strong>Masterclass design</strong>
-                <small>28 participants connectés</small>
-              </div>
-              <div className="landing-live-side">
-                <span><b>09:00</b> Design graphique</span>
-                <span><b>14:30</b> Motion Design</span>
-                <span><b>18:00</b> Atelier portfolio</span>
-              </div>
-            </div>
-          </article>
-        </div>
+                  {features.length > 0 && (
+                    <ul>
+                      {features.map((item) => <li key={item.feature_key}><Check size={16} /> {entitlementLabel(item)}</li>)}
+                    </ul>
+                  )}
+                  <a className={`lp-btn ${featured ? 'lp-btn--primary' : 'lp-btn--ghost'} lp-btn--block`} href={REGISTER_URL}>
+                    Commencer l’essai
+                  </a>
+                </article>
+              )
+            })}
+          </div>
+        )}
       </div>
     </section>
   )
 }
 
 export default function LandingPage() {
-  useLandingMotion()
+  useReveal()
 
   return (
-    <main className="landing-page">
-      <header className="site-header">
-        <div className="container header-inner">
-          <BrandMark />
-          <nav className="desktop-nav" aria-label="Navigation principale">
-            <a href="#produit">Produit</a>
+    <main className="lp">
+      <header className="lp-header">
+        <div className="lp-container lp-header__inner">
+          <a className="lp-brand" href="/" aria-label="Académie des Créatifs, accueil">
+            <BrandLogo className="lp-brand__logo" />
+            <span>
+              <strong>Académie des Créatifs</strong>
+              <small>pour les écoles</small>
+            </span>
+          </a>
+          <nav className="lp-nav" aria-label="Navigation principale">
+            <a href="#site-ecole">Le site de l’école</a>
             <a href="#fonctionnalites">Fonctionnalités</a>
+            <a href="#fonctionnement">Comment ça marche</a>
             <a href="#tarifs">Tarifs</a>
-            <a href="#faq">Ressources</a>
+            <a href="#faq">Questions</a>
           </nav>
-          <div className="header-actions">
-            <button className="link-button" onClick={() => { window.location.href = '/login' }}>Se connecter</button>
-            <button className="primary-button compact" onClick={() => { window.location.href = '/login?mode=register' }}>
-              Créer mon école
-              <ArrowRight size={16} />
-            </button>
+          <div className="lp-header__actions">
+            <a className="lp-link" href={LOGIN_URL}>Se connecter</a>
+            <a className="lp-btn lp-btn--primary lp-btn--small" href={REGISTER_URL}>
+              Créer mon école <ArrowRight size={16} />
+            </a>
           </div>
         </div>
       </header>
 
-      <section className="hero landing-hero" id="produit">
-        <div className="hero-blob hero-blob-one" />
-        <div className="hero-blob hero-blob-two" />
-        <div className="landing-hero-gridline" />
-
-        <div className="container hero-grid">
-          <div className="hero-copy landing-hero-copy">
-            <div className="eyebrow">
-              <Sparkles size={16} />
-              Votre école digitale, prête à fonctionner
-            </div>
+      <section className="lp-hero">
+        <div className="lp-container lp-hero__grid">
+          <div className="lp-hero__copy">
             <h1>
-              Votre école.
-              <br />
-              Votre identité.
-              <br />
-              <span>Une seule plateforme.</span>
+              Votre école de formation, <span>en ligne et à votre nom.</span>
             </h1>
-            <p className="hero-description">
-              Lancez et administrez vos formations, vos professeurs, vos étudiants,
-              vos lives et votre suivi pédagogique sans construire votre propre logiciel.
+            <p className="lp-hero__lead">
+              Site de l’école, inscriptions et paiements Mobile Money, cours en live, suivi des étudiants
+              jusqu’au certificat : tout est prêt, à vos couleurs.
             </p>
-            <div className="hero-actions">
-              <button className="primary-button" onClick={() => { window.location.href = '/login?mode=register' }}>
-                Créer mon école
-                <ArrowRight size={18} />
-              </button>
-              <button className="secondary-button" onClick={() => document.querySelector('#experience')?.scrollIntoView({ behavior: 'smooth' })}>
-                Voir la plateforme en action
-                <ChevronRight size={17} />
-              </button>
+            <div className="lp-hero__actions">
+              <a className="lp-btn lp-btn--primary" href={REGISTER_URL}>Créer mon école <ArrowRight size={18} /></a>
+              <a className="lp-btn lp-btn--ghost" href="#tarifs">Voir les tarifs</a>
             </div>
-            <div className="hero-reassurance">
-              <span><Check size={15} /> Sans installation</span>
-              <span><Check size={15} /> Votre branding</span>
-              <span><Check size={15} /> Évolutif</span>
-            </div>
+            <ul className="lp-hero__proof">
+              <li><Check size={15} /> Essai gratuit</li>
+              <li><Check size={15} /> Paiements en FCFA</li>
+              <li><Check size={15} /> Rien à installer</li>
+            </ul>
           </div>
 
-          <DashboardPreview />
-        </div>
-      </section>
-
-      <section className="trust-strip" data-landing-reveal>
-        <div className="container">
-          <p>Un seul environnement pour piloter toute votre activité de formation</p>
-          <div className="trust-items">
-            <span>Formation</span>
-            <span>Étudiants</span>
-            <span>Professeurs</span>
-            <span>Évaluations</span>
-            <span>Live</span>
-            <span>Suivi</span>
+          <div className="lp-hero__visual">
+            <Browser src={SHOTS.dashboard} alt="Espace professeur d’une école sur la plateforme" address="studio-kora.academiecreatif.com" eager />
+            <Phone src={SHOTS.progress} alt="Progression d’une étudiante sur téléphone" className="lp-hero__phone" />
+            <div className="lp-chip lp-chip--live"><span className="lp-dot" /> Cours en live · 14 présents</div>
+            <p className="lp-hero__caption">Captures réelles de la plateforme, sur une école de démonstration.</p>
           </div>
         </div>
       </section>
 
-      <ProductScenes />
-
-      <section className="section" id="fonctionnalites">
-        <div className="container">
-          <div className="section-heading" data-landing-reveal>
-            <div className="eyebrow">
-              <LayoutDashboard size={16} />
-              Tout au même endroit
-            </div>
-            <h2>Faites fonctionner votre école, pas vos outils.</h2>
-            <p>
-              La plateforme réunit les briques essentielles pour administrer une
-              formation guidée de bout en bout.
-            </p>
-          </div>
-
-          <div className="feature-grid">
-            {features.map(({ icon: Icon, title, text }) => (
-              <article className="feature-card" key={title} data-landing-reveal>
-                <div className="feature-icon">
-                  <Icon size={22} />
-                </div>
+      <section className="lp-formats" aria-label="Formats de formation">
+        <div className="lp-container lp-formats__grid">
+          {FORMATS.map(({ icon: Icon, title, text }) => (
+            <article className="lp-format lp-reveal" key={title}>
+              <span className="lp-icon"><Icon size={20} /></span>
+              <div>
                 <h3>{title}</h3>
                 <p>{text}</p>
-              </article>
-            ))}
-          </div>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section className="section workflow-section">
-        <div className="container workflow-grid">
-          <div className="workflow-copy" data-landing-reveal>
-            <div className="eyebrow">
-              <GraduationCap size={16} />
-              Pensé pour les écoles
-            </div>
-            <h2>Vous vous concentrez sur la pédagogie. La plateforme structure le reste.</h2>
+      <section className="lp-section lp-site" id="site-ecole">
+        <div className="lp-container">
+          <header className="lp-heading lp-heading--center lp-reveal">
+            <h2>Chaque école a son site, prêt à vendre ses formations</h2>
             <p>
-              Créez votre espace, personnalisez-le, invitez votre équipe et commencez
-              à administrer vos apprenants depuis un tableau de bord unique.
+              Vos futurs étudiants découvrent vos formations, choisissent leur session et paient en ligne,
+              sur un site à votre nom. Vous n’avez rien à construire.
             </p>
-            <button className="secondary-button">
-              Découvrir le fonctionnement
-              <ArrowRight size={17} />
-            </button>
+          </header>
+          <div className="lp-site__stage lp-reveal">
+            <Browser src={SHOTS.siteHome} alt="Page d’accueil du site d’une école" address="studio-kora.academiecreatif.com" />
+            <Phone src={SHOTS.siteCheckout} alt="Choix de la session et prix d’une formation sur téléphone" className="lp-site__phone" />
+            <div className="lp-chip lp-chip--pay"><CreditCard size={16} /> Paiement en 3 fois · Mobile Money</div>
           </div>
-
-          <div className="steps-card" data-landing-reveal>
-            {[
-              ['01', 'Créez votre école', 'Nom, identité, logo et paramètres.'],
-              ['02', 'Configurez vos formations', 'Sessions, planning, professeurs et contenus.'],
-              ['03', 'Invitez vos étudiants', 'Accès sécurisé et suivi de progression.'],
-              ['04', 'Pilotez votre activité', 'Statistiques, évaluations et automatisations.'],
-            ].map(([number, title, text]) => (
-              <div className="step-row" key={number}>
-                <span>{number}</span>
+          <div className="lp-site__points">
+            {SITE_POINTS.map(({ icon: Icon, title, text }) => (
+              <div className="lp-site__point lp-reveal" key={title}>
+                <span className="lp-icon"><Icon size={20} /></span>
                 <div>
-                  <strong>{title}</strong>
+                  <h3>{title}</h3>
                   <p>{text}</p>
                 </div>
               </div>
             ))}
           </div>
+          <div className="lp-site__cta lp-reveal">
+            <a className="lp-btn lp-btn--primary" href={REGISTER_URL}>Créer le site de mon école <ArrowRight size={18} /></a>
+            <span>Votre site est en ligne dès la création de l’école.</span>
+          </div>
         </div>
       </section>
 
-      <section className="section pricing-section" id="tarifs">
-        <div className="container">
-          <div className="section-heading centered" data-landing-reveal>
-            <div className="eyebrow">Des offres qui grandissent avec vous</div>
-            <h2>Commencez simplement. Évoluez quand vous êtes prêt.</h2>
-            <p>Les quotas et tarifs définitifs seront configurables depuis le moteur d’abonnement.</p>
-          </div>
+      <section className="lp-section" id="fonctionnalites">
+        <div className="lp-container">
+          <header className="lp-heading lp-heading--center lp-reveal">
+            <h2>De l’inscription au certificat, sans jongler entre dix outils</h2>
+            <p>Vous gardez votre pédagogie. La plateforme s’occupe des cours, des présences, du suivi et de la gestion.</p>
+          </header>
 
-          <div className="pricing-grid">
-            {plans.map((plan) => (
-              <article className={`pricing-card ${plan.featured ? 'featured' : ''}`} key={plan.name} data-landing-reveal>
-                {plan.featured && <div className="popular-badge">Le plus flexible</div>}
-                <span className="plan-name">{plan.name}</span>
-                <h3>{plan.price}</h3>
-                <p>{plan.description}</p>
-                <div className="plan-items">
-                  {plan.items.map((item) => (
-                    <span key={item}><Check size={16} /> {item}</span>
-                  ))}
+          <div className="lp-features">
+            {FEATURES.map(({ id, title, text, points, visual }, index) => (
+              <article className={`lp-feature lp-reveal${index % 2 ? ' lp-feature--flip' : ''}`} key={id} id={`fonction-${id}`}>
+                <div className="lp-feature__copy">
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                  <ul className="lp-checks">
+                    {points.map((point) => <li key={point}><Check size={16} /> {point}</li>)}
+                  </ul>
                 </div>
-                <button className={plan.featured ? 'primary-button full' : 'secondary-button full'}>
-                  Découvrir l’offre
-                </button>
+                <div className="lp-feature__visual">{visual}</div>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="cta-section" data-landing-reveal>
-        <div className="container">
-          <div className="cta-card">
-            <div>
-              <span>Prêt à construire votre école ?</span>
-              <h2>Votre pédagogie mérite sa propre plateforme.</h2>
+      <section className="lp-section lp-band">
+        <div className="lp-container lp-band__grid">
+          {[
+            { icon: CalendarDays, title: 'Planning et rapports', text: 'Séances, professeurs et comptes rendus.' },
+            { icon: BellRing, title: 'Notifications', text: 'Rappels de cours, devoirs et paiements.' },
+            { icon: Smartphone, title: 'Sur téléphone', text: 'Tout fonctionne sur mobile, sans application.' },
+            { icon: Timer, title: 'Rattrapage', text: 'Devoirs en retard et quiz à repasser.' },
+          ].map(({ icon: Icon, title, text }) => (
+            <div className="lp-band__item lp-reveal" key={title}>
+              <Icon size={20} />
+              <strong>{title}</strong>
+              <span>{text}</span>
             </div>
-            <button className="light-button" onClick={() => { window.location.href = '/login?mode=register' }}>
-              Créer mon école
-              <ArrowRight size={18} />
-            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="lp-section" id="fonctionnement">
+        <div className="lp-container">
+          <header className="lp-heading lp-heading--center lp-reveal">
+            <h2>Votre école en ligne en trois étapes</h2>
+          </header>
+          <ol className="lp-steps">
+            {STEPS.map((step, index) => (
+              <li className="lp-step lp-reveal" key={step.title}>
+                <span className="lp-step__number">{index + 1}</span>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <Pricing />
+
+      <section className="lp-section" id="faq">
+        <div className="lp-container lp-faq">
+          <header className="lp-heading lp-reveal">
+            <h2>Ce que les écoles nous demandent</h2>
+            <p>Une autre question ? Créez votre école et écrivez-nous depuis votre espace.</p>
+          </header>
+          <div className="lp-faq__list">
+            {FAQ.map((item) => (
+              <details className="lp-faq__item lp-reveal" key={item.question}>
+                <summary>{item.question}</summary>
+                <p>{item.answer}</p>
+              </details>
+            ))}
           </div>
         </div>
       </section>
 
-      <footer className="site-footer" id="faq">
-        <div className="container footer-inner">
-          <BrandMark />
-          <p>© 2026 Académie des Créatifs SaaS. Tous droits réservés.</p>
+      <section className="lp-section lp-cta-wrap">
+        <div className="lp-container">
+          <div className="lp-cta lp-reveal">
+            <div>
+              <h2>Votre pédagogie mérite sa propre école en ligne.</h2>
+              <p>Créez votre école aujourd’hui, publiez votre première formation demain.</p>
+            </div>
+            <a className="lp-btn lp-btn--mint" href={REGISTER_URL}>Créer mon école <ArrowRight size={18} /></a>
+          </div>
+        </div>
+      </section>
+
+      <footer className="lp-footer">
+        <div className="lp-container lp-footer__inner">
+          <a className="lp-brand lp-brand--footer" href="/">
+            <BrandLogo className="lp-brand__logo" />
+            <span>
+              <strong>Académie des Créatifs</strong>
+              <small>pour les écoles</small>
+            </span>
+          </a>
+          <nav aria-label="Liens du pied de page">
+            <a href="#site-ecole">Le site de l’école</a>
+            <a href="#fonctionnalites">Fonctionnalités</a>
+            <a href="#tarifs">Tarifs</a>
+            <a href="#faq">Questions</a>
+            <a href={LOGIN_URL}>Se connecter</a>
+          </nav>
+          <p>© {new Date().getFullYear()} Académie des Créatifs</p>
         </div>
       </footer>
     </main>
