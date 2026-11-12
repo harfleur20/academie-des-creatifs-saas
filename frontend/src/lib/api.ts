@@ -192,6 +192,8 @@ export type Subscription = {
   cancel_at_period_end: boolean
   cancelled_at: string | null
   provider: string | null
+  chosen_plan_code?: string | null
+  chosen_billing_interval?: 'monthly' | 'annual' | null
   plan: Plan
 }
 
@@ -492,7 +494,12 @@ export const uploadMyAvatar = (file: File) => {
 export const listOrganizations = () =>
   request<Organization[]>('/organizations', { organizationId: null })
 
-export const createOrganization = (payload: { name: string; slug: string }) =>
+export const createOrganization = (payload: {
+  name: string
+  slug: string
+  plan_code?: string
+  billing_interval?: 'monthly' | 'annual'
+}) =>
   request<Organization>('/organizations', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -1604,8 +1611,10 @@ export const listCourseDayFeedback = (courseDayId: number) =>
 export type SchoolCourseDayReport = {
   course_day_id: number
   session_id: number
+  formation_id?: number | null
   formation_title: string
   session_label: string
+  teacher_id?: number | null
   teacher_name: string | null
   title: string
   scheduled_at: string
@@ -1620,6 +1629,23 @@ export type SchoolCourseDayReport = {
 }
 
 export const listSchoolCourseDayReports = () => request<SchoolCourseDayReport[]>('/planning/reports')
+
+/** A course day over whose teacher has not written the report yet. */
+export type SchoolMissingCourseDayReport = {
+  course_day_id: number
+  session_id: number
+  formation_id: number
+  formation_title: string
+  session_label: string
+  teacher_id: number | null
+  teacher_name: string | null
+  title: string
+  scheduled_at: string
+  ends_at: string
+}
+
+export const listSchoolMissingCourseDayReports = () =>
+  request<SchoolMissingCourseDayReport[]>('/planning/reports/missing')
 
 export type LiveRoom = {
   course_day_id: number
@@ -2624,6 +2650,8 @@ export type PublicSchool = {
   sales_terms: string
   privacy_policy: string
   refund_policy: string
+  /** Business plans hide the platform's "Powered by" signature. */
+  white_label?: boolean
 }
 
 export type PublicSession = {
@@ -3063,6 +3091,7 @@ export type SchoolPedagogyStudent = {
   student_id: number
   student_name: string
   student_code: string | null
+  formation_id?: number | null
   formation_title: string
   session_label: string
   enrollment_status: string
@@ -3079,8 +3108,10 @@ export type SchoolPedagogyStudent = {
 
 export type SchoolPedagogySession = {
   session_id: number
+  formation_id?: number | null
   formation_title: string
   session_label: string
+  teacher_ids?: number[]
   status: string
   enrolled_count: number
   seat_capacity: number

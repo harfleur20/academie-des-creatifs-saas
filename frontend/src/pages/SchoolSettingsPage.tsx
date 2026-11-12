@@ -293,7 +293,7 @@ export function SchoolSettingsPage() {
 
           <div className="subdomain-field">
             <label>
-              Sous-domaine SaaS
+              Sous-domaine
               <span className="subdomain-input">
                 <input
                   value={subdomain}

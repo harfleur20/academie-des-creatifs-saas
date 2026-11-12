@@ -16,9 +16,12 @@ import {
   Smartphone,
   Tag,
   Timer,
+  X,
 } from 'lucide-react'
 import { BrandLogo } from '../brand/BrandLogo'
-import { listPlans, type Plan, type PlanEntitlement } from '../lib/api'
+import { listPlans, type Plan } from '../lib/api'
+import { commissionLabel, monthlyEquivalent, planHighlights } from '../lib/planFeatures'
+import { PlanComparison } from '../components/PlanComparison'
 import '../landing.css'
 
 const REGISTER_URL = '/login?mode=register'
@@ -68,7 +71,15 @@ const STEPS = [
 const FAQ = [
   {
     question: 'Mes étudiants peuvent-ils payer par Mobile Money ?',
-    answer: 'Oui. Les paiements passent par Tara Money, en FCFA : Mobile Money ou carte bancaire, en une fois ou en plusieurs échéances. Les retards de paiement sont suivis pour vous.',
+    answer: 'Oui. Vos étudiants paient en FCFA par Mobile Money, en une fois ou en plusieurs échéances. Les retards de paiement sont suivis pour vous.',
+  },
+  {
+    question: 'Combien prenez-vous sur mes ventes ?',
+    answer: 'Une commission sur chaque paiement de vos étudiants, frais de paiement compris : plus votre forfait est élevé, plus elle est basse. Le reste vous est versé quand vous le demandez, par Mobile Money ou virement.',
+  },
+  {
+    question: 'Y a-t-il une limite au nombre d’étudiants ?',
+    answer: 'Non, dans aucun forfait, même gratuit. D’un forfait à l’autre changent la taille de vos classes en live, le nombre de lives en même temps, les replays et les outils de suivi.',
   },
   {
     question: 'Mon école aura-t-elle sa propre adresse ?',
@@ -88,27 +99,9 @@ const FAQ = [
   },
   {
     question: 'Puis-je essayer avant de payer ?',
-    answer: 'Oui. Créer votre école lance une période d’essai gratuite, sans moyen de paiement à fournir. Vous choisissez un forfait quand vous êtes prêt.',
+    answer: 'Oui. Créer votre école ouvre un essai gratuit du forfait Pro, lives compris, sans moyen de paiement. À la fin de l’essai, sans forfait payé, votre école continue gratuitement en Découverte.',
   },
 ]
-
-const FEATURE_LABELS: Record<string, (limit: number | null) => string> = {
-  students: (limit) => (limit === null ? 'Étudiants illimités' : `Jusqu’à ${limit.toLocaleString('fr-FR')} étudiants`),
-  teachers: (limit) => (limit === null ? 'Professeurs illimités' : `Jusqu’à ${limit} professeurs`),
-  active_formations: (limit) => (limit === null ? 'Formations illimitées' : `${limit} formations actives`),
-  live: (limit) => limit === null ? 'Cours en live inclus' : `Cours en live inclus · ${limit} étudiants max par classe`,
-  custom_domain: () => 'Votre propre nom de domaine',
-  automations: () => 'Relances et rappels automatiques',
-  advanced_reporting: () => 'Rapports avancés',
-}
-
-function entitlementLabel(item: PlanEntitlement) {
-  const label = FEATURE_LABELS[item.feature_key]
-  if (label) return label(item.limit_value)
-  const name = item.feature_key.replace(/_/g, ' ')
-  const text = name.charAt(0).toUpperCase() + name.slice(1)
-  return item.limit_value === null ? text : `${text} : ${item.limit_value}`
-}
 
 function formatPrice(amount: number, currency: string) {
   // XAF has no subunit: amounts are stored in whole francs.
@@ -227,8 +220,14 @@ function Pricing() {
     return () => { active = false }
   }, [])
 
-  const hasAnnual = Boolean(plans?.some((plan) => plan.annual_price_cents !== null))
-  const trialDays = plans?.find((plan) => plan.code === 'starter')?.trial_days ?? plans?.[0]?.trial_days ?? 0
+  const hasAnnual = Boolean(plans?.some((plan) => (plan.annual_price_cents ?? 0) > 0))
+  const trialPlan = plans?.find((plan) => plan.code === 'pro') ?? plans?.find((plan) => plan.trial_days > 0)
+  const trialDays = trialPlan?.trial_days ?? 0
+  const discount = (() => {
+    const paid = plans?.find((plan) => (plan.monthly_price_cents ?? 0) > 0 && plan.annual_price_cents !== null)
+    if (!paid || !paid.monthly_price_cents || paid.annual_price_cents === null) return 0
+    return Math.round(100 - (paid.annual_price_cents * 100) / (paid.monthly_price_cents * 12))
+  })()
 
   return (
     <section className="lp-section lp-pricing" id="tarifs">
@@ -236,14 +235,16 @@ function Pricing() {
         <header className="lp-heading lp-heading--center lp-reveal">
           <h2>Un forfait pour chaque étape de votre école</h2>
           <p>
-            {trialDays > 0
-              ? `Commencez par ${trialDays} jours d’essai gratuit, sans moyen de paiement. Changez de forfait quand votre école grandit.`
-              : 'Commencez gratuitement et changez de forfait quand votre école grandit.'}
+            Étudiants illimités dans tous les forfaits. Commencez gratuitement
+            {trialDays > 0 && trialPlan ? `, ou essayez ${trialPlan.name} ${trialDays} jours sans moyen de paiement` : ''},
+            et changez de forfait quand votre école grandit.
           </p>
           {hasAnnual && (
             <div className="lp-toggle" role="group" aria-label="Période de facturation">
               <button type="button" className={annual ? '' : 'is-active'} onClick={() => setAnnual(false)}>Mensuel</button>
-              <button type="button" className={annual ? 'is-active' : ''} onClick={() => setAnnual(true)}>Annuel</button>
+              <button type="button" className={annual ? 'is-active' : ''} onClick={() => setAnnual(true)}>
+                Annuel{discount > 0 && <span className="lp-toggle__save">−{discount} %</span>}
+              </button>
             </div>
           )}
         </header>
@@ -252,34 +253,54 @@ function Pricing() {
           <p className="lp-pricing__empty">Les forfaits seront publiés très bientôt. Vous pouvez déjà créer votre école et l’essayer gratuitement.</p>
         ) : (
           <div className="lp-plans">
-            {(plans ?? [null, null, null]).map((plan, index) => {
+            {(plans ?? [null, null, null, null]).map((plan, index) => {
               if (plan === null) return <article className="lp-plan lp-plan--loading" key={index} aria-hidden="true" />
-              const amount = annual ? plan.annual_price_cents : plan.monthly_price_cents
+              const free = plan.monthly_price_cents === 0
+              const perMonth = monthlyEquivalent(plan, annual && !free)
               const featured = plan.code === 'pro'
-              const features = plan.entitlements.filter((item) => item.enabled)
+              const commission = commissionLabel(plan.sales_commission_bps)
               return (
                 <article className={`lp-plan${featured ? ' lp-plan--featured' : ''}`} key={plan.id}>
                   {featured && <span className="lp-plan__flag">Recommandé</span>}
                   <h3>{plan.name}</h3>
                   <p className="lp-plan__desc">{plan.description}</p>
                   <div className="lp-plan__price">
-                    {amount === null
+                    {perMonth === null
                       ? <strong className="lp-plan__soon">Tarif bientôt disponible</strong>
-                      : <><strong>{formatPrice(amount, plan.currency)}</strong><span>{annual ? '/ an' : '/ mois'}</span></>}
+                      : <><strong>{free ? 'Gratuit' : formatPrice(perMonth, plan.currency)}</strong>{!free && <span>/ mois</span>}</>}
+                    <small>
+                      {free
+                        ? 'Sans abonnement, sans engagement'
+                        : annual && plan.annual_price_cents !== null
+                          ? `soit ${formatPrice(plan.annual_price_cents, plan.currency)} par an`
+                          : 'Sans engagement'}
+                    </small>
                   </div>
-                  {features.length > 0 && (
-                    <ul>
-                      {features.map((item) => <li key={item.feature_key}><Check size={16} /> {entitlementLabel(item)}</li>)}
-                    </ul>
+                  <ul>
+                    {planHighlights(plan.entitlements).map((line) => (
+                      <li className={line.excluded ? 'is-excluded' : undefined} key={line.key}>
+                        {line.excluded ? <X size={16} /> : <Check size={16} />}
+                        <span>{line.label}{line.soon && <em className="lp-plan__tag">Bientôt</em>}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {commission && (
+                    <p className="lp-plan__commission">
+                      <strong>{commission}</strong>, frais compris
+                    </p>
                   )}
-                  <a className={`lp-btn ${featured ? 'lp-btn--primary' : 'lp-btn--ghost'} lp-btn--block`} href={REGISTER_URL}>
-                    Commencer l’essai
+                  <a
+                    className={`lp-btn ${featured ? 'lp-btn--primary' : 'lp-btn--ghost'} lp-btn--block`}
+                    href={`${REGISTER_URL}&plan=${encodeURIComponent(plan.code)}&interval=${annual && !free ? 'annual' : 'monthly'}`}
+                  >
+                    {free ? 'Créer mon école' : featured && trialDays > 0 ? 'Commencer l’essai' : 'Choisir ce forfait'}
                   </a>
                 </article>
               )
             })}
           </div>
         )}
+        {plans && plans.length > 0 && <PlanComparison plans={plans} highlight="pro" />}
       </div>
     </section>
   )
@@ -408,7 +429,7 @@ export default function LandingPage() {
             { icon: Timer, title: 'Rattrapage', text: 'Devoirs en retard et quiz à repasser.' },
           ].map(({ icon: Icon, title, text }) => (
             <div className="lp-band__item lp-reveal" key={title}>
-              <Icon size={20} />
+              <Icon size={34} strokeWidth={1.7} />
               <strong>{title}</strong>
               <span>{text}</span>
             </div>

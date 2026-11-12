@@ -8,6 +8,7 @@ import {
 import { lazy, Suspense } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { TenantProvider, useTenant } from './app/TenantContext'
+import { billingPathFor, readPlanChoice } from './lib/planChoice'
 import { AppLayout } from './app/AppLayout'
 import { TeacherLayout } from './app/TeacherLayout'
 import { StudentLayout } from './app/StudentLayout'
@@ -122,6 +123,12 @@ function WorkspaceEntry() {
 
   if (accessProfile.spaces.length === 0) {
     return <div className="app-loading">Aucun espace disponible pour ce compte.</div>
+  }
+
+  // A plan clicked on the landing page: the billing page shows it (and forgets it).
+  const choice = readPlanChoice()
+  if (choice && accessProfile.spaces.includes('manage')) {
+    return <Navigate to={billingPathFor(choice)} replace />
   }
 
   const stored = localStorage.getItem('academie_saas_workspace_space') as WorkspaceSpace | null

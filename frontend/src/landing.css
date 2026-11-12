@@ -1,12 +1,12 @@
 /* Landing page of the SaaS (pages/LandingPage.tsx). Everything is scoped under .lp. */
 .lp {
-  --lp-navy: #1f2559;
-  --lp-navy-deep: #131735;
+  --lp-navy: #1f2352;
+  --lp-navy-deep: #1f2352;
   --lp-navy-soft: #eef0fb;
-  --lp-mint: #21c889;
-  --lp-mint-soft: #dff9ef;
-  --lp-mint-ink: #087a55;
-  --lp-ink: #10233f;
+  --lp-mint: #1c8480;
+  --lp-mint-soft: #e2f3f2;
+  --lp-mint-ink: #1c8480;
+  --lp-ink: #1f2352;
   --lp-muted: #5d6b82;
   --lp-line: #e6ebf2;
   --lp-surface: #f6f8fc;
@@ -40,7 +40,7 @@
 .lp-btn--primary { background: linear-gradient(135deg, var(--lp-navy), #35409a); color: #fff; box-shadow: 0 10px 24px rgba(31, 37, 89, .25); }
 .lp-btn--ghost { background: #fff; color: var(--lp-navy); border-color: var(--lp-line); }
 .lp-btn--ghost:hover { border-color: #cdd5e3; }
-.lp-btn--mint { background: var(--lp-mint); color: var(--lp-navy-deep); box-shadow: 0 10px 24px rgba(33, 200, 137, .3); }
+.lp-btn--mint { background: var(--lp-mint); color: #fff; box-shadow: 0 10px 24px rgba(28, 132, 128, .3); }
 .lp-btn--small { min-height: 42px; padding: 0 16px; font-size: 14px; border-radius: 11px; }
 .lp-btn--block { width: 100%; }
 .lp-link { font-weight: 700; font-size: 14px; color: var(--lp-navy); padding: 10px 6px; border-radius: 8px; }
@@ -138,7 +138,7 @@
 .lp-formats__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 40px; }
 .lp-format {
   display: flex; gap: 14px; align-items: flex-start; padding: 20px;
-  border-radius: var(--lp-radius); background: #fff; border: 1px solid var(--lp-line);
+  border-radius: var(--lp-radius); background: #fff;
   box-shadow: 0 10px 28px rgba(19, 23, 53, .06);
 }
 .lp-format h3 { font-size: 16px; font-weight: 800; color: var(--lp-navy-deep); margin-bottom: 4px; }
@@ -168,7 +168,7 @@
 .lp-feature__copy h3 { font-size: clamp(24px, 2.6vw, 32px); line-height: 1.18; letter-spacing: -.02em; font-weight: 800; color: var(--lp-navy-deep); text-wrap: balance; }
 .lp-feature__copy > p { font-size: 16px; line-height: 1.65; color: var(--lp-muted); }
 .lp-checks { display: grid; gap: 10px; padding: 0; margin: 4px 0 0; list-style: none; }
-.lp-checks li { display: flex; gap: 10px; font-size: 15px; line-height: 1.5; color: #2c3a54; font-weight: 500; }
+.lp-checks li { display: flex; gap: 10px; font-size: 15px; line-height: 1.5; color: var(--lp-ink); font-weight: 500; }
 .lp-checks li svg { margin-top: 3px; }
 .lp-feature__phone-stage {
   position: relative; display: grid; place-items: center; padding: 32px 0;
@@ -182,16 +182,16 @@
 /* Small band of extra capabilities */
 .lp-band { padding: 64px 0; background: var(--lp-navy-deep); color: #fff; }
 .lp-band__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; }
-.lp-band__item { display: grid; gap: 6px; }
-.lp-band__item svg { color: var(--lp-mint); margin-bottom: 6px; }
+.lp-band__item { display: grid; align-content: start; gap: 6px; }
+.lp-band__item svg { color: #7fd6d1; margin-bottom: 10px; }
 .lp-band__item strong { font-size: 16px; }
 .lp-band__item span { font-size: 14px; line-height: 1.5; color: #b8c0dc; }
 
 /* Steps */
 .lp-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: 56px 0 0; padding: 0; list-style: none; counter-reset: none; }
-.lp-step { position: relative; padding: 28px; border-radius: var(--lp-radius); background: var(--lp-surface); border: 1px solid var(--lp-line); }
+.lp-step { position: relative; padding: 28px; border-radius: var(--lp-radius); background: var(--lp-surface); border: 1px solid var(--lp-line); text-align: center; }
 .lp-step__number {
-  display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 18px; border-radius: 12px;
+  display: grid; place-items: center; width: 40px; height: 40px; margin: 0 auto 18px; border-radius: 12px;
   background: var(--lp-navy); color: #fff; font-weight: 800;
 }
 .lp-step h3 { font-size: 18px; font-weight: 800; color: var(--lp-navy-deep); margin-bottom: 8px; }
@@ -202,25 +202,32 @@
 .lp-toggle { display: inline-flex; padding: 4px; border-radius: 12px; background: #fff; border: 1px solid var(--lp-line); }
 .lp-toggle button { border: 0; background: transparent; padding: 8px 16px; border-radius: 9px; font-weight: 700; font-size: 14px; color: var(--lp-muted); cursor: pointer; }
 .lp-toggle button.is-active { background: var(--lp-navy); color: #fff; }
-.lp-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 56px; align-items: stretch; }
+.lp-plans { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 56px; align-items: stretch; }
 .lp-plan {
-  position: relative; display: flex; flex-direction: column; gap: 16px; padding: 30px 26px;
+  position: relative; display: flex; flex-direction: column; gap: 16px; padding: 28px 22px;
   border-radius: 22px; background: #fff; border: 1px solid var(--lp-line); box-shadow: 0 12px 30px rgba(19, 23, 53, .06);
 }
 .lp-plan--featured { border: 2px solid var(--lp-navy); box-shadow: var(--lp-shadow); }
 .lp-plan--loading { min-height: 360px; background: linear-gradient(90deg, #f3f5f9, #fafbfd, #f3f5f9); }
 .lp-plan__flag {
   position: absolute; top: -13px; left: 50%; transform: translateX(-50%); padding: 5px 12px; border-radius: 999px;
-  background: var(--lp-mint); color: var(--lp-navy-deep); font-size: 12px; font-weight: 800;
+  background: var(--lp-mint); color: #fff; font-size: 12px; font-weight: 800;
 }
 .lp-plan h3 { font-size: 20px; font-weight: 800; color: var(--lp-navy-deep); }
-.lp-plan__desc { font-size: 14px; line-height: 1.55; color: var(--lp-muted); min-height: 44px; }
-.lp-plan__price { display: flex; align-items: baseline; gap: 6px; padding: 14px 0; border-block: 1px solid var(--lp-line); }
+.lp-plan__desc { font-size: 14px; line-height: 1.55; color: var(--lp-muted); min-height: 66px; }
+.lp-plan__price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; padding: 14px 0; border-block: 1px solid var(--lp-line); }
+.lp-plan__price small { flex-basis: 100%; font-size: 12.5px; color: var(--lp-muted); font-weight: 600; }
 .lp-plan__price strong { font-size: 30px; font-weight: 850; letter-spacing: -.02em; color: var(--lp-navy-deep); }
 .lp-plan__price span { font-size: 14px; color: var(--lp-muted); font-weight: 600; }
 .lp-plan__price .lp-plan__soon { font-size: 18px; color: var(--lp-navy); }
-.lp-plan ul { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; flex: 1; }
-.lp-plan li { display: flex; gap: 9px; font-size: 14px; line-height: 1.45; color: #2c3a54; }
+.lp-plan ul { display: grid; align-content: start; gap: 10px; padding: 0; margin: 0; list-style: none; flex: 1; }
+.lp-plan li { display: flex; gap: 9px; font-size: 14px; line-height: 1.45; color: var(--lp-ink); }
+.lp-plan li.is-excluded { color: var(--lp-muted); }
+.lp-plan li.is-excluded svg { color: #b4bccb; }
+.lp-plan__tag { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #eef0ff; color: var(--lp-navy); font-size: 11px; font-weight: 800; font-style: normal; white-space: nowrap; }
+.lp-plan__commission { margin: 0; padding-top: 12px; border-top: 1px dashed var(--lp-line); font-size: 13px; line-height: 1.45; color: var(--lp-muted); }
+.lp-plan__commission strong { color: var(--lp-navy-deep); }
+.lp-toggle__save { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--lp-mint); color: #fff; font-size: 12px; font-weight: 800; }
 .lp-plan .lp-btn { margin-top: auto; }
 .lp-pricing__empty { margin: 40px auto 0; max-width: 560px; text-align: center; font-size: 16px; line-height: 1.6; color: var(--lp-muted); }
 
@@ -274,7 +281,7 @@
   .lp-feature--flip .lp-feature__copy { order: 0; }
   .lp-features { gap: 80px; }
   .lp-band__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .lp-plans { grid-template-columns: minmax(0, 1fr); max-width: 520px; margin-inline: auto; }
+  .lp-plans { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 760px; margin-inline: auto; }
   .lp-site__points { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lp-site__phone { right: 0; }
   .lp-faq { gap: 28px; }
@@ -282,6 +289,8 @@
 
 /* Phones */
 @media (max-width: 640px) {
+  .lp-plans { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
+  .lp-plan__desc { min-height: 0; }
   .lp-container { padding: 0 16px; }
   .lp-section { padding: 64px 0; }
   .lp-header__inner { height: 64px; gap: 12px; }

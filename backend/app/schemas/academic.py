@@ -477,6 +477,7 @@ class SchoolPedagogyStudentRead(BaseModel):
     student_id: int
     student_name: str
     student_code: str | None
+    formation_id: int | None = None
     formation_title: str
     session_label: str
     enrollment_status: str
@@ -493,8 +494,11 @@ class SchoolPedagogyStudentRead(BaseModel):
 
 class SchoolPedagogySessionRead(BaseModel):
     session_id: int
+    formation_id: int | None = None
     formation_title: str
     session_label: str
+    # The teachers assigned to the session, for the filters of the school's pedagogy pages.
+    teacher_ids: list[int] = []
     status: str
     enrolled_count: int
     seat_capacity: int

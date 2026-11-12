@@ -1,11 +1,13 @@
 """What each plan includes, what a school uses, and what it pays beyond its plan (docs/FORFAITS.md).
 
-- A plan's entitlements say what is included: a quota (students, teachers, published
-  formations) or a feature (live classes, custom domain). A plan without any entitlement
-  is not configured yet and restricts nothing; a school without a plan neither.
+- A plan's entitlements say what is included: a quota (teachers, published formations),
+  a feature (live classes, custom domain) or a size (students per live class, live classes
+  at once). A plan without any entitlement is not configured yet and restricts nothing;
+  a school without a plan neither (when no free plan exists, see subscriptions.py).
+- Students are never limited: the platform earns on each of them through its commission.
 - Beyond a quota, an active add-on lets the school go on, billed per unit on its next
-  payment. Teachers and formations ask the school to accept the add-on first; students
-  enrol by themselves, so they are never blocked: the school is warned instead.
+  payment, once the school accepted it.
+- An annual plan costs twelve months minus 20 %; add-ons follow the same rule.
 """
 
 from dataclasses import dataclass
@@ -25,22 +27,30 @@ from app.models.entities import (
     OrganizationMemberRecord,
     OrganizationMemberRoleRecord,
     PlanRecord,
-    SubscriptionRecord,
 )
 from app.services.subscriptions import configured_plan_price, get_effective_plan, list_public_plans
 
-METERED = ("students", "teachers", "active_formations")
+# The quotas an add-on can extend; students are shown, never limited.
+METERED = ("teachers", "active_formations")
+SHOWN = ("students", *METERED)
 FEATURE_LABELS = {
     "students": "étudiants actifs",
     "teachers": "professeurs",
     "active_formations": "formations publiées",
     "live": "Les cours en live",
+    "live_rooms": "cours en live en même temps",
     "custom_domain": "Le domaine personnalisé",
+    "white_label": "Le site sans la mention de la plateforme",
 }
 DEFAULT_COMMISSION_BPS = 800
-# An annual plan costs ten months; add-ons follow the same rule.
-MONTHS_BILLED = {"monthly": 1, "annual": 10}
-STUDENT_ALERT_SHARE = 0.8
+ANNUAL_DISCOUNT_PCT = 20
+
+
+def period_amount(monthly_amount: int, billing_interval: str) -> int:
+    """A monthly amount over the billing period: twelve months minus the annual discount."""
+    if billing_interval != "annual":
+        return monthly_amount
+    return (monthly_amount * 12 * (100 - ANNUAL_DISCOUNT_PCT) + 50) // 100
 
 
 @dataclass(frozen=True)
@@ -81,6 +91,11 @@ def allowance(plan: PlanRecord | None, feature_key: str) -> Allowance:
     if item is None or not item.enabled:
         return Allowance(enabled=False, limit=None)
     return Allowance(enabled=True, limit=item.limit_value)
+
+
+def included(plan: PlanRecord | None, feature_key: str) -> bool:
+    """A feature a plan names explicitly, for the ones a school never gets by default (white label)."""
+    return plan is not None and any(entry.feature_key == feature_key and entry.enabled for entry in plan.entitlements)
 
 
 def usage(db: Session, organization_id: int, *, today: date | None = None) -> dict[str, int]:
@@ -168,12 +183,11 @@ def quote(db: Session, organization_id: int, plan: PlanRecord, billing_interval:
     price = configured_plan_price(plan, billing_interval)
     if price is None:
         return None
-    months = MONTHS_BILLED.get(billing_interval, 1)
     lines = [Line(f"Forfait {plan.name} ({'annuel' if billing_interval == 'annual' else 'mensuel'})", 1, price, price)]
     for feature_key, units in extra_units(db, organization_id, plan).items():
         addon = addon_for(db, plan, feature_key)
-        unit_amount = addon.unit_price_cents * months
-        period = " pour 10 mois" if billing_interval == "annual" else ""
+        unit_amount = period_amount(addon.unit_price_cents, billing_interval)
+        period = f" (12 mois, −{ANNUAL_DISCOUNT_PCT} %)" if billing_interval == "annual" else ""
         lines.append(Line(f"{addon.name}{period}", units, unit_amount, unit_amount * units))
     return Quote(currency=plan.currency, lines=lines)
 
@@ -245,47 +259,6 @@ def commission_bps(db: Session, organization_id: int) -> int:
     return plan.sales_commission_bps if plan is not None else DEFAULT_COMMISSION_BPS
 
 
-def notify_student_quotas(db: Session, *, now: datetime | None = None) -> int:
-    """Warn a school at 80 % of its students quota, and when it goes beyond, once per period."""
-    from app.services.school_notifications import notify_school_managers
-
-    now = now or datetime.now(UTC)
-    sent = 0
-    subscriptions = db.scalars(select(SubscriptionRecord).where(SubscriptionRecord.status.in_(["trialing", "active", "past_due"]))).all()
-    for subscription in subscriptions:
-        plan = get_effective_plan(db, subscription.organization_id)
-        limit = allowance(plan, "students").limit
-        if plan is None or limit is None or limit <= 0:
-            continue
-        students = usage(db, subscription.organization_id)["students"]
-        period = (subscription.current_period_start or subscription.started_at).strftime("%Y%m%d")
-        addon = addon_for(db, plan, "students")
-        if students > limit:
-            extra = students - limit
-            cost = f" : {extra} × {format_xaf(addon.unit_price_cents)} sur votre prochaine facture" if addon else ""
-            title, message, key = (
-                "Quota d'étudiants dépassé",
-                f"Votre école compte {students} étudiants actifs pour {limit} inclus dans le forfait {plan.name}{cost}. "
-                "Un forfait supérieur peut revenir moins cher.",
-                f"quota.students.over:{subscription.organization_id}:{period}",
-            )
-        elif students >= limit * STUDENT_ALERT_SHARE:
-            title, message, key = (
-                "Bientôt au bout de votre quota d'étudiants",
-                f"Votre école compte {students} étudiants actifs sur les {limit} inclus dans le forfait {plan.name}.",
-                f"quota.students.80:{subscription.organization_id}:{period}",
-            )
-        else:
-            continue
-        notify_school_managers(
-            db, organization_id=subscription.organization_id, event_key=key, title=title, message=message,
-            category="billing", tone="warning", action_label="Voir mon abonnement", action_path="/app/manage/billing",
-        )
-        sent += 1
-    db.commit()
-    return sent
-
-
 def billing_usage(db: Session, organization_id: int) -> dict:
     """The school's quotas against what it uses, and what its next payment would be."""
     from app.services.subscriptions import get_current_subscription
@@ -295,21 +268,23 @@ def billing_usage(db: Session, organization_id: int) -> dict:
     interval = subscription.billing_interval if subscription is not None else "monthly"
     current = usage(db, organization_id)
     metrics = []
-    for feature_key in METERED:
-        rule = allowance(plan, feature_key)
-        addon = addon_for(db, plan, feature_key)
-        extra = max(0, current[feature_key] - rule.limit) if rule.limit is not None else 0
+    for feature_key in SHOWN:
+        limit = allowance(plan, feature_key).limit if feature_key in METERED else None
+        addon = addon_for(db, plan, feature_key) if feature_key in METERED else None
+        extra = max(0, current[feature_key] - limit) if limit is not None else 0
         unit_price = addon.unit_price_cents if addon is not None else None
         metrics.append({
             "feature_key": feature_key,
             "label": FEATURE_LABELS[feature_key].capitalize(),
             "current": current[feature_key],
-            "limit": rule.limit,
+            "limit": limit,
             "extra": extra,
             "unit_price_cents": unit_price,
             "extra_amount_cents": extra * (unit_price or 0),
         })
-    next_payment = quote(db, organization_id, plan, interval) if plan is not None else None
+    # The free plan has nothing to pay: the platform earns on the school's sales only.
+    paid_plan = plan is not None and (configured_plan_price(plan, interval) or 0) > 0
+    next_payment = quote(db, organization_id, plan, interval) if paid_plan else None
     return {
         "plan_code": plan.code if plan is not None else None,
         "plan_name": plan.name if plan is not None else None,

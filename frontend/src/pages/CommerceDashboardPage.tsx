@@ -90,7 +90,7 @@ export function CommerceDashboardPage() {
         <div>
           <span className="page-kicker">Commerce</span>
           <h1>Ventes & paiements étudiants</h1>
-          <p>Cette comptabilité est distincte de votre abonnement SaaS.</p>
+          <p>Cette comptabilité est distincte de votre abonnement à la plateforme.</p>
         </div>
       </header>
 

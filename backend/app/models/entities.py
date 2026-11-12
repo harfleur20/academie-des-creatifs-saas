@@ -338,6 +338,9 @@ class SubscriptionRecord(TimestampMixin, Base):
     provider: Mapped[str | None] = mapped_column(String(40), nullable=True)
     provider_customer_id: Mapped[str | None] = mapped_column(String(180), nullable=True)
     provider_subscription_id: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    # The plan the school picked on the landing page; its trial reminders lead back to it.
+    chosen_plan_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    chosen_billing_interval: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     organization: Mapped["OrganizationRecord"] = relationship(back_populates="subscriptions")
     plan: Mapped["PlanRecord"] = relationship()

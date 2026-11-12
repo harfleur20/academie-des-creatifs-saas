@@ -21,6 +21,8 @@ from app.services.tenancy import TenantContext
 
 ACTIVE_SUBSCRIPTION_STATUSES = {"trialing", "active"}
 TRIAL_PLAN_CODES = ("pro", "starter")
+# The free plan: a school whose trial is over, or that stopped paying, goes on with it.
+FREE_PLAN_CODE = "decouverte"
 
 
 @dataclass(frozen=True)
@@ -65,8 +67,21 @@ def list_public_plans(db: Session) -> list[PlanRecord]:
                 PlanRecord.is_active.is_(True),
                 PlanRecord.is_public.is_(True),
             )
-            .order_by(PlanRecord.id)
+            # Cheapest first, the free plan included; plans without a price last.
+            .order_by(
+                PlanRecord.monthly_price_cents.is_(None),
+                PlanRecord.monthly_price_cents,
+                PlanRecord.id,
+            )
         ).all()
+    )
+
+
+def get_free_plan(db: Session) -> PlanRecord | None:
+    return db.scalar(
+        select(PlanRecord)
+        .options(selectinload(PlanRecord.entitlements))
+        .where(PlanRecord.code == FREE_PLAN_CODE, PlanRecord.is_active.is_(True))
     )
 
 
@@ -333,6 +348,8 @@ def start_default_trial(
     db: Session,
     *,
     organization_id: int,
+    chosen_plan_code: str | None = None,
+    chosen_billing_interval: str | None = None,
 ) -> SubscriptionRecord | None:
     # A new school tries everything, live classes included: Pro when it exists, else Starter.
     plan = None
@@ -366,9 +383,65 @@ def start_default_trial(
         grace_period_ends_at=None,
         suspended_at=None,
     )
+    # Remember the plan picked on the landing page, when it is one the school can take.
+    chosen = db.scalar(select(PlanRecord).where(
+        PlanRecord.code == (chosen_plan_code or "").strip().lower(),
+        PlanRecord.is_active.is_(True),
+        PlanRecord.is_public.is_(True),
+    )) if chosen_plan_code else None
+    if chosen is not None:
+        subscription.chosen_plan_code = chosen.code
+        subscription.chosen_billing_interval = chosen_billing_interval if chosen_billing_interval in {"monthly", "annual"} else "monthly"
     db.add(subscription)
     db.flush()
     return subscription
+
+
+FRENCH_MONTHS = ("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre",
+                 "octobre", "novembre", "décembre")
+TRIAL_REMINDERS = ((timedelta(days=1), 1), (timedelta(days=3), 3))
+
+
+def notify_trial_endings(db: Session, *, now: datetime | None = None) -> int:
+    """Three days, then one day before a trial ends, lead the school to the plan it had chosen."""
+    from app.services.school_notifications import notify_school_managers
+
+    now = aware_utc(now) or utc_now()
+    free = get_free_plan(db)
+    sent = 0
+    trials = db.scalars(select(SubscriptionRecord).options(selectinload(SubscriptionRecord.plan)).where(
+        SubscriptionRecord.status == "trialing",
+        SubscriptionRecord.trial_ends_at.is_not(None),
+    )).all()
+    for trial in trials:
+        ends = aware_utc(trial.trial_ends_at)
+        if ends is None or ends <= now:
+            continue
+        days = next((days for window, days in TRIAL_REMINDERS if ends - now <= window), None)
+        if days is None:
+            continue
+        chosen = db.scalar(select(PlanRecord).where(
+            PlanRecord.code == trial.chosen_plan_code, PlanRecord.is_active.is_(True),
+        )) if trial.chosen_plan_code else None
+        paid_choice = chosen is not None and (chosen.monthly_price_cents or 0) > 0
+        when = "demain" if days == 1 else "dans 3 jours"
+        date = f"{ends.day} {FRENCH_MONTHS[ends.month - 1]}"
+        message = f"L’essai {trial.plan.name} de votre école se termine le {date}. "
+        message += (f"Activez le forfait {chosen.name} que vous aviez choisi pour garder vos cours en live."
+                    if paid_choice else "Choisissez votre forfait pour garder vos cours en live.")
+        if free is not None:
+            message += f" Sinon, votre école passera en {free.name}, gratuite, sans cours en live."
+        path = "/app/manage/billing"
+        if paid_choice:
+            path += f"?plan={chosen.code}&interval={trial.chosen_billing_interval or 'monthly'}"
+        notify_school_managers(
+            db, organization_id=trial.organization_id, event_key=f"trial.ending.{days}:{trial.id}",
+            title=f"Votre essai se termine {when}", message=message, category="billing", tone="warning",
+            action_label=f"Activer {chosen.name}" if paid_choice else "Choisir mon forfait", action_path=path,
+        )
+        sent += 1
+    db.commit()
+    return sent
 
 
 def get_active_plan_override(
@@ -408,7 +481,15 @@ def get_effective_plan(
         return override.plan
 
     subscription = get_current_subscription(db, organization_id)
-    return subscription.plan if subscription is not None else None
+    if subscription is None:
+        # Late on its payment, the school keeps its plan until the grace period ends.
+        subscription = db.scalar(
+            _subscription_query(organization_id).where(SubscriptionRecord.status == "past_due").limit(1)
+        )
+    if subscription is not None:
+        return subscription.plan
+    # No plan running (trial over, cancelled, unpaid): the free plan, when the grid has one.
+    return get_free_plan(db)
 
 
 def get_usage(

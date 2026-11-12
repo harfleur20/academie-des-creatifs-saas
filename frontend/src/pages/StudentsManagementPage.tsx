@@ -4,7 +4,7 @@ import { ApiError, listManagedStudents, type ManagedStudent } from '../lib/api'
 import { formatSchoolMoney } from '../public/publicHelpers'
 
 export function StudentsManagementPage(){
- const [items,setItems]=useState<ManagedStudent[]>([]);const [query,setQuery]=useState('');const [error,setError]=useState('')
+ const [items,setItems]=useState<ManagedStudent[]>([]);const [query,setQuery]=useState(()=>new URLSearchParams(window.location.search).get('q')??'');const [error,setError]=useState('')
  useEffect(()=>{listManagedStudents().then(setItems).catch((err)=>setError(err instanceof ApiError?err.message:'Chargement impossible.'))},[])
  const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return q?items.filter((x)=>[x.full_name,x.email,x.student_code].some((v)=>v.toLowerCase().includes(q))):items},[items,query])
  return <main className="app-page">

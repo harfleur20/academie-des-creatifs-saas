@@ -259,7 +259,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
 
     if (pathname.startsWith('/login') || pathname.startsWith('/invite') || pathname.startsWith('/admin')) {
-      document.title = 'Académie des Créatifs SaaS'
+      document.title = 'Académie des Créatifs'
       setDocumentIcon(DEFAULT_PLATFORM_LOGO_URL)
     }
   }, [

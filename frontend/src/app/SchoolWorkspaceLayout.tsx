@@ -91,6 +91,7 @@ export function SchoolWorkspaceLayout({
     activeOrganization,
     accessProfile,
     selectOrganization,
+    schoolBranding,
   } = useTenant()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -521,7 +522,7 @@ export function SchoolWorkspaceLayout({
             </div>
           </div>
 
-          <div className="tenant-role-powered">
+          {!schoolBranding?.white_label && <div className="tenant-role-powered">
             <small>Powered by</small>
             <span>
               <BrandLogo
@@ -531,7 +532,7 @@ export function SchoolWorkspaceLayout({
               />
               <strong>Académie des Créatifs</strong>
             </span>
-          </div>
+          </div>}
         </div>
       </aside>
 

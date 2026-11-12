@@ -299,7 +299,7 @@ export function SchoolPublicLayout() {
         </div>
         <div className="public-school-footer-bottom">
           <span>© {new Date().getFullYear()} {school.site_name || school.name}</span>
-          <span className="public-school-powered">Powered by <BrandLogo logoUrl="/logo_ico_hd.png" alt="Académie des Créatifs"/> <strong>Académie des Créatifs</strong></span>
+          {!school.white_label && <span className="public-school-powered">Powered by <BrandLogo logoUrl="/logo_ico_hd.png" alt="Académie des Créatifs"/> <strong>Académie des Créatifs</strong></span>}
         </div>
       </footer>
     </div>

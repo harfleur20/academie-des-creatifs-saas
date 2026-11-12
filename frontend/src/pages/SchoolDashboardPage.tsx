@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ChevronRight, BookOpen, Building2, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
+import { billingPathFor, clearPlanChoice, PAY_FIRST_PLANS, readPlanChoice } from '../lib/planChoice'
 import {
   createOrganization,
   getCommercialDashboard,
@@ -187,13 +188,21 @@ export function SchoolDashboardPage() {
     setSubmitting(true)
     setError('')
     try {
+      const choice = readPlanChoice()
       const organization = await createOrganization({
         name: schoolName.trim(),
         slug: slugify(schoolName),
+        ...(choice ? { plan_code: choice.plan, billing_interval: choice.interval } : {}),
       })
       setStoredOrganizationId(organization.id)
       await refreshOrganizations()
-      navigate('/app/manage/onboarding')
+      // Every new school starts with the trial; a school that picked Starter or Business sees it next.
+      if (choice && PAY_FIRST_PLANS.has(choice.plan)) {
+        navigate(billingPathFor(choice))
+      } else {
+        clearPlanChoice()
+        navigate('/app/manage/onboarding?essai=1')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossible de créer cette école.')
     } finally {

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
 from app.db.session import get_db
+from app.services.public_catalog import school_white_label
 from app.services.public_school_slug import ensure_canonical_public_slug
 from app.services.school_branding import branding_snapshot, get_or_create_identity_records
 from app.services.tenancy import TenantContext
@@ -45,4 +46,5 @@ def get_current_school_branding(
         "primary_color": snapshot["primary_color"],
         "secondary_color": snapshot["secondary_color"],
         "accent_color": snapshot["accent_color"],
+        "white_label": school_white_label(db, tenant.organization_id),
     }

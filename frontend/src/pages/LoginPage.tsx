@@ -11,11 +11,15 @@ import {
   ApiError,
   getInvitationPreview,
   getPublicSchoolIdentity,
+  listPlans,
   resolveHostBranding,
   setStoredOrganizationId,
   type HostBranding,
   type InvitationPreview,
+  type Plan,
 } from '../lib/api'
+import { planChoiceFromSearch, savePlanChoice } from '../lib/planChoice'
+import { formatMoney, monthlyEquivalent } from '../lib/planFeatures'
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 
@@ -56,6 +60,20 @@ export function LoginPage() {
   const [hostBrand, setHostBrand] = useState<HostBranding | null>(null)
   const [invitation, setInvitation] = useState<InvitationPreview | null>(null)
   const [invitationLoading, setInvitationLoading] = useState(Boolean(invitationToken))
+  // The plan clicked on the landing page: kept for after signup, and reminded here.
+  const planChoice = schoolKey || invitationToken ? null : planChoiceFromSearch(location.search)
+  const [plans, setPlans] = useState<Plan[]>([])
+  useEffect(() => {
+    if (!planChoice) return
+    savePlanChoice(planChoice)
+    let active = true
+    listPlans().then((items) => { if (active) setPlans(items) }).catch(() => undefined)
+    return () => { active = false }
+    // The choice only changes with the address.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search])
+  const chosenPlan = planChoice ? plans.find((item) => item.code === planChoice.plan) ?? null : null
+  const trialPlan = plans.find((item) => item.code === 'pro') ?? plans.find((item) => item.trial_days > 0) ?? null
 
   useEffect(() => {
     if (!invitationToken) {
@@ -275,9 +293,9 @@ export function LoginPage() {
           {isPublicSchool
             ? <SchoolLogo logoUrl={activeBrand?.logo_url} alt={activeBrand?.name || 'École'} className="platform-brand-logo" />
             : <BrandLogo className="platform-brand-logo" />}
-          <span>
-            {activeBrand?.name || (isPublicSchool ? 'Votre école' : 'Académie')}
-            {!isPublicSchool && <> <strong>SaaS</strong></>}
+          <span className="auth-logo__name">
+            {activeBrand?.name || (isPublicSchool ? 'Votre école' : 'Académie des Créatifs')}
+            {!isPublicSchool && <small>pour les écoles</small>}
           </span>
         </a>
         <div className="auth-visual-copy">
@@ -310,6 +328,26 @@ export function LoginPage() {
           <span className="auth-form-kicker">{isInvitation ? 'Invitation · ' + (invitation ? invitationRoleLabels[invitation.role] : 'Équipe') : isPublicSchool ? activeBrand?.name || 'Votre école' : 'Académie des Créatifs'}</span>
           <h2>{heading}</h2>
           <p>{invitationLoading ? 'Chargement de votre invitation…' : intro}</p>
+
+          {chosenPlan && planChoice && !isPublicSchool && (
+            <div className="auth-plan-choice">
+              <span>Forfait choisi</span>
+              <strong>
+                {chosenPlan.monthly_price_cents === 0
+                  ? `${chosenPlan.name} · gratuit`
+                  : `${chosenPlan.name} · ${formatMoney(monthlyEquivalent(chosenPlan, planChoice.interval === 'annual') ?? 0, chosenPlan.currency)} / mois${planChoice.interval === 'annual' ? ' en annuel' : ''}`}
+              </strong>
+              {trialPlan && trialPlan.trial_days > 0 && (
+                <small>
+                  {chosenPlan.code === trialPlan.code
+                    ? `Vous commencez par ${trialPlan.trial_days} jours d’essai gratuit, sans moyen de paiement.`
+                    : chosenPlan.monthly_price_cents === 0
+                      ? `Vous commencez par ${trialPlan.trial_days} jours d’essai ${trialPlan.name}, puis votre école continue gratuitement.`
+                      : `Vous commencez par ${trialPlan.trial_days} jours d’essai ${trialPlan.name}, gratuits : vous payez ${chosenPlan.name} quand vous voulez.`}
+                </small>
+              )}
+            </div>
+          )}
 
           {mode === 'register' && (
             <label>

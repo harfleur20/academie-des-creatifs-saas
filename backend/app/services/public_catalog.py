@@ -98,7 +98,16 @@ def public_school_read(
         sales_terms=site.sales_terms,
         privacy_policy=site.privacy_policy,
         refund_policy=site.refund_policy,
+        white_label=school_white_label(db, org.id),
     )
+
+
+def school_white_label(db: Session, organization_id: int) -> bool:
+    """Business plans show the school's brand alone, without the platform's signature."""
+    from app.services.plan_limits import included
+    from app.services.subscriptions import get_effective_plan
+
+    return included(get_effective_plan(db, organization_id), "white_label")
 
 
 def _active_promotion(

@@ -803,6 +803,37 @@ def test_school_manager_can_review_course_day_reports() -> None:
     assert forbidden.value.status_code == 403
 
 
+def test_the_school_sees_course_days_still_waiting_for_their_report() -> None:
+    from app.services.planning import list_school_missing_course_day_reports
+
+    db = build_db()
+    org, teacher, student, _, session, _, _, _, day = seed(db)
+    manager = UserRecord(email="manager@test.dev", full_name="Manager", status="active")
+    db.add(manager)
+    db.flush()
+    member = OrganizationMemberRecord(organization_id=org.id, user_id=manager.id, role="manager", status="active")
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"manager"})
+    db.commit()
+    manager_tenant = ctx(db, org, manager)
+    # The course runs from 9:00 to 11:00: it is owed only once it is over.
+    assert list_school_missing_course_day_reports(db, manager_tenant, now=datetime(2025, 1, 10, 10, 30, tzinfo=UTC)) == []
+    missing = list_school_missing_course_day_reports(db, manager_tenant, now=datetime(2025, 1, 10, 12, tzinfo=UTC))
+    assert [(row.course_day_id, row.teacher_name, row.formation_id) for row in missing] == [
+        (day.id, "Teacher", session.formation_id)]
+    with pytest.raises(HTTPException) as forbidden:
+        list_school_missing_course_day_reports(db, ctx(db, org, student))
+    assert forbidden.value.status_code == 403
+
+    submit_course_day_report(db, ctx(db, org, teacher), day.id, CourseDayReportSubmit(
+        delivery_status="held", summary="Cours tenu.",
+    ), now=datetime(2025, 1, 10, 12, tzinfo=UTC))
+    assert list_school_missing_course_day_reports(db, manager_tenant, now=datetime(2025, 1, 10, 13, tzinfo=UTC)) == []
+    report = list_school_course_day_reports(db, manager_tenant)[0]
+    assert (report.formation_id, report.teacher_id) == (session.formation_id, teacher.id)
+
+
 def test_course_publication_publishes_valid_lessons_together() -> None:
     db = build_db()
     org, teacher, student, _, session, _, _, first_lesson, _ = seed(db)

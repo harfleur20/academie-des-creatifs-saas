@@ -17,6 +17,7 @@ from app.models.entities import (
     UserRecord,
 )
 from app.schemas.planning import (
+    SchoolMissingCourseDayReportRead,
     CourseDayCreate,
     CourseDayDraftItem,
     CourseDayFeedbackRead,
@@ -384,7 +385,7 @@ def list_school_course_day_reports(
         raise HTTPException(403, "Accès gestion requis.")
     rows = db.execute(select(
         SessionCourseDayRecord, FormationSessionRecord.label,
-        FormationRecord.title, UserRecord.full_name,
+        FormationRecord.title, UserRecord.full_name, FormationRecord.id,
     ).join(
         FormationSessionRecord, FormationSessionRecord.id == SessionCourseDayRecord.session_id,
     ).join(
@@ -397,7 +398,7 @@ def list_school_course_day_reports(
         FormationRecord.organization_id == tenant.organization_id,
         SessionCourseDayRecord.report_submitted_at.is_not(None),
     ).order_by(SessionCourseDayRecord.report_submitted_at.desc())).all()
-    day_ids = [day.id for day, _, _, _ in rows]
+    day_ids = [day.id for day, *_ in rows]
     feedback_summary: dict[int, tuple[int, float | None]] = {}
     if day_ids:
         feedback_summary = {
@@ -412,16 +413,55 @@ def list_school_course_day_reports(
             ).group_by(CourseDayFeedbackRecord.course_day_id)).all()
         }
     return [SchoolCourseDayReportRead(
-        course_day_id=day.id, session_id=day.session_id,
+        course_day_id=day.id, session_id=day.session_id, formation_id=formation_id,
         formation_title=formation_title, session_label=session_label,
-        teacher_name=teacher_name, title=day.title, scheduled_at=day.scheduled_at,
+        teacher_id=day.teacher_id, teacher_name=teacher_name, title=day.title, scheduled_at=day.scheduled_at,
         delivery_status=day.delivery_status, summary=day.report_summary or "",
         difficulties=day.report_difficulties, homework=day.report_homework,
         attendance_notes=day.report_attendance_notes,
         submitted_at=day.report_submitted_at,
         feedback_count=feedback_summary.get(day.id, (0, None))[0],
         average_rating=feedback_summary.get(day.id, (0, None))[1],
-    ) for day, session_label, formation_title, teacher_name in rows]
+    ) for day, session_label, formation_title, teacher_name, formation_id in rows]
+
+
+def list_school_missing_course_day_reports(
+    db: Session, tenant: TenantContext, *, now: datetime | None = None,
+) -> list[SchoolMissingCourseDayReportRead]:
+    """Course days over, in sessions still running or done, whose report the teacher still owes."""
+    if not _can_manage_school(tenant):
+        raise HTTPException(403, "Accès gestion requis.")
+    current = now or datetime.now(UTC)
+    current = current.replace(tzinfo=UTC) if current.tzinfo is None else current.astimezone(UTC)
+    rows = db.execute(select(
+        SessionCourseDayRecord, FormationSessionRecord.label, FormationRecord.id, FormationRecord.title,
+        UserRecord.full_name,
+    ).join(
+        FormationSessionRecord, FormationSessionRecord.id == SessionCourseDayRecord.session_id,
+    ).join(
+        FormationRecord, FormationRecord.id == FormationSessionRecord.formation_id,
+    ).outerjoin(
+        UserRecord, UserRecord.id == SessionCourseDayRecord.teacher_id,
+    ).where(
+        SessionCourseDayRecord.organization_id == tenant.organization_id,
+        FormationSessionRecord.organization_id == tenant.organization_id,
+        SessionCourseDayRecord.report_submitted_at.is_(None),
+        SessionCourseDayRecord.status != "cancelled",
+        FormationSessionRecord.status != "cancelled",
+        SessionCourseDayRecord.scheduled_at <= current,
+    ).order_by(SessionCourseDayRecord.scheduled_at.desc())).all()
+    missing = []
+    for day, session_label, formation_id, formation_title, teacher_name in rows:
+        starts = day.scheduled_at.replace(tzinfo=UTC) if day.scheduled_at.tzinfo is None else day.scheduled_at
+        ends = starts + timedelta(minutes=day.duration_minutes)
+        if ends > current:
+            continue
+        missing.append(SchoolMissingCourseDayReportRead(
+            course_day_id=day.id, session_id=day.session_id, formation_id=formation_id,
+            formation_title=formation_title, session_label=session_label, teacher_id=day.teacher_id,
+            teacher_name=teacher_name, title=day.title, scheduled_at=starts, ends_at=ends,
+        ))
+    return missing
 
 
 def create_course_day(

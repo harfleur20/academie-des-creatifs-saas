@@ -120,6 +120,8 @@ class PublicSchoolRead(BaseModel):
     sales_terms: str
     privacy_policy: str
     refund_policy: str
+    # Business plans hide the platform's "Powered by" signature.
+    white_label: bool = False
 
 
 class PublicSessionRead(BaseModel):

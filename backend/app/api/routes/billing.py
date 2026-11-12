@@ -36,11 +36,12 @@ from app.services.subscriptions import (
     get_latest_subscription,
     list_invoices,
     list_public_plans,
+    notify_trial_endings,
     request_cancel_at_period_end,
     resume_scheduled_cancellation,
     run_subscription_lifecycle,
 )
-from app.services.plan_limits import billing_usage, list_addons, notify_student_quotas
+from app.services.plan_limits import billing_usage, list_addons
 from app.services.tara_webhook import verify_webhook_authentication
 from app.services.tenancy import TenantContext
 
@@ -137,8 +138,8 @@ def run_lifecycle(
         )
 
     processed, transitioned = run_subscription_lifecycle(db)
-    # Schools nearing or beyond their students quota are told, once per period.
-    notify_student_quotas(db)
+    # Three days, then one day before a trial ends, the school is led to its plan.
+    notify_trial_endings(db)
     return BillingLifecycleRunRead(
         processed=processed,
         transitioned=transitioned,
