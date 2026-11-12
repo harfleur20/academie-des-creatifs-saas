@@ -64,6 +64,7 @@ from app.services.session_lifecycle import notify_session_change
 from app.services.publication import formation_content_issues, formation_publication_issues
 from app.services.school_communications import queue_session_students_event
 from app.services.school_notifications import notify_session_students, notify_user
+from app.services.plan_limits import require_capacity, require_feature
 from app.services.tenancy import TenantContext, scoped_select
 
 
@@ -467,6 +468,8 @@ def create_formation(
     db: Session,
     tenant: TenantContext,
     payload: FormationCreate,
+    *,
+    accept_addon: bool = False,
 ) -> FormationSummaryRead:
     setup = get_onboarding_status(db, tenant)
     missing = next((step for step in setup.steps if step.key != "formation" and not step.completed), None)
@@ -505,6 +508,7 @@ def create_formation(
             issues = formation_publication_issues(db, formation)
             if issues:
                 raise HTTPException(status_code=422, detail="Publication impossible : " + " ".join(issues))
+            _require_plan_room(db, tenant, formation, newly_published=True, accept_addon=accept_addon)
         db.commit()
     except HTTPException:
         db.rollback()
@@ -523,6 +527,8 @@ def update_formation(
     tenant: TenantContext,
     formation_id: int,
     payload: FormationUpdate,
+    *,
+    accept_addon: bool = False,
 ) -> FormationSummaryRead:
     formation = get_formation_record(db, tenant, formation_id)
     if formation is None:
@@ -531,6 +537,7 @@ def update_formation(
     if payload.status == "archived" and formation.status != "archived":
         _require_no_running_session(db, formation)
     previously_published = formation.status == "published"
+    previously_live = formation.format_type == "live"
     previously_complete = not formation_content_issues(formation)
     for key, value in payload.model_dump(exclude_unset=True).items():
         if isinstance(value, str):
@@ -545,9 +552,31 @@ def update_formation(
         if issues and (not previously_published or previously_complete):
             db.rollback()
             raise HTTPException(status_code=422, detail="Publication impossible : " + " ".join(issues))
+        if not previously_published or (formation.format_type == "live" and not previously_live):
+            try:
+                _require_plan_room(db, tenant, formation, newly_published=not previously_published, accept_addon=accept_addon)
+            except HTTPException:
+                db.rollback()
+                raise
     db.commit()
     db.refresh(formation)
     return _serialize_formation_summary(db, tenant, formation)
+
+
+def _require_plan_room(
+    db: Session,
+    tenant: TenantContext,
+    formation: FormationRecord,
+    *,
+    newly_published: bool,
+    accept_addon: bool,
+) -> None:
+    """A published formation counts in the plan's quota; live classes come with some plans only."""
+    if formation.format_type == "live":
+        require_feature(db, tenant.organization_id, "live")
+    if newly_published:
+        # The formation is already flushed as published: the quota counts it, so check room for zero more.
+        require_capacity(db, tenant.organization_id, "active_formations", adding=0, accept_addon=accept_addon)
 
 
 def _guided_session_place(

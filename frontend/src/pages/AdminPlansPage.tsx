@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import { Plus, Save, Trash2 } from 'lucide-react'
 import {
   ApiError,
+  listAdminAddons,
   listAdminPlans,
   replaceAdminPlanEntitlements,
+  updateAdminAddon,
   updateAdminPlan,
+  type Addon,
   type AdminPlan,
   type AdminPlanEntitlement,
 } from '../lib/api'
@@ -19,12 +22,15 @@ function emptyEntitlement(): AdminPlanEntitlement {
 
 export function AdminPlansPage() {
   const [plans, setPlans] = useState<AdminPlan[]>([])
+  const [addons, setAddons] = useState<Addon[]>([])
+  const [savingAddon, setSavingAddon] = useState<string | null>(null)
   const [reason, setReason] = useState('')
   const [savingPlanId, setSavingPlanId] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
+    listAdminAddons().then(setAddons).catch(() => setAddons([]))
     listAdminPlans()
       .then(setPlans)
       .catch((err) =>
@@ -91,6 +97,7 @@ export function AdminPlansPage() {
           trial_days: plan.trial_days,
           is_public: plan.is_public,
           is_active: plan.is_active,
+          sales_commission_bps: plan.sales_commission_bps,
         },
         reason.trim(),
       )
@@ -113,6 +120,35 @@ export function AdminPlansPage() {
     } finally {
       setSavingPlanId(null)
     }
+  }
+
+  async function saveAddon(addon: Addon) {
+    if (reason.trim().length < 3) {
+      setError('Indiquez un motif pour enregistrer une modification commerciale.')
+      return
+    }
+    setSavingAddon(addon.code)
+    setError('')
+    setMessage('')
+    try {
+      const updated = await updateAdminAddon(addon.code, {
+        name: addon.name,
+        description: addon.description,
+        unit_price_cents: addon.unit_price_cents,
+        status: addon.status,
+        plan_codes: addon.plan_codes,
+      }, reason.trim())
+      setAddons((items) => items.map((item) => (item.code === updated.code ? updated : item)))
+      setMessage(`Option ${updated.name} enregistrée.`)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.')
+    } finally {
+      setSavingAddon(null)
+    }
+  }
+
+  function updateLocalAddon(code: string, patch: Partial<Addon>) {
+    setAddons((items) => items.map((item) => (item.code === code ? { ...item, ...patch } : item)))
   }
 
   return (
@@ -250,6 +286,21 @@ export function AdminPlansPage() {
                   }
                 />
               </label>
+              <label>
+                Commission sur les ventes (%)
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step={0.5}
+                  value={plan.sales_commission_bps / 100}
+                  onChange={(event) =>
+                    updateLocalPlan(plan.id, {
+                      sales_commission_bps: Math.round(Number(event.target.value) * 100),
+                    })
+                  }
+                />
+              </label>
             </div>
 
             <div className="admin-entitlements">
@@ -346,6 +397,49 @@ export function AdminPlansPage() {
           </section>
         ))}
       </div>
+
+      <section className="admin-card admin-addons">
+        <div className="admin-entitlements-heading">
+          <div>
+            <strong>Options à l’unité</strong>
+            <small>Facturées sur le prochain paiement de l’école, par unité au-delà de son forfait.</small>
+          </div>
+        </div>
+        {addons.map((addon) => (
+          <div className="admin-addon-row" key={addon.code}>
+            <input value={addon.name} onChange={(event) => updateLocalAddon(addon.code, { name: event.target.value })} />
+            <label>
+              Prix / {addon.unit_label} / mois (FCFA)
+              <input
+                type="number"
+                min={0}
+                value={addon.unit_price_cents ?? ''}
+                placeholder="—"
+                onChange={(event) => updateLocalAddon(addon.code, { unit_price_cents: event.target.value === '' ? null : Number(event.target.value) })}
+              />
+            </label>
+            <label>
+              Statut
+              <select value={addon.status} onChange={(event) => updateLocalAddon(addon.code, { status: event.target.value as Addon['status'] })}>
+                <option value="active">Active</option>
+                <option value="coming_soon">Bientôt</option>
+                <option value="inactive">Masquée</option>
+              </select>
+            </label>
+            <label>
+              Forfaits
+              <input
+                value={addon.plan_codes.join(', ')}
+                onChange={(event) => updateLocalAddon(addon.code, { plan_codes: event.target.value.split(',').map((code) => code.trim()).filter(Boolean) })}
+              />
+            </label>
+            <button className="secondary-button" type="button" disabled={savingAddon === addon.code} onClick={() => void saveAddon(addon)}>
+              <Save size={15} />
+              {savingAddon === addon.code ? '…' : 'Enregistrer'}
+            </button>
+          </div>
+        ))}
+      </section>
     </main>
   )
 }

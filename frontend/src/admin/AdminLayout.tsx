@@ -3,6 +3,7 @@ import {
   Gauge,
   LogOut,
   Settings2,
+  Wallet,
 } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -35,6 +36,10 @@ export function AdminLayout() {
           <NavLink to="/admin/plans">
             <Settings2 size={18} />
             Plans & quotas
+          </NavLink>
+          <NavLink to="/admin/payouts">
+            <Wallet size={18} />
+            Reversements
           </NavLink>
         </nav>
 

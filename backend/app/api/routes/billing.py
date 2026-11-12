@@ -10,6 +10,8 @@ from app.api.dependencies import get_tenant_context
 from app.core.config import settings
 from app.db.session import get_db
 from app.schemas.subscriptions import (
+    AddonRead,
+    BillingUsageRead,
     BillingInvoiceRead,
     BillingLifecycleRunRead,
     DemoCheckoutCreate,
@@ -38,6 +40,7 @@ from app.services.subscriptions import (
     resume_scheduled_cancellation,
     run_subscription_lifecycle,
 )
+from app.services.plan_limits import billing_usage, list_addons, notify_student_quotas
 from app.services.tara_webhook import verify_webhook_authentication
 from app.services.tenancy import TenantContext
 
@@ -53,6 +56,20 @@ def get_payment_mode() -> PaymentModeRead:
         demo_enabled=settings.demo_payments_enabled,
         tara_configured=settings.tara_configured,
     )
+
+
+@router.get("/addons", response_model=list[AddonRead])
+def get_addons(db: Session = Depends(get_db)):
+    """Public: what a school can pay per unit beyond its plan, and what comes next."""
+    return list_addons(db)
+
+
+@router.get("/usage", response_model=BillingUsageRead)
+def get_usage_route(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return billing_usage(db, tenant.organization_id)
 
 
 @router.get("/plans", response_model=list[PlanRead])
@@ -120,6 +137,8 @@ def run_lifecycle(
         )
 
     processed, transitioned = run_subscription_lifecycle(db)
+    # Schools nearing or beyond their students quota are told, once per period.
+    notify_student_quotas(db)
     return BillingLifecycleRunRead(
         processed=processed,
         transitioned=transitioned,

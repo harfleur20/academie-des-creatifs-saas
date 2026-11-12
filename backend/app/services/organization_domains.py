@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.entities import OrganizationDomainRecord, OrganizationRecord
+from app.services.plan_limits import require_feature
 from app.services.tenancy import TenantContext
 
 
@@ -140,6 +141,7 @@ def create_domain(
     hostname: str,
 ) -> OrganizationDomainRecord:
     _require_brand_admin(tenant)
+    require_feature(db, tenant.organization_id, "custom_domain")
     normalized = normalize_hostname(hostname)
 
     if settings.saas_base_domain and (

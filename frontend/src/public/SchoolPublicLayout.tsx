@@ -231,6 +231,8 @@ export function SchoolPublicLayout() {
           <NavLink end to={'/school/' + schoolSlug}>Accueil</NavLink>
           <NavLink to={'/school/' + schoolSlug + '/formations'}>Formations</NavLink>
           <NavLink to={'/school/' + schoolSlug + '/contact'}>Nous contacter</NavLink>
+          {/* On phones, the header keeps only the burger and the cart: login lives in the menu. */}
+          {!user && <Link className="public-school-nav-login" to={'/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')}>Connexion</Link>}
         </nav>
         <div className="public-school-actions">
           {user && <Link className="public-school-favorites-link" to={'/school/' + schoolSlug + '/favoris'} aria-label="Mes formations favorites" title="Mes favoris"><Heart size={18}/>{favorites.length > 0 && <span>{favorites.length}</span>}</Link>}
@@ -265,7 +267,7 @@ export function SchoolPublicLayout() {
                 <button type="button" className="is-danger" onClick={() => { setAccountOpen(false); signOut(); navigate('/school/' + schoolSlug) }}><LogOut size={17} /><span>Se déconnecter</span></button>
               </div>}
             </div>
-          ) : <Link className="public-school-login" to={'/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')}>Connexion</Link>}
+          ) : <Link className="public-school-login public-school-login--visitor" to={'/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')}>Connexion</Link>}
           <button className="public-school-cart" type="button" aria-label="Ouvrir le panier" aria-expanded={cartOpen} onClick={() => setCartOpen(true)}>
             <ShoppingBag size={18}/>{validCartItem && <i/>}
           </button>

@@ -23,6 +23,8 @@ class PlanRead(BaseModel):
     annual_price_cents: int | None
     trial_days: int
     is_public: bool
+    # Share of each student payment the platform keeps, in basis points (800 = 8 %).
+    sales_commission_bps: int = 800
     entitlements: list[PlanEntitlementRead]
 
 
@@ -56,6 +58,7 @@ class BillingInvoiceRead(BaseModel):
     invoice_number: str
     status: str
     amount_cents: int
+    lines: list["BillingLineRead"] | None = None
     currency: str
     billing_interval: str
     period_start: datetime
@@ -129,3 +132,56 @@ class TaraReconcileRead(BaseModel):
 class BillingLifecycleRunRead(BaseModel):
     processed: int
     transitioned: int
+
+
+class BillingLineRead(BaseModel):
+    label: str
+    quantity: int
+    unit_amount_cents: int
+    amount_cents: int
+
+
+class AddonRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    code: str
+    name: str
+    description: str
+    feature_key: str | None
+    unit_label: str
+    unit_price_cents: int | None
+    currency: str
+    status: str
+    plan_codes: list[str]
+
+
+class UsageMetricRead(BaseModel):
+    feature_key: str
+    label: str
+    current: int
+    limit: int | None  # None: unlimited
+    extra: int
+    unit_price_cents: int | None
+    extra_amount_cents: int
+
+
+class BillingQuoteRead(BaseModel):
+    currency: str
+    lines: list[BillingLineRead]
+    total_cents: int
+
+
+class BillingUsageRead(BaseModel):
+    """What the school uses against its plan, and what its next payment would be."""
+
+    plan_code: str | None
+    plan_name: str | None
+    billing_interval: str
+    commission_bps: int
+    live_included: bool
+    custom_domain_included: bool
+    metrics: list[UsageMetricRead]
+    next_payment: BillingQuoteRead | None
+
+
+BillingInvoiceRead.model_rebuild()

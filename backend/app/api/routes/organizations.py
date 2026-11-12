@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -162,10 +162,11 @@ def add_current_member(
 def update_current_member(
     member_id: int,
     payload: OrganizationMemberUpdate,
+    accept_addon: bool = Query(False, description="La direction accepte l'option facturée à l'unité au-delà du forfait."),
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    return update_member(db, tenant, member_id, payload)
+    return update_member(db, tenant, member_id, payload, accept_addon=accept_addon)
 
 
 @router.get(
@@ -209,6 +210,7 @@ def get_current_access_profile(
 def update_current_member_functional_roles(
     member_id: int,
     payload: OrganizationMemberFunctionalRolesUpdate,
+    accept_addon: bool = Query(False, description="La direction accepte l'option facturée à l'unité au-delà du forfait."),
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
@@ -217,6 +219,7 @@ def update_current_member_functional_roles(
         tenant,
         member_id,
         payload,
+        accept_addon=accept_addon,
     )
 
 
@@ -238,10 +241,11 @@ def list_current_invitations(
 )
 def create_current_invitation(
     payload: OrganizationInvitationCreate,
+    accept_addon: bool = Query(False, description="La direction accepte l'option facturée à l'unité au-delà du forfait."),
     db: Session = Depends(get_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    invitation, token = create_invitation(db, tenant, payload)
+    invitation, token = create_invitation(db, tenant, payload, accept_addon=accept_addon)
     process_communication_outbox(
         db,
         organization_id=tenant.organization_id,

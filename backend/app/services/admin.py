@@ -704,6 +704,7 @@ def update_admin_plan(
         "trial_days": plan.trial_days,
         "is_public": plan.is_public,
         "is_active": plan.is_active,
+        "sales_commission_bps": plan.sales_commission_bps,
     }
 
     for key, value in values.items():

@@ -3,6 +3,7 @@ import { Award, BookOpen, CheckCircle2, ClipboardCheck } from 'lucide-react'
 import {
   badgeLevelFromValue,
   badgeLevelNumber,
+  badgeProgressFill,
   badgeRingPercent,
   StudentLevelBadge,
 } from '../components/StudentLevelBadge'
@@ -72,7 +73,7 @@ export function StudentProgressPage() {
                   <strong>Progression globale</strong>
                   <span>{item.badge.score_pct}%</span>
                 </div>
-                <div><i style={{ width: `${item.badge.score_pct}%` }} /></div>
+                <div><i style={{ width: `${item.badge.score_pct}%`, background: badgeProgressFill(item.badge.level) }} /></div>
               </div>
 
               <div className="progress-detail-grid">

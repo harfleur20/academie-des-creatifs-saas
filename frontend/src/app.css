@@ -7857,3 +7857,72 @@
 .performance-hints { display: grid; gap: 4px; padding: 0 10px 10px; }
 .performance-hints p { margin: 0; padding: 6px 9px; border-radius: 7px; background: #fff8eb; color: #8a5a00; font-size: 10px; line-height: 1.45; }
 .progress-upcoming__late { color: #b42318; }
+/* Attendance day: the report note and the lock reason each on their own line. */
+.attendance-day-card > header small { display: block; margin-top: 4px; }
+
+/* Billing: usage against the plan, next payment, add-ons. */
+.billing-usage { display: grid; gap: 18px; }
+.billing-usage__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.billing-usage__metric { display: grid; gap: 6px; padding: 14px 16px; border-radius: 14px; background: #f6f8fc; border: 1px solid #e6ebf2; }
+.billing-usage__metric span { font-size: 12px; font-weight: 700; color: #637188; }
+.billing-usage__metric strong { font-size: 22px; color: #131735; }
+.billing-usage__metric strong small { font-size: 13px; font-weight: 600; color: #637188; }
+.billing-usage__metric em { font-style: normal; font-size: 12px; font-weight: 700; color: #b45309; }
+.billing-usage__metric.is-over { border-color: #fcd9a8; background: #fffaf2; }
+.billing-usage__bar { display: block; height: 6px; border-radius: 999px; background: #e6ebf2; overflow: hidden; }
+.billing-usage__bar b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #1f2559, #21c889); }
+.billing-usage__metric.is-over .billing-usage__bar b { background: #f59e0b; }
+.billing-usage__next { display: grid; gap: 6px; padding: 14px 16px; border-radius: 14px; border: 1px dashed #cdd5e3; font-size: 14px; color: #3d4a63; }
+.billing-usage__next > div { display: flex; justify-content: space-between; gap: 12px; }
+.billing-usage__next strong { color: #131735; }
+.billing-usage__total { padding-top: 8px; border-top: 1px solid #e6ebf2; font-weight: 800; color: #131735; }
+.billing-plan-commission { color: #087a55; font-weight: 700; }
+.billing-addons__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.billing-addon { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: start; padding: 14px 16px; border-radius: 14px; border: 1px solid #e6ebf2; }
+.billing-addon svg { color: #087a55; margin-top: 2px; }
+.billing-addon strong { color: #131735; font-size: 14px; }
+.billing-addon p { margin: 2px 0 0; font-size: 13px; line-height: 1.45; color: #637188; }
+.billing-addon > span { grid-column: 2; font-size: 13px; font-weight: 800; color: #1f2559; }
+.billing-addon.is-soon > span { color: #637188; }
+.invoice-lines { display: block; margin-top: 2px; font-size: 11px; color: #637188; }
+@media (max-width: 900px) { .billing-usage__grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Revenue and payouts: the school's balance, its payouts, the detail of its sales. */
+.revenue-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.revenue-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.revenue-form { display: grid; gap: 12px; }
+.revenue-form label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; color: #3d4a63; }
+.revenue-form input, .revenue-form select { min-height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid #dfe5ef; font: inherit; }
+.revenue-form small { font-weight: 500; color: #637188; }
+.revenue-pending { display: grid; gap: 12px; font-size: 14px; color: #3d4a63; }
+.revenue-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.revenue-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid #e6ebf2; }
+.revenue-list li > div { display: grid; gap: 3px; min-width: 0; }
+.revenue-list strong { color: #131735; }
+.revenue-list small { font-size: 12px; color: #637188; overflow-wrap: anywhere; }
+.revenue-status { flex: none; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: #eef0fb; color: #1f2559; }
+.revenue-status.is-paid { background: #dff9ef; color: #087a55; }
+.revenue-status.is-rejected { background: #fdecec; color: #b42318; }
+.revenue-status.is-cancelled { background: #f2f4f7; color: #637188; }
+.revenue-table { display: grid; }
+.revenue-row { display: grid; grid-template-columns: 110px minmax(0, 1.6fr) repeat(3, minmax(0, .8fr)); gap: 12px; padding: 10px 4px; border-top: 1px solid #eef1f4; font-size: 13px; color: #3d4a63; }
+.revenue-row--head { border-top: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #637188; }
+.revenue-row small { color: #637188; }
+.revenue-row strong { color: #087a55; }
+.admin-filter-tabs { display: flex; gap: 8px; margin: 0 0 14px; flex-wrap: wrap; }
+.admin-filter-tabs button { border: 1px solid #dfe5ef; background: #fff; padding: 8px 14px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+.admin-filter-tabs button.is-active { background: #1f2559; color: #fff; border-color: #1f2559; }
+.admin-payout-actions { display: flex; gap: 8px; flex: none; }
+.admin-addons { display: grid; gap: 12px; margin-top: 18px; }
+.admin-addon-row { display: grid; grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(0, 1fr)) auto; gap: 10px; align-items: end; }
+.admin-addon-row label { display: grid; gap: 4px; font-size: 12px; font-weight: 700; color: #637188; }
+.admin-addon-row input, .admin-addon-row select { min-height: 38px; padding: 0 10px; border-radius: 9px; border: 1px solid #dfe5ef; font: inherit; }
+@media (max-width: 1100px) { .revenue-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .revenue-columns, .admin-addon-row { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 720px) { .revenue-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .revenue-row--head { display: none; } }
+
+/* School site header: on phones only the burger and the cart; login is in the burger menu. */
+.public-school-header nav .public-school-nav-login { display: none; }
+@media (max-width: 900px) {
+  .public-school-actions .public-school-login--visitor { display: none; }
+  .public-school-header nav .public-school-nav-login { display: block; color: var(--school-primary); }
+}

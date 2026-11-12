@@ -10,12 +10,18 @@ import {
   FlaskConical,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   XCircle,
 } from 'lucide-react'
+import { commissionLabel, entitlementLabel, formatMoney, includedFeatures } from '../lib/planFeatures'
 import { useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import {
   ApiError,
+  getBillingUsage,
+  listAddons,
+  type Addon,
+  type BillingUsage,
   cancelSubscriptionAtPeriodEnd,
   confirmDemoPayment,
   createDemoCheckout,
@@ -80,6 +86,8 @@ export function BillingPage() {
   const [plans, setPlans] = useState<Plan[]>([])
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [invoices, setInvoices] = useState<BillingInvoice[]>([])
+  const [usage, setUsage] = useState<BillingUsage | null>(null)
+  const [addons, setAddons] = useState<Addon[]>([])
   const [paymentMode, setPaymentMode] = useState<PaymentMode | null>(null)
   const [demoAttempt, setDemoAttempt] = useState<DemoPaymentAttempt | null>(null)
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly')
@@ -95,7 +103,7 @@ export function BillingPage() {
     setError('')
 
     try {
-      const [planItems, subscriptionItem, mode, invoiceItems] = await Promise.all([
+      const [planItems, subscriptionItem, mode, invoiceItems, usageItem, addonItems] = await Promise.all([
         listPlans(),
         getCurrentSubscription().catch((err) => {
           if (err instanceof ApiError && err.status === 404) return null
@@ -103,11 +111,15 @@ export function BillingPage() {
         }),
         getPaymentMode(),
         listBillingInvoices(),
+        getBillingUsage().catch(() => null),
+        listAddons().catch(() => []),
       ])
       setPlans(planItems)
       setSubscription(subscriptionItem)
       setPaymentMode(mode)
       setInvoices(invoiceItems)
+      setUsage(usageItem)
+      setAddons(addonItems)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible de charger l’abonnement.')
     } finally {
@@ -446,7 +458,7 @@ export function BillingPage() {
               <Clock3 size={18} />
               <div>
                 <strong>{remainingTrialDays} jour{remainingTrialDays > 1 ? 's' : ''} d’essai restant{remainingTrialDays > 1 ? 's' : ''}</strong>
-                <span>Aucun tarif réel n’est déclenché tant que la grille commerciale n’est pas configurée.</span>
+                <span>Votre essai inclut tout le forfait {subscription.plan.name}. Choisissez votre forfait avant la fin de l’essai pour continuer sans interruption.</span>
               </div>
             </div>
           )}
@@ -464,6 +476,55 @@ export function BillingPage() {
                     ? 'Résilier maintenant'
                     : 'Résilier à la fin de la période'}
               </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {usage && usage.plan_code && (
+        <section className="app-card billing-usage">
+          <div className="table-heading">
+            <div>
+              <span className="section-label">Votre utilisation</span>
+              <h2>Forfait {usage.plan_name}</h2>
+            </div>
+            <span className="muted-note">Commission plateforme : {commissionLabel(usage.commission_bps)}</span>
+          </div>
+          <div className="billing-usage__grid">
+            {usage.metrics.map((metric) => {
+              const share = metric.limit ? Math.min(100, Math.round((metric.current / metric.limit) * 100)) : 0
+              return (
+                <div className={`billing-usage__metric${metric.extra > 0 ? ' is-over' : ''}`} key={metric.feature_key}>
+                  <span>{metric.label}</span>
+                  <strong>
+                    {metric.current}
+                    <small>{metric.limit === null ? ' · illimité' : ` / ${metric.limit}`}</small>
+                  </strong>
+                  {metric.limit !== null && <i className="billing-usage__bar"><b style={{ width: `${share}%` }} /></i>}
+                  {metric.extra > 0 && (
+                    <em>
+                      {metric.unit_price_cents !== null
+                        ? `${metric.extra} en plus · ${formatMoney(metric.extra_amount_cents, 'XAF')} par mois`
+                        : `${metric.extra} au-delà du forfait`}
+                    </em>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {usage.next_payment && (
+            <div className="billing-usage__next">
+              <strong>Votre prochain paiement</strong>
+              {usage.next_payment.lines.map((line) => (
+                <div key={line.label}>
+                  <span>{line.quantity > 1 ? `${line.label} × ${line.quantity}` : line.label}</span>
+                  <span>{formatMoney(line.amount_cents, usage.next_payment!.currency)}</span>
+                </div>
+              ))}
+              <div className="billing-usage__total">
+                <span>Total</span>
+                <span>{formatMoney(usage.next_payment.total_cents, usage.next_payment.currency)}</span>
+              </div>
             </div>
           )}
         </section>
@@ -500,15 +561,18 @@ export function BillingPage() {
                       Fonctionnalités et quotas à configurer
                     </span>
                   ) : (
-                    plan.entitlements
-                      .filter((item) => item.enabled)
-                      .map((item) => (
-                        <span key={item.feature_key}>
-                          <Check size={15} />
-                          {item.feature_key}
-                          {item.limit_value !== null ? ` · ${item.limit_value}` : ''}
-                        </span>
-                      ))
+                    includedFeatures(plan.entitlements).map((item) => (
+                      <span key={item.feature_key}>
+                        <Check size={15} />
+                        {entitlementLabel(item)}
+                      </span>
+                    ))
+                  )}
+                  {commissionLabel(plan.sales_commission_bps) && (
+                    <span className="billing-plan-commission">
+                      <CreditCard size={15} />
+                      Commission : {commissionLabel(plan.sales_commission_bps)}
+                    </span>
                   )}
                 </div>
 
@@ -544,6 +608,34 @@ export function BillingPage() {
         </div>
       </section>
 
+      {addons.length > 0 && (
+        <section className="app-card billing-addons">
+          <div className="table-heading">
+            <div>
+              <span className="section-label">Options à l’unité</span>
+              <h2>Au-delà de votre forfait</h2>
+            </div>
+            <span className="muted-note">Ajoutées à votre prochaine facture, seulement si vous les utilisez.</span>
+          </div>
+          <div className="billing-addons__grid">
+            {addons.map((addon) => (
+              <article className={`billing-addon${addon.status === 'coming_soon' ? ' is-soon' : ''}`} key={addon.code}>
+                <Sparkles size={16} />
+                <div>
+                  <strong>{addon.name}</strong>
+                  <p>{addon.description}</p>
+                </div>
+                <span>
+                  {addon.status === 'coming_soon' || addon.unit_price_cents === null
+                    ? 'Bientôt'
+                    : `${formatMoney(addon.unit_price_cents, addon.currency)} / ${addon.unit_label} / mois`}
+                </span>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="app-card invoice-section">
         <div className="table-heading">
           <div>
@@ -568,7 +660,14 @@ export function BillingPage() {
                 <FileText size={15} />
                 <strong>{invoice.invoice_number}</strong>
               </span>
-              <span>{invoice.plan.name}</span>
+              <span>
+                {invoice.plan.name}
+                {invoice.lines && invoice.lines.length > 1 && (
+                  <small className="invoice-lines">
+                    {invoice.lines.slice(1).map((line) => `${line.label} × ${line.quantity}`).join(' · ')}
+                  </small>
+                )}
+              </span>
               <span>
                 {formatDate(invoice.period_start)} → {formatDate(invoice.period_end)}
               </span>

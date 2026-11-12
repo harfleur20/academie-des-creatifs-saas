@@ -33,6 +33,7 @@ from app.services.school_branding import branding_snapshot
 from app.services.school_communications import queue_school_event
 from app.services.school_profiles import ensure_student_profile, ensure_teacher_profile
 from app.services.school_setup import require_team_setup
+from app.services.plan_limits import require_capacity
 from app.services.tenancy import TenantContext
 
 
@@ -231,6 +232,8 @@ def update_member(
     tenant: TenantContext,
     member_id: int,
     payload: OrganizationMemberUpdate,
+    *,
+    accept_addon: bool = False,
 ) -> OrganizationMemberRecord:
     member = db.scalar(
         select(OrganizationMemberRecord).where(
@@ -264,6 +267,10 @@ def update_member(
         member.status != "active" or member.role != new_role
     ):
         require_team_setup(db, tenant.organization)
+    if new_status == "active" and new_role == "teacher" and (
+        member.status != "active" or "teacher" not in effective_member_roles(member)
+    ):
+        require_capacity(db, tenant.organization_id, "teachers", accept_addon=accept_addon)
 
     removes_active_owner = (
         member.role == "owner"
@@ -295,6 +302,8 @@ def update_member_functional_roles(
     tenant: TenantContext,
     member_id: int,
     payload: OrganizationMemberFunctionalRolesUpdate,
+    *,
+    accept_addon: bool = False,
 ) -> OrganizationMemberRecord:
     member = db.scalar(
         select(OrganizationMemberRecord).where(
@@ -325,6 +334,7 @@ def update_member_functional_roles(
 
     if "teacher" in requested and "teacher" not in effective_member_roles(member):
         require_team_setup(db, tenant.organization)
+        require_capacity(db, tenant.organization_id, "teachers", accept_addon=accept_addon)
 
     if "student" in requested:
         ensure_student_profile(db, tenant.organization, member.user_id)
@@ -337,6 +347,8 @@ def create_invitation(
     db: Session,
     tenant: TenantContext,
     payload: OrganizationInvitationCreate,
+    *,
+    accept_addon: bool = False,
 ) -> tuple[OrganizationInvitationRecord, str]:
     actor_role = _actor_role(tenant)
     if not _can_assign_role(actor_role, payload.role):
@@ -346,6 +358,8 @@ def create_invitation(
         )
 
     require_team_setup(db, tenant.organization)
+    if payload.role == "teacher":
+        require_capacity(db, tenant.organization_id, "teachers", accept_addon=accept_addon)
 
     email = _normalize_email(str(payload.email))
 
