@@ -1640,3 +1640,38 @@ def test_student_grades_returns_quiz_grade() -> None:
     assert len(grades) == 1
     assert grades[0].source_type == "quiz"
     assert grades[0].score == 20
+
+
+def test_the_formations_list_shows_the_session_running_or_coming_next() -> None:
+    from app.services.formations import list_formations
+
+    db = build_db()
+    org, teacher, student, _, session, _, _, _, _ = seed(db)
+    formation = db.get(FormationRecord, session.formation_id)
+    formation.format_type = "live"
+    db.commit()
+    manager = UserRecord(email="direction@test.dev", full_name="Direction", status="active")
+    db.add(manager)
+    db.flush()
+    member = OrganizationMemberRecord(organization_id=org.id, user_id=manager.id, role="manager", status="active")
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"manager"})
+    db.commit()
+    tenant = ctx(db, org, manager)
+    # The seeded session ended in 2025: nothing is coming.
+    assert list_formations(db, tenant)[0].next_session is None
+
+    today = date.today()
+    later = FormationSessionRecord(organization_id=org.id, formation_id=formation.id, label="Cohorte d'été",
+                                   start_date=today + timedelta(days=60), end_date=today + timedelta(days=120),
+                                   seat_capacity=20, status="planned")
+    sooner = FormationSessionRecord(organization_id=org.id, formation_id=formation.id, label="Cohorte de printemps",
+                                    start_date=today + timedelta(days=10), end_date=today + timedelta(days=70),
+                                    seat_capacity=15, status="open")
+    db.add_all([later, sooner])
+    db.commit()
+    db.add(EnrollmentRecord(organization_id=org.id, session_id=sooner.id, student_id=student.id, status="active"))
+    db.commit()
+    upcoming = list_formations(db, tenant)[0].next_session
+    assert (upcoming.label, upcoming.enrolled_count, upcoming.seat_capacity) == ("Cohorte de printemps", 1, 15)

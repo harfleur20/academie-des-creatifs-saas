@@ -1,80 +1,57 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
   BookOpen,
   CalendarDays,
   GraduationCap,
   Plus,
+  Search,
   Send,
   Users,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
+import { NewFormationDialog } from '../components/NewFormationDialog'
 import {
   ApiError,
-  createFormation,
   getOnboardingStatus,
   listFormations,
   updateFormation,
   type FormationSummary,
   type OnboardingStatus,
 } from '../lib/api'
+import { formatSchoolDate, formatSchoolMoney } from '../public/publicHelpers'
+import '../formations-list.css'
 
-function slugify(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-const formatLabels = {
+const FORMAT_LABELS: Record<FormationSummary['format_type'], string> = {
   live: 'Live',
   ligne: 'En ligne',
   presentiel: 'Présentiel',
 }
+const STATUS_LABELS: Record<FormationSummary['status'], string> = {
+  published: 'Publiée',
+  draft: 'Brouillon',
+  archived: 'Archivée',
+}
 
-const suggestedCategories = [
-  'Design & graphisme',
-  'Photo & vidéo',
-  'Animation & motion design',
-  'Communication & marketing',
-  'Développement & numérique',
-  'Musique & audio',
-  'Mode & artisanat',
-  'Entrepreneuriat',
-  'Langues',
-]
+function nextSessionCell(formation: FormationSummary) {
+  if (formation.format_type === 'ligne') return { title: 'Accès continu', detail: 'Formation en ligne' }
+  const session = formation.next_session
+  if (!session) return { title: 'Aucune session à venir', detail: `${formation.session_count} session(s) au total` }
+  return { title: session.label, detail: `${formatSchoolDate(session.start_date)} → ${formatSchoolDate(session.end_date)}` }
+}
 
-const suggestedLevels = [
-  'Tous niveaux',
-  'Initiation',
-  'Débutant',
-  'Intermédiaire',
-  'Avancé',
-  'Expert',
-]
-
-const otherCategoryValue = '__other__'
-
+/** The school's formations: a short list to find one, and a button to create the next. */
 export function FormationsManagementPage() {
   const { activeOrganization } = useTenant()
+  const navigate = useNavigate()
   const [formations, setFormations] = useState<FormationSummary[]>([])
   const [setup, setSetup] = useState<OnboardingStatus | null>(null)
-  const [title, setTitle] = useState('')
-  const [category, setCategory] = useState('')
-  const [customCategory, setCustomCategory] = useState('')
-  const [level, setLevel] = useState('')
-  const [formatType, setFormatType] = useState<'live' | 'ligne' | 'presentiel'>('ligne')
-  const [trainingHours, setTrainingHours] = useState('')
-  const [description, setDescription] = useState('')
-  const [shortDescription, setShortDescription] = useState('')
-  const [objectives, setObjectives] = useState('')
-  const [prerequisites, setPrerequisites] = useState('')
-  const [publicProgram, setPublicProgram] = useState('')
   const [creating, setCreating] = useState(false)
+  const [query, setQuery] = useState('')
+  const [format, setFormat] = useState('')
+  const [status, setStatus] = useState('')
+  const [category, setCategory] = useState('')
   const [publishingId, setPublishingId] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -93,45 +70,6 @@ export function FormationsManagementPage() {
     void refresh()
   }, [activeOrganization?.id])
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    const slug = slugify(title)
-    if (!slug) return
-    setCreating(true)
-    setError('')
-    setMessage('')
-    try {
-      await createFormation({
-        slug,
-        title: title.trim(),
-        category: category === otherCategoryValue ? customCategory.trim() : category,
-        level,
-        format_type: formatType,
-        training_hours: trainingHours ? Number(trainingHours) : null,
-        description: description.trim(),
-        short_description: shortDescription.trim(),
-        objectives: objectives.trim(),
-        prerequisites: prerequisites.trim(),
-        public_program: publicProgram.trim(),
-      })
-      setTitle('')
-      setCategory('')
-      setCustomCategory('')
-      setLevel('')
-      setTrainingHours('')
-      setDescription('')
-      setShortDescription('')
-      setObjectives('')
-      setPrerequisites('')
-      setPublicProgram('')
-      await refresh()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Création impossible.')
-    } finally {
-      setCreating(false)
-    }
-  }
-
   async function publish(formation: FormationSummary) {
     setPublishingId(formation.id)
     setError('')
@@ -147,51 +85,47 @@ export function FormationsManagementPage() {
     }
   }
 
-  const totals = useMemo(
-    () => ({
-      sessions: formations.reduce((sum, item) => sum + item.session_count, 0),
-      online: formations.filter((item) => item.format_type === 'ligne').length,
-      hasGuided: formations.some((item) => item.format_type !== 'ligne'),
-      students: formations.reduce((sum, item) => sum + item.student_count, 0),
-      courses: formations.reduce((sum, item) => sum + item.course_count, 0),
-    }),
+  const totals = useMemo(() => ({
+    sessions: formations.reduce((sum, item) => sum + item.session_count, 0),
+    students: formations.reduce((sum, item) => sum + item.student_count, 0),
+    courses: formations.reduce((sum, item) => sum + item.course_count, 0),
+    published: formations.filter((item) => item.status === 'published').length,
+  }), [formations])
+
+  const categories = useMemo(
+    () => [...new Set(formations.map((item) => item.category.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')),
     [formations],
   )
 
-  const categoryOptions = useMemo(
-    () => [
-      ...suggestedCategories,
-      ...formations
-        .map((item) => item.category.trim())
-        .filter((item) => item && !suggestedCategories.includes(item))
-        .filter((item, index, items) => items.indexOf(item) === index),
-    ],
-    [formations],
-  )
+  const rows = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase('fr-FR')
+    return formations.filter((item) => {
+      if (format && item.format_type !== format) return false
+      if (status && item.status !== status) return false
+      if (category && item.category.trim() !== category) return false
+      return !needle || `${item.title} ${item.category} ${item.level}`.toLocaleLowerCase('fr-FR').includes(needle)
+    })
+  }, [formations, query, format, status, category])
 
-  const levelOptions = useMemo(
-    () => [
-      ...suggestedLevels,
-      ...formations
-        .map((item) => item.level.trim())
-        .filter((item) => item && !suggestedLevels.includes(item))
-        .filter((item, index, items) => items.indexOf(item) === index),
-    ],
-    [formations],
-  )
   const setupBlockingStep = setup?.steps.find((step) => step.key !== 'formation' && !step.completed)
+  const filtered = Boolean(query || format || status || category)
 
   return (
     <main className="app-page formations-page">
       <header className="app-page-header">
         <div>
-          <span className="page-kicker">Formations</span>
-          <h1>Vos formations réelles</h1>
-          <p>
-            Créez vos programmes, ouvrez des cohortes, affectez les professeurs et
-            construisez les cours.
-          </p>
+          <span className="page-kicker">Pédagogie</span>
+          <h1>Formations</h1>
+          <p>Vos programmes, leurs sessions et leur page publique.</p>
         </div>
+        <button
+          className="primary-button"
+          type="button"
+          disabled={!setup || Boolean(setupBlockingStep)}
+          onClick={() => setCreating(true)}
+        >
+          <Plus size={16} /> Nouvelle formation
+        </button>
       </header>
 
       {message && <div className="form-success">{message} <Link to="/app/manage/site-public">Vérifier le site public</Link></div>}
@@ -199,146 +133,117 @@ export function FormationsManagementPage() {
       {setupBlockingStep && <div className="app-card formation-readiness"><strong>Création verrouillée</strong><p>Terminez d’abord l’étape « {setupBlockingStep.label} ».</p><Link className="secondary-button compact-action" to={setupBlockingStep.path}>Continuer cette étape <ArrowRight size={15} /></Link></div>}
 
       <section className="formation-metrics">
-        <article><GraduationCap size={18} /><div><strong>{formations.length}</strong><span>Formations</span></div></article>
-        <article><CalendarDays size={18} /><div><strong>{totals.hasGuided || totals.online === 0 ? totals.sessions : totals.online}</strong><span>{totals.hasGuided || totals.online === 0 ? 'Sessions' : 'Formations en ligne'}</span></div></article>
+        <article><GraduationCap size={18} /><div><strong>{formations.length}</strong><span>{totals.published} publiée(s)</span></div></article>
+        <article><CalendarDays size={18} /><div><strong>{totals.sessions}</strong><span>Sessions</span></div></article>
         <article><Users size={18} /><div><strong>{totals.students}</strong><span>Étudiants inscrits</span></div></article>
         <article><BookOpen size={18} /><div><strong>{totals.courses}</strong><span>Cours</span></div></article>
       </section>
 
-      <section className="formation-layout">
-        <form className="app-card formation-create-card" onSubmit={submit} aria-disabled={Boolean(setupBlockingStep)}>
-          <div>
-            <span className="section-label">Nouvelle formation</span>
-            <h2>Créer un programme</h2>
-          </div>
-
-          <label>
-            Nom
-            <input value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={255} placeholder="Ex. Motion Design" />
+      <section className="app-card formations-list">
+        <div className="formations-list__toolbar">
+          <label className="formations-list__search">
+            <Search size={15} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher une formation" aria-label="Rechercher une formation" />
           </label>
-
-          <div className="formation-form-grid">
-            <label>
-              Catégorie
-              <select value={category} onChange={(e) => setCategory(e.target.value)} required>
-                <option value="" disabled>Choisir une catégorie</option>
-                {categoryOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-                <option value={otherCategoryValue}>Autre catégorie…</option>
-              </select>
-            </label>
-            <label>
-              Niveau
-              <select value={level} onChange={(e) => setLevel(e.target.value)} required>
-                <option value="" disabled>Choisir un niveau</option>
-                {levelOptions.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-            {category === otherCategoryValue && (
-              <label className="formation-custom-category">
-                Nouvelle catégorie
-                <input
-                  value={customCategory}
-                  onChange={(e) => setCustomCategory(e.target.value)}
-                  maxLength={120}
-                  required
-                  placeholder="Nom de la catégorie"
-                />
-              </label>
-            )}
-            <label>
-              Format
-              <select value={formatType} onChange={(e) => setFormatType(e.target.value as typeof formatType)}>
-                <option value="ligne">En ligne</option>
-                <option value="live">Live</option>
-                <option value="presentiel">Présentiel</option>
-              </select>
-            </label>
-            <label>
-              Volume horaire
-              <input type="number" min={1} max={10000} value={trainingHours} onChange={(e) => setTrainingHours(e.target.value)} placeholder="40" />
-            </label>
-          </div>
-
-          <label>
-            Description générale
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={5000} placeholder="Présentez la formation, sa promesse et son approche pédagogique." />
-          </label>
-
-          <section className="formation-public-fields">
-            <div className="formation-public-fields-heading">
-              <span className="section-label">Page publique</span>
-              <h3>Contenu de la fiche de formation</h3>
-              <p>Ces informations alimentent directement la page que verront les futurs apprenants.</p>
-            </div>
-
-            <label>
-              Résumé court
-              <textarea value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} maxLength={500} rows={3} placeholder="Ex. En 6 semaines, apprenez à créer des applications web sans écrire une seule ligne de code." />
-              <small>{shortDescription.length}/500 · utilisé dans l’introduction et les cartes du catalogue.</small>
-            </label>
-
-            <label>
-              À la fin de cette formation, l’apprenant sera capable de…
-              <textarea value={objectives} onChange={(e) => setObjectives(e.target.value)} maxLength={10000} rows={5} placeholder={'Concevoir une application complète\nAutomatiser des tâches métier\nCréer une interface professionnelle'} />
-              <small>Un acquis par ligne pour obtenir une lecture claire sur la page publique.</small>
-            </label>
-
-            <label>
-              À qui s’adresse cette formation ? / Prérequis
-              <textarea value={prerequisites} onChange={(e) => setPrerequisites(e.target.value)} maxLength={10000} rows={4} placeholder="Décrivez le public cible, le niveau attendu et les éventuels prérequis." />
-            </label>
-
-            <label>
-              Programme public
-              <textarea value={publicProgram} onChange={(e) => setPublicProgram(e.target.value)} maxLength={30000} rows={7} placeholder="Présentez ici les grandes étapes, semaines ou thèmes du parcours." />
-              <small>Les modules détaillés seront aussi construits automatiquement à partir des cours et chapitres ajoutés dans la formation.</small>
-            </label>
-          </section>
-
-          <button className="primary-button" disabled={creating || !setup || Boolean(setupBlockingStep)}>
-            <Plus size={16} />
-            {creating ? 'Création…' : 'Créer la formation'}
-          </button>
-        </form>
-
-        <section className="formation-list">
-          {formations.map((formation) => (
-            <article className="formation-card" key={formation.id}>
-              <div className="formation-card-head">
-                <div>
-                  <span className="formation-format">{formatLabels[formation.format_type]}</span>
-                  <h2>{formation.title}</h2>
-                  <p>{formation.description || 'Aucune description.'}</p>
-                </div>
-                <span className={`formation-status ${formation.status}`}>{formation.status === 'published' ? 'Publiée' : 'Brouillon'}</span>
-              </div>
-
-              <div className="formation-card-meta">
-                <span><CalendarDays size={14} /> {formation.format_type === 'ligne' ? 'Formation en ligne' : `${formation.session_count} session(s)`}</span>
-                <span><Users size={14} /> {formation.student_count} étudiant(s)</span>
-                <span><GraduationCap size={14} /> {formation.teacher_count} prof(s)</span>
-                <span><BookOpen size={14} /> {formation.course_count} cours</span>
-              </div>
-              {formation.publication_issues.length > 0 && <div className="formation-card-issues"><strong>À compléter</strong><ul>{formation.publication_issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></div>}
-
-              <div className="formation-card-actions">
-                <Link className="secondary-button" to={`/app/manage/formations/${formation.id}`}>
-                  Ouvrir la formation <ArrowRight size={15} />
-                </Link>
-                {formation.status === 'draft' && <button className="primary-button" type="button" disabled={publishingId !== null || formation.publication_issues.length > 0} onClick={() => void publish(formation)}><Send size={15} /> {publishingId === formation.id ? 'Publication…' : 'Publier la formation'}</button>}
-              </div>
-            </article>
-          ))}
-
-          {formations.length === 0 && (
-            <div className="app-card formation-empty">
-              <GraduationCap size={28} />
-              <strong>Aucune formation</strong>
-              <p>Créez votre premier programme avec le formulaire.</p>
-            </div>
+          <select value={format} onChange={(event) => setFormat(event.target.value)} aria-label="Format">
+            <option value="">Tous les formats</option>
+            {Object.entries(FORMAT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Statut">
+            <option value="">Tous les statuts</option>
+            {Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          {categories.length > 1 && (
+            <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Catégorie">
+              <option value="">Toutes les catégories</option>
+              {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
           )}
-        </section>
+        </div>
+
+        <p className="formations-list__count">{rows.length} formation{rows.length > 1 ? 's' : ''}</p>
+
+        {rows.length > 0 && (
+          <div className="formations-list__table">
+            <div className="formations-list__row is-head">
+              <span>Formation</span><span>Prochaine session</span><span>Remplissage</span><span>Prix</span><span>Statut</span><span />
+            </div>
+            {rows.map((formation) => {
+              const session = nextSessionCell(formation)
+              const next = formation.next_session
+              const fill = next && next.seat_capacity > 0 ? Math.min(100, Math.round((next.enrolled_count / next.seat_capacity) * 100)) : null
+              return (
+                <div className="formations-list__row" key={formation.id}>
+                  <div className="formations-list__title">
+                    <span className={`formations-list__format is-${formation.format_type}`}>{FORMAT_LABELS[formation.format_type]}</span>
+                    <Link to={`/app/manage/formations/${formation.id}`}><strong>{formation.title}</strong></Link>
+                    <small>{[formation.category, formation.level].filter(Boolean).join(' · ') || 'Sans catégorie'}</small>
+                  </div>
+                  <div>
+                    <strong>{session.title}</strong>
+                    <small>{session.detail}</small>
+                  </div>
+                  <div>
+                    {next ? (
+                      <>
+                        <strong>{next.enrolled_count}{next.seat_capacity ? ` / ${next.seat_capacity}` : ''} inscrit{next.enrolled_count > 1 ? 's' : ''}</strong>
+                        {fill !== null && <i className="formations-list__bar"><b style={{ width: `${fill}%` }} /></i>}
+                      </>
+                    ) : (
+                      <><strong>{formation.student_count} étudiant{formation.student_count > 1 ? 's' : ''}</strong><small>au total</small></>
+                    )}
+                  </div>
+                  <div>
+                    <strong>{formation.price_cents > 0 ? formatSchoolMoney(formation.price_cents, formation.currency) : 'À définir'}</strong>
+                    {formation.allow_installments && formation.price_cents > 0 && <small>en {formation.installment_count} fois possible</small>}
+                  </div>
+                  <div>
+                    <span className={`formation-status ${formation.status}`}>{STATUS_LABELS[formation.status]}</span>
+                    {formation.publication_issues.length > 0 && (
+                      <small className="formations-list__issues" title={formation.publication_issues.join('\n')}>
+                        {formation.publication_issues.length} point{formation.publication_issues.length > 1 ? 's' : ''} à compléter
+                      </small>
+                    )}
+                  </div>
+                  <div className="formations-list__actions">
+                    {formation.status === 'draft' && formation.publication_issues.length === 0 && (
+                      <button className="primary-button compact-action" type="button" disabled={publishingId !== null} onClick={() => void publish(formation)}>
+                        <Send size={14} /> {publishingId === formation.id ? 'Publication…' : 'Publier'}
+                      </button>
+                    )}
+                    <Link className="secondary-button compact-action" to={`/app/manage/formations/${formation.id}`}>
+                      Ouvrir <ArrowRight size={14} />
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {rows.length === 0 && (
+          <div className="formation-empty">
+            <GraduationCap size={28} />
+            <strong>{filtered ? 'Aucune formation ne correspond' : 'Aucune formation'}</strong>
+            <p>{filtered ? 'Modifiez la recherche ou les filtres.' : 'Créez votre premier programme : le nom et le format suffisent pour commencer.'}</p>
+            {!filtered && (
+              <button className="primary-button" type="button" disabled={!setup || Boolean(setupBlockingStep)} onClick={() => setCreating(true)}>
+                <Plus size={16} /> Nouvelle formation
+              </button>
+            )}
+          </div>
+        )}
       </section>
+
+      <NewFormationDialog
+        open={creating}
+        existing={formations}
+        onClose={() => setCreating(false)}
+        onCreated={(formation) => {
+          setCreating(false)
+          navigate(`/app/manage/formations/${formation.id}?nouvelle=1`)
+        }}
+      />
     </main>
   )
 }

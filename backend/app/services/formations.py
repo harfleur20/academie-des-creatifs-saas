@@ -39,6 +39,7 @@ from app.schemas.formations import (
     EnrollmentUpdate,
     FormationCreate,
     FormationDetailRead,
+    FormationNextSessionRead,
     FormationSummaryRead,
     FormationUpdate,
     LessonCreate,
@@ -295,6 +296,37 @@ def _formation_counts(
     return session_count, teacher_count, student_count, course_count
 
 
+def _next_session(
+    db: Session,
+    organization_id: int,
+    formation: FormationRecord,
+    visible_session_ids: set[int] | None,
+) -> FormationNextSessionRead | None:
+    """The session running now, else the first one to come; online formations have none."""
+    if formation.format_type == "ligne":
+        return None
+    query = select(FormationSessionRecord).where(
+        FormationSessionRecord.organization_id == organization_id,
+        FormationSessionRecord.formation_id == formation.id,
+        FormationSessionRecord.status.not_in(["cancelled", "completed"]),
+        FormationSessionRecord.end_date >= date.today(),
+    ).order_by(FormationSessionRecord.start_date, FormationSessionRecord.id).limit(1)
+    if visible_session_ids is not None:
+        query = query.where(FormationSessionRecord.id.in_(visible_session_ids))
+    session = db.scalar(query)
+    if session is None:
+        return None
+    enrolled = int(db.scalar(select(func.count(EnrollmentRecord.id)).where(
+        EnrollmentRecord.organization_id == organization_id,
+        EnrollmentRecord.session_id == session.id,
+        EnrollmentRecord.status.in_(["active", "completed", "suspended_payment"]),
+    )) or 0)
+    return FormationNextSessionRead(
+        id=session.id, label=session.label, start_date=session.start_date, end_date=session.end_date,
+        enrolled_count=enrolled, seat_capacity=session.seat_capacity or 0,
+    )
+
+
 def _serialize_formation_summary(
     db: Session,
     tenant: TenantContext,
@@ -310,6 +342,7 @@ def _serialize_formation_summary(
     if formation.format_type == "ligne":
         session_count = 0
     return FormationSummaryRead(
+        next_session=_next_session(db, tenant.organization_id, formation, visible_session_ids),
         id=formation.id,
         organization_id=formation.organization_id,
         slug=formation.slug,

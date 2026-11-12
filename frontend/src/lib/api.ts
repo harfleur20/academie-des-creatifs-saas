@@ -1158,6 +1158,15 @@ export type FormationSummary = {
   student_count: number
   course_count: number
   created_at: string
+  /** The session running now or starting next (none for online formations). */
+  next_session?: {
+    id: number
+    label: string
+    start_date: string
+    end_date: string
+    enrolled_count: number
+    seat_capacity: number
+  } | null
 }
 
 export type SessionTeacher = {

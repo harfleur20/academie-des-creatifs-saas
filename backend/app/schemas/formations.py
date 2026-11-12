@@ -63,6 +63,17 @@ class FormationUpdate(BaseModel):
     status: str | None = Field(default=None, pattern=FORMATION_STATUSES)
 
 
+class FormationNextSessionRead(BaseModel):
+    """The session running now or starting next, for the formations list."""
+
+    id: int
+    label: str
+    start_date: date
+    end_date: date
+    enrolled_count: int
+    seat_capacity: int
+
+
 class FormationSummaryRead(BaseModel):
     id: int
     organization_id: int
@@ -93,6 +104,7 @@ class FormationSummaryRead(BaseModel):
     student_count: int
     course_count: int
     created_at: datetime
+    next_session: FormationNextSessionRead | None = None
 
 
 class SessionCreate(BaseModel):

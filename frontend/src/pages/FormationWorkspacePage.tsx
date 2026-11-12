@@ -10,10 +10,11 @@ import {
   Plus,
   Save,
   Send,
+  Sparkles,
   UserPlus,
   Users,
 } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   ApiError,
   assignSessionTeacher,
@@ -65,6 +66,8 @@ export function FormationWorkspacePage() {
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [searchParams] = useSearchParams()
+  const justCreated = searchParams.get('nouvelle') === '1'
 
   async function refresh() {
     try {
@@ -223,13 +226,25 @@ export function FormationWorkspacePage() {
 
       <header className="app-page-header">
         <div>
-          <span className="page-kicker">{formation.format_type}</span>
+          <span className="page-kicker">{formation.format_type === 'live' ? 'Formation en live' : formation.format_type === 'presentiel' ? 'Formation en présentiel' : 'Formation en ligne'}</span>
           <h1>{formation.title}</h1>
           <p>{formation.description || 'Aucune description.'}</p>
         </div>
         <div className="formation-workspace-actions"><span className="status-chip">{formation.status === 'published' ? 'Publiée' : formation.status === 'archived' ? 'Archivée' : 'Brouillon'}{formation.format_type !== 'ligne' && ` · ${formation.session_count} session(s)`}</span>{formation.status === 'draft' && <button className="primary-button" type="button" disabled={working || formation.publication_issues.length > 0} onClick={() => void publishFormation()}><Send size={15} /> {working ? 'Publication…' : 'Publier la formation'}</button>}{formation.status !== 'archived' && <button className="secondary-button" type="button" disabled={working} onClick={() => void archiveFormation()}><Archive size={15} /> Archiver</button>}</div>
       </header>
 
+      {justCreated && (
+        <div className="billing-alert neutral formation-created">
+          <Sparkles size={19} />
+          <div>
+            <strong>Formation créée en brouillon</strong>
+            <span>
+              Complétez la page publique ci-dessous (photo, prix, description, objectifs)
+              {formation.format_type === 'ligne' ? ', ajoutez le contenu' : ', puis créez une première session'}. Vous pourrez ensuite la publier.
+            </span>
+          </div>
+        </div>
+      )}
       {error && <div className="form-error">{error}</div>}
       {message && <div className="form-success">{message} {message.startsWith('Formation publiée') && <Link to="/app/manage/site-public">Vérifier le site public</Link>}</div>}
 
