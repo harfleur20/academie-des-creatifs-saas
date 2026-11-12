@@ -1,7 +1,6 @@
 .student-level-badge {
   --badge-ring: #35bbd9;
   --badge-progress-ring: var(--badge-ring);
-  --badge-motif: #69c8df;
   position: relative;
   display: inline-block;
   flex: none;
@@ -9,26 +8,17 @@
   line-height: 0;
 }
 
-.student-level-badge--debutant { --badge-ring: #68be94; --badge-motif: #a1e1bc; }
-.student-level-badge--intermediaire { --badge-ring: #6556af; --badge-motif: #e9e4ff; }
-.student-level-badge--semi_pro { --badge-ring: #1cab89; --badge-motif: #c6f7e3; }
-.student-level-badge--professionnel { --badge-ring: #ed922e; --badge-motif: #fff1d9; }
-
-.student-level-badge--ring-aventurier { --badge-progress-ring: #35bbd9; }
-.student-level-badge--ring-debutant { --badge-progress-ring: #68be94; }
-.student-level-badge--ring-intermediaire { --badge-progress-ring: #6556af; }
-.student-level-badge--ring-semi_pro { --badge-progress-ring: #1cab89; }
-.student-level-badge--ring-professionnel { --badge-progress-ring: #ed922e; }
-
+/* Ring colours come from the component (the mother site's BadgeRing palette). */
 .student-level-badge svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .student-level-badge__track, .student-level-badge__arc { fill: none; stroke-width: 6; transform: rotate(-90deg); transform-origin: 50% 50%; }
-.student-level-badge__track { stroke: color-mix(in srgb, var(--badge-progress-ring) 26%, #fff); }
-.student-level-badge__arc { stroke: var(--badge-progress-ring); stroke-linecap: round; transition: stroke-dashoffset .7s ease, stroke .25s ease; }
-.student-level-badge__halo { fill: color-mix(in srgb, var(--badge-ring) 15%, #fff); }
-.student-level-badge__core { fill: #17385a; }
-.student-level-badge__motif { color: var(--badge-motif); }
-.student-level-badge--aventurier .student-level-badge__motif { fill: var(--badge-motif); }
-.student-level-badge.is-locked { opacity: .6; filter: grayscale(.55); }
+.student-level-badge__arc { stroke-linecap: round; transition: stroke-dashoffset .9s cubic-bezier(.4, 0, .2, 1); }
+/* As on the mother site: the badge takes 62 % of the ring's centre. */
+.student-level-badge__art {
+  position: absolute; inset: 19%;
+  width: 62%; height: 62%; object-fit: contain; pointer-events: none;
+}
+.student-level-badge.is-locked .student-level-badge__art { opacity: .55; filter: grayscale(.7); }
+.student-level-badge.is-locked svg { opacity: .6; }
 
 .role-student-progress-card__badge { width: 104px; }
 .badge-orb__visual { width: 104px; margin: 0 auto 5px; }

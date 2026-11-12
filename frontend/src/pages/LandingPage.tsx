@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import {
   ArrowRight,
-  Award,
   BellRing,
   CalendarDays,
   Check,
@@ -97,6 +96,7 @@ const FEATURE_LABELS: Record<string, (limit: number | null) => string> = {
   students: (limit) => (limit === null ? 'Étudiants illimités' : `Jusqu’à ${limit.toLocaleString('fr-FR')} étudiants`),
   teachers: (limit) => (limit === null ? 'Professeurs illimités' : `Jusqu’à ${limit} professeurs`),
   active_formations: (limit) => (limit === null ? 'Formations illimitées' : `${limit} formations actives`),
+  live: (limit) => limit === null ? 'Cours en live inclus' : `Cours en live inclus · ${limit} étudiants max par classe`,
   custom_domain: () => 'Votre propre nom de domaine',
   automations: () => 'Relances et rappels automatiques',
   advanced_reporting: () => 'Rapports avancés',
@@ -193,7 +193,10 @@ const FEATURES: Feature[] = [
     visual: (
       <div className="lp-feature__phone-stage">
         <Phone src={SHOTS.progress} alt="Page de progression d’une étudiante sur téléphone" />
-        <div className="lp-chip lp-chip--badge"><Award size={16} /> Niveau Intermédiaire atteint</div>
+        <div className="lp-chip lp-chip--badge">
+          <img className="lp-chip__badge" src="/student-badges/intermediaire.svg" alt="" aria-hidden="true" />
+          Niveau Intermédiaire atteint
+        </div>
         <div className="lp-chip lp-chip--quiz"><ClipboardCheck size={16} /> Quiz réussi · 100 %</div>
       </div>
     ),
@@ -255,7 +258,7 @@ function Pricing() {
               const featured = plan.code === 'pro'
               const features = plan.entitlements.filter((item) => item.enabled)
               return (
-                <article className={`lp-plan lp-reveal${featured ? ' lp-plan--featured' : ''}`} key={plan.id}>
+                <article className={`lp-plan${featured ? ' lp-plan--featured' : ''}`} key={plan.id}>
                   {featured && <span className="lp-plan__flag">Recommandé</span>}
                   <h3>{plan.name}</h3>
                   <p className="lp-plan__desc">{plan.description}</p>
@@ -297,7 +300,6 @@ export default function LandingPage() {
             </span>
           </a>
           <nav className="lp-nav" aria-label="Navigation principale">
-            <a href="#site-ecole">Le site de l’école</a>
             <a href="#fonctionnalites">Fonctionnalités</a>
             <a href="#fonctionnement">Comment ça marche</a>
             <a href="#tarifs">Tarifs</a>
@@ -342,20 +344,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="lp-formats" aria-label="Formats de formation">
-        <div className="lp-container lp-formats__grid">
-          {FORMATS.map(({ icon: Icon, title, text }) => (
-            <article className="lp-format lp-reveal" key={title}>
-              <span className="lp-icon"><Icon size={20} /></span>
-              <div>
-                <h3>{title}</h3>
-                <p>{text}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <section className="lp-section lp-site" id="site-ecole">
         <div className="lp-container">
           <header className="lp-heading lp-heading--center lp-reveal">
@@ -368,7 +356,6 @@ export default function LandingPage() {
           <div className="lp-site__stage lp-reveal">
             <Browser src={SHOTS.siteHome} alt="Page d’accueil du site d’une école" address="studio-kora.academiecreatif.com" />
             <Phone src={SHOTS.siteCheckout} alt="Choix de la session et prix d’une formation sur téléphone" className="lp-site__phone" />
-            <div className="lp-chip lp-chip--pay"><CreditCard size={16} /> Paiement en 3 fois · Mobile Money</div>
           </div>
           <div className="lp-site__points">
             {SITE_POINTS.map(({ icon: Icon, title, text }) => (
@@ -460,6 +447,26 @@ export default function LandingPage() {
                 <summary>{item.question}</summary>
                 <p>{item.answer}</p>
               </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-section lp-formats" aria-label="Formats de formation">
+        <div className="lp-container">
+          <header className="lp-heading lp-heading--center lp-reveal">
+            <h2>Des formats de cours adaptés à votre école</h2>
+            <p>En direct, à distance ou en salle : accompagnez vos étudiants dans chaque façon d’apprendre.</p>
+          </header>
+          <div className="lp-formats__grid">
+            {FORMATS.map(({ icon: Icon, title, text }) => (
+              <article className="lp-format lp-reveal" key={title}>
+                <span className="lp-icon"><Icon size={20} /></span>
+                <div>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                </div>
+              </article>
             ))}
           </div>
         </div>
