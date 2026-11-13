@@ -178,6 +178,7 @@ class PublicProgramModuleRead(BaseModel):
 
 class PublicFormationDetailRead(PublicFormationCardRead):
     description: str
+    presentation_video_url: str | None = None
     objectives: str
     prerequisites: str
     public_program: str

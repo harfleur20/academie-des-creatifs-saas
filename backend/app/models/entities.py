@@ -617,6 +617,7 @@ class FormationRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     training_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     short_description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     cover_image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    presentation_video_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     objectives: Mapped[str] = mapped_column(Text, nullable=False, default="")
     prerequisites: Mapped[str] = mapped_column(Text, nullable=False, default="")
     public_program: Mapped[str] = mapped_column(Text, nullable=False, default="")

@@ -162,7 +162,19 @@ export function SchoolFormationDetailPage() {
         </div>
 
         <div className="school-detail-cover school-detail-cover-v2">
-          {formation.cover_image_url
+          {formation.presentation_video_url ? (
+            <video
+              className="school-detail-video"
+              poster={formation.cover_image_url || undefined}
+              controls
+              playsInline
+              preload="metadata"
+              aria-label={`Vidéo de présentation : ${formation.title}`}
+            >
+              <source src={formation.presentation_video_url} type="video/mp4" />
+              Votre navigateur ne prend pas en charge la lecture vidéo.
+            </video>
+          ) : formation.cover_image_url
             ? <img src={formation.cover_image_url} alt={formation.title} />
             : <div className="school-detail-cover-placeholder"><Layers3 size={46} /></div>}
         </div>

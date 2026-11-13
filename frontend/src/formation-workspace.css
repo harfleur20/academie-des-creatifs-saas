@@ -75,7 +75,11 @@
 }
 .formation-cover-field__empty { display: grid; place-items: center; background: #f1f4f9; color: #94a3b8; }
 .formation-cover-field label { cursor: pointer; }
-
+.formation-video-field { display: grid; gap: 8px; font-weight: 700; }
+.formation-video-field__preview { width: min(100%, 520px); aspect-ratio: 16 / 9; border-radius: 14px; background: #101827; object-fit: cover; }
+.formation-video-field__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.formation-video-field__actions label { cursor: pointer; }
+.formation-video-field > small { max-width: 720px; color: #748195; font-weight: 400; line-height: 1.5; }
 .formation-sessions {
   display: grid;
   grid-template-columns: minmax(230px, 280px) minmax(0, 1fr);

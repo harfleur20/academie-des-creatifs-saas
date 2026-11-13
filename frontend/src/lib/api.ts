@@ -1151,6 +1151,7 @@ export type FormationSummary = {
   training_hours: number | null
   short_description: string
   cover_image_url: string | null
+  presentation_video_url: string | null
   objectives: string
   prerequisites: string
   public_program: string
@@ -1271,6 +1272,7 @@ export const createFormation = (payload: {
   training_hours?: number | null
   short_description?: string
   cover_image_url?: string | null
+  presentation_video_url?: string | null
   objectives?: string
   prerequisites?: string
   public_program?: string
@@ -1295,7 +1297,7 @@ export const updateFormation = (
   payload: Partial<Pick<
     FormationSummary,
     'title' | 'description' | 'category' | 'level' | 'format_type' | 'training_hours' |
-    'short_description' | 'cover_image_url' | 'objectives' | 'prerequisites' |
+    'short_description' | 'cover_image_url' | 'presentation_video_url' | 'objectives' | 'prerequisites' |
     'public_program' | 'price_cents' | 'currency' | 'allow_installments' |
     'installment_count' | 'reservation_deposit_enabled' | 'reservation_deposit_percent' |
     'is_featured' | 'featured_order' | 'status'
@@ -2731,6 +2733,7 @@ export type PublicProgramModule = {
 
 export type PublicFormationDetail = PublicFormationCard & {
   description: string
+  presentation_video_url: string | null
   objectives: string
   prerequisites: string
   public_program: string
@@ -3108,6 +3111,21 @@ export const uploadSchoolAsset = (file: File) => {
     size: number
     content_type: string
   }>('/commerce/assets', {
+    method: 'POST',
+    body,
+  })
+}
+
+export const uploadFormationVideo = (file: File) => {
+  const body = new FormData()
+  body.append('file', file)
+  return request<{
+    filename: string
+    public_url: string
+    size: number
+    content_type: string
+    duration_seconds: number
+  }>('/commerce/formation-videos', {
     method: 'POST',
     body,
   })

@@ -5,6 +5,7 @@ import {
   BookOpen,
   CalendarPlus,
   CheckCircle2,
+  Film,
   GraduationCap,
   ImagePlus,
   Pencil,
@@ -26,6 +27,7 @@ import {
   createSessionCourse,
   getFormation,
   listMembers,
+  uploadFormationVideo,
   updateFormation,
   updateFormationEnrollment,
   updateFormationSession,
@@ -41,6 +43,39 @@ type Tab = 'presentation' | 'tarif' | 'sessions' | 'contenu'
 type Session = FormationDetail['sessions'][number]
 
 const today = () => new Date().toISOString().slice(0, 10)
+
+function readVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video')
+    const url = URL.createObjectURL(file)
+    let timeout = 0
+    const cleanup = () => {
+      window.clearTimeout(timeout)
+      URL.revokeObjectURL(url)
+      video.removeAttribute('src')
+      video.load()
+    }
+    video.preload = 'metadata'
+    video.addEventListener('loadedmetadata', () => {
+      const duration = video.duration
+      cleanup()
+      if (!Number.isFinite(duration)) {
+        reject(new Error('Impossible de lire la durée de cette vidéo.'))
+        return
+      }
+      resolve(duration)
+    }, { once: true })
+    video.addEventListener('error', () => {
+      cleanup()
+      reject(new Error('Impossible de lire cette vidéo MP4.'))
+    }, { once: true })
+    timeout = window.setTimeout(() => {
+      cleanup()
+      reject(new Error('La lecture des informations de la vidéo a expiré.'))
+    }, 10_000)
+    video.src = url
+  })
+}
 
 // As on the mother site: a session is to come, running or over by its dates; its sale is shown alongside.
 function sessionStateLabel(session: { status: string; start_date: string; end_date: string }) {
@@ -76,6 +111,7 @@ export function FormationWorkspacePage() {
   const [objectives, setObjectives] = useState('')
   const [prerequisites, setPrerequisites] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
+  const [presentationVideoUrl, setPresentationVideoUrl] = useState('')
   const [price, setPrice] = useState('')
   const [allowInstallments, setAllowInstallments] = useState(false)
   const [installmentCount, setInstallmentCount] = useState('3')
@@ -97,6 +133,7 @@ export function FormationWorkspacePage() {
       setObjectives(detail.objectives)
       setPrerequisites(detail.prerequisites)
       setCoverUrl(detail.cover_image_url || '')
+      setPresentationVideoUrl(detail.presentation_video_url || '')
       setPrice(detail.price_cents ? String(detail.currency === 'XAF' ? detail.price_cents : detail.price_cents / 100) : '')
       setAllowInstallments(detail.allow_installments)
       setInstallmentCount(String(detail.installment_count))
@@ -191,6 +228,7 @@ export function FormationWorkspacePage() {
         objectives: objectives.trim(),
         prerequisites: prerequisites.trim(),
         cover_image_url: coverUrl || null,
+        presentation_video_url: presentationVideoUrl || null,
         price_cents: price ? Math.round(Number(price) * (formation.currency === 'XAF' ? 1 : 100)) : 0,
         allow_installments: allowInstallments,
         installment_count: Math.min(12, Math.max(2, Number(installmentCount) || 2)),
@@ -219,6 +257,38 @@ export function FormationWorkspacePage() {
       setMessage('Photo importée. Enregistrez la présentation pour l’utiliser.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Import de la photo impossible.')
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function uploadPresentationVideo(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.mp4')) {
+      setError('Choisissez une vidéo au format MP4.')
+      return
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      setError('La vidéo de présentation ne doit pas dépasser 50 Mo.')
+      return
+    }
+
+    setWorking(true)
+    setError('')
+    setMessage('')
+    try {
+      const duration = await readVideoDuration(file)
+      if (duration > 3 * 60) {
+        setError('La vidéo de présentation ne doit pas dépasser 3 minutes.')
+        return
+      }
+      const asset = await uploadFormationVideo(file)
+      setPresentationVideoUrl(asset.public_url)
+      setMessage('Vidéo importée. Enregistrez la présentation pour l’afficher sur la fiche publique.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Import de la vidéo impossible.')
     } finally {
       setWorking(false)
     }
@@ -309,6 +379,31 @@ export function FormationWorkspacePage() {
                 <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={(event) => void uploadCover(event)} disabled={working} hidden />
               </label>
             </div>
+          </div>
+          <div className="formation-video-field">
+            <span>Vidéo de présentation (facultative)</span>
+            {presentationVideoUrl && (
+              <video
+                className="formation-video-field__preview"
+                src={presentationVideoUrl}
+                poster={coverUrl || undefined}
+                controls
+                playsInline
+                preload="metadata"
+              />
+            )}
+            <div className="formation-video-field__actions">
+              <label className="secondary-button compact-action">
+                <Film size={14} /> {presentationVideoUrl ? 'Changer la vidéo' : 'Choisir une vidéo'}
+                <input type="file" accept=".mp4,video/mp4" onChange={(event) => void uploadPresentationVideo(event)} disabled={working} hidden />
+              </label>
+              {presentationVideoUrl && (
+                <button className="secondary-button compact-action" type="button" disabled={working} onClick={() => setPresentationVideoUrl('')}>
+                  Retirer la vidéo
+                </button>
+              )}
+            </div>
+            <small>Format accepté et recommandé : MP4 (H.264), horizontal en 16:9. Durée maximale : 3 minutes · Taille maximale : 50 Mo. Sans vidéo, la photo de couverture reste affichée.</small>
           </div>
           <label>Résumé court<textarea value={shortDescription} onChange={(event) => setShortDescription(event.target.value)} maxLength={500} rows={3} placeholder="Texte court affiché dans l’introduction et sur les cartes du catalogue." /><small>{shortDescription.length}/500 caractères</small></label>
           <label>Description générale<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} rows={5} placeholder="Présentez la formation, sa promesse et son approche pédagogique." /></label>

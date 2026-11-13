@@ -122,6 +122,7 @@ def test_publication_requires_presentation_price_and_session_then_opens_enrollme
 
     update_formation(db, tenant, formation.id, FormationUpdate(
         cover_image_url="https://example.test/cover.jpg", price_cents=150_000,
+        presentation_video_url="https://example.test/introduction.mp4",
         public_program="Module 1 : les bases du mouvement",
     ))
     published = update_formation(db, tenant, formation.id, FormationUpdate(status="published"))
@@ -130,6 +131,7 @@ def test_publication_requires_presentation_price_and_session_then_opens_enrollme
         update_formation(db, tenant, formation.id, FormationUpdate(price_cents=0))
     assert exc.value.status_code == 422
     public = public_formation_detail(db, org.slug, formation.slug)
+    assert public.presentation_video_url == "https://example.test/introduction.mp4"
     assert len(public.sessions) == 1
     assert public.sessions[0].can_purchase is False
     assert public.sessions[0].unavailable_reason

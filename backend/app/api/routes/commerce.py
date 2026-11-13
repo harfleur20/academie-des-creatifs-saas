@@ -33,7 +33,7 @@ from app.schemas.commerce import (
     SchoolIdentityRead,
     StudentManagementRead,
 )
-from app.services.assets import store_school_asset
+from app.services.assets import store_formation_video_asset, store_school_asset
 from app.services.communication_delivery import process_communication_outbox
 from app.services.membership_roles import load_effective_member_roles
 from app.services.purchase_policy import (
@@ -128,6 +128,18 @@ async def upload_school_asset(
     if not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Accès gestion requis.")
     return await store_school_asset(file, tenant.organization_id)
+
+
+@router.post("/formation-videos", status_code=201)
+async def upload_formation_video(
+    file: UploadFile = File(...),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    if tenant.support_mode:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Le mode support est en lecture seule.")
+    if not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Accès gestion requis.")
+    return await store_formation_video_asset(file, tenant.organization_id)
 
 
 @router.get("/dashboard", response_model=CommercialDashboardRead)

@@ -26,6 +26,7 @@ class FormationCreate(BaseModel):
     training_hours: int | None = Field(default=None, ge=1, le=10000)
     short_description: str = Field(default="", max_length=500)
     cover_image_url: str | None = Field(default=None, max_length=1024)
+    presentation_video_url: str | None = Field(default=None, max_length=1024)
     objectives: str = Field(default="", max_length=10000)
     prerequisites: str = Field(default="", max_length=10000)
     public_program: str = Field(default="", max_length=30000)
@@ -49,6 +50,7 @@ class FormationUpdate(BaseModel):
     training_hours: int | None = Field(default=None, ge=1, le=10000)
     short_description: str | None = Field(default=None, max_length=500)
     cover_image_url: str | None = Field(default=None, max_length=1024)
+    presentation_video_url: str | None = Field(default=None, max_length=1024)
     objectives: str | None = Field(default=None, max_length=10000)
     prerequisites: str | None = Field(default=None, max_length=10000)
     public_program: str | None = Field(default=None, max_length=30000)
@@ -86,6 +88,7 @@ class FormationSummaryRead(BaseModel):
     training_hours: int | None
     short_description: str
     cover_image_url: str | None
+    presentation_video_url: str | None
     objectives: str
     prerequisites: str
     public_program: str
