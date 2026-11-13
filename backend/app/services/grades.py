@@ -121,7 +121,7 @@ def teacher_gradebook(db: Session, tenant: TenantContext, session_id: int) -> Te
     session = get_session(db, tenant, session_id)
     now = datetime.now(UTC)
     enrollments = db.execute(
-        select(EnrollmentRecord.id, EnrollmentRecord.status, UserRecord.full_name)
+        select(EnrollmentRecord.id, EnrollmentRecord.status, UserRecord.full_name, UserRecord.avatar_url)
         .join(UserRecord, UserRecord.id == EnrollmentRecord.student_id)
         .where(
             EnrollmentRecord.organization_id == tenant.organization_id,
@@ -146,6 +146,7 @@ def teacher_gradebook(db: Session, tenant: TenantContext, session_id: int) -> Te
         .order_by(GradeRecord.label, GradeRecord.id)
     ).all()
     names = {item.id: item.full_name for item in enrollments}
+    avatars = {item.id: item.avatar_url for item in enrollments}
     day_titles = {item.id: item.title for item in days}
     teachers = {
         item.id: item.full_name
@@ -157,7 +158,7 @@ def teacher_gradebook(db: Session, tenant: TenantContext, session_id: int) -> Te
         session_id=session_id,
         can_grade_session=_session_open_for_grades(session, now),
         students=[
-            GradebookStudentRead(enrollment_id=item.id, student_name=item.full_name)
+            GradebookStudentRead(enrollment_id=item.id, student_name=item.full_name, student_avatar_url=item.avatar_url)
             for item in enrollments
             if item.status in {"active", "completed"}
         ],
@@ -176,6 +177,7 @@ def teacher_gradebook(db: Session, tenant: TenantContext, session_id: int) -> Te
                 id=row.id,
                 enrollment_id=row.enrollment_id,
                 student_name=names.get(row.enrollment_id, "Étudiant"),
+                student_avatar_url=avatars.get(row.enrollment_id),
                 course_day_id=row.course_day_id,
                 course_day_title=day_titles.get(row.course_day_id),
                 teacher_name=teachers.get(row.teacher_id),

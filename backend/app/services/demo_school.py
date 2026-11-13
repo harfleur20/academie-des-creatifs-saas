@@ -124,6 +124,19 @@ CLASS_TITLES = (
 )
 LATE_ORDERS = 2  # a couple of late payments, for the follow-up screens
 
+# Portraits: free Unsplash photos in frontend/public/demo/people (credits in docs/DEMO.md).
+FEMALE_STUDENTS = frozenset({
+    "Grâce Ndzana", "Mireille Tchoupo", "Brenda Ewane", "Laure Mvondo", "Nadège Ekotto", "Estelle Biyong",
+    "Carine Abena", "Sorelle Djomo", "Ingrid Moukouri", "Vanessa Ngono", "Rita Fouda", "Joëlle Etoundi", "Prisca Manga",
+})
+STUDENT_PORTRAITS = {
+    "f": ("f16", "f01", "f02", "f05", "f12", "f13", "f14", "f15", "f17", "f18", "f22"),
+    "m": ("m14", "m02", "m03", "m06", "m11", "m12", "m13", "m16", "m20", "m21"),
+}
+PORTRAIT_SHARE = 0.8
+TEACHER_PORTRAITS = {"Kamla Loïc": "m15", "Sandrine Ngo Bassa": "f06", "Patrick Eboa": "m23"}
+OWNER_PORTRAIT = "f03"
+
 
 def email_of(full_name: str) -> str:
     table = str.maketrans("àâäéèêëîïôöùûüçÀÂÉÈÊÎÔÙÛÇ", "aaaeeeeiioouuucAAEEEIOUUC")
@@ -239,6 +252,7 @@ class _Builder:
         self.teachers: dict[str, UserRecord] = {}
         for name, (title, domains, skills) in TEACHERS.items():
             row = self.user(name)
+            row.avatar_url = self.portrait(TEACHER_PORTRAITS[name])
             self.member(row, "teacher")
             db.add(TeacherProfessionalProfileRecord(
                 organization_id=org_id, user_id=row.id, professional_title=title, experience_years=8,
@@ -267,6 +281,7 @@ class _Builder:
         db, org_id = self.db, self.org.id
         self.cohorts: dict[str, tuple] = {}
         self.late_orders = 0
+        self.late_students: set[int] = set()
         for item in FORMATIONS:
             formation = FormationRecord(
                 organization_id=org_id, slug=item.slug, title=item.title, category=item.category, level="Débutant à intermédiaire",
@@ -330,6 +345,8 @@ class _Builder:
         paid_parts = 3 if roll > 0.9 else 2 if roll > 0.7 else 1
         late = roll < 0.62 and paid_parts == 1 and self.late_orders < LATE_ORDERS and bought + timedelta(days=30) < now
         self.late_orders += late
+        if late:
+            self.late_students.add(row.id)
         for sequence in (1, 2, 3):
             due = bought + timedelta(days=30 * (sequence - 1))
             status = "paid" if sequence <= paid_parts else ("late" if late and due < now else "pending")
@@ -520,6 +537,21 @@ class _Builder:
             label=label, score=score, max_score=20, note=note, created_at=when, updated_at=when,
         ))
 
+    def portrait(self, code: str) -> str:
+        return f"{self.assets}/people/{code}.jpg"
+
+    def portraits(self) -> None:
+        """About 80 % of the students get a photo. Those with a late payment or a weak attendance
+        keep their initials: no real person's face carries the demo's alerts."""
+        grace = self.students[0].id
+        ranked = sorted(self.students, key=lambda row: (row.id != grace, row.id in self.late_students, -self.assiduity[row.id], row.id))
+        pools = {gender: list(codes) for gender, codes in STUDENT_PORTRAITS.items()}
+        for row in ranked[:round(len(self.students) * PORTRAIT_SHARE)]:
+            pool = pools["f" if row.full_name in FEMALE_STUDENTS else "m"]
+            if pool:
+                row.avatar_url = self.portrait(pool.pop(0))
+        self.db.commit()
+
     def quiet(self) -> None:
         """Nothing leaves the demo school: no email nor WhatsApp to its fictional people."""
         self.db.execute(delete(CommunicationOutboxRecord).where(CommunicationOutboxRecord.organization_id == self.org.id))
@@ -537,6 +569,7 @@ def build_demo_school(
                        site_url=site_url or settings.frontend_url)
     builder.school()
     builder.formations()
+    builder.portraits()
     builder.ledger()
     builder.courses()
     builder.classes()

@@ -35,6 +35,10 @@ Tout est fictif (`app/services/demo_school.py`) : une directrice, 3 professeurs,
 | `covers/marketing-digital.jpg` | [Swello](https://unsplash.com/photos/hands-holding-smartphone-displaying-social-media-feed--UtJxTRAndY) |
 | `covers/montage-video.jpg` | [Peter Stumpf](https://unsplash.com/photos/video-editing-timeline-on-dark-screen-yk9VXp4W5-Q) |
 
+### Les portraits
+
+Les 25 portraits de `frontend/public/demo/people/` sont des photos Unsplash gratuites, recadrées sur le visage : la directrice, les 3 professeurs et environ 80 % des étudiants. Les étudiants qui ont un paiement en retard ou une assiduité faible gardent leurs initiales : aucun visage réel ne porte les alertes de la démo. Sources : [f01](https://unsplash.com/photos/h1lA3N5wb8M) · [f02](https://unsplash.com/photos/I49bIyEHaIs) · [f03](https://unsplash.com/photos/UzSPiVmnkAA) · [f05](https://unsplash.com/photos/HIPIOPYz0tQ) · [f06](https://unsplash.com/photos/V6iX4MiOCyY) · [f12](https://unsplash.com/photos/lG8E7KT7Elk) · [f13](https://unsplash.com/photos/J1jYLLlRpA4) · [f14](https://unsplash.com/photos/Me-MSv_dUNU) · [f15](https://unsplash.com/photos/4VN2WWVWqDs) · [f16](https://unsplash.com/photos/eXclz2FOr0M) · [f17](https://unsplash.com/photos/OmxCTe8rusY) · [f18](https://unsplash.com/photos/BJ9hkwB1tBE) · [f22](https://unsplash.com/photos/04Rd4wrSI1M) · [m02](https://unsplash.com/photos/10fvuGtnoEM) · [m03](https://unsplash.com/photos/P_jBxTIYGKg) · [m06](https://unsplash.com/photos/9KmzY22Tz-4) · [m11](https://unsplash.com/photos/ucXB9wyzXtw) · [m12](https://unsplash.com/photos/F_1ww3Y6F_c) · [m13](https://unsplash.com/photos/80oPuH_jogY) · [m14](https://unsplash.com/photos/2EGNqazbAMk) · [m15](https://unsplash.com/photos/_ObjhzjnMmc) · [m16](https://unsplash.com/photos/Ve7xjKImd28) · [m20](https://unsplash.com/photos/5xBTYnYzdU8) · [m21](https://unsplash.com/photos/IJrIeCs3D4g) · [m23](https://unsplash.com/photos/aPwQ8YF_IG0).
+
 ## Ce que voit le visiteur
 
 1. « Voir la démo » ouvre le choix entre quatre lieux : le site de l'école, l'espace direction, l'espace professeur et l'espace étudiant.

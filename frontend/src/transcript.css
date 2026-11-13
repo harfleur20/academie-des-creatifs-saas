@@ -233,9 +233,11 @@ body.transcript-dialog-open { overflow: hidden; }
 .student-attendance-card { margin-top: 18px; }
 
 /* The teacher's roster (pages/TeacherStudentsPage.tsx). */
+.roster-card .roster-card__body { display: grid; justify-items: start; gap: 2px; min-width: 0; }
 .roster-card .roster-transcript {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
+  margin-top: 10px; /* its own line, under the status */
 }
+.roster-card .roster-avatar--photo { width: 46px; height: 46px; object-fit: cover; background: #e9edf5; }

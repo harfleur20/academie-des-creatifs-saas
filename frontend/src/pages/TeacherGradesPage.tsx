@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { GraduationCap, Save } from 'lucide-react'
+import { ChevronDown, GraduationCap, Save } from 'lucide-react'
 import {
   ApiError,
   getTeacherGradebook,
@@ -9,6 +9,7 @@ import {
   type TeacherWorkspaceSession,
 } from '../lib/api'
 import { initialTeacherSessionId } from '../lib/teacherSession'
+import { PersonName } from '../components/PersonAvatar'
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof ApiError ? err.message : fallback
@@ -101,7 +102,7 @@ export function TeacherGradesPage() {
 
     {sessionsLoaded && sessions.length === 0 && <div className="app-card formation-empty"><GraduationCap size={26} /><strong>Aucune session</strong><p>Les notes concernent vos sessions live et présentiel.</p></div>}
 
-    {gradebook && <section className="attendance-day-list">
+    {gradebook && <section className="attendance-day-list teacher-grade-list">
       <form className="app-card attendance-day-card" onSubmit={(event) => void save(event)}>
         <header><div><span className="section-label">Saisie</span><h2>Saisir une évaluation</h2></div></header>
         <div className="grade-entry-fields">
@@ -117,7 +118,7 @@ export function TeacherGradesPage() {
         {canGrade && gradebook.students.length > 0 && <>
           <div className="attendance-table">
             {gradebook.students.map((item) => <div className="attendance-row" key={item.enrollment_id}>
-              <strong>{item.student_name}</strong>
+              <PersonName name={item.student_name} url={item.student_avatar_url} />
               <input
                 className="grade-score-input"
                 type="number"
@@ -135,15 +136,18 @@ export function TeacherGradesPage() {
         </>}
       </form>
 
-      {savedGroups.map(([key, rows]) => <article className="app-card attendance-day-card" key={key}>
-        <header><div>
+      {savedGroups.map(([key, rows]) => <details className="app-card attendance-day-card grade-saved-group" key={key}>
+        <summary className="grade-saved-group__summary"><div>
           <span className="section-label">{rows[0].course_day_title ?? 'Note de session'}{rows[0].teacher_name ? ` · ${rows[0].teacher_name}` : ''}</span>
           <h2>{rows[0].label}</h2>
-        </div></header>
+        </div><span className="grade-saved-group__meta">
+          {rows.length} étudiant{rows.length > 1 ? 's' : ''}
+          <ChevronDown className="grade-saved-group__chevron" size={18} aria-hidden="true" />
+        </span></summary>
         <div className="attendance-table">
-          {rows.map((item) => <div className="attendance-row" key={item.id}><strong>{item.student_name}</strong><span>{item.score} / {item.max_score}</span></div>)}
+          {rows.map((item) => <div className="attendance-row" key={item.id}><PersonName name={item.student_name} url={item.student_avatar_url} /><span>{item.score} / {item.max_score}</span></div>)}
         </div>
-      </article>)}
+      </details>)}
     </section>}
   </main>
 }

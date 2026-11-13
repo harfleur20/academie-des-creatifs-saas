@@ -243,6 +243,7 @@ class TeacherGradeRead(BaseModel):
     id: int
     enrollment_id: int
     student_name: str
+    student_avatar_url: str | None = None
     course_day_id: int | None
     course_day_title: str | None
     teacher_name: str | None
@@ -257,6 +258,7 @@ class TeacherGradeRead(BaseModel):
 class GradebookStudentRead(BaseModel):
     enrollment_id: int
     student_name: str
+    student_avatar_url: str | None = None
 
 
 class GradebookCourseDayRead(BaseModel):

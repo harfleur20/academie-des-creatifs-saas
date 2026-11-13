@@ -1195,6 +1195,7 @@ export type Enrollment = {
   student_id: number
   student_name: string
   student_email: string
+  student_avatar_url?: string | null
   status: 'active' | 'completed' | 'cancelled'
   created_at: string
 }
@@ -2350,12 +2351,13 @@ export const listStudentGrades = () =>
 export type TeacherGradebook = {
   session_id: number
   can_grade_session: boolean
-  students: Array<{ enrollment_id: number; student_name: string }>
+  students: Array<{ enrollment_id: number; student_name: string; student_avatar_url?: string | null }>
   course_days: Array<{ id: number; title: string; scheduled_at: string; can_grade: boolean }>
   grades: Array<{
     id: number
     enrollment_id: number
     student_name: string
+    student_avatar_url?: string | null
     course_day_id: number | null
     course_day_title: string | null
     teacher_name: string | null

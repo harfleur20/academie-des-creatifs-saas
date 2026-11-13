@@ -145,6 +145,19 @@ def test_the_demo_school_is_built_around_its_day_and_sends_nothing(monkeypatch):
     assert demo_member(db, org, "manage").email == summary["owner"]
     assert demo_member(db, org, "teacher").email == summary["teacher"]
     assert demo_member(db, org, "student").email == summary["student"]
+    # About 80 % of the students have a portrait, the teachers and the owner too; nobody with a
+    # late payment has one (no real face carries the demo's alerts).
+    people = db.scalars(select(UserRecord).where(UserRecord.email.like("%@studiokora.example"))).all()
+    pictured = [person for person in people if person.avatar_url]
+    assert all(person.avatar_url.startswith("https://ecoles.example.com/demo/people/") for person in pictured)
+    staff = {summary["owner"], summary["teacher"], "sandrine.ngobassa@studiokora.example", "patrick.eboa@studiokora.example"}
+    assert staff <= {person.email for person in pictured}
+    assert 19 <= len(pictured) - len(staff) <= 21
+    late = db.scalars(select(StudentOrderRecord.user_id).where(
+        StudentOrderRecord.organization_id == org.id, StudentOrderRecord.status == "late",
+    )).all()
+    assert late and not any(db.get(UserRecord, user_id).avatar_url for user_id in late)
+
     # Nobody knows the passwords of these fictional people.
     owner = db.scalar(select(UserRecord).where(UserRecord.email == summary["owner"]))
     assert not verify_password("Demo2026!", owner.password_hash)

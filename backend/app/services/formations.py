@@ -195,6 +195,7 @@ def _serialize_session(session: FormationSessionRecord) -> SessionRead:
                 student_id=item.student_id,
                 student_name=item.student.full_name,
                 student_email=item.student.email,
+                student_avatar_url=item.student.avatar_url,
                 status=item.status,
                 created_at=item.created_at,
             )
