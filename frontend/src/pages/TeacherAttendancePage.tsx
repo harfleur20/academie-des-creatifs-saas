@@ -31,6 +31,7 @@ function dayNote(day: AttendanceCourseDay) {
   return null
 }
 import { initialTeacherSessionId } from '../lib/teacherSession'
+import { PersonAvatar } from '../components/PersonAvatar'
 
 export function TeacherAttendancePage() {
   const [workspace, setWorkspace] = useState<TeacherWorkspace | null>(null)
@@ -70,7 +71,7 @@ export function TeacherAttendancePage() {
       {days.map((day)=><article className="app-card attendance-day-card" key={day.course_day_id}>
         <header><div><span className="section-label">{new Date(day.scheduled_at).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span><h2>{day.title}</h2><p>Prof. {day.teacher_name || '—'}</p>{dayNote(day) && <small>{dayNote(day)}</small>}{!day.can_edit && day.edit_blocked_reason && <small>{day.edit_blocked_reason}</small>}</div>{day.can_edit?<CalendarCheck2 size={20}/>:<LockKeyhole size={18}/>}</header>
         <div className="attendance-table">
-          {day.rows.map((row)=><div className="attendance-row" key={row.enrollment_id}><span className="attendance-row__who"><strong>{row.student_name}</strong>{row.live_minutes != null && <small>{row.live_minutes} min en salle{day.live_roll_calls ? ` · appel ${row.live_roll_calls_answered ?? 0}/${day.live_roll_calls}` : ''}</small>}</span><select value={row.status ?? ''} disabled={!day.can_edit} onChange={(event)=>void mark(day,row.enrollment_id,event.target.value as AttendanceStatus)}><option value="" disabled>Non marqué</option>{(Object.keys(ATTENDANCE_LABELS) as AttendanceStatus[]).map((value)=><option key={value} value={value}>{ATTENDANCE_LABELS[value]}</option>)}</select></div>)}
+          {day.rows.map((row)=><div className="attendance-row" key={row.enrollment_id}><span className="attendance-row__person"><PersonAvatar name={row.student_name} url={row.student_avatar_url} size={36} /><span className="attendance-row__who"><strong>{row.student_name}</strong>{row.live_minutes != null && <small>{row.live_minutes} min en salle{day.live_roll_calls ? ` · appel ${row.live_roll_calls_answered ?? 0}/${day.live_roll_calls}` : ''}</small>}</span></span><select value={row.status ?? ''} disabled={!day.can_edit} onChange={(event)=>void mark(day,row.enrollment_id,event.target.value as AttendanceStatus)}><option value="" disabled>Non marqué</option>{(Object.keys(ATTENDANCE_LABELS) as AttendanceStatus[]).map((value)=><option key={value} value={value}>{ATTENDANCE_LABELS[value]}</option>)}</select></div>)}
         </div>
       </article>)}
       {days.length===0&&<div className="app-card formation-empty"><CalendarCheck2 size={26}/><strong>Aucun créneau</strong><p>Le planning de la session est encore vide.</p></div>}

@@ -284,6 +284,7 @@ class AttendanceRowRead(BaseModel):
     enrollment_id: int
     student_id: int
     student_name: str
+    student_avatar_url: str | None = None
     status: AttendanceStatus | None
     # Live classes: what shows the student followed, for the teacher to check the prefilled attendance.
     live_minutes: int | None = None

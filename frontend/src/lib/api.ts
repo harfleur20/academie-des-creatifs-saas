@@ -2294,6 +2294,7 @@ export type AttendanceCourseDay = {
     enrollment_id: number
     student_id: number
     student_name: string
+    student_avatar_url?: string | null
     status: AttendanceStatus | null
     /** Live classes: minutes in the room and roll calls answered, to check the prefilled attendance. */
     live_minutes?: number | null
