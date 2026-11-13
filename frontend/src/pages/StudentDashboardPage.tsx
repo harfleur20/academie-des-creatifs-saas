@@ -375,7 +375,9 @@ export function StudentDashboardPage() {
                 <div className="role-action-stack">
                   {pendingAssignments > 0 && (
                     <Link to="/app/student/assignments">
-                      <ClipboardCheck size={16} />
+                      <span className="role-action-icon role-action-icon--assignment" aria-hidden="true">
+                        <ClipboardCheck size={16} />
+                      </span>
                       <span>
                         <strong>{pendingAssignments} devoir(s) à rendre</strong>
                         <small>Consultez les dates limites.</small>

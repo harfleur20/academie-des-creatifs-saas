@@ -398,9 +398,39 @@
   }
 
   .login-redesign.auth-register-mode .auth-form-panel {
-    align-items: start;
-    padding-top: clamp(32px, 4vh, 46px);
-    padding-bottom: 28px;
+    align-items: center;
+    padding-top: clamp(16px, 3vh, 36px);
+    padding-bottom: clamp(16px, 3vh, 36px);
+  }
+}
+
+@media (min-width: 901px) and (max-height: 700px) {
+  .login-redesign.auth-register-mode .auth-form-panel {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .login-redesign.auth-register-mode .auth-card h2 {
+    margin: 8px 0;
+    font-size: clamp(28px, 2.4vw, 36px);
+  }
+
+  .login-redesign.auth-register-mode .auth-card > p {
+    margin-bottom: 18px;
+  }
+
+  .login-redesign.auth-register-mode .auth-card label {
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+
+  .login-redesign.auth-register-mode .auth-card input,
+  .login-redesign.auth-register-mode .auth-submit {
+    min-height: 48px;
+  }
+
+  .login-redesign.auth-register-mode .auth-switch {
+    margin-top: 14px;
   }
 }
 

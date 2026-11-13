@@ -275,6 +275,24 @@
   font-size: var(--text-small);
 }
 
+.role-action-stack a > .role-action-icon--assignment {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.role-action-icon--assignment svg {
+  color: inherit;
+}
+
 .role-side-card > header > span {
   min-width: 28px;
   min-height: 28px;

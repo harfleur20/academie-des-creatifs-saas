@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Activity,
+  Airplay,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -310,7 +311,7 @@ export function TeacherDashboardPage() {
                   .map((item) => (
                     <Link to={item.href} key={item.id}>
                       <span className="role-recent-icon">
-                        <BookOpen size={14} />
+                        <Airplay size={14} />
                       </span>
                       <span>
                         <strong>{item.title}</strong>

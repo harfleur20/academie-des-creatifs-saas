@@ -19,6 +19,7 @@ import {
   type CourseDayFeedbackReview,
 } from '../lib/api'
 import { liveClassIsOpen } from '../lib/liveWindow'
+import { formatDuration } from '../lib/formatDuration'
 import { LiveRecordingsPanel } from '../components/LiveRecordingsPanel'
 
 function toLocalInput(value: string) {
@@ -34,6 +35,8 @@ export function TeacherSessionPlanningPage() {
   const [title, setTitle] = useState('')
   const [scheduledAt, setScheduledAt] = useState('')
   const [duration, setDuration] = useState('90')
+  const [customHours, setCustomHours] = useState('1')
+  const [customMinutes, setCustomMinutes] = useState('30')
   const [working, setWorking] = useState(false)
   const [reportDayId, setReportDayId] = useState<number | null>(null)
   const [reportStatus, setReportStatus] = useState<'held' | 'partial' | 'not_held' | 'interrupted'>('held')
@@ -63,22 +66,33 @@ export function TeacherSessionPlanningPage() {
     () => planning?.course_days.filter((item) => item.status !== 'cancelled') ?? [],
     [planning],
   )
+  const firstCustomMinute = Number(customHours) === 0 ? 15 : 0
+  const lastCustomMinute = Number(customHours) === 8 ? 0 : 59
 
   async function create(event: FormEvent) {
     event.preventDefault()
     if (!planning || !scheduledAt) return
-    setWorking(true)
     setError('')
+    const durationMinutes = duration === 'custom'
+      ? Number(customHours) * 60 + Number(customMinutes)
+      : Number(duration)
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 15 || durationMinutes > 480) {
+      setError('La durée doit être comprise entre 15 minutes et 8 heures.')
+      return
+    }
+    setWorking(true)
     try {
       const updated = await createSessionCourseDay(planning.session_id, {
         title: title.trim(),
         scheduled_at: new Date(scheduledAt).toISOString(),
-        duration_minutes: Number(duration),
+        duration_minutes: durationMinutes,
       })
       setPlanning(updated)
       setTitle('')
       setScheduledAt('')
       setDuration('90')
+      setCustomHours('1')
+      setCustomMinutes('30')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Création impossible.')
     } finally {
@@ -209,16 +223,55 @@ export function TeacherSessionPlanningPage() {
               />
             </label>
 
-            <label>
-              Durée
-              <select value={duration} onChange={(event) => setDuration(event.target.value)}>
+            <div className="planning-duration-field">
+              <label htmlFor="planning-duration">Durée</label>
+              <select id="planning-duration" value={duration} onChange={(event) => setDuration(event.target.value)}>
                 <option value="60">1 h</option>
                 <option value="90">1 h 30</option>
                 <option value="120">2 h</option>
                 <option value="180">3 h</option>
                 <option value="240">4 h</option>
+                <option value="custom">Personnalisée</option>
               </select>
-            </label>
+              {duration === 'custom' && (
+                <div className="planning-custom-duration">
+                  <label htmlFor="planning-duration-hours">
+                    Heures
+                    <select
+                      id="planning-duration-hours"
+                      value={customHours}
+                      onChange={(event) => {
+                        const nextHours = event.target.value
+                        const nextHourCount = Number(nextHours)
+                        const minuteCount = Number(customMinutes)
+                        setCustomHours(nextHours)
+                        if (nextHourCount === 0 && minuteCount < 15) setCustomMinutes('15')
+                        else if (nextHourCount === 8 && minuteCount > 0) setCustomMinutes('0')
+                      }}
+                    >
+                      {Array.from({ length: 9 }, (_, hour) => (
+                        <option key={hour} value={hour}>{hour}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label htmlFor="planning-duration-minutes">
+                    Minutes
+                    <select
+                      id="planning-duration-minutes"
+                      value={customMinutes}
+                      onChange={(event) => setCustomMinutes(event.target.value)}
+                    >
+                      {Array.from(
+                        { length: lastCustomMinute - firstCustomMinute + 1 },
+                        (_, index) => firstCustomMinute + index,
+                      ).map((minute) => (
+                        <option key={minute} value={minute}>{String(minute).padStart(2, '0')}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+            </div>
 
             <button className="primary-button" disabled={working}>
               <Plus size={15} />
@@ -246,7 +299,7 @@ export function TeacherSessionPlanningPage() {
                     <h3>{day.title}</h3>
                   </div>
                   <div className="planning-day-meta">
-                    <span><Clock3 size={14} /> {new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(day.scheduled_at))} · {day.duration_minutes} min</span>
+                    <span><Clock3 size={14} /> {new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(day.scheduled_at))} · {formatDuration(day.duration_minutes)}</span>
                     <span><UserRound size={14} /> {day.teacher_name || 'Professeur non disponible'}</span>
                   </div>
                 </div>

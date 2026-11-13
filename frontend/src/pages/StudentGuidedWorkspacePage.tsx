@@ -5,6 +5,7 @@ import { useTenant } from '../app/TenantContext'
 import { ApiError, ATTENDANCE_LABELS, getSessionPlanning, getStudentWorkspace, listPublicSchoolFormations, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources, submitCourseDayFeedback,
   type AcademicResource, type CourseDay, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz, type StudentWorkspaceSession } from '../lib/api'
 import { liveClassIsOpen } from '../lib/liveWindow'
+import { formatDuration } from '../lib/formatDuration'
 
 type Tab = 'overview' | 'program' | 'calendar' | 'schedule' | 'assignments' | 'quizzes' | 'resources' | 'results'
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -40,13 +41,6 @@ function courseDayTimeRange(day: CourseDay) {
   const end = new Date(start.getTime() + day.duration_minutes * 60_000)
   const time = (value: Date) => value.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   return `${time(start)} – ${time(end)}`
-}
-
-function formatDuration(minutes: number) {
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
-  if (hours === 0) return `${minutes} min`
-  return `${hours}h${remainingMinutes > 0 ? `${remainingMinutes}min` : ''}`
 }
 
 export function StudentGuidedWorkspacePage() {
