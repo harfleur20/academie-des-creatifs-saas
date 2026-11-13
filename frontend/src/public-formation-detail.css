@@ -116,6 +116,7 @@
 }
 
 .public-school-shell .school-detail-cover-v2 {
+  position: relative;
   height: clamp(330px, 35vw, 470px);
   border-radius: 28px;
   box-shadow: 0 28px 70px rgba(25, 45, 72, .12);
@@ -127,6 +128,81 @@
   height: 100%;
   background: #101827;
   object-fit: cover;
+}
+
+.public-school-shell .school-detail-video:fullscreen,
+.public-school-shell .school-detail-video:-webkit-full-screen {
+  border-radius: 0;
+  background: #000;
+  object-fit: contain;
+}
+
+.public-school-shell .school-detail-video-poster {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.public-school-shell .school-detail-video-play {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  color: #fff;
+  background: rgba(15, 23, 42, .2);
+  backdrop-filter: blur(1px);
+  cursor: pointer;
+  transition: background .2s ease;
+}
+
+.public-school-shell .school-detail-video-play:hover {
+  background: rgba(15, 23, 42, .28);
+}
+
+.public-school-shell .school-detail-video-play:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: -6px;
+}
+
+.public-school-shell .school-detail-video-play > span {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  padding-left: 4px;
+  border-radius: 50%;
+  color: var(--school-primary);
+  background: rgba(255, 255, 255, .95);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .22);
+  transition: transform .2s ease;
+}
+
+.public-school-shell .school-detail-video-play:hover > span {
+  transform: scale(1.06);
+}
+
+.public-school-shell .school-detail-video-error {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  z-index: 3;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: #fff;
+  background: rgba(15, 23, 42, .8);
+  font-size: var(--site-tiny);
+  text-align: center;
 }
 
 .public-school-shell .school-detail-cover-placeholder {

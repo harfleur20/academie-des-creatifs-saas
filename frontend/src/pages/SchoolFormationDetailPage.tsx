@@ -7,12 +7,14 @@ import {
   GraduationCap,
   Layers3,
   MapPin,
+  Play,
+  Radio,
   ShoppingBag,
   Target,
   UserRoundCheck,
   Users,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getPublicSchoolFormation, type PublicFormationDetail, type PublicSession } from '../lib/api'
 import { setSchoolCart } from '../public/schoolCart'
@@ -25,6 +27,11 @@ const formatLabels: Record<PublicFormationDetail['format_type'], string> = {
   ligne: 'En ligne',
   live: 'Live',
   presentiel: 'Présentiel',
+}
+
+type NativeFullscreenVideo = HTMLVideoElement & {
+  webkitDisplayingFullscreen?: boolean
+  webkitExitFullscreen?: () => void
 }
 
 function contentLines(value: string) {
@@ -43,6 +50,81 @@ export function SchoolFormationDetailPage() {
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
+  const presentationVideo = useRef<HTMLVideoElement>(null)
+  const [videoActive, setVideoActive] = useState(false)
+  const [videoError, setVideoError] = useState('')
+
+  useEffect(() => {
+    const video = presentationVideo.current
+    if (!video) return
+
+    const leaveFullscreen = () => {
+      video.pause()
+      if (video.readyState > 0) video.currentTime = 0
+      video.controls = false
+      setVideoActive(false)
+    }
+    const handleFullscreenChange = () => {
+      if (document.fullscreenElement === video) {
+        setVideoActive(true)
+      } else {
+        leaveFullscreen()
+      }
+    }
+    const enterNativeFullscreen = () => setVideoActive(true)
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    video.addEventListener('webkitbeginfullscreen', enterNativeFullscreen)
+    video.addEventListener('webkitendfullscreen', leaveFullscreen)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      video.removeEventListener('webkitbeginfullscreen', enterNativeFullscreen)
+      video.removeEventListener('webkitendfullscreen', leaveFullscreen)
+    }
+  }, [formation?.presentation_video_url])
+
+  function startPresentationVideo() {
+    const video = presentationVideo.current
+    if (!video) return
+
+    setVideoError('')
+    setVideoActive(true)
+    video.controls = true
+
+    const handleError = () => {
+      video.pause()
+      video.controls = false
+      setVideoActive(false)
+      setVideoError('Impossible de lancer cette vidéo. Vérifiez les paramètres de lecture du navigateur.')
+    }
+
+    try {
+      void video.play().catch(handleError)
+    } catch {
+      handleError()
+    }
+  }
+
+  function resetPresentationVideo() {
+    const video = presentationVideo.current
+    if (!video) return
+
+    video.pause()
+    if (video.readyState > 0) video.currentTime = 0
+
+    if (document.fullscreenElement === video) {
+      void document.exitFullscreen().catch(() => {
+        setVideoActive(true)
+        setVideoError('Fermez le plein écran pour revenir à la vidéo.')
+      })
+    } else {
+      const nativeVideo = video as NativeFullscreenVideo
+      if (nativeVideo.webkitDisplayingFullscreen) nativeVideo.webkitExitFullscreen?.()
+    }
+
+    video.controls = false
+    setVideoActive(false)
+  }
 
   useEffect(() => {
     let active = true
@@ -138,6 +220,7 @@ export function SchoolFormationDetailPage() {
   const planSession = formation.format_type === 'ligne'
     ? (formation.next_session?.can_purchase ? formation.next_session : null)
     : selected ?? (available.length === 1 ? available[0] : null)
+  const FormatIcon = formation.format_type === 'live' ? Radio : BookOpen
 
   return (
     <main className="school-detail-page school-detail-page-v2">
@@ -158,7 +241,7 @@ export function SchoolFormationDetailPage() {
 
           <div className="school-detail-meta school-detail-meta-v2">
             <span><Clock3 size={15} />{formation.training_hours ? `${formation.training_hours} h` : formation.format_type === 'ligne' ? 'À votre rythme' : 'Selon la session'}</span>
-            <span><BookOpen size={15} />{formatLabels[formation.format_type]}</span>
+            <span><FormatIcon size={15} />{formatLabels[formation.format_type]}</span>
             <span><GraduationCap size={15} />{formation.level}</span>
           </div>
 
@@ -175,17 +258,37 @@ export function SchoolFormationDetailPage() {
 
         <div className="school-detail-cover school-detail-cover-v2">
           {formation.presentation_video_url ? (
-            <video
-              className="school-detail-video"
-              poster={formation.cover_image_url || undefined}
-              controls
-              playsInline
-              preload="metadata"
-              aria-label={`Vidéo de présentation : ${formation.title}`}
-            >
-              <source src={formation.presentation_video_url} type="video/mp4" />
-              Votre navigateur ne prend pas en charge la lecture vidéo.
-            </video>
+            <>
+              <video
+                ref={presentationVideo}
+                className="school-detail-video"
+                poster={formation.cover_image_url || undefined}
+                controls={videoActive}
+                playsInline
+                preload="metadata"
+                aria-label={`Vidéo de présentation : ${formation.title}`}
+                onEnded={resetPresentationVideo}
+              >
+                <source src={formation.presentation_video_url} type="video/mp4" />
+                Votre navigateur ne prend pas en charge la lecture vidéo.
+              </video>
+              {!videoActive && (
+                <>
+                  {formation.cover_image_url && (
+                    <img className="school-detail-video-poster" src={formation.cover_image_url} alt="" aria-hidden="true" />
+                  )}
+                  <button
+                    type="button"
+                    className="school-detail-video-play"
+                    aria-label="Lire la vidéo de présentation"
+                    onClick={startPresentationVideo}
+                  >
+                    <span><Play size={30} fill="currentColor" /></span>
+                  </button>
+                </>
+              )}
+              {videoError && <p className="school-detail-video-error" role="status">{videoError}</p>}
+            </>
           ) : formation.cover_image_url
             ? <img src={formation.cover_image_url} alt={formation.title} />
             : <div className="school-detail-cover-placeholder"><Layers3 size={46} /></div>}
@@ -195,7 +298,7 @@ export function SchoolFormationDetailPage() {
       <section className="school-detail-facts" aria-label="Informations clés de la formation">
         <article><Clock3 size={19} /><span><small>Durée</small><strong>{formation.training_hours ? `${formation.training_hours} heures` : formation.format_type === 'ligne' ? 'À votre rythme' : 'Selon la session'}</strong></span></article>
         <article><GraduationCap size={19} /><span><small>Niveau</small><strong>{formation.level || 'Tous niveaux'}</strong></span></article>
-        <article><BookOpen size={19} /><span><small>Format</small><strong>{formatLabels[formation.format_type]}</strong></span></article>
+        <article><FormatIcon size={19} /><span><small>Format</small><strong>{formatLabels[formation.format_type]}</strong></span></article>
         <article><Users size={19} /><span><small>Encadrement</small><strong>{formation.teacher_names.length > 0 ? `${formation.teacher_names.length} enseignant(s)` : 'Équipe de l’école'}</strong></span></article>
       </section>
 
