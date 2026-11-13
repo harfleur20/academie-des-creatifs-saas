@@ -166,6 +166,8 @@ def test_the_demo_school_is_built_around_its_day_and_sends_nothing(monkeypatch):
     formations = db.scalars(select(FormationRecord).where(FormationRecord.organization_id == org.id)).all()
     assert {item.price_cents for item in formations} == {90_000, 100_000, 120_000, 150_000, 180_000, 200_000}
     assert all(item.cover_image_url == f"https://ecoles.example.com/demo/covers/{item.slug}.jpg" for item in formations)
+    videos = {item.slug: item.presentation_video_url for item in formations if item.presentation_video_url}
+    assert videos == {"motion-design": "https://ecoles.example.com/demo/videos/motion-design.mp4"}
     assert all(formation_content_issues(item) == [] for item in formations)
     assert len(list_public_formations(db, org)) == 6
     upcoming = db.scalars(select(FormationSessionRecord).where(

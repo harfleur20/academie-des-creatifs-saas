@@ -110,6 +110,9 @@ FORMATIONS = (
                   "Du rush au film fini : rythme, son, étalonnage et export pour le web."),
 )
 FEATURED = {"design-graphique", "motion-design", "ui-ux-design"}
+# Presentation videos, in frontend/public/demo/videos: a 12-second motion design teaser drawn
+# for the demo (shapes, titles, the school's logo), no outside footage.
+PRESENTATION_VIDEOS = {"motion-design"}
 MODULES = {
     "design-graphique": (("Les bases du design", ("Couleurs et contrastes", "Typographie", "Composition")),
                          ("Identité visuelle", ("Créer un logo", "La charte graphique")),
@@ -287,6 +290,7 @@ class _Builder:
                 organization_id=org_id, slug=item.slug, title=item.title, category=item.category, level="Débutant à intermédiaire",
                 format_type=item.format_type, training_hours=item.hours, short_description=item.description, description=item.description,
                 cover_image_url=f"{self.assets}/covers/{item.slug}.jpg",
+                presentation_video_url=f"{self.assets}/videos/{item.slug}.mp4" if item.slug in PRESENTATION_VIDEOS else None,
                 objectives="Réaliser des projets concrets pour votre portfolio.\nMaîtriser les outils des professionnels.",
                 prerequisites="Un ordinateur et l'envie d'apprendre.",
                 public_program="Module 1 : les bases\nModule 2 : la pratique\nModule 3 : le projet final",
