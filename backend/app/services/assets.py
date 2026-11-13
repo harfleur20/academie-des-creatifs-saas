@@ -274,6 +274,51 @@ async def store_formation_video_asset(file: UploadFile, organization_id: int):
     }
 
 
+UPLOADS_ROOT = Path(__file__).resolve().parents[2] / "uploads"
+PRESENTATION_VIDEO_NAME = re.compile(r"[0-9a-f]{32}\.mp4")
+
+
+def presentation_video_location(url: str | None, organization_id: int) -> tuple[str, str] | None:
+    """Where a presentation video this school uploaded here is stored: ("r2" or "local", key).
+
+    None for any other address: a formation only shows a video imported from its page.
+    """
+    if not url:
+        return None
+    bases = [("local", f"{settings.backend_public_url.rstrip('/')}/uploads")]
+    if settings.r2_public_base_url:
+        bases.append(("r2", settings.r2_public_base_url.rstrip("/")))
+    for storage, base in bases:
+        prefix = f"{base}/schools/{organization_id}/presentations/"
+        if url.startswith(prefix) and PRESENTATION_VIDEO_NAME.fullmatch(url[len(prefix):]):
+            return storage, f"schools/{organization_id}/presentations/{url[len(prefix):]}"
+    return None
+
+
+def delete_presentation_video(location: tuple[str, str]) -> None:
+    """Remove a presentation video that no formation shows anymore. Best effort: a failure
+    only leaves a file behind."""
+    storage, key = location
+    try:
+        if storage == "r2":
+            if not settings.r2_configured:
+                return
+            import boto3
+            boto3.client(
+                "s3",
+                endpoint_url=settings.r2_endpoint_url,
+                aws_access_key_id=settings.r2_access_key_id,
+                aws_secret_access_key=settings.r2_secret_access_key,
+                region_name="auto",
+            ).delete_object(Bucket=settings.r2_bucket_name, Key=key)
+        else:
+            path = (UPLOADS_ROOT / key).resolve()
+            path.relative_to(UPLOADS_ROOT.resolve())
+            path.unlink(missing_ok=True)
+    except Exception:
+        return
+
+
 async def store_class_discussion_image(
     file: UploadFile, organization_id: int, session_id: int
 ):

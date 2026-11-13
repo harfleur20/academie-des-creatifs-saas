@@ -54,6 +54,7 @@ from app.schemas.formations import (
     LessonRead,
     LessonVersionRead,
 )
+from app.services.assets import delete_presentation_video, presentation_video_location
 from app.services.assignments import release_assignment
 from app.services.membership_roles import member_has_role
 from app.services.online_formations import ensure_online_content_session
@@ -522,7 +523,7 @@ def create_formation(
         training_hours=payload.training_hours,
         short_description=payload.short_description.strip(),
         cover_image_url=payload.cover_image_url,
-        presentation_video_url=payload.presentation_video_url,
+        presentation_video_url=_checked_presentation_video(payload.presentation_video_url, tenant.organization_id),
         objectives=payload.objectives.strip(),
         prerequisites=payload.prerequisites.strip(),
         public_program=payload.public_program.strip(),
@@ -575,7 +576,11 @@ def update_formation(
     previously_published = formation.status == "published"
     previously_live = formation.format_type == "live"
     previously_complete = not formation_content_issues(formation)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    previous_video = formation.presentation_video_url
+    changes = payload.model_dump(exclude_unset=True)
+    if "presentation_video_url" in changes and (changes["presentation_video_url"] or None) != previous_video:
+        changes["presentation_video_url"] = _checked_presentation_video(changes["presentation_video_url"], tenant.organization_id)
+    for key, value in changes.items():
         if isinstance(value, str):
             value = value.strip()
         if key == "currency" and value:
@@ -596,7 +601,29 @@ def update_formation(
                 raise
     db.commit()
     db.refresh(formation)
+    _forget_presentation_video(db, tenant.organization_id, previous_video, formation.presentation_video_url)
     return _serialize_formation_summary(db, tenant, formation)
+
+
+def _checked_presentation_video(url: str | None, organization_id: int) -> str | None:
+    """Only a video imported from the formation's page, stored for this school (no outside address)."""
+    url = (url or "").strip() or None
+    if url is not None and presentation_video_location(url, organization_id) is None:
+        raise HTTPException(status_code=422, detail="Importez la vidéo de présentation depuis la fiche de la formation.")
+    return url
+
+
+def _forget_presentation_video(db: Session, organization_id: int, previous: str | None, current: str | None) -> None:
+    """A replaced or removed presentation video is deleted, unless another formation still shows it."""
+    location = presentation_video_location(previous, organization_id) if previous != current else None
+    if location is None:
+        return
+    still_used = db.scalar(select(FormationRecord.id).where(
+        FormationRecord.organization_id == organization_id,
+        FormationRecord.presentation_video_url == previous,
+    ).limit(1))
+    if still_used is None:
+        delete_presentation_video(location)
 
 
 def _require_plan_room(
