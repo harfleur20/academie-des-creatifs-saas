@@ -4,9 +4,36 @@ Sur la page d'accueil, le bouton **« Voir la démo »** laisse un visiteur, san
 
 ## Mise en route
 
-- Créer l'école de démonstration sur la plateforme, avec des personnes et des données fictives. Il lui faut un propriétaire, au moins un professeur affecté à une session et un étudiant inscrit à une session en cours.
-- Indiquer son adresse courte au backend : `DEMO_ORGANIZATION_SLUG=studio-kora`.
-- Sans cette variable, la page d'accueil affiche « Voir les tarifs » à la place de « Voir la démo ».
+1. Créer l'école de démonstration, **Studio Kora**, depuis `backend`, sur une base migrée :
+
+   ```bash
+   python scripts/create_demo_school.py
+   ```
+
+2. Indiquer son adresse courte au backend : `DEMO_ORGANIZATION_SLUG=studio-kora`, puis le redémarrer.
+
+Sans cette variable, la page d'accueil affiche « Voir les tarifs » à la place de « Voir la démo ».
+
+### Ce que contient Studio Kora
+
+Tout est fictif (`app/services/demo_school.py`) : une directrice, 3 professeurs, 26 étudiants, 6 formations (live, en ligne, présentiel), les commandes payées en une fois ou en 3 fois avec deux retards, les ventes nettes de commission, les cours, les séances avec présences et rapports, des quiz et des devoirs corrigés. Chaque formation live accepte aussi l'acompte, et les prochaines cohortes ouvrent dans environ deux mois.
+
+- **Les dates partent du jour où le script tourne.** Les cohortes sont en cours, les séances passées ont leur rapport, les suivantes sont planifiées. Les données ne bougent plus ensuite. Si la démo paraît datée (séances passées sans rapport, cohorte terminée), on la recrée : `python scripts/create_demo_school.py --reset`.
+- **Personne ne connaît les mots de passe** des comptes fictifs (tous en `@studiokora.example`). La démo ouvre les espaces avec un jeton. En local seulement, `--password '...'` donne un mot de passe commun pour se connecter comme eux.
+- **Rien ne part** : l'école de démo n'envoie ni e-mail ni WhatsApp (`queue_school_event`).
+- **Les images** sont dans `frontend/public/demo/`, servies par le site à l'adresse `FRONTEND_URL` (ou `--site-url`). Le site public exige des adresses complètes pour les couvertures.
+
+### Crédits des photos (licence Unsplash, usage commercial gratuit)
+
+| Fichier | Photo |
+|---|---|
+| `hero.jpg` | [Vitaly Gariev](https://unsplash.com/photos/8gAbl776pc0) |
+| `covers/design-graphique.jpg` | [Kelly Sikkema](https://unsplash.com/photos/person-drawing-on-tablet-at-workspace-Dx1b5ucschA) |
+| `covers/motion-design.jpg` | [Shubham Dhage](https://unsplash.com/photos/a-3d-image-of-a-purple-and-black-object-J-YFM4xlQrc) |
+| `covers/ui-ux-design.jpg` | [Dharmik Moradiya](https://unsplash.com/photos/I_8_KJBWAV4) |
+| `covers/photographie.jpg` | [Sofia Lasheva](https://unsplash.com/photos/a-photography-studio-setup-with-lighting-equipment-vhKyOG9LjqI) |
+| `covers/marketing-digital.jpg` | [Swello](https://unsplash.com/photos/hands-holding-smartphone-displaying-social-media-feed--UtJxTRAndY) |
+| `covers/montage-video.jpg` | [Peter Stumpf](https://unsplash.com/photos/video-editing-timeline-on-dark-screen-yk9VXp4W5-Q) |
 
 ## Ce que voit le visiteur
 
@@ -25,8 +52,4 @@ Sur la page d'accueil, le bouton **« Voir la démo »** laisse un visiteur, san
 - **Côté interface, rien de ce qui modifie n'est envoyé** pendant la démo. Le visiteur voit le message « Mode démo : rien n'est enregistré. Créez votre école pour essayer pour de vrai. »
 - **Sur le site de l'école de démo**, la commande et les favoris sont refusés côté serveur, même pour un vrai compte.
 
-Le code est dans `backend/app/services/demo.py`, `frontend/src/lib/demo.ts` et `frontend/src/components/DemoBar.tsx`. Les tests sont dans `backend/tests/test_demo.py`.
-
-## À faire
-
-- **Rafraîchir les données chaque nuit** : recaler les dates des sessions, séances, devoirs et paiements sur le jour même, sinon la démo vieillit (sessions terminées, calendrier vide).
+Le code est dans `backend/app/services/demo.py`, `demo_school.py`, `frontend/src/lib/demo.ts` et `frontend/src/components/DemoBar.tsx`. Les tests sont dans `backend/tests/test_demo.py`.

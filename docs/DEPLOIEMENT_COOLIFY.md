@@ -102,7 +102,7 @@ Indispensables :
 | `FRONTEND_URL` | `https://ecoles.academiecreatif.com` |
 | `BACKEND_PUBLIC_URL` | `https://ecoles.academiecreatif.com` |
 | `JWT_SECRET_KEY` | `openssl rand -hex 32` |
-| `DEMO_ORGANIZATION_SLUG` | Facultatif : l'école montrée en lecture seule par « Voir la démo » ([DEMO.md](DEMO.md)) |
+| `DEMO_ORGANIZATION_SLUG` | Facultatif : `studio-kora`, l'école montrée en lecture seule par « Voir la démo », créée par `python scripts/create_demo_school.py` ([DEMO.md](DEMO.md)) |
 | `INTEGRATION_ENCRYPTION_KEY` | `openssl rand -base64 32 \| tr '+/' '-_'` (clé Fernet) |
 | `AUTH_COOKIE_SECURE` | `true` |
 | `SAAS_BASE_DOMAIN` | `academiecreatif.com` |
