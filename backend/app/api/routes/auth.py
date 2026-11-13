@@ -167,10 +167,11 @@ def demo_info(db: Session = Depends(get_db)) -> DemoInfoRead:
 
 
 @router.post("/demo", response_model=DemoSessionRead)
-def start_demo(payload: DemoStartPayload, db: Session = Depends(get_db)) -> DemoSessionRead:
+def start_demo(payload: DemoStartPayload, request: Request, db: Session = Depends(get_db)) -> DemoSessionRead:
     """A short read-only token for one space of the demo school. No cookie: it stays in the visitor's tab."""
-    from app.services.demo import demo_member, demo_organization, demo_token
+    from app.services.demo import DEMO_TOKEN_LIMIT, demo_member, demo_organization, demo_rate_limited, demo_token
 
+    demo_rate_limited(DEMO_TOKEN_LIMIT, request.client.host if request.client else "unknown")
     org = demo_organization(db)
     if org is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La démo n’est pas disponible.")

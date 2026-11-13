@@ -29,3 +29,26 @@ export function clearDemoState() {
     // Nothing to clear.
   }
 }
+
+/*
+ * The screens of the demo tour, per space (paths after /app/<space>/). The server reads
+ * nothing else for a demo token (backend app/services/demo.py: DEMO_ALLOWED_READS); the
+ * other screens stay visible in the menus, greyed, "available once you create your school".
+ */
+const DEMO_OPEN_SCREENS: Record<'manage' | 'teacher' | 'student', RegExp[]> = {
+  manage: [/^$/, /^formations$/, /^formations\/\d+$/, /^pedagogy$/, /^performance$/, /^commerce$/],
+  teacher: [/^$/, /^sessions$/, /^sessions\/\d+$/, /^students$/, /^grades$/],
+  student: [/^$/, /^formations$/, /^sessions\/\d+$/, /^courses$/, /^classic\/\d+$/, /^guided\/\d+$/, /^guided\/\d+\/program$/, /^planning$/, /^results$/],
+}
+
+export const DEMO_LOCKED_MESSAGE = 'Disponible quand vous créez votre école'
+
+/** In the demo, whether this screen of a space is closed (outside the spaces, nothing is). */
+export function demoScreenLocked(pathname: string): boolean {
+  if (!readDemoState()) return false
+  const match = pathname.match(/^\/app\/(manage|teacher|student)(?:\/(.*?))?\/?$/)
+  if (!match) return false
+  const space = match[1] as keyof typeof DEMO_OPEN_SCREENS
+  const rest = match[2] ?? ''
+  return !DEMO_OPEN_SCREENS[space].some((pattern) => pattern.test(rest))
+}

@@ -57,6 +57,7 @@ from app.services.assignments import review_submission
 from app.services.learning_progress import mark_attendance, mark_lesson_complete
 from app.services.membership_roles import replace_effective_roles
 from app.services.planning import submit_course_day_report
+from app.services.school_branding import get_or_create_identity_records
 from app.services.school_revenue import record_sale
 from app.services.tenancy import resolve_tenant_context
 
@@ -187,7 +188,7 @@ class _Builder:
         self.org = OrganizationRecord(
             name="Studio Kora", slug=self.slug, subdomain=self.slug, status="active", is_active=True,
             contact_email=f"contact@{EMAIL_DOMAIN}", timezone="Africa/Douala", locale="fr-FR",
-            logo_url=f"{self.assets}/logo-kora.png", primary_color="#35409A", secondary_color="#0B8A83", accent_color="#131735",
+            logo_url=f"{self.assets}/logo-kora.png", primary_color="#222A68", secondary_color="#0B8A83", accent_color="#131735",
         )
         db.add(self.org)
         db.flush()
@@ -217,10 +218,15 @@ class _Builder:
             organization_id=org_id, legal_name="Studio Kora SARL (démonstration)", legal_address="Bonapriso, Douala, Cameroun",
             invoice_email=f"factures@{EMAIL_DOMAIN}", default_currency="XAF",
         ))
+        db.flush()
+        # Every identity record (site, legal, messages, certificates) exists from the start: a
+        # demo request never keeps what it writes (app/api/dependencies.py).
+        get_or_create_identity_records(db, self.org)
         for audience in ("teacher", "student"):
             db.add(OrganizationCharterRecord(organization_id=org_id, audience=audience, title="Charte", content="Charte de l'école.", is_enabled=False))
 
         self.owner = self.user("Aïcha Mbarga")
+        self.owner.avatar_url = self.portrait(OWNER_PORTRAIT)
         self.member(self.owner, "owner")
         plan = db.scalar(select(PlanRecord).where(PlanRecord.code == "pro"))
         if plan is not None:

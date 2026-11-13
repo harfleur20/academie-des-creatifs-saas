@@ -3,7 +3,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -21,9 +23,20 @@ from app.models.entities import (
     OrganizationMemberRecord,
     OrganizationRecord,
     SessionCourseDayRecord,
+    StudentOrderRecord,
     UserRecord,
 )
-from app.services.demo import DEMO_SITE_CLOSED, demo_member, require_not_demo
+from app.api.dependencies import get_authenticated_session
+from app.core.rate_limit import SlidingWindowLimit
+from app.services import demo as demo_service
+from app.services.demo import (
+    DEMO_PDF_LIMIT,
+    DEMO_SITE_CLOSED,
+    DEMO_TOKEN_LIMIT,
+    demo_may_read,
+    demo_member,
+    require_not_demo,
+)
 from app.services.demo_school import build_demo_school, remove_demo_school
 from app.services.membership_roles import replace_effective_roles
 from app.services.public_catalog import list_public_formations
@@ -51,7 +64,16 @@ def demo(monkeypatch):
     replace_effective_roles(db, member, {"owner"})
     db.commit()
     monkeypatch.setattr(settings, "demo_organization_slug", org.slug)
-    app.dependency_overrides[get_db] = lambda: db
+    DEMO_TOKEN_LIMIT.reset()
+    DEMO_PDF_LIMIT.reset()
+
+    def shared_session():
+        yield db
+        # As get_db closing the session: a demo request's writes, never committed, are rolled back.
+        if db.__dict__.pop("commit", None) is not None:
+            db.rollback()
+
+    app.dependency_overrides[get_db] = shared_session
     try:
         with TestClient(app) as client:
             yield client, db, org, other, owner, teacher, student
@@ -156,3 +178,52 @@ def test_the_demo_school_is_built_around_its_day_and_sends_nothing(monkeypatch):
     assert db.scalar(select(OrganizationRecord.id).where(OrganizationRecord.slug == org.slug)) is None
     assert db.scalar(select(UserRecord.id).where(UserRecord.email.like("%@studiokora.example"))) is None
     assert db.scalar(select(FormationRecord.id).where(FormationRecord.organization_id == org.id)) is None
+
+
+def test_a_demo_visitor_only_opens_the_screens_of_the_tour(demo):
+    client, _db, org, *_ = demo
+    headers = {"Authorization": f"Bearer {start(client, 'student')['access_token']}", "X-Organization-Id": str(org.id)}
+    assert client.get("/api/v1/transcripts/mine", headers=headers).status_code == 200
+    for locked in ("/api/v1/billing/invoices", "/api/v1/integrations/openai", "/api/v1/messages/threads/1"):
+        refused = client.get(locked, headers=headers)
+        assert refused.status_code == 403, locked
+        assert refused.json()["detail"]["code"] == "demo_locked"
+
+    # The allowlist is exact: a screen's sub-paths stay closed.
+    assert demo_may_read("/formations/12") and not demo_may_read("/formations/12/sessions")
+    assert demo_may_read("/transcripts/3/pdf") and not demo_may_read("/transcripts/3/pdf/extra")
+
+
+def test_nothing_a_demo_request_does_is_kept(demo):
+    client, db, org, _other, _owner, _teacher, student = demo
+    token = start(client, "student")["access_token"]
+    request = Request({"type": "http", "method": "GET", "path": "/api/v1/transcripts/mine", "headers": [], "query_string": b""})
+    session = get_authenticated_session(request, db, HTTPAuthorizationCredentials(scheme="Bearer", credentials=token))
+    assert session.demo_organization_id == org.id
+    student.full_name = "Modifié pendant la démo"
+    db.commit()  # what a read might do on the way: flushed in the request's transaction only
+    db.__dict__.pop("commit")
+    db.rollback()  # the end of the request
+    assert db.get(type(student), student.id).full_name == "Student"
+
+
+def test_demo_tokens_and_pdfs_are_rate_limited(demo, monkeypatch):
+    client, _db, org, *_ = demo
+    monkeypatch.setattr(demo_service, "DEMO_TOKEN_LIMIT", SlidingWindowLimit(2, 3600))
+    assert [client.post("/api/v1/auth/demo", json={"space": "student"}).status_code for _ in range(3)] == [200, 200, 429]
+
+    monkeypatch.setattr(demo_service, "DEMO_TOKEN_LIMIT", SlidingWindowLimit(10, 3600))
+    monkeypatch.setattr(demo_service, "DEMO_PDF_LIMIT", SlidingWindowLimit(1, 600))
+    session = start(client, "student")
+    headers = {"Authorization": f"Bearer {session['access_token']}", "X-Organization-Id": str(org.id)}
+    mine = client.get("/api/v1/transcripts/mine", headers=headers).json()
+    pdf = f"/api/v1/transcripts/{mine[0]['enrollment_id']}/pdf"
+    assert client.get(pdf, headers=headers).status_code == 200
+    limited = client.get(pdf, headers=headers)
+    assert limited.status_code == 429 and limited.json()["detail"]["code"] == "demo_rate_limited"
+
+
+def test_the_rate_limit_window_slides():
+    limit = SlidingWindowLimit(2, 60)
+    assert [limit.allow("a", now=0), limit.allow("a", now=1), limit.allow("a", now=2)] == [True, True, False]
+    assert limit.allow("b", now=2) and limit.allow("a", now=61)

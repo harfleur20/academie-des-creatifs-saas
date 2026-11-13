@@ -1,17 +1,29 @@
 /* The read-only demo: the floating bar (components/DemoBar.tsx) and the choice dialog. */
-body.has-demo-bar { padding-bottom: 76px; }
+/* The bar's room is taken inside the content column, not under the page: a page taller than
+   the screen would carry the sticky sidebars of the spaces up with it. On the school site,
+   the dark footer runs on behind the bar. */
+body.has-demo-bar .app-content,
+body.has-demo-bar .tenant-role-main { padding-bottom: 88px; }
+body.has-demo-bar .public-school-shell .public-school-footer { padding-bottom: 96px; }
+
+@media (max-width: 760px) {
+  body.has-demo-bar .app-content,
+  body.has-demo-bar .tenant-role-main { padding-bottom: 128px; }
+  body.has-demo-bar .public-school-shell .public-school-footer { padding-bottom: 136px; }
+}
 
 .demo-bar {
   position: fixed;
   left: 50%;
   bottom: 16px;
-  z-index: 2000;
+  z-index: 100000; /* above everything, dialogs and toasts included */
   display: flex;
   align-items: center;
   gap: 10px;
   max-width: calc(100vw - 24px);
   padding: 8px 8px 8px 16px;
   border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .16); /* stays visible on a dark footer */
   background: #1f2352;
   color: #fff;
   box-shadow: 0 18px 44px rgba(19, 23, 53, .32);
@@ -136,3 +148,34 @@ body.has-demo-bar { padding-bottom: 76px; }
   font-weight: 700;
   text-align: center;
 }
+
+/* The demo tour (components/DemoGate.tsx): menu items outside it, and their screen. */
+.demo-locked-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: .45;
+  cursor: not-allowed;
+  user-select: none;
+}
+.app-nav .demo-locked-link { padding: 10px 12px; border-radius: 10px; color: inherit; }
+.tenant-role-nav .demo-locked-link { min-height: 42px; padding: 0 12px; color: inherit; }
+.demo-locked-link__icon { margin-left: auto; flex: none; }
+
+.demo-locked-screen { display: grid; place-items: center; min-height: 60vh; }
+.demo-locked-screen section {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  max-width: 520px;
+  padding: 32px 28px;
+  border: 1px solid #e3e8ef;
+  border-radius: 20px;
+  background: #fff;
+  text-align: center;
+}
+.demo-locked-screen__icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #f1f3fb; color: #35409a; }
+.demo-locked-screen h1 { margin: 0; color: #1f2352; font-size: var(--text-section); }
+.demo-locked-screen p { margin: 0; color: #5d6b82; line-height: 1.6; }
+.demo-locked-screen section > div { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 6px; }
+.demo-locked-screen .secondary-button, .demo-locked-screen .primary-button { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }

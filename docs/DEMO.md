@@ -44,10 +44,18 @@ Tout est fictif (`app/services/demo_school.py`) : une directrice, 3 professeurs,
    - **étudiant** : un étudiant inscrit à une session en cours.
 3. Une barre « Démo » reste en bas de l'écran. Elle indique le lieu visité, permet de passer à un autre et propose « Créer mon école ». La croix quitte la démo et ramène à la page d'accueil.
 4. Le site de l'école de démo affiche un bandeau « Site de démonstration » et ne prend ni commande ni favori.
+5. Dans les espaces, seuls les écrans du **parcours de démo** s'ouvrent. Les autres restent dans les menus, grisés avec un cadenas (« Disponible quand vous créez votre école ») ; ouverts par leur adresse, ils affichent un écran qui le dit.
+   - **Direction** : tableau de bord, formations (liste et fiche), suivi pédagogique, statistiques, ventes.
+   - **Professeur** : tableau de bord, sessions et leur planning, étudiants, notes.
+   - **Étudiant** : vue d'ensemble, parcours, cours, planning, mes résultats.
+   - Le site public reste entièrement visitable.
 
 ## Ce qui garantit la lecture seule
 
 - **Le jeton de démo porte la marque `demo_org`.** Avec lui, le serveur refuse toute requête qui modifie quelque chose (autre que GET, HEAD ou OPTIONS), sur n'importe quelle route, et n'ouvre aucune autre école (`app/api/dependencies.py`).
+- **Le serveur n'ouvre que le parcours.** Un jeton de démo ne lit que les routes dont ces écrans ont besoin (`DEMO_ALLOWED_READS` dans `app/services/demo.py`, la même liste que `DEMO_OPEN_SCREENS` dans `frontend/src/lib/demoState.ts`). Toute autre lecture est refusée (`demo_locked`). Un nouvel écran ouvert à la démo s'ajoute aux deux listes.
+- **Rien de ce que fait une requête de démo n'est gardé.** Certaines lectures enregistrent quelque chose au passage (un niveau de badge atteint) : pendant une requête de démo, ces écritures restent dans une transaction jamais validée, annulée à la fin de la requête.
+- **Le rythme est limité par visiteur** (adresse IP) : 40 jetons de démo par heure et 20 PDF (relevés, factures) par 10 minutes, sinon une erreur 429 « Trop de demandes pour la démo ».
 - **Le jeton reste dans l'onglet du visiteur** (stockage de session), sans cookie. Il ne devient jamais le cookie de connexion partagé, même en passant par `/auth/me` ou par le transfert vers un domaine personnalisé. Une personne déjà connectée à sa propre école dans un autre onglet le reste.
 - **Côté interface, rien de ce qui modifie n'est envoyé** pendant la démo. Le visiteur voit le message « Mode démo : rien n'est enregistré. Créez votre école pour essayer pour de vrai. »
 - **Sur le site de l'école de démo**, la commande et les favoris sont refusés côté serveur, même pour un vrai compte.
