@@ -16,7 +16,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getPublicSchoolFormation, type PublicFormationDetail, type PublicSession } from '../lib/api'
 import { setSchoolCart } from '../public/schoolCart'
-import { formatSchoolDate, formatSchoolMoney } from '../public/publicHelpers'
+import { formatSchoolDate, formatSchoolMoney, formatSchoolPercent } from '../public/publicHelpers'
 import { usePublicSchool } from '../public/SchoolPublicLayout'
 import { SchoolFavoriteButton } from '../public/SchoolFavoriteButton'
 import { PublicProgramSection } from '../components/PublicProgramSection'
@@ -39,6 +39,7 @@ export function SchoolFormationDetailPage() {
   const { school, openCart } = usePublicSchool()
   const [formation, setFormation] = useState<PublicFormationDetail | null>(null)
   const [sessionId, setSessionId] = useState<number | null>(null)
+  const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>('full')
   const [toast, setToast] = useState('')
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
@@ -98,6 +99,13 @@ export function SchoolFormationDetailPage() {
       price_cents: target.current_price_cents,
       currency: target.currency,
       cover_image_url: formation.cover_image_url,
+      // The target is the session whose plan is shown: the choice made there goes to the checkout.
+      payment_mode: paymentMode === 'installments' && target.schedule_installments.length >= 2
+        ? 'installments'
+        : 'full',
+      deposit_cents: target.deposit_cents,
+      balance_cents: target.balance_cents,
+      balance_due_date: target.balance_due_date,
     })
     openCart()
   }
@@ -126,6 +134,10 @@ export function SchoolFormationDetailPage() {
   const hasDiscount = selected
     ? selected.promotion_discount_cents > 0
     : formation.promotion_discount_cents > 0
+  // The session whose deposit and instalments are shown under the price.
+  const planSession = formation.format_type === 'ligne'
+    ? (formation.next_session?.can_purchase ? formation.next_session : null)
+    : selected ?? (available.length === 1 ? available[0] : null)
 
   return (
     <main className="school-detail-page school-detail-page-v2">
@@ -265,8 +277,15 @@ export function SchoolFormationDetailPage() {
             <small>Tarif de la formation</small>
             {hasDiscount && <del>{formatSchoolMoney(displayBasePrice, formation.currency)}</del>}
             <strong>{formatSchoolMoney(displayPrice, formation.currency)}</strong>
-            {formation.allow_installments && <span>Paiement possible jusqu’en {formation.installment_count} tranches.</span>}
-            {formation.reservation_deposit_percent != null && <span>Réservez votre place avec un acompte de {formation.reservation_deposit_percent} % pour une session qui commence dans plus de 10 jours.</span>}
+            {planSession ? (
+              <PaymentPlan session={planSession} mode={paymentMode} onChange={setPaymentMode} />
+            ) : (
+              <>
+                {formation.allow_installments && <span>Paiement possible jusqu’en {formation.installment_count} tranches.</span>}
+                {formation.reservation_deposit_percent != null && <span>Réservez votre place avec un acompte de {formatSchoolPercent(formation.reservation_deposit_percent)} pour une session qui commence dans plus de 10 jours.</span>}
+                {available.length > 1 && <span>Choisissez une session pour voir l’acompte et les échéances.</span>}
+              </>
+            )}
           </div>
 
           <div className="school-session-panel-divider" />
@@ -295,7 +314,11 @@ export function SchoolFormationDetailPage() {
                       key={session.id}
                       session={session}
                       selected={session.id === sessionId}
-                      onSelect={() => session.can_purchase && setSessionId(session.id)}
+                      onSelect={() => {
+                        if (!session.can_purchase) return
+                        setSessionId(session.id)
+                        setPaymentMode('full')
+                      }}
                     />
                   ))
                   : <div className="school-no-session">Aucune session programmée.</div>}
@@ -310,6 +333,60 @@ export function SchoolFormationDetailPage() {
       </section>
     </main>
   )
+}
+
+function formatDay(iso: string) {
+  return new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+/**
+ * What the student pays today and later for this session, as on the checkout. When the school
+ * allows instalments, the visitor picks here; the choice goes to the cart and the checkout.
+ */
+function PaymentPlan({ session, mode, onChange }: {
+  session: PublicSession
+  mode: 'full' | 'installments'
+  onChange: (mode: 'full' | 'installments') => void
+}) {
+  const money = (amount: number) => formatSchoolMoney(amount, session.currency)
+  const plan = session.schedule_installments
+  const hasDeposit = session.deposit_cents != null
+  const canSplit = plan.length >= 2
+  const balanceDate = formatDay(session.balance_due_date ?? session.start_date)
+  const depositText = `${money(session.deposit_cents ?? 0)} à la réservation (${formatSchoolPercent(session.deposit_percent ?? 0)}), puis le solde de ${money(session.balance_cents ?? 0)} avant le ${balanceDate}.`
+
+  if (!canSplit) {
+    return (
+      <div className="school-payment-plan">
+        <p>{hasDeposit ? <><b>Acompte</b> : {depositText}</> : <>Paiement en une fois, à l’inscription.</>}</p>
+      </div>
+    )
+  }
+  const later = plan.slice(1).map((line) => `${money(line.amount_cents)} le ${formatDay(line.due_date)}`)
+  return (
+    <fieldset className="school-payment-plan">
+      <legend>Comment souhaitez-vous payer ?</legend>
+      <label className={mode === 'full' ? 'is-selected' : ''}>
+        <input type="radio" name="formation-payment-mode" checked={mode === 'full'} onChange={() => onChange('full')} />
+        <span>
+          <b>{hasDeposit ? 'Acompte, puis le solde' : 'En une fois'}</b>
+          <small>{hasDeposit ? depositText : `${money(session.current_price_cents)} à l’inscription.`}</small>
+        </span>
+      </label>
+      <label className={mode === 'installments' ? 'is-selected' : ''}>
+        <input type="radio" name="formation-payment-mode" checked={mode === 'installments'} onChange={() => onChange('installments')} />
+        <span>
+          <b>{hasDeposit ? splitDepositLabel(plan.length) : `En ${plan.length} fois`}</b>
+          <small>{money(plan[0].amount_cents)} aujourd’hui, puis {later.join(', ')}.</small>
+        </span>
+      </label>
+    </fieldset>
+  )
+}
+
+/** With a deposit, the plan spreads the balance; a single later payment just postpones it. */
+function splitDepositLabel(payments: number) {
+  return payments > 2 ? `Acompte, puis le solde en ${payments - 1} fois` : 'Acompte, puis le solde plus tard'
 }
 
 function SessionChoice({ session, selected, onSelect }: { session: PublicSession; selected: boolean; onSelect: () => void }) {

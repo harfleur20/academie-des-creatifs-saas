@@ -431,7 +431,8 @@ export function FormationWorkspacePage() {
             <legend>Modalités de paiement</legend>
             <label className="formation-payment-toggle"><input type="checkbox" checked={allowInstallments} onChange={(event) => setAllowInstallments(event.target.checked)} /> Autoriser le paiement en plusieurs fois</label>
             {allowInstallments && <label>Nombre maximal de paiements<input type="number" min={2} max={12} step={1} value={installmentCount} onChange={(event) => setInstallmentCount(event.target.value)} /></label>}
-            {allowInstallments && !online && <small>Comme sur le site mère, la durée de chaque session plafonne ce nombre : un seul paiement sous un mois, 2 pour un mois, 3 au-delà. La dernière échéance tombe 5 jours avant la fin de la session.</small>}
+            {allowInstallments && formation.currency === 'XAF' && <small>Possible à partir de 70 000 FCFA, avec au moins 35 000 FCFA par paiement : le prix peut donc réduire ce nombre.</small>}
+            {allowInstallments && !online && <small>Les paiements sont espacés d’au moins 7 jours et le dernier tombe 5 jours avant la fin de la session : une session d’un mois peut se payer en 3 fois dans le mois.</small>}
             {allowInstallments && online && <small>Les paiements sont espacés d’un mois.</small>}
             {formation.format_type === 'live' && <>
               <label className="formation-payment-toggle"><input type="checkbox" checked={depositEnabled} onChange={(event) => setDepositEnabled(event.target.checked)} /> Réserver une place avec un acompte</label>

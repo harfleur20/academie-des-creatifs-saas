@@ -1,7 +1,10 @@
 import {
+  Banknote,
+  CalendarDays,
   CheckCircle2,
   CreditCard,
   Download,
+  Info,
   LockKeyhole,
   Tag,
 } from 'lucide-react'
@@ -28,8 +31,9 @@ import {
 } from '../lib/api'
 import { saveBlobFile } from '../lib/download'
 import { clearSchoolCart, getSchoolCart } from '../public/schoolCart'
-import { formatSchoolMoney } from '../public/publicHelpers'
+import { formatSchoolMoney, formatSchoolPercent } from '../public/publicHelpers'
 import { usePublicSchool } from '../public/SchoolPublicLayout'
+import './school-checkout.css'
 
 export function SchoolCheckoutPage() {
   const { schoolSlug = '' } = useParams()
@@ -46,7 +50,8 @@ export function SchoolCheckoutPage() {
   const [preview, setPreview] = useState<PricePreview | null>(null)
   const [coupon, setCoupon] = useState('')
   const couponRef = useRef('')
-  const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>('full')
+  // Preselected with the choice made on the formation page; used only while the plan is offered.
+  const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>(item?.payment_mode ?? 'full')
   const [acceptDepositTerms, setAcceptDepositTerms] = useState(false)
   const [order, setOrder] = useState<Checkout | null>(null)
   const [orderInstallments, setOrderInstallments] = useState<OrderInstallment[]>([])
@@ -186,7 +191,7 @@ export function SchoolCheckoutPage() {
       const created = await createPublicCheckout(
         schoolSlug,
         item.session_id,
-        paymentMode,
+        paymentMode === 'installments' && preview.schedule_installments.length >= 2 ? 'installments' : 'full',
         coupon.trim() || null,
         acceptDepositTerms,
       )
@@ -346,29 +351,58 @@ export function SchoolCheckoutPage() {
   }
 
   const total = preview?.final_price_cents ?? item.price_cents
+  const currency = preview?.currency || item.currency
+  const money = (amount: number) => formatSchoolMoney(amount, currency)
   const hasDeposit = preview?.deposit_cents != null
-  const balanceDue = preview?.balance_due_date
-    ? new Date(preview.balance_due_date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-    : ''
+  const canSplit = (preview?.schedule_installments.length ?? 0) >= 2
+  const splitMode = paymentMode === 'installments' && canSplit
+  const schedule = preview ? (splitMode ? preview.schedule_installments : preview.schedule_full) : []
+  const dueToday = schedule[0]?.amount_cents ?? total
+  const blocked = preview?.purchase_blocked_reason || ''
+  const balanceDue = preview?.balance_due_date ? formatDay(preview.balance_due_date) : ''
+  const splitCount = preview?.schedule_installments.length ?? 0
+  const lastSplitDate = canSplit && preview ? formatDay(preview.schedule_installments[splitCount - 1].due_date) : ''
+  const modeLabel = hasDeposit
+    ? (splitMode ? splitDepositLabel(splitCount) : 'Acompte, puis le solde')
+    : (splitMode ? `Paiement en ${splitCount} fois` : 'Paiement en une fois')
+
+  function scheduleLabel(index: number, dueDate: string) {
+    if (index === 0) return hasDeposit ? 'Acompte · aujourd’hui' : schedule.length > 1 ? '1re échéance · aujourd’hui' : 'Aujourd’hui'
+    if (hasDeposit && !splitMode) return `Solde · avant le ${formatDay(dueDate)}`
+    return `Échéance ${index + 1} · ${formatDay(dueDate)}`
+  }
 
   return (
     <main className="school-section school-checkout-page">
       <header className="school-page-heading">
         <span className="school-kicker">Paiement sécurisé</span>
         <h1>Finalisez votre inscription</h1>
+        <p>Choisissez comment payer : vous voyez le montant à régler aujourd’hui et chaque échéance à venir.</p>
       </header>
       {error && <div className="school-checkout-error">{error}</div>}
+      {blocked && (
+        <div className="school-checkout-notice">
+          <Info size={16} />
+          <span>{blocked} Vous voyez cette page comme un étudiant la verra.</span>
+        </div>
+      )}
 
       <div className="school-checkout-layout">
         <section className="school-checkout-main">
           <article className="school-checkout-order">
-            <h2>{item.formation_title}</h2>
-            <p>{item.format_type === 'ligne' || item.session_label === 'Accès en ligne' ? 'Formation en ligne' : `Session : ${item.session_label}`}</p>
+            <div className="school-checkout-item">
+              {item.cover_image_url && <img src={item.cover_image_url} alt="" />}
+              <div>
+                <h2>{item.formation_title}</h2>
+                <p>{item.format_type === 'ligne' || item.session_label === 'Accès en ligne' ? 'Formation en ligne' : `Session : ${item.session_label}`}</p>
+              </div>
+              <strong>{money(total)}</strong>
+            </div>
             <div className="school-coupon-box">
               <Tag size={16} />
               <input
                 value={coupon}
-                onChange={(event) => { couponRef.current = event.target.value; setCoupon(event.target.value); setPreview(null); setPaymentMode('full') }}
+                onChange={(event) => { couponRef.current = event.target.value; setCoupon(event.target.value); setPreview(null) }}
                 placeholder="Code promo"
               />
               <button type="button" onClick={() => void applyCoupon()}>
@@ -377,36 +411,50 @@ export function SchoolCheckoutPage() {
             </div>
             {preview?.total_discount_cents ? (
               <p className="school-discount-line">
-                Réduction : -
-                {formatSchoolMoney(
-                  preview.total_discount_cents,
-                  preview.currency,
-                )}
+                Réduction : -{money(preview.total_discount_cents)}
               </p>
             ) : null}
           </article>
 
-          {preview?.installments_allowed && (
+          {preview && (
             <article className="school-payment-choice">
               <h3>Mode de paiement</h3>
-              <label>
-                <input
-                  type="radio"
-                  checked={paymentMode === 'full'}
-                  onChange={() => setPaymentMode('full')}
+              <div className="school-payment-options">
+                <PaymentOption
+                  selected={!splitMode}
+                  onSelect={() => setPaymentMode('full')}
+                  title={hasDeposit ? 'Acompte, puis le solde' : 'Payer en une fois'}
+                  text={hasDeposit
+                    ? `${money(preview.deposit_cents ?? 0)} aujourd’hui (${formatSchoolPercent(preview.deposit_percent ?? 0)}), puis ${money(preview.balance_cents ?? 0)} avant le ${balanceDue}.`
+                    : `${money(total)} aujourd’hui.`}
                 />
-                {hasDeposit ? `Acompte aujourd’hui, puis le solde avant le ${balanceDue}` : 'Paiement comptant'}
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  checked={paymentMode === 'installments'}
-                  onChange={() => setPaymentMode('installments')}
-                />
-                {hasDeposit
-                  ? `Acompte aujourd’hui, puis le solde en ${preview.installment_count - 1} paiements`
-                  : `Paiement en ${preview.installment_count} tranches`}
-              </label>
+                {canSplit && (
+                  <PaymentOption
+                    selected={splitMode}
+                    onSelect={() => setPaymentMode('installments')}
+                    title={hasDeposit ? splitDepositLabel(splitCount) : `Payer en ${splitCount} fois`}
+                    text={splitCount > 2
+                      ? `${money(preview.schedule_installments[0].amount_cents)} aujourd’hui, puis ${splitCount - 1} échéances jusqu’au ${lastSplitDate}.`
+                      : `${money(preview.schedule_installments[0].amount_cents)} aujourd’hui, puis ${money(preview.schedule_installments[1].amount_cents)} le ${lastSplitDate}.`}
+                  />
+                )}
+              </div>
+              {schedule.length > 1 && (
+                <ol className="school-payment-schedule" aria-label="Échéancier">
+                  {schedule.map((line, index) => (
+                    <li key={line.due_date + index} className={index === 0 ? 'is-today' : ''}>
+                      <span className="school-payment-schedule__icon" aria-hidden="true">
+                        {index === 0 ? <Banknote size={15} /> : <CalendarDays size={15} />}
+                      </span>
+                      <span>{scheduleLabel(index, line.due_date)}</span>
+                      <strong>{money(line.amount_cents)}</strong>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {!canSplit && !hasDeposit && (
+                <p className="school-payment-note">Cette formation se règle en une seule fois.</p>
+              )}
             </article>
           )}
 
@@ -414,10 +462,11 @@ export function SchoolCheckoutPage() {
             <article className="school-payment-choice school-deposit-terms">
               <h3>Réservation avec acompte</h3>
               <p>
-                Vous réservez votre place avec un acompte de{' '}
-                <strong>{formatSchoolMoney(preview.deposit_cents ?? 0, preview.currency)}</strong> ({preview.deposit_percent} %), réglé aujourd’hui.
-                {paymentMode === 'full' && <> Le solde de <strong>{formatSchoolMoney(preview.balance_cents ?? 0, preview.currency)}</strong> est à régler avant le {balanceDue}, 10 jours avant le début de la session.</>}
-                {' '}Si le solde n’est pas réglé à temps, votre accès est suspendu, mais votre place reste réservée.
+                Votre place est réservée dès l’acompte de <strong>{money(preview.deposit_cents ?? 0)}</strong>, et votre accès s’ouvre.
+                {splitMode
+                  ? ' Le solde suit l’échéancier ci-dessus.'
+                  : <> Le solde de <strong>{money(preview.balance_cents ?? 0)}</strong> est à régler avant le {balanceDue}, 10 jours avant le début de la session.</>}
+                {' '}Si une échéance n’est pas réglée à temps, votre accès est suspendu, mais votre place reste réservée.
               </p>
               <label>
                 <input type="checkbox" checked={acceptDepositTerms} onChange={(event) => setAcceptDepositTerms(event.target.checked)} />
@@ -430,29 +479,57 @@ export function SchoolCheckoutPage() {
         <aside className="school-checkout-summary">
           <span>Total de la formation</span>
           {preview && preview.total_discount_cents > 0 && (
-            <del>{formatSchoolMoney(preview.base_price_cents, preview.currency)}</del>
+            <del>{money(preview.base_price_cents)}</del>
           )}
-          <strong>
-            {formatSchoolMoney(total, preview?.currency || item.currency)}
-          </strong>
-          {hasDeposit && preview && (
-            <small>À régler aujourd’hui : {formatSchoolMoney(preview.deposit_cents ?? 0, preview.currency)}</small>
+          <strong>{money(total)}</strong>
+          {preview && (
+            <dl className="school-checkout-due">
+              <div className="is-today">
+                <dt>À payer aujourd’hui</dt>
+                <dd>{money(dueToday)}</dd>
+              </div>
+              {schedule.slice(1).map((line, index) => (
+                <div key={line.due_date + index}>
+                  <dt>{scheduleLabel(index + 1, line.due_date)}</dt>
+                  <dd>{money(line.amount_cents)}</dd>
+                </div>
+              ))}
+            </dl>
           )}
-          {paymentMode === 'installments' && preview && (
-            <small>
-              Le premier versement ouvre immédiatement votre accès. Les prochaines
-              échéances seront visibles dans votre espace.
-            </small>
-          )}
-          <button type="button" disabled={working || !preview || (preview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase() || (hasDeposit && !acceptDepositTerms)} onClick={() => void pay()}>
+          {preview && <p className="school-checkout-mode">Mode choisi : <b>{modeLabel}</b></p>}
+          <button type="button" disabled={working || Boolean(blocked) || !preview || (preview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase() || (hasDeposit && !acceptDepositTerms)} onClick={() => void pay()}>
             <CreditCard size={16} />
-            {working ? 'Préparation…' : 'Payer maintenant'}
+            {working ? 'Préparation…' : preview ? `Payer ${money(dueToday)} maintenant` : 'Payer maintenant'}
           </button>
+          {schedule.length > 1 && (
+            <small>Le premier paiement ouvre votre accès. Les échéances suivantes sont rappelées dans votre espace étudiant.</small>
+          )}
           <small>
             <LockKeyhole size={12} /> Paiement sécurisé
           </small>
         </aside>
       </div>
     </main>
+  )
+}
+
+/** With a deposit, the plan spreads the balance; a single later payment just postpones it. */
+function splitDepositLabel(payments: number) {
+  return payments > 2 ? `Acompte, puis le solde en ${payments - 1} fois` : 'Acompte, puis le solde plus tard'
+}
+
+function formatDay(iso: string) {
+  return new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function PaymentOption({ selected, onSelect, title, text }: { selected: boolean; onSelect: () => void; title: string; text: string }) {
+  return (
+    <label className={`school-payment-option${selected ? ' is-selected' : ''}`}>
+      <input type="radio" name="payment-mode" checked={selected} onChange={onSelect} />
+      <span>
+        <strong>{title}</strong>
+        <small>{text}</small>
+      </span>
+    </label>
   )
 }

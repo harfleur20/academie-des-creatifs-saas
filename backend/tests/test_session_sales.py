@@ -58,48 +58,84 @@ def test_a_running_session_is_still_shown_when_nothing_else_is_open() -> None:
     assert detail.next_session.id == running.id and detail.can_purchase
 
 
-def test_the_session_length_caps_the_school_instalment_count() -> None:
-    db = build_db()
-    org, user, formation, session = seed(db)  # a 70-day session: three payments at most
-    formation.installment_count = 6
+def plan_of(db, org, user, session) -> list[tuple[int, object]]:
+    checkout = create_checkout(db, org, user, CheckoutCreate(session_id=session.id, payment_mode="installments"))
+    return [(row.amount_cents, aware(row.due_at).date()) for row in installments(db, checkout.order_id)]
+
+
+def set_session(db, formation, session, *, price: int, school_max: int, starts_in: int, ends_in: int) -> None:
+    today = datetime.now(UTC).date()
+    formation.price_cents, formation.installment_count = price, school_max
+    session.start_date, session.end_date = today + timedelta(days=starts_in), today + timedelta(days=ends_in)
     db.commit()
 
-    preview = price_preview(db, org, user_id=user.id, session_id=session.id)
-    assert preview.installments_allowed and preview.installment_count == 3
-    detail = public_formation_detail(db, org.slug, formation.slug)
-    assert detail.allow_installments and detail.installment_count == 3
 
-    checkout = create_checkout(db, org, user, CheckoutCreate(session_id=session.id, payment_mode="installments"))
-    rows = installments(db, checkout.order_id)
-    assert checkout.installment_count == 3
-    assert [row.amount_cents for row in rows] == [100_000, 100_000, 100_000]
-    dues = [aware(row.due_at) for row in rows]
-    assert abs(dues[0] - datetime.now(UTC)) < timedelta(minutes=1)
-    assert all(later - earlier >= timedelta(days=7) for earlier, later in zip(dues, dues[1:]))
-    assert dues[-1].date() <= session.end_date - timedelta(days=5)
+def test_the_price_and_the_time_left_cap_the_school_count() -> None:
+    db = build_db()
+    org, user, formation, session = seed(db)  # 300 000 FCFA, ends in 100 days
+    formation.installment_count = 12
+    db.commit()
+    # 35 000 FCFA at least each: 8 payments; the 95 days left would allow 14 a week apart.
+    preview = price_preview(db, org, user_id=user.id, session_id=session.id)
+    assert preview.installments_allowed and preview.installment_count == 8
+    assert public_formation_detail(db, org.slug, formation.slug).installment_count == 8
+
+    plan = plan_of(db, org, user, session)
+    assert [amount for amount, _due in plan] == [37_500] * 8
+    dues = [due for _amount, due in plan]
+    assert dues[0] == datetime.now(UTC).date()
+    assert all((later - earlier).days >= 7 for earlier, later in zip(dues, dues[1:]))
+    assert dues[-1] == session.end_date - timedelta(days=5)
+
+
+def test_a_one_month_session_can_be_paid_in_three_times_within_the_month() -> None:
+    db = build_db()
+    org, user, formation, session = seed(db)
+    set_session(db, formation, session, price=500_000, school_max=3, starts_in=0, ends_in=30)
+    today = datetime.now(UTC).date()
+    assert plan_of(db, org, user, session) == [
+        (166_500, today), (166_500, today + timedelta(days=12)), (167_000, today + timedelta(days=25)),
+    ]
 
 
 def test_the_school_count_still_applies_below_the_cap() -> None:
     db = build_db()
     org, user, formation, session = seed(db)  # the school allows two payments
-    checkout = create_checkout(db, org, user, CheckoutCreate(session_id=session.id, payment_mode="installments"))
-    rows = installments(db, checkout.order_id)
-    assert [row.amount_cents for row in rows] == [150_000, 150_000]
-    assert aware(rows[-1].due_at).date() <= session.end_date - timedelta(days=5)
+    plan = plan_of(db, org, user, session)
+    assert [amount for amount, _due in plan] == [150_000, 150_000]
+    assert plan[-1][1] == session.end_date - timedelta(days=5)
 
 
-def test_a_session_shorter_than_a_month_takes_a_single_payment() -> None:
+@pytest.mark.parametrize(("price", "count"), [(65_000, 1), (69_999, 1), (70_000, 2), (104_999, 2), (105_000, 3)])
+def test_from_70000_fcfa_and_35000_fcfa_a_payment(price: int, count: int) -> None:
     db = build_db()
     org, user, formation, session = seed(db)
-    session.end_date = session.start_date + timedelta(days=20)
-    db.commit()
-
+    set_session(db, formation, session, price=price, school_max=6, starts_in=30, ends_in=100)
     preview = price_preview(db, org, user_id=user.id, session_id=session.id)
-    assert not preview.installments_allowed and preview.installment_count == 1
-    assert public_formation_detail(db, org.slug, formation.slug).allow_installments is False
-    with pytest.raises(HTTPException) as refused:
-        create_checkout(db, org, user, CheckoutCreate(session_id=session.id, payment_mode="installments"))
-    assert refused.value.status_code == 422
+    assert (preview.installments_allowed, preview.installment_count) == (count > 1, count)
+    if count == 1:
+        with pytest.raises(HTTPException) as refused:
+            create_checkout(db, org, user, CheckoutCreate(session_id=session.id, payment_mode="installments"))
+        assert refused.value.status_code == 422
+
+
+@pytest.mark.parametrize(("ends_in", "count"), [(11, 1), (12, 2), (18, 2), (19, 3)])
+def test_payments_stay_a_week_apart_and_end_five_days_before_the_session(ends_in: int, count: int) -> None:
+    db = build_db()
+    org, user, formation, session = seed(db)
+    set_session(db, formation, session, price=500_000, school_max=6, starts_in=0, ends_in=ends_in)
+    assert price_preview(db, org, user_id=user.id, session_id=session.id).installment_count == count
+
+
+def test_an_online_formation_is_paid_a_month_apart() -> None:
+    db = build_db()
+    org, user, formation, session = seed(db)
+    formation.format_type = "ligne"
+    set_session(db, formation, session, price=120_000, school_max=6, starts_in=0, ends_in=365)
+    today = datetime.now(UTC).date()
+    assert plan_of(db, org, user, session) == [
+        (40_000, today), (40_000, today + timedelta(days=30)), (40_000, today + timedelta(days=60)),
+    ]
 
 
 def deposit_school():
@@ -194,3 +230,53 @@ def test_fcfa_instalments_are_rounded_to_500_and_add_up() -> None:
     assert split_amounts(250_000, 3, "XAF") == [83_000, 83_000, 84_000]
     assert split_amounts(1_000, 3, "XAF") == [334, 333, 333]  # too small to round: an exact split
     assert split_amounts(1_000, 3, "EUR") == [333, 333, 334]
+
+
+def schedule_of(db, order_id: int) -> list[tuple[int, object]]:
+    return [(row.amount_cents, aware(row.due_at).date()) for row in installments(db, order_id)]
+
+
+@pytest.mark.parametrize("deposit", [False, True])
+@pytest.mark.parametrize("mode", ["full", "installments"])
+def test_the_checkout_shows_the_payments_each_choice_creates(deposit: bool, mode: str) -> None:
+    db, org, user, formation, session = deposit_school()
+    formation.reservation_deposit_enabled = deposit
+    formation.installment_count = 3
+    db.commit()
+    preview = price_preview(db, org, user_id=user.id, session_id=session.id)
+    announced = preview.schedule_full if mode == "full" else preview.schedule_installments
+    assert announced[0].due_date == datetime.now(UTC).date()
+    assert sum(line.amount_cents for line in announced) == preview.final_price_cents
+    expected_count = {(False, "full"): 1, (True, "full"): 2, (False, "installments"): 3, (True, "installments"): 3}
+    assert len(announced) == expected_count[(deposit, mode)]
+
+    checkout = create_checkout(db, org, user, CheckoutCreate(
+        session_id=session.id, payment_mode=mode, accept_deposit_terms=deposit,
+    ))
+    assert schedule_of(db, checkout.order_id) == [(line.amount_cents, line.due_date) for line in announced]
+
+
+def test_no_instalment_plan_is_announced_when_none_is_offered() -> None:
+    db, org, user, formation, session = deposit_school()
+    formation.allow_installments = False
+    db.commit()
+    preview = price_preview(db, org, user_id=user.id, session_id=session.id)
+    assert preview.schedule_installments == [] and len(preview.schedule_full) == 2  # the deposit, then the balance
+
+
+def test_the_formation_page_announces_the_payments_of_the_checkout() -> None:
+    db, org, user, formation, session = deposit_school()
+    formation.installment_count = 3
+    db.commit()
+    preview = price_preview(db, org, user_id=user.id, session_id=session.id)
+    shown = next(item for item in public_formation_detail(db, org.slug, formation.slug).sessions if item.id == session.id)
+    assert (shown.deposit_cents, shown.deposit_percent, shown.balance_cents, shown.balance_due_date) == (
+        preview.deposit_cents, preview.deposit_percent, preview.balance_cents, preview.balance_due_date,
+    )
+    assert shown.deposit_cents == 112_500 and shown.schedule_installments == preview.schedule_installments
+
+    formation.reservation_deposit_enabled = False
+    formation.allow_installments = False
+    db.commit()
+    shown = next(item for item in public_formation_detail(db, org.slug, formation.slug).sessions if item.id == session.id)
+    assert shown.deposit_cents is None and shown.schedule_installments == []

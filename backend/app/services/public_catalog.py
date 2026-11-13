@@ -19,6 +19,7 @@ from app.models.entities import (
     SessionTeacherRecord,
 )
 from app.schemas.commerce import (
+    PaymentScheduleLine,
     PublicFormationCardRead,
     PublicFormationDetailRead,
     PublicHomeRead,
@@ -33,7 +34,11 @@ from app.services.school_branding import (
 )
 from app.services.publication import formation_content_issues, site_publication_issues
 from app.services.session_lifecycle import enrollment_closes_at
-from app.services.session_payment_plans import session_installment_dates
+from app.services.session_payment_plans import (
+    reservation_balance_due_date,
+    reservation_deposit_amount,
+    reservation_deposit_available,
+)
 
 
 def get_public_organization(
@@ -257,6 +262,8 @@ def _session_read(
     if formation.status != "published":
         available = False
         reason = "Cette formation n'est pas disponible à l'inscription."
+    price = max(0, base - discount)
+    plan = _payment_plan(formation, session, price) if available and price > 0 else {}
     return PublicSessionRead(
         id=session.id,
         label=session.label,
@@ -274,7 +281,32 @@ def _session_read(
         promotion_discount_cents=discount,
         can_purchase=available,
         unavailable_reason=reason,
+        **plan,
     )
+
+
+def _payment_plan(formation: FormationRecord, session: FormationSessionRecord, price: int) -> dict:
+    """The deposit and the instalments of a purchase made today, as the checkout will create them."""
+    # Imported here: school_commerce builds on this module.
+    from app.services.school_commerce import _installment_due_dates, _installment_rows
+
+    deposit = None
+    if reservation_deposit_available(
+        format_type=formation.format_type, enabled=formation.reservation_deposit_enabled, total=price,
+        currency=formation.currency, session_start=session.start_date, today=datetime.now(UTC).date(),
+    ):
+        deposit = reservation_deposit_amount(price, formation.reservation_deposit_percent, formation.currency)
+    schedule = []
+    if len(_installment_due_dates(formation, session, price)) >= 2:
+        rows = _installment_rows(formation, session, price, formation.currency, installments=True, deposit=deposit)
+        schedule = [PaymentScheduleLine(amount_cents=amount, due_date=due.date()) for amount, due, _grace in rows]
+    return {
+        "deposit_cents": deposit,
+        "deposit_percent": formation.reservation_deposit_percent if deposit is not None else None,
+        "balance_cents": price - deposit if deposit is not None else None,
+        "balance_due_date": reservation_balance_due_date(session.start_date) if deposit is not None else None,
+        "schedule_installments": schedule,
+    }
 
 
 def _session_display_order(session: FormationSessionRecord) -> tuple:
@@ -428,19 +460,15 @@ def public_formation_detail(
                 seen.add(assignment.teacher_id)
                 teacher_names.append(assignment.teacher.full_name)
     installment_count = formation.installment_count if formation.allow_installments else 1
-    if formation.format_type != "ligne" and source_session is not None and card.next_session is not None:
-        # The highlighted session's length caps the school's instalment count.
-        installment_count = len(session_installment_dates(
-            allow_installments=formation.allow_installments,
-            school_max_count=formation.installment_count,
-            session_start=source_session.start_date,
-            session_end=source_session.end_date,
-            total=card.next_session.current_price_cents,
-            today=datetime.now(UTC).date(),
-        ))
+    if source_session is not None and card.next_session is not None:
+        # The price and the time left of the highlighted session cap the school's count.
+        from app.services.school_commerce import _installment_due_dates  # builds on this module
+
+        installment_count = len(_installment_due_dates(formation, source_session, card.next_session.current_price_cents))
     return PublicFormationDetailRead(
         **card.model_dump(),
         description=formation.description,
+        presentation_video_url=formation.presentation_video_url,
         objectives=formation.objectives,
         prerequisites=formation.prerequisites,
         public_program=formation.public_program,

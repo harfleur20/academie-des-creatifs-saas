@@ -9,6 +9,11 @@ export type SchoolCartItem = {
   price_cents: number
   currency: string
   cover_image_url: string | null
+  /** Chosen on the formation page, preselected on the checkout. */
+  payment_mode?: 'full' | 'installments'
+  deposit_cents?: number | null
+  balance_cents?: number | null
+  balance_due_date?: string | null
 }
 
 function key(schoolSlug: string) {
@@ -27,6 +32,9 @@ function isValidCartItem(value: unknown): value is SchoolCartItem {
     && typeof item.session_label === 'string'
     && typeof item.price_cents === 'number'
     && typeof item.currency === 'string'
+    && (item.deposit_cents === undefined || item.deposit_cents === null || typeof item.deposit_cents === 'number')
+    && (item.balance_cents === undefined || item.balance_cents === null || typeof item.balance_cents === 'number')
+    && (item.balance_due_date === undefined || item.balance_due_date === null || typeof item.balance_due_date === 'string')
   )
 }
 

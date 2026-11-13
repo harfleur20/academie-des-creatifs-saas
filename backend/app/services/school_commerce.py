@@ -34,6 +34,7 @@ from app.schemas.commerce import (
     InstallmentRead,
     InvoiceRead,
     OrderRead,
+    PaymentScheduleLine,
     PricePreviewRead,
     PromotionCreate,
     PromotionRead,
@@ -61,6 +62,7 @@ from app.services.session_payment_plans import (
     reservation_balance_due_date,
     reservation_deposit_amount,
     reservation_deposit_available,
+    online_installment_dates,
     session_installment_dates,
     split_amounts,
 )
@@ -259,6 +261,11 @@ def price_preview(
         currency=formation.currency, session_start=session.start_date, today=utc_now().date(),
     ):
         deposit = reservation_deposit_amount(final, formation.reservation_deposit_percent, formation.currency)
+
+    def schedule(installments: bool) -> list[PaymentScheduleLine]:
+        rows = _installment_rows(formation, session, final, formation.currency, installments=installments, deposit=deposit)
+        return [PaymentScheduleLine(amount_cents=amount, due_date=due.date()) for amount, due, _grace in rows]
+
     return PricePreviewRead(
         base_price_cents=base,
         promotion_discount_cents=promotion_discount,
@@ -274,6 +281,8 @@ def price_preview(
         deposit_percent=formation.reservation_deposit_percent if deposit is not None else None,
         balance_cents=final - deposit if deposit is not None else None,
         balance_due_date=reservation_balance_due_date(session.start_date) if deposit is not None else None,
+        schedule_full=schedule(False),
+        schedule_installments=schedule(True) if installment_count >= 2 else [],
     )
 
 
@@ -281,15 +290,17 @@ def _installment_due_dates(formation: FormationRecord, session: FormationSession
     """The instalment plan offered for this session; one date means a single payment."""
     today = utc_now().date()
     if formation.format_type == "ligne":
-        # Online access has no session length to follow: the school's count applies, a month apart.
-        count = formation.installment_count if formation.allow_installments and formation.installment_count >= 2 and total > 0 else 1
-        return [today + timedelta(days=30 * index) for index in range(count)]
+        # Online access has no session length to follow: a payment a month.
+        return online_installment_dates(
+            allow_installments=formation.allow_installments, school_max_count=formation.installment_count,
+            total=total, currency=formation.currency, today=today,
+        )
     return session_installment_dates(
         allow_installments=formation.allow_installments,
         school_max_count=formation.installment_count,
-        session_start=session.start_date,
         session_end=session.end_date,
         total=total,
+        currency=formation.currency,
         today=today,
     )
 
@@ -305,12 +316,8 @@ def _installment_rows(
 ) -> list[tuple[int, datetime, datetime]]:
     if deposit is not None:
         return _deposit_rows(formation, session, total, currency, deposit, installments=installments)
-    if not installments or formation.format_type == "ligne":
-        count = len(_installment_due_dates(formation, session, total)) if installments else 1
-        return _split_installments(
-            total, count,
-            session_end=(utc_now() + timedelta(days=30 * count)).date() if formation.format_type == "ligne" else session.end_date,
-        )
+    if not installments:
+        return _split_installments(total, 1, session_end=session.end_date)
     now = utc_now()
     dates = _installment_due_dates(formation, session, total)
     grace = timedelta(days=settings.commerce_grace_period_days)

@@ -2702,6 +2702,12 @@ export type PublicSession = {
   promotion_discount_cents: number
   can_purchase: boolean
   unavailable_reason: string | null
+  /** How it is paid when bought today, as the checkout will create it. */
+  deposit_cents: number | null
+  deposit_percent: number | null
+  balance_cents: number | null
+  balance_due_date: string | null
+  schedule_installments: PaymentScheduleLine[]
 }
 
 export type PublicFormationCard = {
@@ -2910,6 +2916,16 @@ export type PricePreview = {
   deposit_percent: number | null
   balance_cents: number | null
   balance_due_date: string | null
+  /** The payments each choice creates, the first one today. */
+  schedule_full: PaymentScheduleLine[]
+  schedule_installments: PaymentScheduleLine[]
+  /** A school account sees the plans but cannot buy. */
+  purchase_blocked_reason: string | null
+}
+
+export type PaymentScheduleLine = {
+  amount_cents: number
+  due_date: string
 }
 
 export type Checkout = {

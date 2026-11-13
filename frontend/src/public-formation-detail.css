@@ -429,6 +429,76 @@
   line-height: 1.45;
 }
 
+/* The deposit and instalments of the chosen session, and the choice between them (PaymentPlan). */
+.public-school-shell .school-payment-plan {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--school-primary) 6%, white);
+}
+
+.public-school-shell .school-payment-plan legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 2px;
+  padding: 0;
+  color: #19283b;
+  font-size: var(--site-tiny);
+  font-weight: 800;
+}
+
+.public-school-shell .school-payment-plan p {
+  margin: 0;
+  color: #4d5d73;
+  font-size: var(--site-tiny);
+  line-height: 1.5;
+}
+
+.public-school-shell .school-payment-plan b {
+  color: var(--school-primary);
+}
+
+.public-school-shell .school-payment-plan label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .7);
+  cursor: pointer;
+}
+
+.public-school-shell .school-payment-plan label.is-selected {
+  border-color: var(--school-primary);
+  background: #fff;
+}
+
+.public-school-shell .school-payment-plan input {
+  flex: none;
+  margin-top: 3px;
+  accent-color: var(--school-primary);
+}
+
+.public-school-shell .school-payment-plan label span {
+  display: grid;
+  gap: 2px;
+}
+
+.public-school-shell .school-payment-plan label b {
+  font-size: var(--site-tiny);
+}
+
+.public-school-shell .school-payment-plan small {
+  color: #4d5d73;
+  font-size: var(--site-tiny);
+  line-height: 1.5;
+}
+
 .public-school-shell .school-session-panel-divider {
   height: 1px;
   margin: 18px 0;
@@ -554,4 +624,13 @@
   .public-school-shell .school-program-modules-v2 ul {
     padding: 14px 16px 17px;
   }
+}
+
+/* The payment choice made on the formation page, recalled in the cart drawer. */
+.public-school-shell .school-cart-mode {
+  display: block;
+  margin-top: 2px;
+  color: var(--school-secondary);
+  font-size: var(--site-tiny);
+  font-weight: 700;
 }

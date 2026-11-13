@@ -1,68 +1,83 @@
-"""Payment plans for a formation session, ported from the mother site.
+"""Payment plans for a formation: when each payment of an instalment plan is due.
 
-Each school still chooses whether a formation can be paid in instalments and
-how many at most. As on the mother site, the session's length caps that count,
-the last instalment falls five days before the session ends, and two
-instalments stay at least a week apart.
+Each school chooses whether a formation can be paid in instalments and how many
+payments at most. The price and the time left then set what is really offered:
+
+- under 70 000 FCFA, a single payment; above, each payment is at least 35 000 FCFA;
+- for a session, payments are at least a week apart and the last one falls five
+  days before the session ends: a one-month session can be paid in 3 times within
+  the month;
+- an online formation, without an end, is paid a month apart.
+
+This replaces the mother site's rule (1, 2 or 3 payments from the session's length
+alone): the school can sell an expensive short session in several payments.
 """
 from __future__ import annotations
 
-import calendar
 from datetime import date, timedelta
 from decimal import Decimal
 
 INSTALLMENT_FINAL_MARGIN_DAYS = 5
 INSTALLMENT_MIN_INTERVAL_DAYS = 7
+ONLINE_INSTALLMENT_INTERVAL_DAYS = 30
 # Only XAF amounts are stored in whole francs (other currencies are in cents), so only
-# they are rounded to 500 FCFA like on the mother site.
+# they are rounded to 500 FCFA like on the mother site, and only they follow the price rule.
 FCFA_CURRENCIES = frozenset({"XAF"})
 FCFA_ROUNDING = 500
+INSTALLMENT_MIN_TOTAL_FCFA = 70_000
+INSTALLMENT_MIN_PAYMENT_FCFA = 35_000
 
 
-def installment_limit_for_session(start: date, end: date) -> int:
-    """Total payment count allowed by the session's real length: 1, 2 or 3."""
-    month = start.month % 12 + 1
-    year = start.year + (1 if start.month == 12 else 0)
-    one_month_after_start = date(year, month, min(start.day, calendar.monthrange(year, month)[1]))
-    if end < one_month_after_start - timedelta(days=1) and (end - start).days + 1 < 30:
+def price_installment_limit(total: int, currency: str) -> int:
+    """How many payments the price allows: one under 70 000 FCFA, then 35 000 FCFA at least each."""
+    if total <= 0:
         return 1
-    if end <= one_month_after_start:
-        return 2
-    return 3
+    if currency.upper() not in FCFA_CURRENCIES:
+        return total  # no price rule outside FCFA: the school's count and the dates decide
+    if total < INSTALLMENT_MIN_TOTAL_FCFA:
+        return 1
+    return total // INSTALLMENT_MIN_PAYMENT_FCFA
 
 
 def installment_due_dates(*, session_end: date, today: date, max_count: int) -> list[date]:
-    """Due dates of each payment, the first one today."""
-    if max_count <= 1:
-        return [today]
-    remaining = (session_end - today).days
-    if remaining <= INSTALLMENT_MIN_INTERVAL_DAYS:
-        return [today]
+    """Due dates of each payment, the first one today, spread evenly up to five days before the end."""
     deadline = session_end - timedelta(days=INSTALLMENT_FINAL_MARGIN_DAYS)
     available = (deadline - today).days
-    if remaining <= 14:
-        return [today, today + timedelta(days=max(INSTALLMENT_MIN_INTERVAL_DAYS, remaining))]
-    if remaining < 30 or available < 14:
-        return [today, today + timedelta(days=max(INSTALLMENT_MIN_INTERVAL_DAYS, available))]
-    interval = max(INSTALLMENT_MIN_INTERVAL_DAYS, available // 2)
-    dates = [today, today + timedelta(days=interval), today + timedelta(days=interval * 2)]
-    return [today, dates[-1]] if max_count == 2 else dates
+    count = min(max_count, 1 + max(0, available) // INSTALLMENT_MIN_INTERVAL_DAYS)
+    if count <= 1:
+        return [today]
+    return [today + timedelta(days=available * index // (count - 1)) for index in range(count)]
 
 
 def session_installment_dates(
     *,
     allow_installments: bool,
     school_max_count: int,
-    session_start: date,
     session_end: date,
     total: int,
+    currency: str,
     today: date,
 ) -> list[date]:
-    """The plan offered when the student pays in instalments; a single date means none."""
-    if not allow_installments or school_max_count < 2 or total <= 0:
+    """The plan offered when the student pays a session in instalments; a single date means none."""
+    if not allow_installments or school_max_count < 2:
         return [today]
-    limit = min(school_max_count, installment_limit_for_session(session_start, session_end))
+    limit = min(school_max_count, price_installment_limit(total, currency))
     return installment_due_dates(session_end=session_end, today=today, max_count=limit)
+
+
+def online_installment_dates(
+    *,
+    allow_installments: bool,
+    school_max_count: int,
+    total: int,
+    currency: str,
+    today: date,
+) -> list[date]:
+    """The plan of an online formation, which has no end: a payment a month."""
+    if not allow_installments or school_max_count < 2:
+        return [today]
+    count = min(school_max_count, price_installment_limit(total, currency))
+    return [today + timedelta(days=ONLINE_INSTALLMENT_INTERVAL_DAYS * index) for index in range(max(1, count))]
 
 
 RESERVATION_DEPOSIT_DUE_DAYS = 10

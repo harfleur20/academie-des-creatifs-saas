@@ -130,6 +130,11 @@ class PublicSchoolRead(BaseModel):
     is_demo: bool = False
 
 
+class PaymentScheduleLine(BaseModel):
+    amount_cents: int
+    due_date: date
+
+
 class PublicSessionRead(BaseModel):
     id: int
     label: str
@@ -147,6 +152,13 @@ class PublicSessionRead(BaseModel):
     promotion_discount_cents: int
     can_purchase: bool
     unavailable_reason: str | None
+    # How it is paid when bought today, before any promo code (the checkout shows the same):
+    # the deposit when it applies, then its balance; and the instalment plan when offered.
+    deposit_cents: int | None = None
+    deposit_percent: float | None = None
+    balance_cents: int | None = None
+    balance_due_date: date | None = None
+    schedule_installments: list[PaymentScheduleLine] = []
 
 
 class PublicFormationCardRead(BaseModel):
@@ -284,6 +296,12 @@ class PricePreviewRead(BaseModel):
     deposit_percent: float | None = None
     balance_cents: int | None = None
     balance_due_date: date | None = None
+    # The payments each choice creates, the first one today: paying at once (or the deposit
+    # then its balance), and in instalments (empty when not offered).
+    schedule_full: list[PaymentScheduleLine] = []
+    schedule_installments: list[PaymentScheduleLine] = []
+    # Set for a school account: it sees the plans but cannot buy.
+    purchase_blocked_reason: str | None = None
 
 
 class CheckoutCreate(BaseModel):

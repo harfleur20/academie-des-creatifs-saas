@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.routes.commerce import (
     PURCHASE_BLOCKED_MESSAGE,
+    _purchase_blocked_reason,
     _require_public_purchase_allowed,
 )
 from app.db.base import Base
@@ -149,3 +150,14 @@ def test_super_admin_cannot_buy_school_formations() -> None:
         )
 
     assert exc.value.status_code == 403
+
+
+@pytest.mark.parametrize("role", ["owner", "teacher"])
+def test_school_staff_see_the_prices_but_are_told_why_they_cannot_buy(role: str) -> None:
+    db = build_db()
+    org, user, _member = seed_member(db, role)
+    assert _purchase_blocked_reason(db, organization_id=org.id, user=user) == PURCHASE_BLOCKED_MESSAGE
+    buyer = UserRecord(email="buyer@test.dev", full_name="Buyer", status="active", platform_role="user")
+    db.add(buyer)
+    db.commit()
+    assert _purchase_blocked_reason(db, organization_id=org.id, user=buyer) is None
