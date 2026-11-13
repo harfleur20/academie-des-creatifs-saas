@@ -1,0 +1,106 @@
+.platform-legal {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: #17243a;
+}
+
+.platform-legal__main {
+  flex: 1;
+  width: 100%;
+  padding: clamp(40px, 7vw, 88px) 20px;
+}
+
+.platform-legal__document {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.platform-legal__eyebrow {
+  color: #128d88;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.platform-legal__document h1 {
+  margin: 12px 0;
+  color: #14213a;
+  font-size: clamp(30px, 5vw, 44px);
+  letter-spacing: -.04em;
+  line-height: 1.1;
+}
+
+.platform-legal__intro {
+  margin: 0;
+  color: #68778c;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.platform-legal__notice {
+  margin: 24px 0 30px;
+  color: #68778c;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.platform-legal__sections {
+  display: grid;
+  gap: 24px;
+}
+
+.platform-legal__sections section {
+  padding-top: 22px;
+  border-top: 1px solid #edf0f5;
+}
+
+.platform-legal__sections h2 {
+  margin: 0 0 9px;
+  color: #182743;
+  font-size: 19px;
+}
+
+.platform-legal__sections p {
+  margin: 8px 0 0;
+  color: #53627a;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.platform-legal__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 32px;
+  padding-top: 22px;
+  border-top: 1px solid #edf0f5;
+}
+
+.platform-legal__links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #243963;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.platform-legal__links a:hover {
+  color: #128d88;
+}
+
+.platform-legal__footnote {
+  margin: 22px 0 0;
+  color: #8591a2;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .platform-legal__main {
+    padding: 32px 18px;
+  }
+}

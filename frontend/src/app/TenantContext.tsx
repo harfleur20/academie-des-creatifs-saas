@@ -248,7 +248,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         : pathname.startsWith('/app/student')
           ? 'Étudiant'
           : 'Gestion'
-      document.title = `${schoolName} — ${section}`
+      document.title = `${schoolName} - ${section}`
       setDocumentIcon(
         schoolBranding?.favicon_url
         || schoolBranding?.logo_url

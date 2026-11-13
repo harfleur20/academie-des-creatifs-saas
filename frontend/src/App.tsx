@@ -14,6 +14,7 @@ import { TeacherLayout } from './app/TeacherLayout'
 import { StudentLayout } from './app/StudentLayout'
 import { RequireStudentReady, RequireTeacherReady } from './app/WorkspaceReadinessGate'
 import LandingPage from './pages/LandingPage'
+import { PlatformLegalPage } from './pages/PlatformLegalPage'
 import { LoginPage } from './pages/LoginPage'
 import { InvitationAcceptPage } from './pages/InvitationAcceptPage'
 import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
@@ -210,9 +211,10 @@ export default function App() {
             <Route path="/panier" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/checkout" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/espace" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
-            <Route path="/mentions-legales" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
-            <Route path="/cgv" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
-            <Route path="/confidentialite" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
+            <Route path="/mentions-legales" element={<HostSchoolRedirect fallback={<PlatformLegalPage page="mentions" />} />} />
+            <Route path="/cgv" element={<HostSchoolRedirect fallback={<PlatformLegalPage page="cgv" />} />} />
+            <Route path="/cgu" element={<PlatformLegalPage page="cgu" />} />
+            <Route path="/confidentialite" element={<HostSchoolRedirect fallback={<PlatformLegalPage page="confidentialite" />} />} />
             <Route path="/remboursement" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/invite/:token" element={<InvitationAcceptPage />} />
