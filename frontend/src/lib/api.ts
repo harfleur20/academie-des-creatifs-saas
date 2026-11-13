@@ -3244,3 +3244,63 @@ export const getDemoInfo = () => request<DemoInfo>('/auth/demo', { organizationI
 
 export const startDemoSession = (space: DemoSpace) =>
   request<DemoSession>('/auth/demo', { method: 'POST', body: JSON.stringify({ space }), organizationId: null })
+
+/* The student's transcript, for one enrollment (backend app/services/transcripts.py). */
+export type TranscriptLine = {
+  label: string
+  date: string | null
+  score: number
+  max_score: number
+  score_20: number
+  note: string
+  /** False for the automatic quiz grades, left out of the average. */
+  counted: boolean
+}
+
+export type TranscriptGroup = {
+  key: 'assignments' | 'exams' | 'session_grades' | 'teacher_grades' | 'quizzes'
+  label: string
+  lines: TranscriptLine[]
+}
+
+export type Transcript = {
+  enrollment_id: number
+  status: 'provisional' | 'final'
+  issued_at: string
+  school_name: string
+  logo_url: string | null
+  legal_name: string | null
+  legal_address: string | null
+  signer_name: string | null
+  signer_title: string | null
+  white_label: boolean
+  student_name: string
+  student_code: string | null
+  formation_title: string
+  format_label: string
+  training_hours: number | null
+  session_label: string
+  session_start: string
+  session_end: string
+  groups: TranscriptGroup[]
+  average_20: number | null
+  mention: string | null
+  counted_sessions: number
+  attended_sessions: number
+  attendance_pct: number | null
+  badge_label: string | null
+}
+
+export type TranscriptSummary = {
+  enrollment_id: number
+  formation_title: string
+  session_label: string
+  status: 'provisional' | 'final'
+  average_20: number | null
+}
+
+export const listMyTranscripts = () => request<TranscriptSummary[]>('/transcripts/mine')
+
+export const getTranscript = (enrollmentId: number) => request<Transcript>('/transcripts/' + enrollmentId)
+
+export const downloadTranscriptPdf = (enrollmentId: number) => requestBlob('/transcripts/' + enrollmentId + '/pdf')

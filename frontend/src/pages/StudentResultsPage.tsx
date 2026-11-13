@@ -1,26 +1,97 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, CalendarCheck2 } from 'lucide-react'
+import { CalendarCheck2, FileText } from 'lucide-react'
 import {
   ApiError,
   ATTENDANCE_LABELS,
+  getTranscript,
+  listMyTranscripts,
   listStudentAttendance,
-  listStudentGrades,
   type StudentAttendance,
-  type StudentGrade,
+  type Transcript,
+  type TranscriptSummary,
 } from '../lib/api'
+import { TranscriptView } from '../components/TranscriptView'
 
+/** The student's results: the transcript of each formation (with its PDF), then the attendance. */
 export function StudentResultsPage() {
-  const [grades,setGrades]=useState<StudentGrade[]>([])
-  const [attendance,setAttendance]=useState<StudentAttendance[]>([])
-  const [error,setError]=useState('')
-  useEffect(()=>{Promise.all([listStudentGrades(),listStudentAttendance()]).then(([g,a])=>{setGrades(g);setAttendance(a)}).catch((err)=>setError(err instanceof ApiError?err.message:'Chargement impossible.'))},[])
-  const average=grades.length?grades.reduce((sum,row)=>sum+(row.score/row.max_score)*20,0)/grades.length:null
-  return <main className="app-page academic-page">
-    <header className="app-page-header"><div><span className="page-kicker">Espace étudiant</span><h1>Résultats</h1><p>Vos notes et vos présences au même endroit.</p></div>{average!==null&&<span className="status-chip">Moyenne {average.toFixed(1)}/20</span>}</header>
-    {error&&<div className="form-error">{error}</div>}
-    <section className="student-results-grid">
-      <article className="app-card"><div className="settings-section-heading"><div><span className="section-label">Évaluations</span><h2>Mes notes</h2></div><BarChart3 size={19}/></div><div className="result-list">{grades.map((grade)=><div className="result-row" key={grade.id}><div><strong>{grade.label}</strong><small>{grade.source_type} · {new Date(grade.created_at).toLocaleDateString('fr-FR')}</small></div><span>{grade.score}/{grade.max_score}</span></div>)}{grades.length===0&&<p className="empty-row">Aucune note pour le moment.</p>}</div></article>
-      <article className="app-card"><div className="settings-section-heading"><div><span className="section-label">Assiduité</span><h2>Mes présences</h2></div><CalendarCheck2 size={19}/></div><div className="result-list">{attendance.map((row)=><div className="result-row" key={row.course_day_id}><div><strong>{row.title}</strong><small>{new Date(row.scheduled_at).toLocaleString('fr-FR')}</small></div><span className={'attendance-status '+(row.status||'pending')}>{row.status?ATTENDANCE_LABELS[row.status]:'À confirmer'}</span></div>)}{attendance.length===0&&<p className="empty-row">Aucune séance enregistrée.</p>}</div></article>
-    </section>
-  </main>
+  const [summaries, setSummaries] = useState<TranscriptSummary[] | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [transcript, setTranscript] = useState<Transcript | null>(null)
+  const [attendance, setAttendance] = useState<StudentAttendance[]>([])
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    Promise.all([listMyTranscripts(), listStudentAttendance()])
+      .then(([items, rows]) => {
+        setSummaries(items)
+        setSelectedId(items[0]?.enrollment_id ?? null)
+        // Classes still to come have nothing to say about attendance yet.
+        const now = Date.now()
+        setAttendance(rows.filter((row) => new Date(row.scheduled_at).getTime() <= now))
+      })
+      .catch((cause) => setError(cause instanceof ApiError ? cause.message : 'Chargement impossible.'))
+  }, [])
+
+  useEffect(() => {
+    if (selectedId === null) return
+    let active = true
+    setTranscript(null)
+    getTranscript(selectedId)
+      .then((value) => { if (active) setTranscript(value) })
+      .catch((cause) => { if (active) setError(cause instanceof ApiError ? cause.message : 'Relevé indisponible.') })
+    return () => { active = false }
+  }, [selectedId])
+
+  return (
+    <main className="app-page academic-page">
+      <header className="app-page-header">
+        <div>
+          <span className="page-kicker">Espace étudiant</span>
+          <h1>Mes résultats</h1>
+          <p>Votre relevé de notes pour chaque formation, à télécharger, et vos présences.</p>
+        </div>
+      </header>
+      {error && <div className="form-error">{error}</div>}
+
+      {summaries && summaries.length > 1 && (
+        <div className="transcript-picker" role="tablist" aria-label="Formation">
+          {summaries.map((item) => (
+            <button
+              type="button"
+              role="tab"
+              key={item.enrollment_id}
+              aria-selected={item.enrollment_id === selectedId}
+              className={item.enrollment_id === selectedId ? 'is-active' : ''}
+              onClick={() => setSelectedId(item.enrollment_id)}
+            >
+              <strong>{item.formation_title}</strong>
+              <small>{item.session_label}{item.average_20 !== null ? ` · ${item.average_20.toLocaleString('fr-FR')}/20` : ''}</small>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {summaries && summaries.length === 0 && (
+        <div className="transcript__empty"><FileText size={22} /><p>Votre relevé apparaîtra ici dès votre inscription à une formation.</p></div>
+      )}
+      {selectedId !== null && !transcript && !error && <div className="transcript__loading">Chargement du relevé…</div>}
+      {transcript && <TranscriptView transcript={transcript} />}
+
+      <article className="app-card student-attendance-card">
+        <div className="settings-section-heading">
+          <div><span className="section-label">Assiduité</span><h2>Mes présences</h2><p>Les séances déjà passées, de la plus ancienne à la plus récente.</p></div>
+          <CalendarCheck2 size={19} />
+        </div>
+        <div className="result-list">
+          {attendance.map((row) => (
+            <div className="result-row" key={row.course_day_id}>
+              <div><strong>{row.title}</strong><small>{new Date(row.scheduled_at).toLocaleString('fr-FR')}</small></div>
+              <span className={'attendance-status ' + (row.status || 'pending')}>{row.status ? ATTENDANCE_LABELS[row.status] : 'À confirmer'}</span>
+            </div>
+          ))}
+          {attendance.length === 0 && <p className="empty-row">Aucune séance passée pour le moment.</p>}
+        </div>
+      </article>
+    </main>
+  )
 }

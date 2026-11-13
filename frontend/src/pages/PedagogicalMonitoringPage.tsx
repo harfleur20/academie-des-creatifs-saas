@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ClipboardList, Downloa
 import { Link } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { PedagogyFilterBar } from '../components/PedagogyFilterBar'
+import { TranscriptDialog } from '../components/TranscriptView'
 import {
   ApiError,
   getSchoolPedagogyOverview,
@@ -50,6 +51,7 @@ export function PedagogicalMonitoringPage() {
   const [riskOnly, setRiskOnly] = useState(false)
   const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({ key: 'signal', ascending: true })
   const [openId, setOpenId] = useState<number | null>(null)
+  const [transcriptId, setTranscriptId] = useState<number | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -207,6 +209,9 @@ export function PedagogicalMonitoringPage() {
                         <strong>{row.alert_reasons.length ? 'Points d’attention' : 'Aucun point d’attention'}</strong>
                         {row.alert_reasons.length > 0 && <ul>{row.alert_reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
                         <div className="monitoring-detail__actions">
+                          <button type="button" className="secondary-button compact-action" onClick={() => setTranscriptId(row.enrollment_id)}>
+                            Relevé de notes
+                          </button>
                           <Link className="secondary-button compact-action" to={`/app/manage/students?q=${encodeURIComponent(row.student_code || row.student_name)}`}>
                             Voir sa fiche étudiant
                           </Link>
@@ -224,6 +229,7 @@ export function PedagogicalMonitoringPage() {
           </section>
         </>
       )}
+      {transcriptId !== null && <TranscriptDialog enrollmentId={transcriptId} onClose={() => setTranscriptId(null)} />}
     </main>
   )
 }
