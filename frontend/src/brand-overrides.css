@@ -148,9 +148,11 @@
   flex: 0 0 36px;
 }
 
-.auth-copy-panel .adaptive-logo-image.logo-alpha-transparent,
-.public-school-footer .adaptive-logo-image.logo-alpha-transparent,
-.brand-preview-sidebar .adaptive-logo-image.logo-alpha-transparent {
+/* On dark backgrounds, only a dark mark on transparency turns white: a filled logo (an
+   app-icon square) or a light one keeps its colours (brand/AdaptiveLogoImage.tsx). */
+.auth-copy-panel .adaptive-logo-image.logo-alpha-transparent.logo-tone-dark,
+.public-school-footer .adaptive-logo-image.logo-alpha-transparent.logo-tone-dark,
+.brand-preview-sidebar .adaptive-logo-image.logo-alpha-transparent.logo-tone-dark {
   filter: brightness(0) invert(1);
 }
 
