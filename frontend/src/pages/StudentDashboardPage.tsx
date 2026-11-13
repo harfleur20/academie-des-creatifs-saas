@@ -180,7 +180,8 @@ export function StudentDashboardPage() {
     ? Math.round((attendancePresent / attendanceTotal) * 100)
     : null
   const focusGrades = grades.filter((item) => item.session_id === focusSession?.session_id)
-  const validGrades = focusGrades.filter((item) => item.max_score > 0)
+  // The official average (transcript, badge, follow-up): automatic quiz grades are left out.
+  const validGrades = focusGrades.filter((item) => item.max_score > 0 && !(item.source_type === 'quiz' && item.label.startsWith('Quiz')))
   const averageOnTwenty = validGrades.length
     ? validGrades.reduce((sum, item) => sum + (item.score / item.max_score) * 20, 0) / validGrades.length
     : null
