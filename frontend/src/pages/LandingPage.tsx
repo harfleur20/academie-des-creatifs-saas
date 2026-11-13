@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { BrandLogo } from '../brand/BrandLogo'
 import { getDemoInfo, listPlans, type DemoInfo, type Plan } from '../lib/api'
-import { DemoDialog } from '../components/DemoDialog'
+import { DemoMenu } from '../components/DemoMenu'
 import { commissionLabel, monthlyEquivalent, planHighlights } from '../lib/planFeatures'
 import { PlanComparison } from '../components/PlanComparison'
 import '../landing.css'
@@ -311,7 +311,6 @@ export default function LandingPage() {
   useReveal()
   // The read-only demo, when the platform has a demo school.
   const [demo, setDemo] = useState<DemoInfo | null>(null)
-  const [demoOpen, setDemoOpen] = useState(false)
   useEffect(() => {
     getDemoInfo().then((info) => setDemo(info.enabled ? info : null)).catch(() => setDemo(null))
   }, [])
@@ -355,7 +354,7 @@ export default function LandingPage() {
             <div className="lp-hero__actions">
               <a className="lp-btn lp-btn--primary" href={REGISTER_URL}>Créer mon école <ArrowRight size={18} /></a>
               {demo
-                ? <button className="lp-btn lp-btn--ghost" type="button" onClick={() => setDemoOpen(true)}>Voir la démo</button>
+                ? <DemoMenu info={demo} />
                 : <a className="lp-btn lp-btn--ghost" href="#tarifs">Voir les tarifs</a>}
             </div>
             <ul className="lp-hero__proof">
@@ -368,7 +367,11 @@ export default function LandingPage() {
           <div className="lp-hero__visual">
             <Browser src={SHOTS.dashboard} alt="Espace professeur d’une école sur la plateforme" address="studio-kora.academiecreatif.com" eager />
             <Phone src={SHOTS.progress} alt="Progression d’une étudiante sur téléphone" className="lp-hero__phone" />
-            <div className="lp-chip lp-chip--live"><span className="lp-dot" /> Cours en live · 14 présents</div>
+            <div className="lp-hero__notifications" aria-hidden="true">
+              <div className="lp-chip lp-hero__notification lp-hero__notification--live"><span className="lp-dot" /> Cours en live · 14 présents</div>
+              <div className="lp-chip lp-hero__notification lp-hero__notification--signup"><BellRing size={16} /> Nouvelle inscription · Design graphique</div>
+              <div className="lp-chip lp-hero__notification lp-hero__notification--activity"><ClipboardCheck size={16} /> Activité mise à jour · Projet final</div>
+            </div>
             <p className="lp-hero__caption">Captures réelles de la plateforme, sur une école de démonstration.</p>
           </div>
         </div>
@@ -470,6 +473,13 @@ export default function LandingPage() {
           <header className="lp-heading lp-reveal">
             <h2>Ce que les écoles nous demandent</h2>
             <p>Une autre question ? Créez votre école et écrivez-nous depuis votre espace.</p>
+            <img
+              className="lp-faq__support-image"
+              src="/landing/faq-support.png"
+              alt="Équipe d’accompagnement souriante, disponible pour aider les écoles"
+              loading="lazy"
+              decoding="async"
+            />
           </header>
           <div className="lp-faq__list">
             {FAQ.map((item) => (
@@ -533,7 +543,6 @@ export default function LandingPage() {
           <p>© {new Date().getFullYear()} Académie des Créatifs</p>
         </div>
       </footer>
-      {demoOpen && demo && <DemoDialog info={demo} onClose={() => setDemoOpen(false)} />}
     </main>
   )
 }

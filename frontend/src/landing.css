@@ -130,7 +130,18 @@
   white-space: nowrap;
 }
 .lp-chip svg { color: var(--lp-mint-ink); }
-.lp-chip--live { right: -16px; bottom: 132px; }
+.lp-hero__notifications { position: absolute; right: -16px; bottom: 132px; width: min(100%, 310px); height: 44px; }
+.lp-hero__notification {
+  right: 0; bottom: 0; max-width: 100%; opacity: 0; visibility: hidden;
+  transform: translateY(8px) scale(.98); animation: lp-notification-cycle 12s ease-in-out infinite;
+}
+.lp-hero__notification--signup { animation-delay: 4s; }
+.lp-hero__notification--activity { animation-delay: 8s; }
+@keyframes lp-notification-cycle {
+  0%, 4% { opacity: 0; visibility: hidden; transform: translateY(8px) scale(.98); }
+  8%, 25% { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+  30%, 100% { opacity: 0; visibility: hidden; transform: translateY(-4px) scale(.98); }
+}
 .lp-dot { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, .18); }
 
 /* Formats */
@@ -182,8 +193,18 @@
 /* Small band of extra capabilities */
 .lp-band { padding: 64px 0; background: var(--lp-navy-deep); color: #fff; }
 .lp-band__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; }
-.lp-band__item { display: grid; align-content: start; gap: 6px; }
-.lp-band__item svg { color: #7fd6d1; margin-bottom: 10px; }
+.lp-band__item { display: grid; justify-items: center; align-content: start; gap: 6px; text-align: center; }
+.lp-band__item svg {
+  box-sizing: border-box;
+  width: 54px;
+  height: 54px;
+  padding: 11px;
+  margin-bottom: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(127, 214, 209, .1);
+  color: #7fd6d1;
+}
 .lp-band__item strong { font-size: 16px; }
 .lp-band__item span { font-size: 14px; line-height: 1.5; color: #b8c0dc; }
 
@@ -233,6 +254,7 @@
 
 /* FAQ */
 .lp-faq { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 56px; align-items: start; }
+.lp-faq__support-image { display: block; width: min(100%, 350px); height: auto; margin: 18px auto 0; }
 .lp-faq__list { display: grid; gap: 12px; }
 .lp-faq__item { border-radius: 14px; background: #fff; border: 1px solid var(--lp-line); }
 .lp-faq__item summary {
@@ -291,6 +313,7 @@
 @media (max-width: 640px) {
   .lp-plans { grid-template-columns: minmax(0, 1fr); max-width: 520px; }
   .lp-plan__desc { min-height: 0; }
+  .lp-faq__support-image { width: min(100%, 290px); }
   .lp-container { padding: 0 16px; }
   .lp-section { padding: 64px 0; }
   .lp-header__inner { height: 64px; gap: 12px; }
@@ -306,7 +329,8 @@
   .lp-hero__actions .lp-btn { flex: 1 1 100%; }
   .lp-hero__visual { padding: 0 0 40px 28px; }
   .lp-hero__phone { width: 36%; }
-  .lp-chip--live { right: 4px; bottom: 96px; font-size: 12px; padding: 8px 11px; }
+  .lp-hero__notifications { right: 4px; bottom: 96px; width: min(100%, 310px); height: 38px; }
+  .lp-hero__notification { font-size: 12px; padding: 8px 11px; }
   .lp-hero__caption { position: static; margin-top: 12px; padding-left: 0; }
   .lp-hero__visual { padding-bottom: 24px; }
   .lp-hero__phone { width: 30%; bottom: 84px; }
@@ -323,4 +347,9 @@
   .lp-site__cta { flex-direction: column; align-items: stretch; text-align: center; }
   .lp-hero::before { background-position: center 42%; }
   .lp-footer__inner { flex-direction: column; align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-hero__notification { animation: none; }
+  .lp-hero__notification:first-child { opacity: 1; visibility: visible; transform: none; }
 }
