@@ -126,6 +126,8 @@ class PublicSchoolRead(BaseModel):
     refund_policy: str
     # Business plans hide the platform's "Powered by" signature.
     white_label: bool = False
+    # The read-only demonstration school: its site shows everything but takes no order.
+    is_demo: bool = False
 
 
 class PublicSessionRead(BaseModel):

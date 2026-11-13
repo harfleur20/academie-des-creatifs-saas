@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
@@ -55,6 +57,24 @@ class AuthResponse(BaseModel):
     user: AuthUser
     access_token: str
     token_type: str = "Bearer"
+
+
+class DemoInfoRead(BaseModel):
+    enabled: bool
+    school_name: str | None = None
+    organization_slug: str | None = None
+
+
+class DemoStartPayload(BaseModel):
+    space: Literal["manage", "teacher", "student"]
+
+
+class DemoSessionRead(BaseModel):
+    access_token: str
+    token_type: str = "Bearer"
+    organization_id: int
+    space: str
+    user: AuthUser
 
 
 class AuthSsoConfigRead(BaseModel):

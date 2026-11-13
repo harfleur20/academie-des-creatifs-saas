@@ -19,6 +19,9 @@ def list_school_favorites(db: Session, org: OrganizationRecord, user: UserRecord
 
 
 def add_school_favorite(db: Session, org: OrganizationRecord, user: UserRecord, slug: str) -> list[PublicFormationCardRead]:
+    from app.services.demo import require_not_demo
+
+    require_not_demo(org)
     card = next((item for item in list_public_formations(db, org) if item.slug == slug), None)
     if card is None:
         raise HTTPException(404, "Formation introuvable.")

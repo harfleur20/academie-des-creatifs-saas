@@ -1,3 +1,6 @@
+import { DEMO_READ_ONLY_MESSAGE, readDemoState } from './demoState'
+import { toast } from '../ui/toast'
+
 export type AuthUser = {
   id: number
   full_name: string
@@ -357,6 +360,13 @@ async function request<T>(
     headers.set('Content-Type', 'application/json')
   }
 
+  // In the read-only demo, nothing is sent that would change something (the server refuses it too).
+  const method = (options.method || 'GET').toUpperCase()
+  if (method !== 'GET' && method !== 'HEAD' && !path.startsWith('/auth/demo') && readDemoState()) {
+    toast.info(DEMO_READ_ONLY_MESSAGE)
+    throw new ApiError(403, DEMO_READ_ONLY_MESSAGE, 'demo_read_only')
+  }
+
   const token = getAccessToken()
   if (token) {
     headers.set('Authorization', `Bearer ${token}`)
@@ -385,6 +395,7 @@ async function request<T>(
       else if (typeof body?.detail?.message === 'string') {
         message = body.detail.message
         code = typeof body.detail.code === 'string' ? body.detail.code : null
+        if (code === 'demo_read_only') toast.info(message)
       }
     } catch {
       // Keep generic message.
@@ -2668,6 +2679,8 @@ export type PublicSchool = {
   refund_policy: string
   /** Business plans hide the platform's "Powered by" signature. */
   white_label?: boolean
+  /** The read-only demonstration school: its site takes no order. */
+  is_demo?: boolean
 }
 
 export type PublicSession = {
@@ -3186,3 +3199,14 @@ export const markSchoolNotificationsRead = (ids: number[]) =>
 
 export const dismissSchoolNotifications = (ids: number[]) =>
   request<void>('/notifications/dismiss', { method: 'POST', body: JSON.stringify({ ids }) })
+
+
+/** The read-only demo offered on the landing page (docs/DEMO.md). */
+export type DemoInfo = { enabled: boolean; school_name: string | null; organization_slug: string | null }
+export type DemoSpace = 'manage' | 'teacher' | 'student'
+export type DemoSession = { access_token: string; organization_id: number; space: DemoSpace; user: AuthUser }
+
+export const getDemoInfo = () => request<DemoInfo>('/auth/demo', { organizationId: null })
+
+export const startDemoSession = (space: DemoSpace) =>
+  request<DemoSession>('/auth/demo', { method: 'POST', body: JSON.stringify({ space }), organizationId: null })

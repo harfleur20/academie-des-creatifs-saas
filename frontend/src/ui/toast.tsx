@@ -26,10 +26,11 @@ function publish(kind: ToastKind, message: string, options: ToastOptions = {}) {
   const normalizedMessage = message.trim()
   if (!normalizedMessage) return 0
 
-  const duplicateKey = `${kind}:${normalizedMessage}`
+  // The same message shown twice in a row (a toast, then the page's own error) appears once.
+  const duplicateKey = normalizedMessage
   const now = Date.now()
   const lastPublishedAt = recentMessages.get(duplicateKey) ?? 0
-  if (now - lastPublishedAt < 700) return 0
+  if (now - lastPublishedAt < 2500) return 0
   recentMessages.set(duplicateKey, now)
 
   const item: ToastItem = {

@@ -29,6 +29,8 @@ class AuthenticatedSession:
     user: UserRecord
     claims: dict[str, object]
     support_session: PlatformSupportSessionRecord | None = None
+    # The demo school a read-only demo token is limited to (app/services/demo.py).
+    demo_organization_id: int | None = None
 
     @property
     def support_organization_id(self) -> int | None:
@@ -82,6 +84,20 @@ def get_authenticated_session(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session expirée ou révoquée.",
         )
+
+    raw_demo_org = payload.get("demo_org")
+    if raw_demo_org is not None:
+        from app.services.demo import DEMO_READ_ONLY
+
+        if type(raw_demo_org) is not int or user.platform_role == "super_admin":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session de démo invalide.")
+        # Whatever the route, a demo visitor only looks: every change is refused.
+        if request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": "demo_read_only", "message": DEMO_READ_ONLY},
+            )
+        return AuthenticatedSession(user=user, claims=payload, demo_organization_id=raw_demo_org)
 
     raw_support_session_id = payload.get("support_session_id")
     raw_support_org_id = payload.get("support_org_id")
@@ -141,6 +157,9 @@ def get_tenant_context(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"En-tête {settings.tenant_header} requis.",
         )
+
+    if session.demo_organization_id is not None and session.demo_organization_id != organization_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="La démo ne montre que l’école de démonstration.")
 
     if session.user.platform_role == "super_admin":
         if session.support_session is None:

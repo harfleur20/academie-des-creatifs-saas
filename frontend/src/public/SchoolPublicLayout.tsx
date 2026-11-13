@@ -220,6 +220,7 @@ export function SchoolPublicLayout() {
 
   return (
     <div className="public-school-shell" style={style}>
+      {school.is_demo && <div className="public-school-demo-banner">Site de démonstration : naviguez librement, les inscriptions et les paiements sont désactivés.</div>}
       {school.announcement_enabled && <SchoolAnnouncementBanner text={school.announcement_text} backgroundColor={school.announcement_background_color} textColor={school.announcement_text_color} />}
       <header className="public-school-header">
         <Link className="public-school-brand" to={'/school/' + schoolSlug}>

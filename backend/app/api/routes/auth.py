@@ -18,6 +18,9 @@ from app.models.entities import UserRecord
 from app.schemas.auth import (
     AuthResponse,
     AuthUser,
+    DemoInfoRead,
+    DemoSessionRead,
+    DemoStartPayload,
     GoogleAuthPayload,
     LoginPayload,
     MessageResponse,
@@ -152,6 +155,32 @@ def register(
     return _response(response, request, user, "Compte créé avec succès.")
 
 
+@router.get("/demo", response_model=DemoInfoRead)
+def demo_info(db: Session = Depends(get_db)) -> DemoInfoRead:
+    """Whether the landing page can offer the read-only demo, and of which school."""
+    from app.services.demo import demo_organization
+
+    org = demo_organization(db)
+    if org is None:
+        return DemoInfoRead(enabled=False)
+    return DemoInfoRead(enabled=True, school_name=org.name, organization_slug=org.slug)
+
+
+@router.post("/demo", response_model=DemoSessionRead)
+def start_demo(payload: DemoStartPayload, db: Session = Depends(get_db)) -> DemoSessionRead:
+    """A short read-only token for one space of the demo school. No cookie: it stays in the visitor's tab."""
+    from app.services.demo import demo_member, demo_organization, demo_token
+
+    org = demo_organization(db)
+    if org is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La démo n’est pas disponible.")
+    user = demo_member(db, org, payload.space)
+    return DemoSessionRead(
+        access_token=demo_token(user, org), organization_id=org.id, space=payload.space,
+        user=AuthUser.model_validate(user),
+    )
+
+
 @router.post("/login", response_model=AuthResponse)
 def login(
     payload: LoginPayload,
@@ -253,8 +282,10 @@ def me(
 ) -> AuthUser:
     # Existing sessions created before this deployment only have a bearer token.
     # Refreshing /me upgrades them transparently to the browser-shared cookie.
-    # Support impersonation remains tab-local and never becomes a shared cookie.
-    if session.support_session is None:
+    # Support impersonation and the read-only demo remain tab-local and never become a
+    # shared cookie: the visitor's other tabs keep their own session, and a demo token
+    # cannot be traded for a normal one.
+    if session.support_session is None and session.demo_organization_id is None:
         _set_auth_cookie(response, _issue_access_token(session.user), request)
     return AuthUser.model_validate(session.user)
 

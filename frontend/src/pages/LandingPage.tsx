@@ -19,7 +19,8 @@ import {
   X,
 } from 'lucide-react'
 import { BrandLogo } from '../brand/BrandLogo'
-import { listPlans, type Plan } from '../lib/api'
+import { getDemoInfo, listPlans, type DemoInfo, type Plan } from '../lib/api'
+import { DemoDialog } from '../components/DemoDialog'
 import { commissionLabel, monthlyEquivalent, planHighlights } from '../lib/planFeatures'
 import { PlanComparison } from '../components/PlanComparison'
 import '../landing.css'
@@ -308,6 +309,12 @@ function Pricing() {
 
 export default function LandingPage() {
   useReveal()
+  // The read-only demo, when the platform has a demo school.
+  const [demo, setDemo] = useState<DemoInfo | null>(null)
+  const [demoOpen, setDemoOpen] = useState(false)
+  useEffect(() => {
+    getDemoInfo().then((info) => setDemo(info.enabled ? info : null)).catch(() => setDemo(null))
+  }, [])
 
   return (
     <main className="lp">
@@ -347,7 +354,9 @@ export default function LandingPage() {
             </p>
             <div className="lp-hero__actions">
               <a className="lp-btn lp-btn--primary" href={REGISTER_URL}>Créer mon école <ArrowRight size={18} /></a>
-              <a className="lp-btn lp-btn--ghost" href="#tarifs">Voir les tarifs</a>
+              {demo
+                ? <button className="lp-btn lp-btn--ghost" type="button" onClick={() => setDemoOpen(true)}>Voir la démo</button>
+                : <a className="lp-btn lp-btn--ghost" href="#tarifs">Voir les tarifs</a>}
             </div>
             <ul className="lp-hero__proof">
               <li><Check size={15} /> Essai gratuit</li>
@@ -524,6 +533,7 @@ export default function LandingPage() {
           <p>© {new Date().getFullYear()} Académie des Créatifs</p>
         </div>
       </footer>
+      {demoOpen && demo && <DemoDialog info={demo} onClose={() => setDemoOpen(false)} />}
     </main>
   )
 }

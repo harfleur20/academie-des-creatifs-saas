@@ -1,3 +1,5 @@
+import { exitDemo } from '../lib/demo'
+import { readDemoState } from '../lib/demoState'
 import {
   createContext,
   useCallback,
@@ -191,6 +193,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [updateSupportMode, updateUser])
 
   const signOut = useCallback(() => {
+    // Leaving the demo only forgets its token: the visitor's own session, if any, stays.
+    if (readDemoState()) {
+      exitDemo()
+      return
+    }
     const logout = logoutSession().catch(() => {})
     clearSession()
     updateSupportMode(null)

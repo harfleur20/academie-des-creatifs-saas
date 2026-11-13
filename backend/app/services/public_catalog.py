@@ -101,7 +101,14 @@ def public_school_read(
         privacy_policy=site.privacy_policy,
         refund_policy=site.refund_policy,
         white_label=school_white_label(db, org.id),
+        is_demo=_is_demo(org),
     )
+
+
+def _is_demo(org: OrganizationRecord) -> bool:
+    from app.services.demo import is_demo_organization
+
+    return is_demo_organization(org)
 
 
 def school_white_label(db: Session, organization_id: int) -> bool:

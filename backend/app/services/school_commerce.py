@@ -706,6 +706,9 @@ def create_checkout(
     *,
     return_origin: str | None = None,
 ) -> CheckoutRead:
+    from app.services.demo import require_not_demo
+
+    require_not_demo(org)
     _require_published_site(db, org)
     db.scalar(select(OrganizationRecord).where(OrganizationRecord.id == org.id).with_for_update())
     # Serialize reservations for a session on PostgreSQL before counting seats.
