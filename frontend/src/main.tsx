@@ -40,6 +40,8 @@ import './session-edit-panel.css'
 import './teacher-grades.css'
 import './assignment-brief.css'
 import './quiz-review.css'
+import './typography.css'
+import './public-site-typography.css'
 import App from './App'
 import { ToastViewport } from './ui/toast'
 

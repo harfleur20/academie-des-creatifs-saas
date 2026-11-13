@@ -72,6 +72,8 @@ def _public_site_defaults(org: OrganizationRecord) -> dict:
         "font_heading": "Inter",
         "font_body": "Inter",
         "font_size_scale": 100,
+        "heading_size_scale": 100,
+        "subtitle_size_scale": 100,
         "student_code_prefix": _prefix_from_name(org.name),
         "is_published": False,
     }
@@ -199,6 +201,8 @@ def _identity_read(
             font_heading=site.font_heading,
             font_body=site.font_body,
             font_size_scale=site.font_size_scale,
+            heading_size_scale=site.heading_size_scale,
+            subtitle_size_scale=site.subtitle_size_scale,
             hero_title=site.hero_title,
             hero_subtitle=site.hero_subtitle,
             hero_cta_label=site.hero_cta_label,

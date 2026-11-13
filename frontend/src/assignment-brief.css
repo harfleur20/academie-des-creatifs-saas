@@ -3,7 +3,7 @@
   gap: 6px;
   margin-top: 6px;
   color: #51607a;
-  font-size: 12px;
+  font-size: var(--text-small);
   line-height: 1.5;
 }
 
@@ -44,7 +44,7 @@
 .asg-brief__content h4 {
   margin: 0 0 4px;
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .asg-brief__content ul,
@@ -91,7 +91,7 @@
 .asg-brief-editor__rubric legend {
   padding: 0 6px;
   color: #66758b;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 750;
 }
 
@@ -116,7 +116,7 @@
 
 .asg-brief-editor__rubric-footer strong {
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .asg-brief-editor__rubric-footer strong.is-invalid {

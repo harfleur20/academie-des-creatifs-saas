@@ -128,12 +128,12 @@
 }
 
 .owner-dashboard-stats-column .app-stat-grid strong {
-  font-size: 27px;
+  font-size: var(--text-section-title);
 }
 
 .owner-dashboard-stats-column .app-stat-grid p {
   max-width: 78%;
-  font-size: 12.5px;
+  font-size: var(--text-small);
   line-height: 1.6;
 }
 
@@ -249,13 +249,13 @@
 
 .owner-dashboard-rail-metrics strong {
   color: #10213d;
-  font-size: 18px;
+  font-size: var(--text-card-title);
   line-height: 1;
 }
 
 .owner-dashboard-rail-metrics small {
   color: #8490a2;
-  font-size: 9.5px;
+  font-size: var(--text-small);
   line-height: 1.35;
 }
 

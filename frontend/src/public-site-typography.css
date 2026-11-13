@@ -1,0 +1,17 @@
+/*
+ * The schools' public site has its own type scale, set by the school in its identity:
+ * titles (--school-heading-scale), subtitles (--school-subtitle-scale) and text
+ * (--school-font-scale), each from 85 % to 125 %. Nothing reads under 12 px at 100 %.
+ */
+.public-school-shell {
+  --site-hero: clamp(calc(36px * var(--school-heading-scale, 1)), 5vw, calc(58px * var(--school-heading-scale, 1)));
+  --site-h1: calc(34px * var(--school-heading-scale, 1));
+  --site-h2: calc(30px * var(--school-heading-scale, 1));
+  --site-h3: calc(18px * var(--school-heading-scale, 1));
+  --site-figure: calc(24px * var(--school-heading-scale, 1));
+  --site-subtitle: calc(17px * var(--school-subtitle-scale, 1));
+  --site-text: calc(15px * var(--school-font-scale, 1));
+  --site-text-2: calc(14px * var(--school-font-scale, 1));
+  --site-small: calc(13px * var(--school-font-scale, 1));
+  --site-tiny: calc(12px * var(--school-font-scale, 1));
+}

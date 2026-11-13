@@ -196,6 +196,8 @@ export function SchoolPublicLayout() {
     '--school-heading-font': schoolFontFamily(school.font_heading),
     '--school-body-font': schoolFontFamily(school.font_body),
     '--school-font-scale': String(school.font_size_scale / 100),
+    '--school-heading-scale': String((school.heading_size_scale ?? 100) / 100),
+    '--school-subtitle-scale': String((school.subtitle_size_scale ?? 100) / 100),
   } as CSSProperties
   const validCartItem = cartItem?.organization_id === school.organization_id ? cartItem : null
   const schoolMembership = organizations.find((organization) => organization.id === school.organization_id)

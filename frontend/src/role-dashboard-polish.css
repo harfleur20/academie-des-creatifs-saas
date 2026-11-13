@@ -125,13 +125,13 @@
 
 .role-school-visual__brand small {
   color: rgba(255,255,255,.78);
-  font-size: 10px;
+  font-size: var(--text-small);
   font-weight: 700;
 }
 
 .role-school-visual__brand strong {
   color: #fff;
-  font-size: 15px;
+  font-size: var(--text-lead);
   line-height: 1.2;
 }
 
@@ -162,7 +162,7 @@
   border-radius: 13px;
   color: #fff;
   background: rgba(255,255,255,.11);
-  font-size: 9.5px;
+  font-size: var(--text-small);
   font-weight: 750;
   text-align: center;
 }
@@ -208,12 +208,12 @@
 
 /* Typography: the previous 8–10px labels were too small on desktop. */
 .role-hero__copy > span {
-  font-size: 10px;
+  font-size: var(--text-small);
 }
 
 .role-hero__copy p,
 .role-hero__copy small {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .role-hero__copy small {
@@ -221,35 +221,35 @@
 }
 
 .role-kpi > span {
-  font-size: 10.5px;
+  font-size: var(--text-small);
   line-height: 1.25;
 }
 
 .role-kpi > strong {
-  font-size: 27px;
+  font-size: var(--text-section-title);
 }
 
 .role-kpi > small {
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .role-calendar-card > header strong,
 .role-side-card > header strong {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .role-calendar-card > header a,
 .role-side-list a b,
 .role-progress-summary a {
-  font-size: 10.5px;
+  font-size: var(--text-small);
 }
 
 .role-next-course span {
-  font-size: 10px;
+  font-size: var(--text-small);
 }
 
 .role-next-course strong {
-  font-size: 13px;
+  font-size: var(--text-secondary);
 }
 
 .role-next-course p,
@@ -260,7 +260,7 @@
 .role-side-card > p,
 .role-side-list > p,
 .role-recent-list > p {
-  font-size: 10.5px;
+  font-size: var(--text-small);
   line-height: 1.45;
 }
 
@@ -268,17 +268,17 @@
 .role-priority strong,
 .role-recent-list strong,
 .role-action-stack strong {
-  font-size: 11.5px;
+  font-size: var(--text-small);
 }
 
 .role-action-stack small {
-  font-size: 10.5px;
+  font-size: var(--text-small);
 }
 
 .role-side-card > header > span {
   min-width: 28px;
   min-height: 28px;
-  font-size: 10.5px;
+  font-size: var(--text-small);
 }
 
 .role-student-progress-card {
@@ -311,12 +311,12 @@
 
 .role-student-progress-card__head small {
   color: #7a8798;
-  font-size: 10.5px;
+  font-size: var(--text-small);
 }
 
 .role-student-progress-card__head strong {
   color: var(--school-primary);
-  font-size: 12.5px;
+  font-size: var(--text-small);
 }
 
 .role-student-progress-card__bar {
@@ -336,14 +336,14 @@
 .role-student-progress-card p {
   margin: 0;
   color: #6f7c8f;
-  font-size: 10.5px;
+  font-size: var(--text-small);
   line-height: 1.5;
 }
 
 .role-student-progress-card a {
   width: fit-content;
   color: var(--school-secondary);
-  font-size: 10.5px;
+  font-size: var(--text-small);
   font-weight: 800;
 }
 
@@ -359,6 +359,6 @@
 
   .role-hero__copy p,
   .role-hero__copy small {
-    font-size: 11.5px;
+    font-size: var(--text-small);
   }
 }

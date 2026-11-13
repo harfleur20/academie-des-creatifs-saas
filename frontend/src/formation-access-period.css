@@ -13,7 +13,7 @@
 .online-access-period h3 {
   margin: 5px 0 0;
   color: var(--school-primary, var(--blue));
-  font-size: 15px;
+  font-size: var(--text-lead);
 }
 
 .online-access-period .muted-note {
@@ -31,7 +31,7 @@
   display: grid;
   gap: 6px;
   color: #66758b;
-  font-size: 11px;
+  font-size: var(--text-small);
   font-weight: 750;
 }
 

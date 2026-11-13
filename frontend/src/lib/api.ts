@@ -2571,6 +2571,8 @@ export type PublicSiteConfig = {
   font_heading: string
   font_body: string
   font_size_scale: number
+  heading_size_scale?: number
+  subtitle_size_scale?: number
   hero_title: string
   hero_subtitle: string
   hero_cta_label: string
@@ -2643,6 +2645,8 @@ export type PublicSchool = {
   font_heading: string
   font_body: string
   font_size_scale: number
+  heading_size_scale?: number
+  subtitle_size_scale?: number
   hero_title: string
   hero_subtitle: string
   hero_cta_label: string

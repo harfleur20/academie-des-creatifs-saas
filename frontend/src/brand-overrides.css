@@ -207,7 +207,7 @@
 
 /* The public footer follows the same typography scale configured by the school owner. */
 .public-school-shell .public-school-footer {
-  font-size: calc(13px * var(--school-font-scale, 1));
+  font-size: var(--site-text-2);
   line-height: 1.6;
 }
 
@@ -217,19 +217,19 @@
 }
 
 .public-school-shell .public-school-footer-grid > div > strong {
-  font-size: calc(13px * var(--school-font-scale, 1));
+  font-size: var(--site-text-2);
   line-height: 1.35;
 }
 
 .public-school-shell .public-school-footer-brand strong {
-  font-size: calc(14px * var(--school-font-scale, 1));
+  font-size: var(--site-text);
   line-height: 1.35;
 }
 
 .public-school-shell .public-school-footer-grid p,
 .public-school-shell .public-school-footer-grid span,
 .public-school-shell .public-school-footer-grid a {
-  font-size: calc(12px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   line-height: 1.6;
 }
 
@@ -247,7 +247,7 @@
 }
 
 .public-school-shell .public-school-footer-bottom {
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   line-height: 1.5;
 }
 

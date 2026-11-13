@@ -15,7 +15,7 @@
   border-radius: 999px;
   background: #fff;
   color: #1f2352;
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 750;
   cursor: pointer;
   list-style: none;
@@ -56,7 +56,7 @@
   width: 100%;
   min-width: 620px;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 
 .plan-compare th,
@@ -74,7 +74,7 @@
 
 .plan-compare thead th {
   color: #1f2352;
-  font-size: 15px;
+  font-size: var(--text-lead);
   font-weight: 800;
 }
 
@@ -107,7 +107,7 @@
   border-radius: 999px;
   background: #eef0ff;
   color: #2d2f8f;
-  font-size: 11px;
+  font-size: var(--text-small);
   font-style: normal;
   font-weight: 800;
   white-space: nowrap;
@@ -125,6 +125,6 @@
 @media (max-width: 640px) {
   .plan-compare table { min-width: 560px; }
   .plan-compare th,
-  .plan-compare td { padding: 9px 8px; font-size: 12.5px; }
+  .plan-compare td { padding: 9px 8px; font-size: var(--text-small); }
   .plan-compare tbody th { min-width: 0; width: 132px; }
 }

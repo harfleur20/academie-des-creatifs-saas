@@ -25,7 +25,7 @@
   padding: 12px 26px;
   border-bottom: 1px solid rgba(148, 163, 184, .16);
   color: #64748b;
-  font-size: 13px;
+  font-size: var(--text-secondary);
   font-weight: 700;
   list-style: none;
 }
@@ -39,7 +39,7 @@
   border-radius: 50%;
   background: #eef0fb;
   color: #1f2352;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 .new-formation-steps .is-current { color: #1f2352; }
 .new-formation-steps .is-current span { background: #1f2352; color: #fff; }
@@ -55,7 +55,7 @@
   display: grid;
   gap: 6px;
   color: #1f2352;
-  font-size: 13px;
+  font-size: var(--text-secondary);
   font-weight: 700;
 }
 
@@ -86,7 +86,7 @@
 .new-formation-formats legend {
   margin-bottom: 6px;
   color: #1f2352;
-  font-size: 13px;
+  font-size: var(--text-secondary);
   font-weight: 700;
 }
 
@@ -109,8 +109,8 @@
 .new-formation-formats label:focus-within { outline: 3px solid rgba(28, 132, 128, .3); outline-offset: 2px; }
 .new-formation-formats input { position: absolute; opacity: 0; pointer-events: none; }
 .new-formation-formats svg { color: #1c8480; }
-.new-formation-formats strong { color: #1f2352; font-size: 14px; }
-.new-formation-form .new-formation-formats small { color: #64748b; font-size: 12px; line-height: 1.45; }
+.new-formation-formats strong { color: #1f2352; font-size: var(--text-body); }
+.new-formation-form .new-formation-formats small { color: #64748b; font-size: var(--text-small); line-height: 1.45; }
 
 .new-formation-grid {
   display: grid;

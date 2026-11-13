@@ -10,7 +10,7 @@
   gap: 6px;
   margin-bottom: 26px;
   color: #718096;
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   font-weight: 700;
   text-decoration: none;
 }
@@ -39,7 +39,7 @@
 .public-school-shell .school-detail-title-line h1 {
   flex: 1;
   margin: 3px 0 14px;
-  font-size: clamp(38px, 4.5vw, 58px);
+  font-size: var(--site-hero);
   line-height: 1.02;
   letter-spacing: -.045em;
 }
@@ -48,7 +48,7 @@
   max-width: 720px;
   margin: 0;
   color: #66758a;
-  font-size: calc(15px * var(--school-font-scale, 1));
+  font-size: var(--site-subtitle);
   line-height: 1.72;
 }
 
@@ -63,7 +63,7 @@
   border-radius: 999px;
   background: #f5f7fa;
   color: #53647b;
-  font-size: calc(10px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
   font-weight: 700;
 }
 
@@ -104,13 +104,13 @@
 
 .public-school-shell .school-detail-teacher-inline small {
   color: #8895a6;
-  font-size: calc(9px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
 }
 
 .public-school-shell .school-detail-teacher-inline strong {
   overflow: hidden;
   color: #172844;
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -165,7 +165,7 @@
 
 .public-school-shell .school-detail-facts small {
   color: #8a96a7;
-  font-size: calc(8.5px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -174,7 +174,7 @@
 .public-school-shell .school-detail-facts strong {
   overflow: hidden;
   color: #172844;
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -207,7 +207,7 @@
 .public-school-shell .school-detail-section-block h2 {
   margin: 4px 0 10px;
   color: #152641;
-  font-size: calc(24px * var(--school-font-scale, 1));
+  font-size: var(--site-h2);
   letter-spacing: -.03em;
 }
 
@@ -215,13 +215,13 @@
 .public-school-shell .school-detail-section-block p {
   margin: 0;
   color: #607086;
-  font-size: calc(13px * var(--school-font-scale, 1));
+  font-size: var(--site-text-2);
   line-height: 1.75;
 }
 
 .public-school-shell .school-detail-section-kicker {
   color: var(--school-secondary);
-  font-size: calc(8.5px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
   font-weight: 850;
   text-transform: uppercase;
   letter-spacing: .1em;
@@ -258,7 +258,7 @@
   border-radius: 14px;
   background: #f8fafc;
   color: #53647a;
-  font-size: calc(11.5px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   line-height: 1.55;
 }
 
@@ -310,19 +310,19 @@
 
 .public-school-shell .school-program-modules-v2 summary > span {
   color: var(--school-primary);
-  font-size: calc(9px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
   font-weight: 850;
   text-transform: uppercase;
 }
 
 .public-school-shell .school-program-modules-v2 summary > strong {
   color: #20334f;
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
 }
 
 .public-school-shell .school-program-modules-v2 summary > small {
   color: #8a96a7;
-  font-size: calc(8.5px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
 }
 
 .public-school-shell .school-program-modules-v2 ul {
@@ -337,7 +337,7 @@
   display: flex;
   gap: 8px;
   color: #647389;
-  font-size: calc(10.5px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
   line-height: 1.5;
 }
 
@@ -375,12 +375,12 @@
 
 .public-school-shell .school-detail-teacher-list strong {
   color: #1b2d49;
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
 }
 
 .public-school-shell .school-detail-teacher-list small {
   color: #8491a3;
-  font-size: calc(9px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
 }
 
 .public-school-shell .school-session-panel-v2 {
@@ -399,25 +399,25 @@
 
 .public-school-shell .school-session-panel-price > small {
   color: #8a96a8;
-  font-size: calc(9px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
   font-weight: 700;
 }
 
 .public-school-shell .school-session-panel-price > del {
   color: #9ca7b5;
-  font-size: calc(10px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
 }
 
 .public-school-shell .school-session-panel-price > strong {
   color: var(--school-primary);
-  font-size: calc(27px * var(--school-font-scale, 1));
+  font-size: var(--site-figure);
   letter-spacing: -.035em;
 }
 
 .public-school-shell .school-session-panel-price > span {
   margin-top: 3px;
   color: #6f7d90;
-  font-size: calc(9px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
   line-height: 1.45;
 }
 
@@ -447,18 +447,18 @@
 
 .public-school-shell .school-session-panel-heading strong {
   color: #1a2b46;
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
 }
 
 .public-school-shell .school-session-panel-heading small {
   color: #8794a5;
-  font-size: calc(8.5px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
 }
 
 .public-school-shell .school-session-panel-v2 > p {
   margin: 0 0 15px;
   color: #6c7a8d;
-  font-size: calc(10px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
   line-height: 1.55;
 }
 
@@ -472,7 +472,7 @@
   min-height: 46px;
   margin-top: 12px;
   border-radius: 12px;
-  font-size: calc(10px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
 }
 
 @media (max-width: 1050px) {
@@ -511,7 +511,7 @@
   }
 
   .public-school-shell .school-detail-title-line h1 {
-    font-size: 35px;
+    font-size: var(--site-hero);
   }
 
   .public-school-shell .school-detail-facts,

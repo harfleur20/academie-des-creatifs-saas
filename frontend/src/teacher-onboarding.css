@@ -19,7 +19,7 @@
 .student-charter-card h1 {
   margin: 8px 0 10px;
   color: var(--school-primary, #10213d);
-  font-size: clamp(32px, 4vw, 50px);
+  font-size: var(--text-page-title);
   line-height: 1.02;
   letter-spacing: -.04em;
 }
@@ -45,7 +45,7 @@
   border-radius: 50%;
   color: var(--school-secondary, #0d6b4b);
   background: color-mix(in srgb, var(--school-secondary, #63dfa8) 15%, white);
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 800;
 }
 
@@ -91,7 +91,7 @@
 .teacher-onboarding-section-title h2 {
   margin: 5px 0 0;
   color: var(--school-primary, #10213d);
-  font-size: 22px;
+  font-size: var(--text-section-title);
 }
 
 .teacher-onboarding-section-title > svg {
@@ -134,13 +134,13 @@
 
 .teacher-identity-summary strong {
   color: #172844;
-  font-size: 15px;
+  font-size: var(--text-lead);
 }
 
 .teacher-identity-summary small {
   margin-top: 4px;
   color: #78869a;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .teacher-code-chip {
@@ -148,7 +148,7 @@
   border-radius: 999px;
   color: var(--school-secondary, #0d6b4b);
   background: color-mix(in srgb, var(--school-secondary, #63dfa8) 12%, white);
-  font-size: 11px;
+  font-size: var(--text-small);
   font-weight: 800;
 }
 
@@ -246,13 +246,13 @@
 
 .teacher-document-box strong {
   color: #172844;
-  font-size: 13px;
+  font-size: var(--text-secondary);
 }
 
 .teacher-document-box small {
   margin-top: 3px;
   color: #7c899c;
-  font-size: 10.5px;
+  font-size: var(--text-small);
 }
 
 .teacher-upload-button {
@@ -265,7 +265,7 @@
   border-radius: 11px;
   color: var(--school-primary, #223754);
   background: #fff;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 0 0 1px #e1e6ee inset;
@@ -359,7 +359,7 @@
 }
 
 .student-charter-card h1 {
-  font-size: clamp(29px, 3.2vw, 42px);
+  font-size: var(--text-page-title);
 }
 
 .student-charter-brand {

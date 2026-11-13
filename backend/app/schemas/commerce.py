@@ -20,6 +20,8 @@ class PublicSiteConfigPayload(BaseModel):
     font_heading: str = Field(default="Inter", max_length=80)
     font_body: str = Field(default="Inter", max_length=80)
     font_size_scale: int = Field(default=100, ge=85, le=125)
+    heading_size_scale: int = Field(default=100, ge=85, le=125)
+    subtitle_size_scale: int = Field(default=100, ge=85, le=125)
     hero_title: str = Field(default="", max_length=255)
     hero_subtitle: str = Field(default="", max_length=5000)
     hero_cta_label: str = Field(default="Découvrir nos formations", max_length=120)
@@ -101,6 +103,8 @@ class PublicSchoolRead(BaseModel):
     font_heading: str
     font_body: str
     font_size_scale: int
+    heading_size_scale: int = 100
+    subtitle_size_scale: int = 100
     hero_title: str
     hero_subtitle: str
     hero_cta_label: str
