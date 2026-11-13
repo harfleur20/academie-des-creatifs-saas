@@ -37,6 +37,7 @@ const SHOTS = {
   catalogue: '/landing/site-catalogue.webp',
   siteCheckout: '/landing/site-formation-mobile.webp',
   attendance: '/landing/presences-live.webp',
+  liveClass: '/landing/cours-live.webp',
   management: '/landing/pilotage-direction.webp',
 }
 
@@ -174,7 +175,21 @@ const FEATURES: Feature[] = [
       'Temps passé dans la salle et appel en un clic',
       'Présences pré-remplies au rapport de séance',
     ],
-    visual: <Browser src={SHOTS.attendance} alt="Présences d’une séance live avec le temps passé dans la salle" address="studio-kora.academiecreatif.com/app/teacher/attendance" />,
+    visual: (
+      <div className="lp-live-stage">
+        <Browser src={SHOTS.attendance} alt="Présences d’une séance live avec le temps passé dans la salle" address="studio-kora.academiecreatif.com/app/teacher/attendance" />
+        <figure className="lp-live-window">
+          <img
+            src={SHOTS.liveClass}
+            alt="Cours en direct dans la salle de l’école : les étudiants en visio et l’appel en cours"
+            width={1200}
+            height={675}
+            loading="lazy"
+            decoding="async"
+          />
+        </figure>
+      </div>
+    ),
   },
   {
     id: 'suivi',
