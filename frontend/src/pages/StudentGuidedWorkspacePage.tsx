@@ -1,18 +1,53 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { BookOpen, CalendarDays, ChevronRight, GraduationCap, MonitorPlay, Users } from 'lucide-react'
+import { BookOpen, CalendarDays, ChevronLeft, ChevronRight, GraduationCap, MonitorPlay, Users } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { ApiError, ATTENDANCE_LABELS, getSessionPlanning, getStudentWorkspace, listPublicSchoolFormations, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources, submitCourseDayFeedback,
-  type AcademicResource, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz, type StudentWorkspaceSession } from '../lib/api'
+  type AcademicResource, type CourseDay, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz, type StudentWorkspaceSession } from '../lib/api'
 import { liveClassIsOpen } from '../lib/liveWindow'
 
-type Tab = 'overview' | 'program' | 'calendar' | 'assignments' | 'quizzes' | 'resources' | 'results'
+type Tab = 'overview' | 'program' | 'calendar' | 'schedule' | 'assignments' | 'quizzes' | 'resources' | 'results'
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: 'overview', label: 'Vue d’ensemble' }, { id: 'program', label: 'Programme' },
-  { id: 'calendar', label: 'Calendrier' }, { id: 'assignments', label: 'Devoirs' },
+  { id: 'calendar', label: 'Calendrier' }, { id: 'schedule', label: 'Emploi du temps' },
+  { id: 'assignments', label: 'Devoirs' },
   { id: 'quizzes', label: 'Quiz' }, { id: 'resources', label: 'Ressources' }, { id: 'results', label: 'Notes' },
 ]
 const dateLabel = (value: string) => new Date(value).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+
+function startOfWeek(value: Date) {
+  const date = new Date(value)
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7))
+  return date
+}
+
+function addDays(value: Date, count: number) {
+  const date = new Date(value)
+  date.setDate(date.getDate() + count)
+  return date
+}
+
+function localDateKey(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function courseDayTimeRange(day: CourseDay) {
+  const start = new Date(day.scheduled_at)
+  const end = new Date(start.getTime() + day.duration_minutes * 60_000)
+  const time = (value: Date) => value.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return `${time(start)} – ${time(end)}`
+}
+
+function formatDuration(minutes: number) {
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  if (hours === 0) return `${minutes} min`
+  return `${hours}h${remainingMinutes > 0 ? `${remainingMinutes}min` : ''}`
+}
 
 export function StudentGuidedWorkspacePage() {
   const { activeOrganization } = useTenant()
@@ -31,6 +66,7 @@ export function StudentGuidedWorkspacePage() {
   const [progress, setProgress] = useState<StudentProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
   const [feedbackDayId, setFeedbackDayId] = useState<number | null>(null)
   const [feedbackRating, setFeedbackRating] = useState(5)
   const [feedbackDelivery, setFeedbackDelivery] = useState<'held' | 'partial' | 'not_held'>('held')
@@ -94,6 +130,16 @@ export function StudentGuidedWorkspacePage() {
   }, [enrollmentId, activeOrganization?.id])
 
   const days = useMemo(() => (planning?.course_days ?? []).filter((day) => day.status !== 'cancelled'), [planning])
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(weekStart, index)
+    const key = localDateKey(date)
+    const entries = days
+      .filter((day) => localDateKey(new Date(day.scheduled_at)) === key)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+    return { date, entries }
+  }), [days, weekStart])
+  const weekEnd = addDays(weekStart, 6)
+  const weekRange = `Semaine du ${weekStart.toLocaleDateString('fr-FR', { dateStyle: 'medium' })} au ${weekEnd.toLocaleDateString('fr-FR', { dateStyle: 'medium' })}`
   const nextDay = days.find((day) => new Date(day.scheduled_at).getTime() >= Date.now())
   const pendingAssignments = assignments.filter((item) => item.student_status === 'pending' || item.student_status === 'late')
   const activeQuizzes = quizzes.filter((item) => !item.is_locked && !item.passed && item.can_attempt)
@@ -141,7 +187,7 @@ export function StudentGuidedWorkspacePage() {
               : day.delivery_status === 'interrupted' ? 'Séance interrompue'
                 : `${day.delivery_status === 'partial' ? 'Séance partielle · ' : ''}${ATTENDANCE_LABELS[presence?.status ?? 'absent']}`
           return <div className="guided-list-row" key={day.id}>
-            <strong>{day.title}</strong><span>{dateLabel(day.scheduled_at)} · {day.duration_minutes} min</span><small>{presenceLabel}</small>
+            <strong>{day.title}</strong><span>{dateLabel(day.scheduled_at)} · {formatDuration(day.duration_minutes)}</span><small>{presenceLabel}</small>
             {session.format_type === 'live' && day.started_at && !day.report_submitted_at && <small>Cours démarré</small>}
             {session.format_type === 'live' && !day.report_submitted_at && (!planning?.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link to={`/app/student/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>)}
             {day.feedback_count > 0 && <small>{day.feedback_count} avis · note moyenne {day.average_rating}/5</small>}
@@ -160,6 +206,49 @@ export function StudentGuidedWorkspacePage() {
             </form>}
           </div>
         })}{days.length === 0 && <p>Le calendrier est en préparation.</p>}</>}
+        {tab === 'schedule' && <>
+          <h2>Emploi du temps</h2>
+          <div className="guided-week-toolbar">
+            <div className="guided-week-navigation">
+              <button type="button" className="guided-week-button" aria-label="Semaine précédente" onClick={() => setWeekStart((current) => addDays(current, -7))}>
+                <ChevronLeft size={17} aria-hidden="true" />
+              </button>
+              <strong>{weekRange}</strong>
+              <button type="button" className="guided-week-button" aria-label="Semaine suivante" onClick={() => setWeekStart((current) => addDays(current, 7))}>
+                <ChevronRight size={17} aria-hidden="true" />
+              </button>
+              <button type="button" className="guided-week-button guided-week-today" onClick={() => setWeekStart(startOfWeek(new Date()))}>Cette semaine</button>
+            </div>
+          </div>
+          <div className="guided-week-scroll" role="region" aria-label="Programme de la semaine sur sept jours" tabIndex={0}>
+            <div className="guided-week-grid">
+              {weekDays.map(({ date, entries }) => {
+                const weekday = date.toLocaleDateString('fr-FR', { weekday: 'long' })
+                const isToday = localDateKey(date) === localDateKey(new Date())
+                return (
+                  <article className={`guided-week-day${isToday ? ' is-today' : ''}`} key={localDateKey(date)}>
+                    <header className="guided-week-day__heading">
+                      <span>{weekday.charAt(0).toLocaleUpperCase('fr-FR')}{weekday.slice(1)}</span>
+                      <strong>{date.getDate()}</strong>
+                    </header>
+                    <div className="guided-week-day__events">
+                      {entries.map((day) => (
+                        <article className="guided-week-event" key={day.id}>
+                          <time dateTime={day.scheduled_at}>{courseDayTimeRange(day)}</time>
+                          <strong>{day.title}</strong>
+                          <small>{formatDuration(day.duration_minutes)} · {session.format_type === 'presentiel' ? 'Présentiel' : session.format_type === 'live' ? 'En direct' : 'En ligne'}</small>
+                          <small>Prof. {day.teacher_name || 'À confirmer'}</small>
+                          {session.format_type === 'live' && planning?.live_enabled && liveClassIsOpen(day) && <Link to={`/app/student/live/${day.id}`}>Rejoindre</Link>}
+                        </article>
+                      ))}
+                      {entries.length === 0 && <p className="guided-week-empty">Aucun cours</p>}
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        </>}
         {tab === 'assignments' && <><h2>Devoirs</h2>{assignments.map((item) => <div className="guided-list-row" key={item.id}><strong>{item.title}</strong><span>À rendre le {dateLabel(item.due_date)}</span><small>{item.is_locked ? 'À venir' : item.student_status === 'submitted' ? 'Rendu' : item.student_status === 'reviewed' ? 'Corrigé' : item.student_status === 'late' ? 'En retard' : 'À rendre'}</small><Link to={`/app/student/assignments#assignment-${item.id}`}>Ouvrir</Link></div>)}{assignments.length === 0 && <p>Aucun devoir pour cette session.</p>}</>}
         {tab === 'quizzes' && <><h2>Quiz</h2>{quizzes.map((item) => <div className="guided-list-row" key={item.id}><strong>{item.title}</strong><small>{item.passed ? 'Réussi' : item.is_locked ? 'À venir' : item.can_attempt ? 'Disponible' : 'Réessai indisponible'}</small><Link to={`/app/student/quizzes#quiz-${item.id}`}>Ouvrir</Link></div>)}{quizzes.length === 0 && <p>Aucun quiz pour cette session.</p>}</>}
         {tab === 'resources' && <><h2>Ressources</h2>{resources.map((item) => <div className="guided-list-row" key={item.id}><strong>{item.title}</strong><span>{item.resource_type}</span><Link to="/app/student/resources">Consulter</Link></div>)}{resources.length === 0 && <p>Aucune ressource publiée.</p>}</>}
