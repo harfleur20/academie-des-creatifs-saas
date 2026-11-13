@@ -80,14 +80,6 @@
   line-height: 1.2;
 }
 
-.tenant-role-shell--teacher .tenant-role-powered > small {
-  font-size: var(--text-small);
-}
-
-.tenant-role-shell--teacher .tenant-role-powered > span {
-  font-size: var(--text-small);
-}
-
 @media (max-width: 900px) {
   .tenant-role-shell--teacher .tenant-role-nav {
     padding-top: 15px;
