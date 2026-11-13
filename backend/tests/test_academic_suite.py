@@ -1675,3 +1675,51 @@ def test_the_formations_list_shows_the_session_running_or_coming_next() -> None:
     db.commit()
     upcoming = list_formations(db, tenant)[0].next_session
     assert (upcoming.label, upcoming.enrolled_count, upcoming.seat_capacity) == ("Cohorte de printemps", 1, 15)
+
+
+def test_a_new_session_takes_back_the_content_of_an_earlier_one() -> None:
+    from app.models.entities import AssignmentRecord, ChapterRecord, CourseRecord, LessonRecord, QuizQuestionRecord, QuizRecord, SessionTeacherRecord
+    from app.schemas.formations import SessionCreate
+    from app.services.formations import create_session
+
+    db = build_db()
+    org, teacher, student, _, session, _, _, lesson, _ = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    quiz = QuizRecord(organization_id=org.id, session_id=session.id, teacher_id=teacher.id, title="Quiz couleurs", status="published",
+                      scheduled_at=datetime(2025, 1, 15, 9, tzinfo=UTC), opened_at=datetime(2025, 1, 15, 9, tzinfo=UTC))
+    quiz.questions = [QuizQuestionRecord(organization_id=org.id, order_index=0, text="Couleur primaire ?", options=["Rouge", "Vert"], correct_index=0)]
+    homework = AssignmentRecord(organization_id=org.id, session_id=session.id, teacher_id=teacher.id, title="Affiche",
+                                due_date=datetime(2025, 1, 20, 18, tzinfo=UTC), publication_status="published")
+    db.add_all([quiz, homework])
+    db.flush()
+    chapter = db.get(LessonRecord, lesson.id).chapter
+    db.add(LessonRecord(organization_id=org.id, chapter_id=chapter.id, title="Quiz du module", order_index=5, lesson_type="quiz", quiz_id=quiz.id))
+    manager = UserRecord(email="direction@test.dev", full_name="Direction", status="active")
+    db.add(manager)
+    db.flush()
+    member = OrganizationMemberRecord(organization_id=org.id, user_id=manager.id, role="manager", status="active")
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"manager"})
+    db.commit()
+
+    # The new session starts 365 days after the old one (2025-01-01).
+    detail = create_session(db, ctx(db, org, manager), session.formation_id, SessionCreate(
+        label="Cohorte 2026", start_date=date(2026, 1, 1), end_date=date(2026, 2, 1), seat_capacity=10,
+        copy_content_from_session_id=session.id,
+    ))
+    new = next(item for item in detail.sessions if item.label == "Cohorte 2026")
+    old_lessons = db.scalars(select(LessonRecord).join(ChapterRecord).join(CourseRecord).where(CourseRecord.session_id == session.id)).all()
+    new_lessons = db.scalars(select(LessonRecord).join(ChapterRecord).join(CourseRecord).where(CourseRecord.session_id == new.id)).all()
+    assert sorted(item.title for item in new_lessons) == sorted(item.title for item in old_lessons)
+    new_quiz = db.scalar(select(QuizRecord).where(QuizRecord.session_id == new.id))
+    assert (new_quiz.title, new_quiz.status, new_quiz.opened_at, len(new_quiz.questions)) == ("Quiz couleurs", "draft", None, 1)
+    assert new_quiz.scheduled_at.replace(tzinfo=UTC) == datetime(2026, 1, 15, 9, tzinfo=UTC)
+    # The copied quiz lesson points to the copied quiz, not to the old session's.
+    assert next(item for item in new_lessons if item.lesson_type == "quiz").quiz_id == new_quiz.id
+    new_homework = db.scalar(select(AssignmentRecord).where(AssignmentRecord.session_id == new.id))
+    assert (new_homework.publication_status, new_homework.due_date.replace(tzinfo=UTC)) == ("draft", datetime(2026, 1, 20, 18, tzinfo=UTC))
+    teachers = db.scalars(select(SessionTeacherRecord).where(SessionTeacherRecord.session_id == new.id)).all()
+    assert [(item.teacher_id, item.role) for item in teachers] == [(teacher.id, "principal")]
+    assert new.enrollments == []
+    assert db.scalar(select(CourseRecord).where(CourseRecord.session_id == new.id)).teacher_id == teacher.id

@@ -702,6 +702,11 @@ def create_session(
         if record.price_override_cents == 0:
             db.rollback()
             raise HTTPException(status_code=422, detail="Le prix de la session doit être supérieur à zéro.")
+    if payload.copy_content_from_session_id:
+        from app.services.session_content_copy import copy_session_content, copy_source_for
+
+        source = copy_source_for(db, tenant, formation.id, payload.copy_content_from_session_id)
+        copy_session_content(db, tenant, source, record, with_teachers=payload.copy_teachers)
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 

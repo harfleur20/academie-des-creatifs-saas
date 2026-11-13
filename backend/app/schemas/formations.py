@@ -117,6 +117,9 @@ class SessionCreate(BaseModel):
     enrollment_close_at: datetime | None = None
     price_override_cents: int | None = Field(default=None, ge=0, le=2_000_000_000)
     status: str = Field(default="planned", pattern=SESSION_STATUSES)
+    # Take back the courses, activities (as drafts) and, if asked, the teachers of an earlier session.
+    copy_content_from_session_id: int | None = Field(default=None, ge=1)
+    copy_teachers: bool = True
 
     @model_validator(mode="after")
     def validate_dates(self):

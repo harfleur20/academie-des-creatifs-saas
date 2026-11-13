@@ -1307,6 +1307,9 @@ export const createFormationSession = (
     enrollment_close_at?: string | null
     price_override_cents?: number | null
     status?: 'planned' | 'open'
+    /** Take back the courses, activities (as drafts) and, if asked, the teachers of an earlier session. */
+    copy_content_from_session_id?: number | null
+    copy_teachers?: boolean
   },
 ) =>
   request<FormationDetail>(`/formations/${formationId}/sessions`, {
