@@ -97,19 +97,19 @@
 .teacher-profile-modal-header h2 {
   margin: 4px 0 2px;
   color: #122541;
-  font-size: 1.45rem;
+  font-size: var(--text-section-title);
 }
 
 .teacher-profile-modal-header p {
   margin: 0;
   color: #76859a;
-  font-size: .9rem;
+  font-size: var(--text-body);
 }
 
 .teacher-profile-completion {
   padding: 7px 11px;
   border-radius: 999px;
-  font-size: .74rem;
+  font-size: var(--text-small);
   font-weight: 850;
   white-space: nowrap;
 }
@@ -170,7 +170,7 @@
 .teacher-profile-contact-row small,
 .teacher-profile-code small {
   color: #8693a6;
-  font-size: .69rem;
+  font-size: var(--text-small);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -178,7 +178,7 @@
 
 .teacher-profile-panel-title strong {
   color: #172d4b;
-  font-size: .98rem;
+  font-size: var(--text-lead);
 }
 
 .teacher-profile-facts {
@@ -199,7 +199,7 @@
 .teacher-profile-facts strong,
 .teacher-profile-code strong {
   color: #263b59;
-  font-size: .84rem;
+  font-size: var(--text-secondary);
   line-height: 1.45;
 }
 
@@ -213,7 +213,7 @@
 .teacher-profile-bio p {
   margin: 7px 0 0;
   color: #526278;
-  font-size: .84rem;
+  font-size: var(--text-secondary);
   line-height: 1.65;
 }
 
@@ -242,7 +242,7 @@
 
 .teacher-profile-contact-row strong {
   color: #213a5c;
-  font-size: .88rem;
+  font-size: var(--text-body);
 }
 
 .teacher-profile-document-buttons,
@@ -268,7 +268,7 @@
   align-items: center;
   gap: 6px;
   color: #344d6e;
-  font-size: .8rem;
+  font-size: var(--text-secondary);
   font-weight: 750;
 }
 

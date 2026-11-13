@@ -56,7 +56,7 @@
 
 .owner-dashboard-subscription-plan {
   color: #718096;
-  font-size: 10px;
+  font-size: var(--text-small);
   font-weight: 800;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -64,14 +64,14 @@
 
 .owner-dashboard-subscription-copy strong {
   color: #10213d;
-  font-size: 13px;
+  font-size: var(--text-secondary);
   line-height: 1.25;
 }
 
 .owner-dashboard-subscription-copy small {
   overflow: hidden;
   color: #7b899e;
-  font-size: 10.5px;
+  font-size: var(--text-small);
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -87,7 +87,7 @@
   border-radius: 10px;
   background: #f3f6fa;
   color: #263957;
-  font-size: 10.5px;
+  font-size: var(--text-small);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -169,7 +169,7 @@
 .owner-dashboard-welcome h2 {
   margin: 10px 0 10px;
   color: #10213d;
-  font-size: clamp(30px, 3vw, 44px);
+  font-size: var(--text-page-title);
   line-height: 1.05;
   letter-spacing: -.035em;
 }
@@ -178,7 +178,7 @@
   max-width: 720px;
   margin: 0;
   color: #63718a;
-  font-size: 14px;
+  font-size: var(--text-body);
   line-height: 1.65;
 }
 
@@ -186,7 +186,7 @@
   display: inline-flex;
   margin-top: 14px;
   color: #10213d;
-  font-size: 13px;
+  font-size: var(--text-secondary);
 }
 
 .owner-dashboard-mini-stats {
@@ -207,13 +207,13 @@
 
 .owner-dashboard-mini-stats small {
   color: #7a889f;
-  font-size: 11px;
+  font-size: var(--text-small);
   font-weight: 600;
 }
 
 .owner-dashboard-mini-stats strong {
   color: #10213d;
-  font-size: 24px;
+  font-size: var(--text-section-title);
   line-height: 1;
 }
 
@@ -242,7 +242,7 @@
   border-radius: 12px;
   background: #f6f8fb;
   color: #1f3150;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 700;
   text-decoration: none;
   transition: transform 150ms ease, background 150ms ease;
@@ -275,13 +275,13 @@
 
 .owner-dashboard-card-title > span {
   color: #10213d;
-  font-size: 15px;
+  font-size: var(--text-lead);
   font-weight: 800;
 }
 
 .owner-dashboard-card-title > small {
   color: #8190a5;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .owner-dashboard-priority-card > a {
@@ -313,12 +313,12 @@
 
 .owner-dashboard-priority-card > a strong {
   color: #172844;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .owner-dashboard-priority-card > a small {
   color: #8190a5;
-  font-size: 10.5px;
+  font-size: var(--text-small);
 }
 
 .owner-dashboard-priority-card > a.is-alert .owner-dashboard-priority-icon {
@@ -337,14 +337,14 @@
 .owner-dashboard-next-card h3 {
   margin: 8px 0 7px;
   color: #10213d;
-  font-size: 17px;
+  font-size: var(--text-card-title);
   line-height: 1.25;
 }
 
 .owner-dashboard-next-card p {
   margin: 0;
   color: #6e7d93;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   line-height: 1.55;
 }
 
@@ -354,7 +354,7 @@
   gap: 6px;
   margin-top: 14px;
   color: var(--blue);
-  font-size: 11.5px;
+  font-size: var(--text-small);
   font-weight: 800;
   text-decoration: none;
 }
@@ -376,7 +376,7 @@
 
 .owner-dashboard-next-card > small {
   color: #8190a5;
-  font-size: 10px;
+  font-size: var(--text-small);
 }
 
 .owner-dashboard-stats-heading {
@@ -481,12 +481,12 @@
 }
 
 .app-stat-grid small {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .app-stat-grid p {
   max-width: 76%;
-  font-size: 13.5px;
+  font-size: var(--text-secondary);
 }
 
 /* Public contact cards: white, borderless and visually consistent with the site. */
@@ -548,13 +548,13 @@
 
 .public-school-shell .school-contact-grid strong {
   margin-top: 28px;
-  font-size: calc(15px * var(--school-font-scale, 1));
+  font-size: var(--site-text);
   line-height: 1.3;
 }
 
 .public-school-shell .school-contact-grid span {
   color: #4f5f73;
-  font-size: calc(13px * var(--school-font-scale, 1));
+  font-size: var(--site-text-2);
   font-weight: 600;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -607,7 +607,7 @@
   }
 
   .owner-dashboard-welcome h2 {
-    font-size: 31px;
+    font-size: var(--text-page-title);
   }
 
   .owner-dashboard-mini-stats,

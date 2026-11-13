@@ -1,0 +1,19 @@
+/* A person's photo or initials (components/PersonAvatar.tsx). */
+.person-avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e9edf5;
+}
+.person-avatar--initials {
+  background: linear-gradient(135deg, #222a68, #0b8a83);
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.person-name { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+
+/* The attendance rows (pages/TeacherAttendancePage.tsx). */
+.attendance-row__person { display: flex; align-items: center; gap: 12px; min-width: 0; }

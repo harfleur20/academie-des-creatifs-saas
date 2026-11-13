@@ -180,7 +180,8 @@ export function StudentDashboardPage() {
     ? Math.round((attendancePresent / attendanceTotal) * 100)
     : null
   const focusGrades = grades.filter((item) => item.session_id === focusSession?.session_id)
-  const validGrades = focusGrades.filter((item) => item.max_score > 0)
+  // The official average (transcript, badge, follow-up): automatic quiz grades are left out.
+  const validGrades = focusGrades.filter((item) => item.max_score > 0 && !(item.source_type === 'quiz' && item.label.startsWith('Quiz')))
   const averageOnTwenty = validGrades.length
     ? validGrades.reduce((sum, item) => sum + (item.score / item.max_score) * 20, 0) / validGrades.length
     : null
@@ -374,7 +375,9 @@ export function StudentDashboardPage() {
                 <div className="role-action-stack">
                   {pendingAssignments > 0 && (
                     <Link to="/app/student/assignments">
-                      <ClipboardCheck size={16} />
+                      <span className="role-action-icon role-action-icon--assignment" aria-hidden="true">
+                        <ClipboardCheck size={16} />
+                      </span>
                       <span>
                         <strong>{pendingAssignments} devoir(s) à rendre</strong>
                         <small>Consultez les dates limites.</small>

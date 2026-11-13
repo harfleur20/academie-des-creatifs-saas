@@ -196,6 +196,8 @@ export function SchoolPublicLayout() {
     '--school-heading-font': schoolFontFamily(school.font_heading),
     '--school-body-font': schoolFontFamily(school.font_body),
     '--school-font-scale': String(school.font_size_scale / 100),
+    '--school-heading-scale': String((school.heading_size_scale ?? 100) / 100),
+    '--school-subtitle-scale': String((school.subtitle_size_scale ?? 100) / 100),
   } as CSSProperties
   const validCartItem = cartItem?.organization_id === school.organization_id ? cartItem : null
   const schoolMembership = organizations.find((organization) => organization.id === school.organization_id)
@@ -218,6 +220,7 @@ export function SchoolPublicLayout() {
 
   return (
     <div className="public-school-shell" style={style}>
+      {school.is_demo && <div className="public-school-demo-banner">Site de démonstration : naviguez librement, les inscriptions et les paiements sont désactivés.</div>}
       {school.announcement_enabled && <SchoolAnnouncementBanner text={school.announcement_text} backgroundColor={school.announcement_background_color} textColor={school.announcement_text_color} />}
       <header className="public-school-header">
         <Link className="public-school-brand" to={'/school/' + schoolSlug}>
@@ -299,7 +302,7 @@ export function SchoolPublicLayout() {
         </div>
         <div className="public-school-footer-bottom">
           <span>© {new Date().getFullYear()} {school.site_name || school.name}</span>
-          <span className="public-school-powered">Powered by <BrandLogo logoUrl="/logo_ico_hd.png" alt="Académie des Créatifs"/> <strong>Académie des Créatifs</strong></span>
+          {!school.white_label && <span className="public-school-powered">Powered by <BrandLogo logoUrl="/logo_ico_hd.png" alt="Académie des Créatifs"/> <strong>Académie des Créatifs</strong></span>}
         </div>
       </footer>
     </div>

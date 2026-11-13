@@ -5,15 +5,18 @@ import {
   Circle,
   GraduationCap,
   Settings2,
+  Sparkles,
   Users,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import {
   ApiError,
   createFormation,
+  getCurrentSubscription,
   getOnboardingStatus,
   type OnboardingStatus,
+  type Subscription,
 } from '../lib/api'
 
 function slugify(value: string) {
@@ -33,6 +36,16 @@ export function OnboardingPage() {
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [searchParams] = useSearchParams()
+  const newSchool = searchParams.get('essai') === '1'
+  const [trial, setTrial] = useState<Subscription | null>(null)
+
+  useEffect(() => {
+    if (!newSchool || !activeOrganization) return
+    getCurrentSubscription()
+      .then((item) => setTrial(item.status === 'trialing' ? item : null))
+      .catch(() => setTrial(null))
+  }, [newSchool, activeOrganization?.id])
 
   async function refresh() {
     if (!activeOrganization) return
@@ -105,6 +118,21 @@ export function OnboardingPage() {
       </header>
 
       {error && <div className="form-error">{error}</div>}
+
+      {trial && trial.trial_ends_at && (
+        <div className="billing-alert neutral onboarding-trial">
+          <Sparkles size={19} />
+          <div>
+            <strong>Votre essai {trial.plan.name} commence</strong>
+            <span>
+              Tout le forfait {trial.plan.name} est ouvert, cours en live compris, jusqu’au{' '}
+              {new Date(trial.trial_ends_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}, sans moyen de paiement.
+              Ensuite, sans forfait payé, votre école continue gratuitement en Découverte.
+            </span>
+          </div>
+          <Link className="secondary-button" to="/app/manage/billing">Voir les forfaits</Link>
+        </div>
+      )}
 
       {status && (
         <>

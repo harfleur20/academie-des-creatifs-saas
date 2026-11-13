@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { ArrowDown, ArrowUp, BookOpen, FileText, Layers3, Plus, Save, Trash2, X } from 'lucide-react'
 import '../public-program-editor.css'
 
@@ -19,7 +19,7 @@ type ProgramModule = {
   chapters: ProgramChapter[]
 }
 
-type ProgramDocument = {
+export type ProgramDocument = {
   version: 1
   intro: string
   modules: ProgramModule[]
@@ -49,7 +49,7 @@ function emptyModule(index: number): ProgramModule {
   }
 }
 
-function parseProgram(value: string): ProgramDocument {
+export function parseProgram(value: string): ProgramDocument {
   const raw = value.trim()
   if (!raw) return { version: 1, intro: '', modules: [] }
 
@@ -101,7 +101,7 @@ function parseProgram(value: string): ProgramDocument {
   return { version: 1, intro: raw, modules: [] }
 }
 
-function serializeProgram(document: ProgramDocument) {
+export function serializeProgram(document: ProgramDocument) {
   const modules = document.modules
     .map((module) => ({
       title: module.title.trim(),
@@ -191,13 +191,6 @@ export function PublicProgramEditorModal({
 
   if (!open) return null
 
-  const updateModule = (moduleId: string, updater: (module: ProgramModule) => ProgramModule) => {
-    setDocument((current) => ({
-      ...current,
-      modules: current.modules.map((module) => module.id === moduleId ? updater(module) : module),
-    }))
-  }
-
   async function save() {
     const serialized = serializeProgram(document)
     if (serialized.length > 30_000) {
@@ -239,135 +232,7 @@ export function PublicProgramEditorModal({
         </div>
 
         <div className="public-program-modal-body">
-          <label className="public-program-intro-field">
-            <span>Introduction du programme <small>(facultatif)</small></span>
-            <textarea
-              rows={3}
-              value={document.intro}
-              onChange={(event) => setDocument((current) => ({ ...current, intro: event.target.value }))}
-              placeholder="Ex. Un parcours progressif de la découverte des fondamentaux jusqu’au projet final."
-              maxLength={3000}
-            />
-            <small>Ce texte apparaît juste avant l’accordéon sur la fiche publique.</small>
-          </label>
-
-          <div className="public-program-builder">
-            {document.modules.map((module, moduleIndex) => (
-              <article className="public-program-module" key={module.id}>
-                <header className="public-program-module-header">
-                  <span className="public-program-index">Module {moduleIndex + 1}</span>
-                  <input
-                    value={module.title}
-                    onChange={(event) => updateModule(module.id, (current) => ({ ...current, title: event.target.value }))}
-                    placeholder="Titre du module"
-                    maxLength={180}
-                    aria-label={`Titre du module ${moduleIndex + 1}`}
-                  />
-                  <div className="public-program-row-actions">
-                    <button type="button" title="Monter" disabled={moduleIndex === 0} onClick={() => setDocument((current) => ({ ...current, modules: moveItem(current.modules, moduleIndex, -1) }))}><ArrowUp size={15} /></button>
-                    <button type="button" title="Descendre" disabled={moduleIndex === document.modules.length - 1} onClick={() => setDocument((current) => ({ ...current, modules: moveItem(current.modules, moduleIndex, 1) }))}><ArrowDown size={15} /></button>
-                    <button type="button" className="is-danger" title="Supprimer le module" onClick={() => setDocument((current) => ({ ...current, modules: current.modules.filter((item) => item.id !== module.id) }))}><Trash2 size={15} /></button>
-                  </div>
-                </header>
-
-                <div className="public-program-chapters">
-                  {module.chapters.map((chapter, chapterIndex) => (
-                    <section className="public-program-chapter" key={chapter.id}>
-                      <div className="public-program-chapter-header">
-                        <span>Chapitre {chapterIndex + 1}</span>
-                        <input
-                          value={chapter.title}
-                          onChange={(event) => updateModule(module.id, (current) => ({
-                            ...current,
-                            chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, title: event.target.value } : item),
-                          }))}
-                          placeholder="Titre du chapitre"
-                          maxLength={180}
-                          aria-label={`Titre du chapitre ${chapterIndex + 1}`}
-                        />
-                        <div className="public-program-row-actions">
-                          <button type="button" title="Monter" disabled={chapterIndex === 0} onClick={() => updateModule(module.id, (current) => ({ ...current, chapters: moveItem(current.chapters, chapterIndex, -1) }))}><ArrowUp size={14} /></button>
-                          <button type="button" title="Descendre" disabled={chapterIndex === module.chapters.length - 1} onClick={() => updateModule(module.id, (current) => ({ ...current, chapters: moveItem(current.chapters, chapterIndex, 1) }))}><ArrowDown size={14} /></button>
-                          <button type="button" className="is-danger" title="Supprimer le chapitre" onClick={() => updateModule(module.id, (current) => ({ ...current, chapters: current.chapters.filter((item) => item.id !== chapter.id) }))}><Trash2 size={14} /></button>
-                        </div>
-                      </div>
-
-                      <div className="public-program-lessons">
-                        {chapter.lessons.map((lesson, lessonIndex) => (
-                          <div className="public-program-lesson" key={lesson.id}>
-                            <span>Leçon {lessonIndex + 1}</span>
-                            <input
-                              value={lesson.title}
-                              onChange={(event) => updateModule(module.id, (current) => ({
-                                ...current,
-                                chapters: current.chapters.map((item) => item.id === chapter.id
-                                  ? {
-                                      ...item,
-                                      lessons: item.lessons.map((currentLesson) => currentLesson.id === lesson.id
-                                        ? { ...currentLesson, title: event.target.value }
-                                        : currentLesson),
-                                    }
-                                  : item),
-                              }))}
-                              placeholder="Titre de la leçon"
-                              maxLength={180}
-                              aria-label={`Titre de la leçon ${lessonIndex + 1}`}
-                            />
-                            <div className="public-program-row-actions">
-                              <button type="button" title="Monter" disabled={lessonIndex === 0} onClick={() => updateModule(module.id, (current) => ({
-                                ...current,
-                                chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, lessons: moveItem(item.lessons, lessonIndex, -1) } : item),
-                              }))}><ArrowUp size={13} /></button>
-                              <button type="button" title="Descendre" disabled={lessonIndex === chapter.lessons.length - 1} onClick={() => updateModule(module.id, (current) => ({
-                                ...current,
-                                chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, lessons: moveItem(item.lessons, lessonIndex, 1) } : item),
-                              }))}><ArrowDown size={13} /></button>
-                              <button type="button" className="is-danger" title="Supprimer la leçon" onClick={() => updateModule(module.id, (current) => ({
-                                ...current,
-                                chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, lessons: item.lessons.filter((currentLesson) => currentLesson.id !== lesson.id) } : item),
-                              }))}><Trash2 size={13} /></button>
-                            </div>
-                          </div>
-                        ))}
-
-                        <button type="button" className="public-program-add-inline" onClick={() => updateModule(module.id, (current) => ({
-                          ...current,
-                          chapters: current.chapters.map((item) => item.id === chapter.id
-                            ? { ...item, lessons: [...item.lessons, { id: uid(), title: `Leçon ${item.lessons.length + 1}` }] }
-                            : item),
-                        }))}>
-                          <Plus size={14} /> Ajouter une leçon
-                        </button>
-                      </div>
-                    </section>
-                  ))}
-
-                  <button type="button" className="public-program-add-chapter" onClick={() => updateModule(module.id, (current) => ({
-                    ...current,
-                    chapters: [...current.chapters, {
-                      id: uid(),
-                      title: `Chapitre ${current.chapters.length + 1}`,
-                      lessons: [],
-                    }],
-                  }))}>
-                    <Plus size={15} /> Ajouter un chapitre
-                  </button>
-                </div>
-              </article>
-            ))}
-
-            <button type="button" className="public-program-add-module" onClick={() => setDocument((current) => ({ ...current, modules: [...current.modules, emptyModule(current.modules.length)] }))}>
-              <Plus size={16} /> Ajouter un module
-            </button>
-          </div>
-
-          {document.modules.length === 0 && (
-            <div className="public-program-empty">
-              <Layers3 size={26} />
-              <strong>Aucun module public</strong>
-              <p>Ajoutez votre premier module pour construire l’accordéon présenté aux futurs apprenants.</p>
-            </div>
-          )}
+          <PublicProgramBuilder document={document} setDocument={setDocument} />
 
           {error && <div className="form-error">{error}</div>}
         </div>
@@ -380,5 +245,156 @@ export function PublicProgramEditorModal({
         </footer>
       </section>
     </div>
+  )
+}
+
+
+/** The intro and the Module > Chapitre > Leçon accordion of a formation's public page, to edit. */
+export function PublicProgramBuilder({
+  document,
+  setDocument,
+}: {
+  document: ProgramDocument
+  setDocument: Dispatch<SetStateAction<ProgramDocument>>
+}) {
+  const updateModule = (moduleId: string, updater: (module: ProgramModule) => ProgramModule) => {
+    setDocument((current) => ({
+      ...current,
+      modules: current.modules.map((module) => module.id === moduleId ? updater(module) : module),
+    }))
+  }
+
+  return (
+    <>
+    <label className="public-program-intro-field">
+      <span>Introduction du programme <small>(facultatif)</small></span>
+      <textarea
+        rows={3}
+        value={document.intro}
+        onChange={(event) => setDocument((current) => ({ ...current, intro: event.target.value }))}
+        placeholder="Ex. Un parcours progressif de la découverte des fondamentaux jusqu’au projet final."
+        maxLength={3000}
+      />
+      <small>Ce texte apparaît juste avant l’accordéon sur la fiche publique.</small>
+    </label>
+
+    <div className="public-program-builder">
+      {document.modules.map((module, moduleIndex) => (
+        <article className="public-program-module" key={module.id}>
+          <header className="public-program-module-header">
+            <span className="public-program-index">Module {moduleIndex + 1}</span>
+            <input
+              value={module.title}
+              onChange={(event) => updateModule(module.id, (current) => ({ ...current, title: event.target.value }))}
+              placeholder="Titre du module"
+              maxLength={180}
+              aria-label={`Titre du module ${moduleIndex + 1}`}
+            />
+            <div className="public-program-row-actions">
+              <button type="button" title="Monter" disabled={moduleIndex === 0} onClick={() => setDocument((current) => ({ ...current, modules: moveItem(current.modules, moduleIndex, -1) }))}><ArrowUp size={15} /></button>
+              <button type="button" title="Descendre" disabled={moduleIndex === document.modules.length - 1} onClick={() => setDocument((current) => ({ ...current, modules: moveItem(current.modules, moduleIndex, 1) }))}><ArrowDown size={15} /></button>
+              <button type="button" className="is-danger" title="Supprimer le module" onClick={() => setDocument((current) => ({ ...current, modules: current.modules.filter((item) => item.id !== module.id) }))}><Trash2 size={15} /></button>
+            </div>
+          </header>
+
+          <div className="public-program-chapters">
+            {module.chapters.map((chapter, chapterIndex) => (
+              <section className="public-program-chapter" key={chapter.id}>
+                <div className="public-program-chapter-header">
+                  <span>Chapitre {chapterIndex + 1}</span>
+                  <input
+                    value={chapter.title}
+                    onChange={(event) => updateModule(module.id, (current) => ({
+                      ...current,
+                      chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, title: event.target.value } : item),
+                    }))}
+                    placeholder="Titre du chapitre"
+                    maxLength={180}
+                    aria-label={`Titre du chapitre ${chapterIndex + 1}`}
+                  />
+                  <div className="public-program-row-actions">
+                    <button type="button" title="Monter" disabled={chapterIndex === 0} onClick={() => updateModule(module.id, (current) => ({ ...current, chapters: moveItem(current.chapters, chapterIndex, -1) }))}><ArrowUp size={14} /></button>
+                    <button type="button" title="Descendre" disabled={chapterIndex === module.chapters.length - 1} onClick={() => updateModule(module.id, (current) => ({ ...current, chapters: moveItem(current.chapters, chapterIndex, 1) }))}><ArrowDown size={14} /></button>
+                    <button type="button" className="is-danger" title="Supprimer le chapitre" onClick={() => updateModule(module.id, (current) => ({ ...current, chapters: current.chapters.filter((item) => item.id !== chapter.id) }))}><Trash2 size={14} /></button>
+                  </div>
+                </div>
+
+                <div className="public-program-lessons">
+                  {chapter.lessons.map((lesson, lessonIndex) => (
+                    <div className="public-program-lesson" key={lesson.id}>
+                      <span>Leçon {lessonIndex + 1}</span>
+                      <input
+                        value={lesson.title}
+                        onChange={(event) => updateModule(module.id, (current) => ({
+                          ...current,
+                          chapters: current.chapters.map((item) => item.id === chapter.id
+                            ? {
+                                ...item,
+                                lessons: item.lessons.map((currentLesson) => currentLesson.id === lesson.id
+                                  ? { ...currentLesson, title: event.target.value }
+                                  : currentLesson),
+                              }
+                            : item),
+                        }))}
+                        placeholder="Titre de la leçon"
+                        maxLength={180}
+                        aria-label={`Titre de la leçon ${lessonIndex + 1}`}
+                      />
+                      <div className="public-program-row-actions">
+                        <button type="button" title="Monter" disabled={lessonIndex === 0} onClick={() => updateModule(module.id, (current) => ({
+                          ...current,
+                          chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, lessons: moveItem(item.lessons, lessonIndex, -1) } : item),
+                        }))}><ArrowUp size={13} /></button>
+                        <button type="button" title="Descendre" disabled={lessonIndex === chapter.lessons.length - 1} onClick={() => updateModule(module.id, (current) => ({
+                          ...current,
+                          chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, lessons: moveItem(item.lessons, lessonIndex, 1) } : item),
+                        }))}><ArrowDown size={13} /></button>
+                        <button type="button" className="is-danger" title="Supprimer la leçon" onClick={() => updateModule(module.id, (current) => ({
+                          ...current,
+                          chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, lessons: item.lessons.filter((currentLesson) => currentLesson.id !== lesson.id) } : item),
+                        }))}><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button type="button" className="public-program-add-inline" onClick={() => updateModule(module.id, (current) => ({
+                    ...current,
+                    chapters: current.chapters.map((item) => item.id === chapter.id
+                      ? { ...item, lessons: [...item.lessons, { id: uid(), title: `Leçon ${item.lessons.length + 1}` }] }
+                      : item),
+                  }))}>
+                    <Plus size={14} /> Ajouter une leçon
+                  </button>
+                </div>
+              </section>
+            ))}
+
+            <button type="button" className="public-program-add-chapter" onClick={() => updateModule(module.id, (current) => ({
+              ...current,
+              chapters: [...current.chapters, {
+                id: uid(),
+                title: `Chapitre ${current.chapters.length + 1}`,
+                lessons: [],
+              }],
+            }))}>
+              <Plus size={15} /> Ajouter un chapitre
+            </button>
+          </div>
+        </article>
+      ))}
+
+      <button type="button" className="public-program-add-module" onClick={() => setDocument((current) => ({ ...current, modules: [...current.modules, emptyModule(current.modules.length)] }))}>
+        <Plus size={16} /> Ajouter un module
+      </button>
+    </div>
+
+    {document.modules.length === 0 && (
+      <div className="public-program-empty">
+        <Layers3 size={26} />
+        <strong>Aucun module public</strong>
+        <p>Ajoutez votre premier module pour construire l’accordéon présenté aux futurs apprenants.</p>
+      </div>
+    )}
+    </>
   )
 }

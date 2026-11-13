@@ -19,7 +19,7 @@ export function AdminLayout() {
         <div className="admin-brand">
           <BrandLogo className="app-brand-logo" />
           <div>
-            <strong>Académie SaaS</strong>
+            <strong>Académie des Créatifs</strong>
             <small>Administration plateforme</small>
           </div>
         </div>

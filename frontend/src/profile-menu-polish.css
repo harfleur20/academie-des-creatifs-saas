@@ -16,18 +16,18 @@
 }
 
 .tenant-role-profile-menu__head strong {
-  font-size: 13px;
+  font-size: var(--text-secondary);
 }
 
 .tenant-role-profile-menu__head small {
-  font-size: 10px;
+  font-size: var(--text-small);
 }
 
 .tenant-role-profile-menu > button {
   min-height: 43px;
   gap: 11px;
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 650;
 }
 
@@ -48,7 +48,7 @@
   flex: 0 0 19px;
   display: grid;
   place-items: center;
-  font-size: 20px;
+  font-size: var(--text-section-title);
   line-height: 1;
   font-weight: 500;
 }

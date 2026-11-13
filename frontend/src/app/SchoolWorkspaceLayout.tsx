@@ -20,7 +20,6 @@ import {
 } from 'lucide-react'
 import {
   NavLink,
-  Outlet,
   useLocation,
   useNavigate,
 } from 'react-router-dom'
@@ -38,6 +37,7 @@ import {
 import { useTenant } from './TenantContext'
 import { SchoolNotificationBell } from './SchoolNotificationBell'
 import { SchoolMessageBell } from './SchoolMessageBell'
+import { MenuLink, SpaceOutlet } from '../components/DemoGate'
 
 export type WorkspaceNavItem = {
   to: string
@@ -91,6 +91,7 @@ export function SchoolWorkspaceLayout({
     activeOrganization,
     accessProfile,
     selectOrganization,
+    schoolBranding,
   } = useTenant()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -276,9 +277,9 @@ export function SchoolWorkspaceLayout({
 
           <nav className="app-nav">
             {navItems.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.end}>
+              <MenuLink key={item.to} to={item.to} end={item.end}>
                 {item.icon} {item.label}
-              </NavLink>
+              </MenuLink>
             ))}
             {navGroups.map((group) => {
               const isOpen = openNavGroups.includes(group.key)
@@ -298,9 +299,9 @@ export function SchoolWorkspaceLayout({
                   {isOpen && (
                     <div className="app-nav-subnav">
                       {group.items.map((item) => (
-                        <NavLink key={item.to} to={item.to} end={item.end}>
+                        <MenuLink key={item.to} to={item.to} end={item.end}>
                           {item.icon} {item.label}
-                        </NavLink>
+                        </MenuLink>
                       ))}
                     </div>
                   )}
@@ -383,7 +384,7 @@ export function SchoolWorkspaceLayout({
               </button>
             </div>
           )}
-          <Outlet key={activeOrganization?.id ?? 'no-school'} />
+          <SpaceOutlet key={activeOrganization?.id ?? 'no-school'} />
         </div>
       </div>
     )
@@ -459,10 +460,10 @@ export function SchoolWorkspaceLayout({
 
         <nav className="tenant-role-nav">
           {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end}>
+            <MenuLink key={item.to} to={item.to} end={item.end}>
               <span>{item.icon}</span>
               {item.label}
-            </NavLink>
+            </MenuLink>
           ))}
           {navGroups.map((group) => {
             const isOpen = openNavGroups.includes(group.key)
@@ -489,20 +490,20 @@ export function SchoolWorkspaceLayout({
                   hidden={!isOpen}
                 >
                   {group.items.map((item) => (
-                    <NavLink key={item.to} to={item.to} end={item.end}>
+                    <MenuLink key={item.to} to={item.to} end={item.end}>
                       <span>{item.icon}</span>
                       {item.label}
-                    </NavLink>
+                    </MenuLink>
                   ))}
                 </div>
               </div>
             )
           })}
           {trailingNavItems.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end}>
+            <MenuLink key={item.to} to={item.to} end={item.end}>
               <span>{item.icon}</span>
               {item.label}
-            </NavLink>
+            </MenuLink>
           ))}
         </nav>
 
@@ -521,7 +522,7 @@ export function SchoolWorkspaceLayout({
             </div>
           </div>
 
-          <div className="tenant-role-powered">
+          {!schoolBranding?.white_label && <div className="tenant-role-powered">
             <small>Powered by</small>
             <span>
               <BrandLogo
@@ -531,7 +532,7 @@ export function SchoolWorkspaceLayout({
               />
               <strong>Académie des Créatifs</strong>
             </span>
-          </div>
+          </div>}
         </div>
       </aside>
 
@@ -674,7 +675,7 @@ export function SchoolWorkspaceLayout({
         )}
 
         <main className="tenant-role-content">
-          <Outlet key={activeOrganization?.id ?? 'no-school'} />
+          <SpaceOutlet key={activeOrganization?.id ?? 'no-school'} />
         </main>
       </div>
     </div>

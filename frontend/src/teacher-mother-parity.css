@@ -24,7 +24,7 @@
 .teacher-page-head h1 {
   margin: 0;
   color: var(--teacher-ink);
-  font-size: clamp(28px, 3vw, 36px);
+  font-size: var(--text-page-title);
   line-height: 1.08;
   letter-spacing: -.035em;
 }
@@ -32,7 +32,7 @@
 .teacher-page-head p {
   margin: 8px 0 0;
   color: #6b778a;
-  font-size: 14px;
+  font-size: var(--text-body);
   line-height: 1.6;
 }
 
@@ -64,7 +64,7 @@
     color-mix(in srgb, var(--teacher-brand-2, #18a7a3) 10%, white));
   color: var(--teacher-brand, #1f2559);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 800;
   cursor: pointer;
 }
@@ -87,7 +87,7 @@
   gap: 12px;
   margin-bottom: 22px;
   color: #667085;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 800;
 }
 
@@ -169,7 +169,7 @@
   background: transparent;
   color: #7a8595;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 800;
   cursor: pointer;
 }
@@ -203,7 +203,7 @@
   display: grid;
   gap: 6px;
   color: #475467;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 800;
 }
 
@@ -298,7 +298,7 @@
   display: grid;
   gap: 6px;
   color: #475467;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 800;
 }
 
@@ -341,12 +341,12 @@
 }
 
 .teacher-ai-title strong {
-  font-size: 13px;
+  font-size: var(--text-secondary);
 }
 
 .teacher-ai-title span {
   color: #758094;
-  font-size: 11px;
+  font-size: var(--text-small);
   line-height: 1.45;
 }
 
@@ -356,7 +356,7 @@
   border-radius: 10px;
   background: #fffaf0;
   color: #8a5b13;
-  font-size: 12px;
+  font-size: var(--text-small);
   line-height: 1.55;
 }
 
@@ -391,7 +391,7 @@
 .teacher-submission-row small,
 .teacher-results-list small {
   color: #8a94a4;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .teacher-score-control {
@@ -438,7 +438,7 @@
   justify-content: space-between;
   gap: 10px;
   color: #344054;
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .teacher-question-options {
@@ -488,7 +488,7 @@
 
 .teacher-course-create-mother > div:first-child span {
   color: #7b8797;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .teacher-course-create-mother > div:last-child {
@@ -540,7 +540,7 @@
 
 .teacher-course-toggle small {
   color: var(--teacher-brand-2);
-  font-size: 10px;
+  font-size: var(--text-small);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .06em;
@@ -549,14 +549,14 @@
 .teacher-course-toggle strong {
   overflow: hidden;
   color: var(--teacher-ink);
-  font-size: 15px;
+  font-size: var(--text-lead);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .teacher-course-toggle em {
   color: #8490a1;
-  font-size: 11px;
+  font-size: var(--text-small);
   font-style: normal;
 }
 
@@ -588,12 +588,12 @@
 }
 
 .teacher-chapter-toggle strong {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .teacher-chapter-toggle small {
   color: #8994a4;
-  font-size: 10px;
+  font-size: var(--text-small);
 }
 
 .teacher-chapter-content {
@@ -629,7 +629,7 @@
   border-radius: 50%;
   background: var(--teacher-soft);
   color: var(--teacher-brand);
-  font-size: 10px;
+  font-size: var(--text-small);
   font-weight: 900;
 }
 
@@ -640,12 +640,12 @@
 }
 
 .teacher-lesson-main strong {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .teacher-lesson-main small {
   color: #8a95a5;
-  font-size: 10px;
+  font-size: var(--text-small);
 }
 
 .teacher-lesson-actions {
@@ -673,7 +673,7 @@
   justify-content: space-between;
   gap: 10px;
   color: #667085;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .teacher-lesson-editor,
@@ -708,7 +708,7 @@
   gap: 6px;
   margin-bottom: 9px;
   color: #536075;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .teacher-add-chapter {
@@ -741,7 +741,7 @@
 
 .teacher-ai-preview-head span {
   color: #778397;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .teacher-ai-preview-head > span {
@@ -781,7 +781,7 @@
   border-radius: 50%;
   background: var(--teacher-brand);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--text-small);
   font-weight: 900;
 }
 
@@ -801,7 +801,7 @@
 
 .teacher-ai-lesson-preview strong {
   color: #697588;
-  font-size: 10px;
+  font-size: var(--text-small);
   text-transform: uppercase;
   letter-spacing: .05em;
 }
@@ -878,7 +878,7 @@
   align-items: center;
   gap: 6px;
   color: #475467;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 600;
 }
 
@@ -888,6 +888,6 @@
 
 .teacher-question-help {
   color: #667085;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   line-height: 1.45;
 }

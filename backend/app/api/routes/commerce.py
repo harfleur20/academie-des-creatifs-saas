@@ -33,7 +33,7 @@ from app.schemas.commerce import (
     SchoolIdentityRead,
     StudentManagementRead,
 )
-from app.services.assets import store_school_asset
+from app.services.assets import store_formation_video_asset, store_school_asset
 from app.services.communication_delivery import process_communication_outbox
 from app.services.membership_roles import load_effective_member_roles
 from app.services.purchase_policy import (
@@ -78,14 +78,14 @@ PURCHASE_BLOCKED_MESSAGE = (
 )
 
 
-def _require_public_purchase_allowed(
+def _purchase_blocked_reason(
     db: Session,
     *,
     organization_id: int,
     user: UserRecord,
-) -> None:
+) -> str | None:
     if user.platform_role == "super_admin":
-        raise HTTPException(status.HTTP_403_FORBIDDEN, PURCHASE_BLOCKED_MESSAGE)
+        return PURCHASE_BLOCKED_MESSAGE
 
     member = db.scalar(
         select(OrganizationMemberRecord).where(
@@ -94,11 +94,21 @@ def _require_public_purchase_allowed(
         )
     )
     if member is None:
-        return
+        return None
 
     roles = load_effective_member_roles(db, member)
-    if roles.intersection(PURCHASE_BLOCKING_ROLES):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, PURCHASE_BLOCKED_MESSAGE)
+    return PURCHASE_BLOCKED_MESSAGE if roles.intersection(PURCHASE_BLOCKING_ROLES) else None
+
+
+def _require_public_purchase_allowed(
+    db: Session,
+    *,
+    organization_id: int,
+    user: UserRecord,
+) -> None:
+    reason = _purchase_blocked_reason(db, organization_id=organization_id, user=user)
+    if reason:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, reason)
 
 
 @router.get("/identity", response_model=SchoolIdentityRead)
@@ -128,6 +138,18 @@ async def upload_school_asset(
     if not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Accès gestion requis.")
     return await store_school_asset(file, tenant.organization_id)
+
+
+@router.post("/formation-videos", status_code=201)
+async def upload_formation_video(
+    file: UploadFile = File(...),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    if tenant.support_mode:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Le mode support est en lecture seule.")
+    if not tenant.organization_roles.intersection({"owner", "admin", "manager"}):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Accès gestion requis.")
+    return await store_formation_video_asset(file, tenant.organization_id)
 
 
 @router.get("/dashboard", response_model=CommercialDashboardRead)
@@ -360,14 +382,16 @@ def preview_public_price(
     user: UserRecord = Depends(get_current_user),
 ):
     org = get_public_organization(db, school_key)
-    _require_public_purchase_allowed(db, organization_id=org.id, user=user)
-    return price_preview(
+    preview = price_preview(
         db,
         org,
         user_id=user.id,
         session_id=payload.session_id,
         coupon_code=payload.coupon_code,
     )
+    # A school account sees the prices and the payment plans, but the checkout refuses it.
+    preview.purchase_blocked_reason = _purchase_blocked_reason(db, organization_id=org.id, user=user)
+    return preview
 
 
 @router.post(

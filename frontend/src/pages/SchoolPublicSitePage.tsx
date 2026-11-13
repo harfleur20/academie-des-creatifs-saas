@@ -15,6 +15,13 @@ import {
   type SchoolIdentity,
 } from '../lib/api'
 
+// Each size of the public site has its own slider, so one setting no longer moves every text.
+const SIZE_SLIDERS = [
+  { key: 'heading_size_scale', label: 'Titres', hint: 'Titre de la page d’accueil, des formations et des sections.' },
+  { key: 'subtitle_size_scale', label: 'Sous-titres', hint: 'Texte d’accroche et introductions des sections.' },
+  { key: 'font_size_scale', label: 'Texte', hint: 'Descriptions, cartes, menus et pied de page.' },
+] as const
+
 export function SchoolPublicSitePage() {
   const { activeOrganization, refreshOrganizations } = useTenant()
   const [data, setData] = useState<SchoolIdentity | null>(null)
@@ -152,13 +159,19 @@ export function SchoolPublicSitePage() {
           <label>Police du texte<select value={schoolFontOptions.some((option) => option.name === data.public_site.font_body) ? data.public_site.font_body : 'Inter'} onChange={(e)=>site('font_body',e.target.value)}>{schoolFontOptions.map((option) => <option key={option.name} value={option.name}>{option.name}</option>)}</select></label>
         </div>
         <div className="school-typography-controls">
-          <label htmlFor="school-font-size">Taille des textes <strong>{data.public_site.font_size_scale}%</strong></label>
-          <input id="school-font-size" type="range" min="85" max="125" step="5" value={data.public_site.font_size_scale} onChange={(e)=>site('font_size_scale',Number(e.target.value))}/>
-          <button className="secondary-button compact-action" type="button" onClick={()=>site('font_size_scale',100)}>Taille normale</button>
+          {SIZE_SLIDERS.map(({ key, label, hint }) => (
+            <label key={key} className="school-typography-slider">
+              <span>{label} <strong>{data.public_site[key] ?? 100}%</strong></span>
+              <input type="range" min="85" max="125" step="5" value={data.public_site[key] ?? 100} onChange={(e)=>site(key,Number(e.target.value))}/>
+              <small>{hint}</small>
+            </label>
+          ))}
+          <button className="secondary-button compact-action" type="button" onClick={()=>{ site('heading_size_scale',100); site('subtitle_size_scale',100); site('font_size_scale',100) }}>Tailles normales</button>
         </div>
         <div className="school-typography-preview" aria-label="Aperçu de la typographie">
-          <strong style={{ fontFamily: schoolFontFamily(data.public_site.font_heading), fontSize: `${Math.round(28 * data.public_site.font_size_scale / 100)}px` }}>Découvrez nos formations</strong>
-          <p style={{ fontFamily: schoolFontFamily(data.public_site.font_body), fontSize: `${Math.round(15 * data.public_site.font_size_scale / 100)}px` }}>Un aperçu immédiat des titres et des textes de votre école.</p>
+          <strong style={{ fontFamily: schoolFontFamily(data.public_site.font_heading), fontSize: `${Math.round(30 * (data.public_site.heading_size_scale ?? 100) / 100)}px` }}>Découvrez nos formations</strong>
+          <p className="school-typography-preview__subtitle" style={{ fontFamily: schoolFontFamily(data.public_site.font_body), fontSize: `${Math.round(17 * (data.public_site.subtitle_size_scale ?? 100) / 100)}px` }}>Des parcours concrets pour apprendre un métier créatif.</p>
+          <p style={{ fontFamily: schoolFontFamily(data.public_site.font_body), fontSize: `${Math.round(15 * data.public_site.font_size_scale / 100)}px` }}>Un aperçu immédiat des titres, des sous-titres et du texte de votre école : chaque taille se règle à part.</p>
         </div>
         <label className="school-prefix-confirmation">
           <input type="checkbox" checked={data.public_site.student_code_prefix_confirmed} disabled={data.public_site.student_code_prefix_confirmed || !activeOrganization.contact_email || !activeOrganization.subdomain} onChange={(e)=>site('student_code_prefix_confirmed',e.target.checked)}/>

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ChevronRight, BookOpen, Building2, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
+import { billingPathFor, clearPlanChoice, PAY_FIRST_PLANS, readPlanChoice } from '../lib/planChoice'
 import {
   createOrganization,
   getCommercialDashboard,
@@ -187,13 +188,21 @@ export function SchoolDashboardPage() {
     setSubmitting(true)
     setError('')
     try {
+      const choice = readPlanChoice()
       const organization = await createOrganization({
         name: schoolName.trim(),
         slug: slugify(schoolName),
+        ...(choice ? { plan_code: choice.plan, billing_interval: choice.interval } : {}),
       })
       setStoredOrganizationId(organization.id)
       await refreshOrganizations()
-      navigate('/app/manage/onboarding')
+      // Every new school starts with the trial; a school that picked Starter or Business sees it next.
+      if (choice && PAY_FIRST_PLANS.has(choice.plan)) {
+        navigate(billingPathFor(choice))
+      } else {
+        clearPlanChoice()
+        navigate('/app/manage/onboarding?essai=1')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossible de créer cette école.')
     } finally {
@@ -387,6 +396,13 @@ export function SchoolDashboardPage() {
             </div>
           </article>
 
+          <div className="owner-dashboard-rail-metrics">
+            <Link to="/app/manage/performance" className={(sessionsToWatch ?? 0) > 0 ? 'is-alert' : ''}><CalendarDays size={18} /><span><strong>{displayCount(sessionsToWatch)}</strong><small>sessions à surveiller</small></span></Link>
+            <Link to="/app/manage/formations" className={(draftCount ?? 0) > 0 ? 'is-alert' : ''}><GraduationCap size={18} /><span><strong>{displayCount(draftCount)}</strong><small>formations à finaliser</small></span></Link>
+            <Link to="/app/manage/performance" className={(schoolAlerts ?? 0) > 0 ? 'is-alert' : ''}><Clock3 size={18} /><span><strong>{displayCount(schoolAlerts)}</strong><small>alertes école</small></span></Link>
+            <Link to="/app/manage/commerce" className={(commerce?.late_installments ?? 0) > 0 ? 'is-alert' : ''}><ShoppingCart size={18} /><span><strong>{paidOrderRate === null ? '—' : `${paidOrderRate}%`}</strong><small>commandes réglées</small></span></Link>
+          </div>
+
           <section className="owner-dashboard-stats-column">
             <div className="dashboard-section-heading owner-dashboard-stats-heading">
               <span className="section-label">Votre école en bref</span>
@@ -436,6 +452,51 @@ export function SchoolDashboardPage() {
                 <Link className="dashboard-stat-link" to="/app/manage/commerce">Suivre les paiements <ChevronRight size={15} /></Link>
               </article>
             </div>
+            {((formations && formations.length > 0) || (commerce && commerce.order_count > 0) || (onboarding && !onboarding.is_complete) || nextAction) && (
+              <section className="owner-dashboard-stats-support" aria-label="Statistiques et prochaine étape">
+                {formations && formations.length > 0 && (
+                  <Link to="/app/manage/performance" className="dashboard-mini-chart-link">
+                    <div className="dashboard-mini-chart-head"><span>Publication des formations</span><strong>Statistiques →</strong></div>
+                    <ChartCanvas
+                      type="doughnut"
+                      compact
+                      height={78}
+                      labels={['Publiées', 'Autres']}
+                      datasets={[{ label: 'Formations', data: [publishedCount ?? 0, unpublishedCount] }]}
+                    />
+                  </Link>
+                )}
+                {commerce && commerce.order_count > 0 && (
+                  <Link to="/app/manage/performance" className="dashboard-mini-chart-link">
+                    <div className="dashboard-mini-chart-head"><span>Commandes réglées</span><strong>{commerce.paid_order_count}/{commerce.order_count}</strong></div>
+                    <ChartCanvas
+                      type="doughnut"
+                      compact
+                      height={78}
+                      labels={['Réglées', 'À régler']}
+                      datasets={[{ label: 'Commandes', data: [commerce.paid_order_count, unpaidOrderCount] }]}
+                    />
+                  </Link>
+                )}
+                {(onboarding && !onboarding.is_complete) ? (
+                  <section className="owner-dashboard-next-card">
+                    <span className="section-label">Mise en route</span>
+                    <h3>{onboarding.next_step?.label || 'Finalisez votre école'}</h3>
+                    <p>{onboarding.next_step?.description || 'Terminez les étapes de configuration de votre école.'}</p>
+                    <div className="owner-dashboard-progress"><span style={{ width: `${Math.min(100, Math.round((onboarding.completed_steps / Math.max(1, onboarding.total_steps)) * 100))}%` }} /></div>
+                    <small>{onboarding.completed_steps}/{onboarding.total_steps} étapes terminées</small>
+                    <Link to={onboarding.next_step?.path || '/app/manage/onboarding'}>Continuer <ChevronRight size={15} /></Link>
+                  </section>
+                ) : nextAction ? (
+                  <section className="owner-dashboard-next-card">
+                    <span className="section-label">Prochaine étape</span>
+                    <h3>{nextAction.title}</h3>
+                    <p>{nextAction.description}</p>
+                    <Link to={nextAction.to}>{nextAction.label} <ChevronRight size={15} /></Link>
+                  </section>
+                ) : null}
+              </section>
+            )}
           </section>
         </div>
 
@@ -464,59 +525,6 @@ export function SchoolDashboardPage() {
             </Link>
           </section>
 
-          {(formations && formations.length > 0) || (commerce && commerce.order_count > 0) ? (
-            <section className="dashboard-mini-charts" aria-label="Raccourcis statistiques">
-              {formations && formations.length > 0 && (
-                <Link to="/app/manage/performance" className="dashboard-mini-chart-link">
-                  <div className="dashboard-mini-chart-head"><span>Publication des formations</span><strong>Statistiques →</strong></div>
-                  <ChartCanvas
-                    type="doughnut"
-                    compact
-                    height={78}
-                    labels={['Publiées', 'Autres']}
-                    datasets={[{ label: 'Formations', data: [publishedCount ?? 0, unpublishedCount] }]}
-                  />
-                </Link>
-              )}
-              {commerce && commerce.order_count > 0 && (
-                <Link to="/app/manage/performance" className="dashboard-mini-chart-link">
-                  <div className="dashboard-mini-chart-head"><span>Commandes réglées</span><strong>{commerce.paid_order_count}/{commerce.order_count}</strong></div>
-                  <ChartCanvas
-                    type="doughnut"
-                    compact
-                    height={78}
-                    labels={['Réglées', 'À régler']}
-                    datasets={[{ label: 'Commandes', data: [commerce.paid_order_count, unpaidOrderCount] }]}
-                  />
-                </Link>
-              )}
-            </section>
-          ) : null}
-
-          <div className="owner-dashboard-rail-metrics">
-            <Link to="/app/manage/performance" className={(sessionsToWatch ?? 0) > 0 ? 'is-alert' : ''}><CalendarDays size={18} /><span><strong>{displayCount(sessionsToWatch)}</strong><small>sessions à surveiller</small></span></Link>
-            <Link to="/app/manage/formations" className={(draftCount ?? 0) > 0 ? 'is-alert' : ''}><GraduationCap size={18} /><span><strong>{displayCount(draftCount)}</strong><small>formations à finaliser</small></span></Link>
-            <Link to="/app/manage/performance" className={(schoolAlerts ?? 0) > 0 ? 'is-alert' : ''}><Clock3 size={18} /><span><strong>{displayCount(schoolAlerts)}</strong><small>alertes école</small></span></Link>
-            <Link to="/app/manage/commerce" className={(commerce?.late_installments ?? 0) > 0 ? 'is-alert' : ''}><ShoppingCart size={18} /><span><strong>{paidOrderRate === null ? '—' : `${paidOrderRate}%`}</strong><small>commandes réglées</small></span></Link>
-          </div>
-
-          {(onboarding && !onboarding.is_complete) ? (
-            <section className="owner-dashboard-next-card">
-              <span className="section-label">Mise en route</span>
-              <h3>{onboarding.next_step?.label || 'Finalisez votre école'}</h3>
-              <p>{onboarding.next_step?.description || 'Terminez les étapes de configuration de votre école.'}</p>
-              <div className="owner-dashboard-progress"><span style={{ width: `${Math.min(100, Math.round((onboarding.completed_steps / Math.max(1, onboarding.total_steps)) * 100))}%` }} /></div>
-              <small>{onboarding.completed_steps}/{onboarding.total_steps} étapes terminées</small>
-              <Link to={onboarding.next_step?.path || '/app/manage/onboarding'}>Continuer <ChevronRight size={15} /></Link>
-            </section>
-          ) : nextAction ? (
-            <section className="owner-dashboard-next-card">
-              <span className="section-label">Prochaine étape</span>
-              <h3>{nextAction.title}</h3>
-              <p>{nextAction.description}</p>
-              <Link to={nextAction.to}>{nextAction.label} <ChevronRight size={15} /></Link>
-            </section>
-          ) : null}
         </aside>
       </section>
     </main>

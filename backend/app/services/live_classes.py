@@ -182,6 +182,8 @@ def start_live_class(
     if current < _aware(day.scheduled_at):
         raise HTTPException(409, "Le cours ne peut démarrer qu'à l'heure prévue.")
     if day.started_at is None:
+        require_feature(db, tenant.organization_id, "live")
+        _require_live_room(db, tenant.organization_id, day, current)
         day.started_at = current
         db.commit()
     return {"course_day_id": day.id, "started_at": _aware(day.started_at)}
@@ -189,6 +191,37 @@ def start_live_class(
 
 ROOM_OPENS_BEFORE = timedelta(minutes=15)
 ROOM_CLOSES_AFTER = timedelta(minutes=15)
+
+
+def _require_live_room(db: Session, organization_id: int, day: SessionCourseDayRecord, current: datetime) -> None:
+    """A plan runs so many live classes at once: one more starts only when one of them is over."""
+    plan = get_effective_plan(db, organization_id)
+    rule = allowance(plan, "live_rooms")
+    if not rule.enabled or rule.limit is None:
+        return
+    # Serialize the school's starts so two teachers cannot both take the last room.
+    db.scalar(select(OrganizationRecord.id).where(OrganizationRecord.id == organization_id).with_for_update())
+    started = db.scalars(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.organization_id == organization_id,
+        SessionCourseDayRecord.id != day.id,
+        SessionCourseDayRecord.started_at.is_not(None),
+        SessionCourseDayRecord.started_at >= current - timedelta(days=1),
+        SessionCourseDayRecord.report_submitted_at.is_(None),
+        SessionCourseDayRecord.status != "cancelled",
+    )).all()
+    running = [
+        other for other in started
+        if current <= _aware(other.scheduled_at) + timedelta(minutes=other.duration_minutes) + ROOM_CLOSES_AFTER
+    ]
+    if len(running) < rule.limit:
+        return
+    db.rollback()
+    at_once = "un seul cours en live à la fois" if rule.limit == 1 else f"{rule.limit} cours en live à la fois"
+    raise HTTPException(
+        409,
+        f"Votre forfait {plan.name} permet {at_once}, et c'est déjà le cas. "
+        "Attendez la fin d'un cours ou passez au forfait supérieur.",
+    )
 LIVE_ACTIVE_DEVICE_TTL = timedelta(seconds=90)
 
 

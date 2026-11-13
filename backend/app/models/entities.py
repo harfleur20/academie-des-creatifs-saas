@@ -338,6 +338,9 @@ class SubscriptionRecord(TimestampMixin, Base):
     provider: Mapped[str | None] = mapped_column(String(40), nullable=True)
     provider_customer_id: Mapped[str | None] = mapped_column(String(180), nullable=True)
     provider_subscription_id: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    # The plan the school picked on the landing page; its trial reminders lead back to it.
+    chosen_plan_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    chosen_billing_interval: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     organization: Mapped["OrganizationRecord"] = relationship(back_populates="subscriptions")
     plan: Mapped["PlanRecord"] = relationship()
@@ -614,6 +617,7 @@ class FormationRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     training_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     short_description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     cover_image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    presentation_video_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     objectives: Mapped[str] = mapped_column(Text, nullable=False, default="")
     prerequisites: Mapped[str] = mapped_column(Text, nullable=False, default="")
     public_program: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -1306,7 +1310,10 @@ class OrganizationPublicSiteRecord(OrganizationOwnedMixin, TimestampMixin, Base)
     refund_policy: Mapped[str] = mapped_column(Text, nullable=False, default="")
     font_heading: Mapped[str] = mapped_column(String(80), nullable=False, default="Inter")
     font_body: Mapped[str] = mapped_column(String(80), nullable=False, default="Inter")
+    # Sizes of the public site, in %: the text, the titles and the subtitles apart.
     font_size_scale: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    heading_size_scale: Mapped[int] = mapped_column(Integer, nullable=False, default=100, server_default="100")
+    subtitle_size_scale: Mapped[int] = mapped_column(Integer, nullable=False, default=100, server_default="100")
     student_code_prefix: Mapped[str] = mapped_column(String(8), nullable=False, default="")
     student_code_prefix_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     student_code_sequence_year: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

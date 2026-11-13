@@ -32,7 +32,7 @@ function applyWorkspaceBranding(branding: CachedBranding) {
     : pathname.startsWith('/app/student')
       ? 'Étudiant'
       : 'Gestion'
-  document.title = `${branding.school_name} — ${section}`
+  document.title = `${branding.school_name} - ${section}`
   setFavicon(branding.favicon_url || branding.logo_url)
 }
 

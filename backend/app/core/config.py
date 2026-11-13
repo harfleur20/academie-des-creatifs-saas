@@ -134,6 +134,8 @@ class Settings:
         "Académie des Créatifs",
     ).strip()
     support_email: str = os.getenv("SUPPORT_EMAIL", "").strip()
+    # The school shown, read only, to visitors of the landing page (docs/DEMO.md); empty: no demo.
+    demo_organization_slug: str = os.getenv("DEMO_ORGANIZATION_SLUG", "").strip().lower()
 
     wapino_enabled: bool = _env_bool("WAPINO_ENABLED", False)
     wapino_base_url: str = os.getenv(

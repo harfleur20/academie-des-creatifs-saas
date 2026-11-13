@@ -42,7 +42,7 @@
   display: block;
   margin-bottom: 3px;
   color: var(--school-secondary, var(--green));
-  font-size: 10px;
+  font-size: var(--text-small);
   font-weight: 850;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -51,14 +51,14 @@
 .promo-card-heading h2 {
   margin: 0;
   color: #18263d;
-  font-size: 21px;
+  font-size: var(--text-section-title);
   letter-spacing: -.025em;
 }
 
 .promo-card-heading p {
   margin: 5px 0 0;
   color: #738096;
-  font-size: 12px;
+  font-size: var(--text-small);
   line-height: 1.5;
 }
 
@@ -70,7 +70,7 @@
   border-radius: 12px;
   color: color-mix(in srgb, var(--school-primary, #1f2559) 86%, #25364c);
   background: color-mix(in srgb, var(--school-secondary, #18a7a3) 9%, white);
-  font-size: 11.5px;
+  font-size: var(--text-small);
   line-height: 1.45;
 }
 
@@ -87,7 +87,7 @@
 
 .promo-create-card label {
   color: #37485f;
-  font-size: 12px;
+  font-size: var(--text-small);
   font-weight: 800;
 }
 
@@ -100,7 +100,7 @@
 .promo-optional {
   margin-left: 4px;
   color: #929dad;
-  font-size: 10px;
+  font-size: var(--text-small);
   font-weight: 600;
 }
 
@@ -137,7 +137,7 @@
 
 .promo-preview-card > div:first-child span {
   color: #8591a3;
-  font-size: 9px;
+  font-size: var(--text-small);
   font-weight: 850;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -146,7 +146,7 @@
 .promo-preview-card > div:first-child strong {
   overflow: hidden;
   color: #26364c;
-  font-size: 12.5px;
+  font-size: var(--text-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -159,13 +159,13 @@
 
 .promo-preview-price small {
   color: #8b96a7;
-  font-size: 10px;
+  font-size: var(--text-small);
   text-decoration: line-through;
 }
 
 .promo-preview-price strong {
   color: var(--school-secondary, var(--green));
-  font-size: 16px;
+  font-size: var(--text-lead);
 }
 
 .promo-preview-meta {
@@ -182,7 +182,7 @@
   align-items: center;
   gap: 6px;
   color: #68768b;
-  font-size: 10.5px;
+  font-size: var(--text-small);
 }
 
 .promo-inline-warning {
@@ -190,7 +190,7 @@
   border-radius: 10px;
   color: #9b5910;
   background: #fff5e7;
-  font-size: 11px;
+  font-size: var(--text-small);
   line-height: 1.45;
 }
 
@@ -217,7 +217,7 @@
 .promo-list-heading h2 {
   margin: 3px 0 0;
   color: #1d2b42;
-  font-size: 18px;
+  font-size: var(--text-card-title);
 }
 
 .promo-list-heading > strong {
@@ -228,7 +228,7 @@
   border-radius: 999px;
   color: var(--school-primary, var(--blue));
   background: color-mix(in srgb, var(--school-secondary, var(--green)) 13%, white);
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .promo-admin-row--detailed {
@@ -261,12 +261,12 @@
 
 .promo-row-main strong {
   color: #223249;
-  font-size: 12.5px;
+  font-size: var(--text-small);
 }
 
 .promo-row-main small {
   color: #788599;
-  font-size: 10.5px;
+  font-size: var(--text-small);
 }
 
 .promo-state {
@@ -276,7 +276,7 @@
   min-height: 25px;
   padding: 4px 8px;
   border-radius: 999px;
-  font-size: 9px;
+  font-size: var(--text-small);
   font-weight: 850;
 }
 
@@ -311,7 +311,7 @@
   align-items: center;
   gap: 7px;
   color: #66748a;
-  font-size: 10.5px;
+  font-size: var(--text-small);
 }
 
 .promo-row-details svg {

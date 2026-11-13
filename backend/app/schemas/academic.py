@@ -243,6 +243,7 @@ class TeacherGradeRead(BaseModel):
     id: int
     enrollment_id: int
     student_name: str
+    student_avatar_url: str | None = None
     course_day_id: int | None
     course_day_title: str | None
     teacher_name: str | None
@@ -257,6 +258,7 @@ class TeacherGradeRead(BaseModel):
 class GradebookStudentRead(BaseModel):
     enrollment_id: int
     student_name: str
+    student_avatar_url: str | None = None
 
 
 class GradebookCourseDayRead(BaseModel):
@@ -282,6 +284,7 @@ class AttendanceRowRead(BaseModel):
     enrollment_id: int
     student_id: int
     student_name: str
+    student_avatar_url: str | None = None
     status: AttendanceStatus | None
     # Live classes: what shows the student followed, for the teacher to check the prefilled attendance.
     live_minutes: int | None = None
@@ -477,6 +480,7 @@ class SchoolPedagogyStudentRead(BaseModel):
     student_id: int
     student_name: str
     student_code: str | None
+    formation_id: int | None = None
     formation_title: str
     session_label: str
     enrollment_status: str
@@ -493,8 +497,11 @@ class SchoolPedagogyStudentRead(BaseModel):
 
 class SchoolPedagogySessionRead(BaseModel):
     session_id: int
+    formation_id: int | None = None
     formation_title: str
     session_label: str
+    # The teachers assigned to the session, for the filters of the school's pedagogy pages.
+    teacher_ids: list[int] = []
     status: str
     enrolled_count: int
     seat_capacity: int

@@ -117,6 +117,7 @@ def _student_row(
         student_id=enrollment.student_id,
         student_name=student.full_name if student else "Étudiant",
         student_code=profile.student_code if profile else None,
+        formation_id=formation.id if formation else None,
         formation_title=formation.title if formation else "Formation",
         session_label=session.label if session else "Session",
         enrollment_status=enrollment.status,
@@ -159,6 +160,11 @@ def school_pedagogy_overview(
     )
     session_rows: list[SchoolPedagogySessionRead] = []
     pending_total = 0
+    teachers_by_session: dict[int, list[int]] = {}
+    for session_id, teacher_id in db.execute(select(
+        SessionTeacherRecord.session_id, SessionTeacherRecord.teacher_id,
+    ).where(SessionTeacherRecord.organization_id == tenant.organization_id)).all():
+        teachers_by_session.setdefault(session_id, []).append(teacher_id)
 
     for session in sessions:
         formation = db.get(FormationRecord, session.formation_id)
@@ -208,8 +214,10 @@ def school_pedagogy_overview(
         session_rows.append(
             SchoolPedagogySessionRead(
                 session_id=session.id,
+                formation_id=session.formation_id,
                 formation_title=formation.title if formation else "Formation",
                 session_label=session.label,
+                teacher_ids=sorted(teachers_by_session.get(session.id, [])),
                 status=session.status,
                 enrolled_count=len(rows),
                 seat_capacity=capacity,

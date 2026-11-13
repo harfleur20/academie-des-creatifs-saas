@@ -44,6 +44,8 @@ class SubscriptionRead(BaseModel):
     cancel_at_period_end: bool
     cancelled_at: datetime | None
     provider: str | None
+    chosen_plan_code: str | None = None
+    chosen_billing_interval: str | None = None
     plan: PlanRead
 
 

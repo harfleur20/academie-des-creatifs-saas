@@ -11,9 +11,12 @@ import {
   RotateCcw,
   ShieldCheck,
   Sparkles,
+  X,
   XCircle,
 } from 'lucide-react'
-import { commissionLabel, entitlementLabel, formatMoney, includedFeatures } from '../lib/planFeatures'
+import { commissionLabel, formatMoney, monthlyEquivalent, planHighlights } from '../lib/planFeatures'
+import { PlanComparison } from '../components/PlanComparison'
+import { clearPlanChoice, planChoiceFromSearch } from '../lib/planChoice'
 import { useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import {
@@ -182,6 +185,27 @@ export function BillingPage() {
     }
   }, [activeOrganization?.id, searchParams, setSearchParams])
 
+  // The plan clicked on the landing page: from the address, else the one kept on the trial.
+  const requestedChoice = useMemo(() => planChoiceFromSearch(`?${searchParams.toString()}`), [searchParams])
+  useEffect(() => {
+    clearPlanChoice()
+    if (requestedChoice) setBillingInterval(requestedChoice.interval)
+  }, [requestedChoice])
+  useEffect(() => {
+    if (!requestedChoice && subscription?.status === 'trialing' && subscription.chosen_billing_interval) {
+      setBillingInterval(subscription.chosen_billing_interval)
+    }
+  }, [requestedChoice, subscription?.id, subscription?.status, subscription?.chosen_billing_interval])
+  const chosenCode = requestedChoice?.plan ?? (subscription?.status === 'trialing' ? subscription.chosen_plan_code ?? null : null)
+  const chosenPlan = plans.find((plan) => plan.code === chosenCode) ?? null
+  useEffect(() => {
+    if (!chosenPlan) return
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`plan-${chosenPlan.code}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [chosenPlan?.code])
+
   const remainingTrialDays = useMemo(() => {
     if (!subscription?.trial_ends_at || subscription.status !== 'trialing') return null
     const diff = new Date(subscription.trial_ends_at).getTime() - Date.now()
@@ -273,6 +297,18 @@ export function BillingPage() {
   const taraAvailable =
     paymentMode?.mode === 'production' && paymentMode.tara_configured
 
+  // The free plan: where a school goes on when no paid plan runs (docs/FORFAITS.md).
+  const freePlan = plans.find((plan) => plan.monthly_price_cents === 0) ?? null
+  const running = subscription !== null && ['trialing', 'active', 'past_due'].includes(subscription.status)
+  const onFreePlan = Boolean(freePlan && usage?.plan_code === freePlan.code && !running)
+  const showSubscription = subscription !== null && !onFreePlan
+  const effectivePlanCode = usage?.plan_code ?? subscription?.plan.code ?? null
+  const annualDiscount = (() => {
+    const paid = plans.find((plan) => (plan.monthly_price_cents ?? 0) > 0 && plan.annual_price_cents !== null)
+    if (!paid || !paid.monthly_price_cents || paid.annual_price_cents === null) return 0
+    return Math.round(100 - (paid.annual_price_cents * 100) / (paid.monthly_price_cents * 12))
+  })()
+
   return (
     <main className="app-page">
       <header className="app-page-header">
@@ -281,7 +317,9 @@ export function BillingPage() {
           <h1>Forfait de {activeOrganization.name}</h1>
           <p>Votre abonnement détermine les fonctionnalités et quotas disponibles.</p>
         </div>
-        {subscription && (
+        {onFreePlan && freePlan ? (
+          <span className="status-chip billing-status active">{freePlan.name} · gratuit</span>
+        ) : subscription && (
           <span className={`status-chip billing-status ${subscription.status}`}>
             {statusLabels[subscription.status]}
           </span>
@@ -295,13 +333,30 @@ export function BillingPage() {
             <strong>Paiement en attente</strong>
             <span>
               La période payée est terminée. Régularisez avant le {formatDate(subscription.grace_period_ends_at)}
-              {' '}pour éviter la suspension de l’école.
+              {freePlan
+                ? `, sinon votre école passera en ${freePlan.name} : gratuite, sans cours en live.`
+                : ' pour éviter la suspension de l’école.'}
             </span>
           </div>
         </div>
       )}
 
-      {subscription?.status === 'suspended' && (
+      {onFreePlan && freePlan && (
+        <div className="billing-alert neutral">
+          <Sparkles size={19} />
+          <div>
+            <strong>Votre école est en {freePlan.name}</strong>
+            <span>
+              {subscription
+                ? `Votre ${subscription.status === 'cancelled' ? 'forfait' : 'essai ou forfait payé'} est terminé : l’école continue gratuitement. `
+                : 'Votre école utilise le forfait gratuit. '}
+              Choisissez un forfait ci-dessous pour retrouver les cours en live et des quotas plus larges.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {subscription?.status === 'suspended' && !onFreePlan && (
         <div className="billing-alert danger">
           <Ban size={19} />
           <div>
@@ -349,7 +404,7 @@ export function BillingPage() {
               className={billingInterval === 'annual' ? 'active' : ''}
               onClick={() => setBillingInterval('annual')}
             >
-              Annuel
+              Annuel{annualDiscount > 0 ? ` −${annualDiscount} %` : ''}
             </button>
           </div>
         </div>
@@ -379,7 +434,7 @@ export function BillingPage() {
               className={billingInterval === 'annual' ? 'active' : ''}
               onClick={() => setBillingInterval('annual')}
             >
-              Annuel
+              Annuel{annualDiscount > 0 ? ` −${annualDiscount} %` : ''}
             </button>
           </div>
         </div>
@@ -418,7 +473,7 @@ export function BillingPage() {
       {message && <div className="form-success">{message}</div>}
       {error && <div className="form-error">{error}</div>}
 
-      {subscription && (
+      {showSubscription && subscription && (
         <section className="billing-summary">
           <article className="current-plan-card">
             <div className="current-plan-icon"><CreditCard size={22} /></div>
@@ -458,7 +513,10 @@ export function BillingPage() {
               <Clock3 size={18} />
               <div>
                 <strong>{remainingTrialDays} jour{remainingTrialDays > 1 ? 's' : ''} d’essai restant{remainingTrialDays > 1 ? 's' : ''}</strong>
-                <span>Votre essai inclut tout le forfait {subscription.plan.name}. Choisissez votre forfait avant la fin de l’essai pour continuer sans interruption.</span>
+                <span>
+                  Votre essai inclut tout le forfait {subscription.plan.name}. Choisissez votre forfait avant la fin de l’essai pour continuer sans interruption
+                  {freePlan ? `, sinon votre école passera en ${freePlan.name}, gratuite et sans cours en live.` : '.'}
+                </span>
               </div>
             </div>
           )}
@@ -531,6 +589,20 @@ export function BillingPage() {
       )}
 
       <section className="billing-plans-section">
+        {chosenPlan && (chosenPlan.monthly_price_cents ?? 0) > 0 && effectivePlanCode !== chosenPlan.code && (
+          <div className="billing-alert neutral billing-choice">
+            <CreditCard size={19} />
+            <div>
+              <strong>Vous avez choisi {chosenPlan.name}{billingInterval === 'annual' ? ' en annuel' : ''}</strong>
+              <span>
+                Payez-le maintenant pour l’activer
+                {subscription?.status === 'trialing' && subscription.trial_ends_at
+                  ? `, ou profitez d’abord de votre essai ${subscription.plan.name} jusqu’au ${formatDate(subscription.trial_ends_at)} : vous serez prévenu avant la fin.`
+                  : '.'}
+              </span>
+            </div>
+          </div>
+        )}
         <div className="table-heading">
           <div>
             <span className="section-label">Forfaits</span>
@@ -541,17 +613,33 @@ export function BillingPage() {
 
         <div className="billing-plan-grid">
           {plans.map((plan) => {
-            const current = subscription?.plan.code === plan.code
+            const current = effectivePlanCode === plan.code
+            const free = plan.monthly_price_cents === 0
             const displayedPrice =
               billingInterval === 'annual'
                 ? plan.annual_price_cents
                 : plan.monthly_price_cents
+            const perMonth = monthlyEquivalent(plan, billingInterval === 'annual')
 
             return (
-              <article className={current ? 'billing-plan-card current' : 'billing-plan-card'} key={plan.id}>
+              <article
+                className={`billing-plan-card${current ? ' current' : ''}${chosenPlan?.code === plan.code && !current ? ' chosen' : ''}`}
+                id={`plan-${plan.code}`}
+                key={plan.id}
+              >
                 {current && <span className="current-badge">Forfait actuel</span>}
+                {!current && chosenPlan?.code === plan.code && <span className="current-badge chosen-badge">Votre choix</span>}
                 <span className="plan-code">{plan.name}</span>
-                <h3>{formatPrice(displayedPrice, plan.currency)}</h3>
+                <h3>{free ? 'Gratuit' : formatPrice(displayedPrice, plan.currency)}</h3>
+                <span className="billing-plan-period">
+                  {free
+                    ? 'Sans abonnement'
+                    : displayedPrice === null
+                      ? ''
+                      : billingInterval === 'annual'
+                        ? `par an, soit ${formatPrice(perMonth, plan.currency)} par mois`
+                        : 'par mois'}
+                </span>
                 <p>{plan.description}</p>
 
                 <div className="billing-plan-features">
@@ -561,22 +649,32 @@ export function BillingPage() {
                       Fonctionnalités et quotas à configurer
                     </span>
                   ) : (
-                    includedFeatures(plan.entitlements).map((item) => (
-                      <span key={item.feature_key}>
-                        <Check size={15} />
-                        {entitlementLabel(item)}
+                    planHighlights(plan.entitlements).map((line) => (
+                      <span className={line.excluded ? 'is-excluded' : undefined} key={line.key}>
+                        {line.excluded ? <X size={15} /> : <Check size={15} />}
+                        <span className="billing-plan-feature-text">
+                          {line.label}
+                          {line.soon && <em className="billing-plan-soon">Bientôt</em>}
+                        </span>
                       </span>
                     ))
                   )}
                   {commissionLabel(plan.sales_commission_bps) && (
                     <span className="billing-plan-commission">
                       <CreditCard size={15} />
-                      Commission : {commissionLabel(plan.sales_commission_bps)}
+                      {commissionLabel(plan.sales_commission_bps)}, frais compris
                     </span>
                   )}
                 </div>
 
-                {paymentMode?.demo_enabled ? (
+                {free ? (
+                  <>
+                    <button className="secondary-button full" disabled>
+                      {current ? 'Forfait actuel' : 'Sans abonnement'}
+                    </button>
+                    {!current && <small className="billing-plan-note">Votre école y passe d’elle-même quand aucun forfait payé n’est en cours.</small>}
+                  </>
+                ) : paymentMode?.demo_enabled ? (
                   <button
                     className={current ? 'secondary-button full' : 'primary-button full'}
                     disabled={paymentLoading}
@@ -606,6 +704,7 @@ export function BillingPage() {
             )
           })}
         </div>
+        <PlanComparison plans={plans} highlight={effectivePlanCode} />
       </section>
 
       {addons.length > 0 && (
@@ -626,9 +725,11 @@ export function BillingPage() {
                   <p>{addon.description}</p>
                 </div>
                 <span>
-                  {addon.status === 'coming_soon' || addon.unit_price_cents === null
+                  {addon.unit_price_cents === null
                     ? 'Bientôt'
-                    : `${formatMoney(addon.unit_price_cents, addon.currency)} / ${addon.unit_label} / mois`}
+                    : addon.status === 'coming_soon'
+                      ? `Bientôt · ${formatMoney(addon.unit_price_cents, addon.currency)} / ${addon.unit_label}`
+                      : `${formatMoney(addon.unit_price_cents, addon.currency)} / ${addon.unit_label} / mois`}
                 </span>
               </article>
             ))}

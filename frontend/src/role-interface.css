@@ -28,13 +28,13 @@
 
 .tenant-role-shell--student .tenant-role-brand strong,
 .tenant-role-shell--teacher .tenant-role-brand strong {
-  font-size: 15px;
+  font-size: var(--text-lead);
   line-height: 1.18;
 }
 
 .tenant-role-shell--student .tenant-role-brand small,
 .tenant-role-shell--teacher .tenant-role-brand small {
-  font-size: 10px;
+  font-size: var(--text-small);
   line-height: 1.25;
 }
 
@@ -42,16 +42,16 @@
 .tenant-role-shell--teacher .tenant-role-badge {
   padding-top: 10px;
   padding-bottom: 10px;
-  font-size: 10px;
+  font-size: var(--text-small);
   line-height: 1.2;
 }
 
 .tenant-role-shell .tenant-role-school-select small {
-  font-size: 10px;
+  font-size: var(--text-small);
 }
 
 .tenant-role-shell .tenant-role-school-select select {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .tenant-role-shell .tenant-role-nav > a,
@@ -59,7 +59,7 @@
   min-height: 46px;
   gap: 11px;
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: var(--text-secondary);
   line-height: 1.25;
   font-weight: 750;
 }
@@ -137,7 +137,7 @@
 .tenant-role-shell .tenant-role-nav-subnav a {
   min-height: 39px;
   padding: 8px 9px;
-  font-size: 12.5px;
+  font-size: var(--text-small);
   line-height: 1.25;
   font-weight: 650;
 }
@@ -158,48 +158,48 @@
 
 .tenant-role-shell .tenant-role-user-pill strong,
 .tenant-role-shell .tenant-role-profile-button strong {
-  font-size: 12px;
+  font-size: var(--text-small);
   line-height: 1.2;
 }
 
 .tenant-role-shell .tenant-role-user-pill small,
 .tenant-role-shell .tenant-role-profile-button small {
-  font-size: 10px;
+  font-size: var(--text-small);
   line-height: 1.2;
 }
 
 .tenant-role-shell .tenant-role-topbar__title {
-  font-size: 16px;
+  font-size: var(--text-lead);
 }
 
 .tenant-role-shell .tenant-role-search input,
 .tenant-role-shell .tenant-role-search__results button,
 .tenant-role-shell .tenant-role-profile-menu > button {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .tenant-role-shell .tenant-role-profile-menu__head strong {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .tenant-role-shell .tenant-role-profile-menu__head small {
-  font-size: 10px;
+  font-size: var(--text-small);
 }
 
 /* Common academic pages use the same heading and reading scale as the mother site. */
 .tenant-role-shell .app-page-header h1 {
-  font-size: clamp(28px, 3vw, 36px);
+  font-size: var(--text-page-title);
   line-height: 1.08;
 }
 
 .tenant-role-shell .app-page-header p {
-  font-size: 14px;
+  font-size: var(--text-body);
   line-height: 1.6;
 }
 
 .tenant-role-shell .academic-session-select,
 .tenant-role-shell .academic-form-card label {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .tenant-role-shell .academic-item-card small,
@@ -211,7 +211,7 @@
 .tenant-role-shell .teacher-session-card__meta span,
 .tenant-role-shell .teacher-session-card__link,
 .tenant-role-shell .teacher-sessions-hero small {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 /* Same clipped decorative icon placement as the mother-site KPI cards. */
@@ -230,19 +230,19 @@
 }
 
 .tenant-role-shell .role-kpi > span {
-  font-size: 11px;
+  font-size: var(--text-small);
   line-height: 1.25;
 }
 
 .tenant-role-shell .role-kpi > strong {
   margin: 2px 0 0;
-  font-size: clamp(28px, 2.3vw, 34px);
+  font-size: var(--text-section-title);
   line-height: 1.05;
 }
 
 .tenant-role-shell .role-kpi > small {
   max-width: calc(100% - 24px);
-  font-size: 12px;
+  font-size: var(--text-small);
   line-height: 1.35;
 }
 
@@ -258,19 +258,19 @@
 .tenant-role-shell .role-hero__copy > span,
 .tenant-role-shell .role-school-visual__brand small,
 .tenant-role-shell .role-next-course span {
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .tenant-role-shell .role-hero__copy p,
 .tenant-role-shell .role-hero__copy small,
 .tenant-role-shell .role-next-course p {
-  font-size: 14px;
+  font-size: var(--text-body);
   line-height: 1.5;
 }
 
 .tenant-role-shell .role-calendar-card > header strong,
 .tenant-role-shell .role-side-card > header strong {
-  font-size: 13px;
+  font-size: var(--text-secondary);
 }
 
 .tenant-role-shell .role-calendar-card > header a,
@@ -278,7 +278,7 @@
 .tenant-role-shell .role-side-list a b,
 .tenant-role-shell .role-progress-summary a,
 .tenant-role-shell .role-student-progress-card a {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .tenant-role-shell .role-next-course strong,
@@ -287,7 +287,7 @@
 .tenant-role-shell .role-recent-list strong,
 .tenant-role-shell .role-action-stack strong,
 .tenant-role-shell .role-student-progress-card__head strong {
-  font-size: 13px;
+  font-size: var(--text-secondary);
 }
 
 .tenant-role-shell .role-side-list a small,
@@ -300,20 +300,20 @@
 .tenant-role-shell .role-recent-list > p,
 .tenant-role-shell .role-student-progress-card p,
 .tenant-role-shell .role-student-progress-card__head small {
-  font-size: 12px;
+  font-size: var(--text-small);
   line-height: 1.45;
 }
 
 .tenant-role-shell .role-calendar-day > header strong,
 .tenant-role-shell .role-calendar-events article strong {
-  font-size: 12px;
+  font-size: var(--text-small);
 }
 
 .tenant-role-shell .role-calendar-day > header span,
 .tenant-role-shell .role-calendar-events article p,
 .tenant-role-shell .role-calendar-events article a,
 .tenant-role-shell .role-calendar-empty {
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 @media (max-width: 900px) {

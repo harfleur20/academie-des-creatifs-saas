@@ -168,9 +168,9 @@ export function ChartCanvas({
                 autoSkip: !horizontal,
                 color: '#64748b',
                 font: { size: 11 },
-                callback: horizontal
-                  ? (value: string | number) => `${value}${valueSuffix}`
-                  : undefined,
+                precision: 0,
+                // Only the value axis gets a formatter: an explicit undefined would replace the category names by 0, 1, 2…
+                ...(horizontal ? { callback: (value: string | number) => `${value}${valueSuffix}` } : {}),
               },
             },
             y: {
@@ -182,9 +182,8 @@ export function ChartCanvas({
               ticks: {
                 color: '#64748b',
                 font: { size: 11 },
-                callback: horizontal
-                  ? undefined
-                  : (value: string | number) => `${value}${valueSuffix}`,
+                precision: 0,
+                ...(horizontal ? {} : { callback: (value: string | number) => `${value}${valueSuffix}` }),
               },
             },
           },

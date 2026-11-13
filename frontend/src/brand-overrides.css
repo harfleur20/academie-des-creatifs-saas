@@ -148,9 +148,11 @@
   flex: 0 0 36px;
 }
 
-.auth-copy-panel .adaptive-logo-image.logo-alpha-transparent,
-.public-school-footer .adaptive-logo-image.logo-alpha-transparent,
-.brand-preview-sidebar .adaptive-logo-image.logo-alpha-transparent {
+/* On dark backgrounds, only a dark mark on transparency turns white: a filled logo (an
+   app-icon square) or a light one keeps its colours (brand/AdaptiveLogoImage.tsx). */
+.auth-copy-panel .adaptive-logo-image.logo-alpha-transparent.logo-tone-dark,
+.public-school-footer .adaptive-logo-image.logo-alpha-transparent.logo-tone-dark,
+.brand-preview-sidebar .adaptive-logo-image.logo-alpha-transparent.logo-tone-dark {
   filter: brightness(0) invert(1);
 }
 
@@ -207,7 +209,7 @@
 
 /* The public footer follows the same typography scale configured by the school owner. */
 .public-school-shell .public-school-footer {
-  font-size: calc(13px * var(--school-font-scale, 1));
+  font-size: var(--site-text-2);
   line-height: 1.6;
 }
 
@@ -217,19 +219,19 @@
 }
 
 .public-school-shell .public-school-footer-grid > div > strong {
-  font-size: calc(13px * var(--school-font-scale, 1));
+  font-size: var(--site-text-2);
   line-height: 1.35;
 }
 
 .public-school-shell .public-school-footer-brand strong {
-  font-size: calc(14px * var(--school-font-scale, 1));
+  font-size: var(--site-text);
   line-height: 1.35;
 }
 
 .public-school-shell .public-school-footer-grid p,
 .public-school-shell .public-school-footer-grid span,
 .public-school-shell .public-school-footer-grid a {
-  font-size: calc(12px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   line-height: 1.6;
 }
 
@@ -247,7 +249,7 @@
 }
 
 .public-school-shell .public-school-footer-bottom {
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   line-height: 1.5;
 }
 
@@ -396,9 +398,39 @@
   }
 
   .login-redesign.auth-register-mode .auth-form-panel {
-    align-items: start;
-    padding-top: clamp(32px, 4vh, 46px);
-    padding-bottom: 28px;
+    align-items: center;
+    padding-top: clamp(16px, 3vh, 36px);
+    padding-bottom: clamp(16px, 3vh, 36px);
+  }
+}
+
+@media (min-width: 901px) and (max-height: 700px) {
+  .login-redesign.auth-register-mode .auth-form-panel {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .login-redesign.auth-register-mode .auth-card h2 {
+    margin: 8px 0;
+    font-size: clamp(28px, 2.4vw, 36px);
+  }
+
+  .login-redesign.auth-register-mode .auth-card > p {
+    margin-bottom: 18px;
+  }
+
+  .login-redesign.auth-register-mode .auth-card label {
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+
+  .login-redesign.auth-register-mode .auth-card input,
+  .login-redesign.auth-register-mode .auth-submit {
+    min-height: 48px;
+  }
+
+  .login-redesign.auth-register-mode .auth-switch {
+    margin-top: 14px;
   }
 }
 

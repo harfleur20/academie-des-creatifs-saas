@@ -148,7 +148,7 @@ Les nouveaux supports téléversés par les professeurs utilisent aussi ce bucke
 
 Une commande sans premier paiement confirmé réserve sa place pendant `COMMERCE_RESERVATION_MINUTES` (30 minutes par défaut). Après expiration, la place est libérée. Un paiement TaraMoney confirmé ultérieurement passe au statut `payment_review` sans créer d'inscription ; l'école doit vérifier la transaction et décider de la suite, notamment d'un remboursement si la place a été revendue.
 
-La comparaison des parcours avec le site mère est suivie dans [`docs/PARITE_SITE_MERE.md`](docs/PARITE_SITE_MERE.md). Les règles des badges de progression, et la vérification de la présence en live, sont décrites dans [`docs/BADGES.md`](docs/BADGES.md). Les changements de mot de passe et la déconnexion révoquent toutes les sessions du compte. Les envois email et WhatsApp dont le résultat est incertain apparaissent dans Commerce pour une vérification avant renvoi.
+La comparaison des parcours avec le site mère est suivie dans [`docs/PARITE_SITE_MERE.md`](docs/PARITE_SITE_MERE.md). Les règles des badges de progression, et la vérification de la présence en live, sont décrites dans [`docs/BADGES.md`](docs/BADGES.md). Les forfaits, la commission sur les ventes et les options sont décrits dans [`docs/FORFAITS.md`](docs/FORFAITS.md). Les changements de mot de passe et la déconnexion révoquent toutes les sessions du compte. Les envois email et WhatsApp dont le résultat est incertain apparaissent dans Commerce pour une vérification avant renvoi.
 
 ## Méthode
 

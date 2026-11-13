@@ -88,6 +88,7 @@ def start_custom_domain_sso(
         claims is None
         or claims.get("support_session_id") is not None
         or claims.get("support_org_id") is not None
+        or claims.get("demo_org") is not None
     ):
         return _checked_redirect(clean_url)
 

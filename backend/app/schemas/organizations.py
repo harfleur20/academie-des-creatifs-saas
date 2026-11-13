@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl
 
@@ -10,6 +11,9 @@ class OrganizationCreate(BaseModel):
         max_length=120,
         pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
     )
+    # The plan picked on the landing page: the school still starts with the trial.
+    plan_code: str | None = Field(default=None, max_length=64, pattern=r"^[a-z0-9_-]+$")
+    billing_interval: Literal["monthly", "annual"] | None = None
 
 
 class OrganizationUpdate(BaseModel):

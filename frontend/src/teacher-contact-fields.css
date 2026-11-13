@@ -27,7 +27,7 @@
 .teacher-input-label,
 .teacher-language-fieldset legend {
   color: #162843;
-  font-size: 0.92rem;
+  font-size: var(--text-lead);
   font-weight: 800;
 }
 
@@ -162,13 +162,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.86rem;
+  font-size: var(--text-body);
   font-weight: 700;
 }
 
 .teacher-country-menu button strong {
   color: #65758b;
-  font-size: 0.8rem;
+  font-size: var(--text-secondary);
   font-weight: 800;
 }
 
@@ -180,7 +180,7 @@
   border-right: 1px solid #e1e7ef;
   color: #10284c;
   background: #f5f8fb;
-  font-size: 1rem;
+  font-size: var(--text-lead);
   font-weight: 850;
   white-space: nowrap;
 }
@@ -234,7 +234,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #1f3150;
-  font-size: 0.92rem;
+  font-size: var(--text-lead);
   font-weight: 650;
 }
 
@@ -258,7 +258,7 @@
 
 .teacher-field-help {
   color: #8794a6;
-  font-size: 10.5px;
+  font-size: var(--text-small);
   font-weight: 500;
 }
 
@@ -348,7 +348,7 @@
   background: #fff;
   text-decoration: none;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-small);
   font-weight: 800;
   cursor: pointer;
   transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
@@ -387,7 +387,7 @@
 
   .teacher-phone-dial-code {
     padding: 0 10px;
-    font-size: 0.92rem;
+    font-size: var(--text-lead);
   }
 
   .teacher-phone-control > input {

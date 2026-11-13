@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, ShoppingBag, Trash2, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { SchoolCartItem } from './schoolCart'
-import { formatSchoolMoney } from './publicHelpers'
+import { formatSchoolDate, formatSchoolMoney } from './publicHelpers'
 
 type SchoolCartDrawerProps = {
   open: boolean
@@ -112,7 +112,18 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
             <div className="school-cart-drawer-content">
               <article className="school-cart-drawer-item">
                 {item.cover_image_url ? <img src={item.cover_image_url} alt="" /> : <div className="school-cart-placeholder" />}
-                <div><h3>{item.formation_title}</h3><p>{item.format_type === 'ligne' || item.session_label === 'Accès en ligne' ? 'Formation en ligne' : `Session : ${item.session_label}`}</p><strong>{formatSchoolMoney(item.price_cents, item.currency)}</strong></div>
+                <div>
+                  <h3>{item.formation_title}</h3>
+                  <p>{item.format_type === 'ligne' || item.session_label === 'Accès en ligne' ? 'Formation en ligne' : `Session : ${item.session_label}`}</p>
+                  <strong>{formatSchoolMoney(item.price_cents, item.currency)}</strong>
+                  {item.payment_mode === 'installments' ? (
+                    <small className="school-cart-mode">Paiement en plusieurs fois</small>
+                  ) : item.deposit_cents != null && item.balance_cents != null ? (
+                    <small className="school-cart-mode">
+                      Acompte de {formatSchoolMoney(item.deposit_cents, item.currency)} à la réservation, puis solde de {formatSchoolMoney(item.balance_cents, item.currency)}{item.balance_due_date ? ` avant le ${formatSchoolDate(item.balance_due_date)}` : ''}.
+                    </small>
+                  ) : null}
+                </div>
                 <button type="button" aria-label="Retirer du panier" onClick={onClear}><Trash2 size={17} /></button>
               </article>
             </div>

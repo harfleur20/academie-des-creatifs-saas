@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Banknote, CalendarDays, GraduationCap, TrendingUp, Users } from 'lucide-react'
+import { useTenant } from '../app/TenantContext'
+import { PedagogyFilterBar } from '../components/PedagogyFilterBar'
+import { usePedagogyFilters, type FilterSession } from '../lib/pedagogyFilters'
 import {
   ApiError,
   getCommercialDashboard,
@@ -8,14 +11,21 @@ import {
   type CommercialDashboard,
   type FormationSummary,
   type SchoolPedagogyOverview,
+  type SchoolPedagogySession,
 } from '../lib/api'
 import { ChartCanvas } from '../components/ChartCanvas'
 import { formatSchoolMoney } from '../public/publicHelpers'
 import '../statistics.css'
 
 const errorMessage = (error: unknown) => error instanceof ApiError ? error.message : 'Chargement impossible.'
+const shorten = (value: string, size: number) => value.length > size ? `${value.slice(0, size - 1).trimEnd()}…` : value
+/** A session named with its formation: several formations often have a « Cohorte janvier ». */
+const sessionName = (row: SchoolPedagogySession) => `${shorten(row.formation_title, 26)} · ${row.session_label}`
+const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null
 
 export function SchoolPerformancePage() {
+  const { activeOrganization } = useTenant()
+  const { filters, update, clear, active, matches } = usePedagogyFilters(activeOrganization?.id)
   const [pedagogy, setPedagogy] = useState<SchoolPedagogyOverview | null>(null)
   const [commerce, setCommerce] = useState<CommercialDashboard | null>(null)
   const [formations, setFormations] = useState<FormationSummary[] | null>(null)
@@ -45,10 +55,21 @@ export function SchoolPerformancePage() {
     return () => { active = false }
   }, [])
 
-  const sessions = pedagogy?.sessions.slice(0, 8) ?? []
-  const sessionsToWatch = pedagogy?.sessions.filter((row) =>
-    row.at_risk_count > 0 || row.pending_reviews_count > 0
-  ) ?? []
+  const filterSessions = useMemo<FilterSession[]>(() => (pedagogy?.sessions ?? []).map((row) => ({
+    id: row.session_id, label: row.session_label, formationId: row.formation_id ?? null,
+    formationTitle: row.formation_title, teacherIds: row.teacher_ids ?? [],
+  })), [pedagogy])
+  // The session figures follow the filters; the catalogue and the sales stay those of the whole school.
+  const sessions = useMemo(() => (pedagogy?.sessions ?? []).filter((row) => matches({
+    formationId: row.formation_id, sessionId: row.session_id, teacherIds: row.teacher_ids,
+  })), [pedagogy, matches])
+  const sessionIds = useMemo(() => new Set(sessions.map((row) => row.session_id)), [sessions])
+  const students = useMemo(() => (pedagogy?.students ?? []).filter((row) => sessionIds.has(row.session_id)), [pedagogy, sessionIds])
+  const sessionsToWatch = sessions.filter((row) => row.at_risk_count > 0 || row.pending_reviews_count > 0)
+  // Same rule as the school overview: planned or open sessions are active.
+  const activeSessions = sessions.filter((row) => row.status === 'planned' || row.status === 'open').length
+  const progressAverage = average(students.map((row) => row.progress_pct))
+  const attendanceAverage = average(students.flatMap((row) => row.attendance_pct === null ? [] : [row.attendance_pct]))
   const paidOrders = commerce?.paid_order_count ?? 0
   const totalOrders = commerce?.order_count ?? 0
   const unpaidOrders = Math.max(0, totalOrders - paidOrders)
@@ -72,6 +93,12 @@ export function SchoolPerformancePage() {
     {formationsError && <div className="form-error">{formationsError}</div>}
 
     {(pedagogy || commerce || formations) && <>
+      {pedagogy && (
+        <PedagogyFilterBar
+          filters={filters} update={update} clear={clear} active={active} sessions={filterSessions}
+          teachers={pedagogy.teachers.map((teacher) => ({ id: teacher.teacher_id, name: teacher.teacher_name }))}
+        />
+      )}
       <section className="statistics-kpi-grid">
         <article className="statistics-kpi-card">
           <span><GraduationCap size={16}/> Catalogue</span>
@@ -81,12 +108,12 @@ export function SchoolPerformancePage() {
         <article className="statistics-kpi-card">
           <span><CalendarDays size={16}/> Sessions à surveiller</span>
           <strong>{pedagogy ? sessionsToWatch.length : '—'}</strong>
-          <small>{pedagogy ? `${pedagogy.active_sessions} session(s) active(s)` : 'Donnée de session indisponible'}</small>
+          <small>{pedagogy ? (active ? `sur ${sessions.length} session(s) filtrée(s)` : `${pedagogy.active_sessions} session(s) active(s)`) : 'Donnée de session indisponible'}</small>
         </article>
         <article className="statistics-kpi-card">
           <span><Banknote size={16}/> Situation commerciale</span>
           <strong>{commerce ? moneyByCurrency('collected_cents') : '—'}</strong>
-          <small>{commerce ? `${commerce.paid_order_count}/${commerce.order_count} commande(s) réglée(s)` : 'Donnée commerciale indisponible'}</small>
+          <small>{commerce ? `${commerce.paid_order_count}/${commerce.order_count} commande(s) réglée(s)${active ? ' · toute l’école' : ''}` : 'Donnée commerciale indisponible'}</small>
         </article>
         <article className="statistics-kpi-card">
           <span><AlertTriangle size={16}/> Alertes école</span>
@@ -108,11 +135,12 @@ export function SchoolPerformancePage() {
             </div>
             {sessions.length > 0 ? <ChartCanvas
               type="bar"
+              horizontal
               max={100}
               valueSuffix="%"
               showLegend
-              height={320}
-              labels={sessions.map((row) => row.session_label || row.formation_title)}
+              height={Math.max(260, sessions.length * 46 + 60)}
+              labels={sessions.map((row) => (filters.formation ? row.session_label : sessionName(row)))}
               datasets={[
                 { label: 'Remplissage', data: sessions.map((row) => row.fill_rate_pct) },
                 { label: 'Présence', data: sessions.map((row) => row.attendance_rate_pct ?? 0) },
@@ -133,11 +161,11 @@ export function SchoolPerformancePage() {
               type="bar"
               horizontal
               showLegend
-              height={Math.max(280, Math.min(8, sessionsToWatch.length) * 52)}
-              labels={sessionsToWatch.slice(0, 8).map((row) => row.session_label || row.formation_title)}
+              height={Math.max(260, sessionsToWatch.length * 46 + 60)}
+              labels={sessionsToWatch.map((row) => (filters.formation ? row.session_label : sessionName(row)))}
               datasets={[
-                { label: 'Étudiants à risque', data: sessionsToWatch.slice(0, 8).map((row) => row.at_risk_count) },
-                { label: 'Corrections en attente', data: sessionsToWatch.slice(0, 8).map((row) => row.pending_reviews_count) },
+                { label: 'Étudiants à risque', data: sessionsToWatch.map((row) => row.at_risk_count) },
+                { label: 'Corrections en attente', data: sessionsToWatch.map((row) => row.pending_reviews_count) },
               ]}
             /> : <div className="statistics-empty">Aucun signal particulier sur les sessions actuellement.</div>}
           </article>
@@ -158,8 +186,8 @@ export function SchoolPerformancePage() {
               height={260}
               labels={['Progression moyenne', 'Présence moyenne']}
               datasets={[{
-                label: 'École',
-                data: [pedagogy.average_progress_pct, pedagogy.average_attendance_pct ?? 0],
+                label: active ? 'Sélection' : 'École',
+                data: [Math.round(progressAverage ?? 0), Math.round(attendanceAverage ?? 0)],
               }]}
             /> : <div className="statistics-empty">Données pédagogiques indisponibles.</div>}
           </article>
@@ -205,7 +233,9 @@ export function SchoolPerformancePage() {
               labels={['Étudiants actifs', 'Sessions actives']}
               datasets={[{
                 label: 'Volume',
-                data: [pedagogy?.active_students ?? commerce?.active_students ?? 0, pedagogy?.active_sessions ?? 0],
+                data: active
+                  ? [new Set(students.filter((row) => row.enrollment_status === 'active' || row.enrollment_status === 'suspended_payment').map((row) => row.student_id)).size, activeSessions]
+                  : [pedagogy?.active_students ?? commerce?.active_students ?? 0, pedagogy?.active_sessions ?? 0],
               }]}
             /> : <div className="statistics-empty">Données d’activité indisponibles.</div>}
           </article>

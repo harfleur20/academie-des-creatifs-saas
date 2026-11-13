@@ -20,7 +20,7 @@
   color: #9eacc0;
   background: transparent;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 700;
   text-align: left;
   cursor: pointer;
@@ -72,7 +72,7 @@
   min-height: 38px;
   padding: 0 10px;
   border-radius: 9px;
-  font-size: 12.5px;
+  font-size: var(--text-small);
   font-weight: 620;
 }
 
@@ -181,7 +181,7 @@
   flex: 1;
   overflow: hidden;
   color: #10213d;
-  font-size: 12px;
+  font-size: var(--text-small);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -189,13 +189,13 @@
 .owner-dashboard-activity-meta time {
   flex: none;
   color: #98a3b3;
-  font-size: 9px;
+  font-size: var(--text-small);
 }
 
 .owner-dashboard-activity-copy b {
   overflow: hidden;
   color: #31445f;
-  font-size: 11px;
+  font-size: var(--text-small);
   font-weight: 750;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -205,7 +205,7 @@
   display: -webkit-box;
   overflow: hidden;
   color: #77869b;
-  font-size: 10.5px;
+  font-size: var(--text-small);
   line-height: 1.4;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -228,7 +228,7 @@
   gap: 8px;
   padding: 20px;
   color: #8290a4;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 .owner-dashboard-activity-actions {
@@ -247,7 +247,7 @@
   padding: 10px;
   color: #253968;
   background: #fbfcfd;
-  font-size: 10px;
+  font-size: var(--text-small);
   font-weight: 800;
   text-decoration: none;
   transition: background 150ms ease, gap 150ms ease;

@@ -26,6 +26,7 @@ class FormationCreate(BaseModel):
     training_hours: int | None = Field(default=None, ge=1, le=10000)
     short_description: str = Field(default="", max_length=500)
     cover_image_url: str | None = Field(default=None, max_length=1024)
+    presentation_video_url: str | None = Field(default=None, max_length=1024)
     objectives: str = Field(default="", max_length=10000)
     prerequisites: str = Field(default="", max_length=10000)
     public_program: str = Field(default="", max_length=30000)
@@ -49,6 +50,7 @@ class FormationUpdate(BaseModel):
     training_hours: int | None = Field(default=None, ge=1, le=10000)
     short_description: str | None = Field(default=None, max_length=500)
     cover_image_url: str | None = Field(default=None, max_length=1024)
+    presentation_video_url: str | None = Field(default=None, max_length=1024)
     objectives: str | None = Field(default=None, max_length=10000)
     prerequisites: str | None = Field(default=None, max_length=10000)
     public_program: str | None = Field(default=None, max_length=30000)
@@ -63,6 +65,17 @@ class FormationUpdate(BaseModel):
     status: str | None = Field(default=None, pattern=FORMATION_STATUSES)
 
 
+class FormationNextSessionRead(BaseModel):
+    """The session running now or starting next, for the formations list."""
+
+    id: int
+    label: str
+    start_date: date
+    end_date: date
+    enrolled_count: int
+    seat_capacity: int
+
+
 class FormationSummaryRead(BaseModel):
     id: int
     organization_id: int
@@ -75,6 +88,7 @@ class FormationSummaryRead(BaseModel):
     training_hours: int | None
     short_description: str
     cover_image_url: str | None
+    presentation_video_url: str | None
     objectives: str
     prerequisites: str
     public_program: str
@@ -93,6 +107,7 @@ class FormationSummaryRead(BaseModel):
     student_count: int
     course_count: int
     created_at: datetime
+    next_session: FormationNextSessionRead | None = None
 
 
 class SessionCreate(BaseModel):
@@ -105,6 +120,9 @@ class SessionCreate(BaseModel):
     enrollment_close_at: datetime | None = None
     price_override_cents: int | None = Field(default=None, ge=0, le=2_000_000_000)
     status: str = Field(default="planned", pattern=SESSION_STATUSES)
+    # Take back the courses, activities (as drafts) and, if asked, the teachers of an earlier session.
+    copy_content_from_session_id: int | None = Field(default=None, ge=1)
+    copy_teachers: bool = True
 
     @model_validator(mode="after")
     def validate_dates(self):
@@ -190,6 +208,7 @@ class EnrollmentRead(BaseModel):
     student_id: int
     student_name: str
     student_email: str
+    student_avatar_url: str | None = None
     status: str
     created_at: datetime
 

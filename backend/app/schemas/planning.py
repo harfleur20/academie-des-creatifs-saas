@@ -181,8 +181,10 @@ class CourseDayFeedbackReviewRead(CourseDayFeedbackRead):
 class SchoolCourseDayReportRead(BaseModel):
     course_day_id: int
     session_id: int
+    formation_id: int | None = None
     formation_title: str
     session_label: str
+    teacher_id: int | None = None
     teacher_name: str | None
     title: str
     scheduled_at: datetime
@@ -194,3 +196,18 @@ class SchoolCourseDayReportRead(BaseModel):
     submitted_at: datetime
     feedback_count: int
     average_rating: float | None
+
+
+class SchoolMissingCourseDayReportRead(BaseModel):
+    """A course day over, not cancelled, whose teacher has not written the report yet."""
+
+    course_day_id: int
+    session_id: int
+    formation_id: int
+    formation_title: str
+    session_label: str
+    teacher_id: int | None
+    teacher_name: str | None
+    title: str
+    scheduled_at: datetime
+    ends_at: datetime

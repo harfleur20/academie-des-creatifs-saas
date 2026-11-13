@@ -12,6 +12,8 @@ export type CurrentSchoolBranding = {
   primary_color: string
   secondary_color: string
   accent_color: string
+  /** Business plans hide the platform's "Powered by" signature. */
+  white_label?: boolean
 }
 
 export async function getCurrentSchoolBranding(organizationId?: number): Promise<CurrentSchoolBranding> {

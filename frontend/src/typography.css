@@ -1,0 +1,56 @@
+/*
+ * One type scale for the whole application (school, teacher, student and admin spaces).
+ * Every size of the app's stylesheets points to one of these; nothing goes under 12 px.
+ * The landing page, the login pages and the schools' public site keep their own scales.
+ */
+:root {
+  --text-page-title: 32px;
+  --text-section-title: 22px;
+  --text-card-title: 17px;
+  --text-lead: 15px;
+  --text-body: 14px;
+  --text-secondary: 13px;
+  --text-small: 12px;
+}
+
+/* Text without a size of its own reads at the body size in the app's spaces. */
+.saas-app,
+.tenant-role-shell,
+.admin-shell {
+  font-size: var(--text-body);
+}
+
+.saas-app .app-page-header h1,
+.tenant-role-shell .app-page-header h1,
+.admin-shell .admin-page-header h1 {
+  font-size: var(--text-page-title);
+  line-height: 1.12;
+}
+
+.saas-app .app-page-header p,
+.tenant-role-shell .app-page-header p,
+.admin-shell .admin-page-header p {
+  font-size: var(--text-lead);
+  line-height: 1.55;
+}
+
+.saas-app .page-kicker,
+.saas-app .section-label,
+.tenant-role-shell .page-kicker,
+.tenant-role-shell .section-label,
+.admin-shell .section-label {
+  font-size: var(--text-small);
+}
+
+/* Headings without a size of their own follow the scale instead of the browser's defaults. */
+:where(.saas-app, .tenant-role-shell, .admin-shell) :where(h1) { font-size: var(--text-page-title); }
+:where(.saas-app, .tenant-role-shell, .admin-shell) :where(h2) { font-size: var(--text-section-title); }
+:where(.saas-app, .tenant-role-shell, .admin-shell) :where(h3) { font-size: var(--text-card-title); }
+:where(.saas-app, .tenant-role-shell, .admin-shell) :where(h4, h5, h6) { font-size: var(--text-lead); }
+:where(.saas-app, .tenant-role-shell, .admin-shell) :where(small) { font-size: var(--text-small); }
+
+/* Key figures read at one size wherever they are shown. */
+.saas-app :is(.commerce-kpis, .management-kpi-grid, .formation-metrics) strong {
+  font-size: var(--text-section-title);
+  line-height: 1.15;
+}

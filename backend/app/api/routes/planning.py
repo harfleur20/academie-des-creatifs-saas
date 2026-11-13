@@ -14,6 +14,7 @@ from app.schemas.planning import (
     CourseDayFeedbackSubmit,
     CourseDayFeedbackReviewRead,
     SchoolCourseDayReportRead,
+    SchoolMissingCourseDayReportRead,
     SessionPlanningRead,
     LiveHeartbeatRead,
     LiveRollCallRead,
@@ -34,6 +35,7 @@ from app.services.planning import (
     submit_course_day_feedback,
     list_course_day_feedback,
     list_school_course_day_reports,
+    list_school_missing_course_day_reports,
 )
 from app.services.tenancy import TenantContext
 
@@ -82,6 +84,13 @@ def read_school_course_day_reports(
     db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
 ):
     return list_school_course_day_reports(db, tenant)
+
+
+@router.get("/reports/missing", response_model=list[SchoolMissingCourseDayReportRead])
+def read_school_missing_course_day_reports(
+    db: Session = Depends(get_db), tenant: TenantContext = Depends(get_tenant_context),
+):
+    return list_school_missing_course_day_reports(db, tenant)
 
 
 @router.get("/course-days/{course_day_id}/live", response_model=LiveRoomInfoRead)

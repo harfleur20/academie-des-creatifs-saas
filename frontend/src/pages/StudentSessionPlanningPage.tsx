@@ -11,6 +11,7 @@ import {
   getSessionPlanning,
   type SessionPlanning,
 } from '../lib/api'
+import { formatDuration } from '../lib/formatDuration'
 import { liveClassIsOpen } from '../lib/liveWindow'
 
 export function StudentSessionPlanningPage() {
@@ -70,7 +71,7 @@ export function StudentSessionPlanningPage() {
                     <h3>{day.title}</h3>
                   </div>
                   <div className="planning-day-meta">
-                    <span><Clock3 size={14} /> {new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(day.scheduled_at))} · {day.duration_minutes} min</span>
+                    <span><Clock3 size={14} /> {new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(day.scheduled_at))} · {formatDuration(day.duration_minutes)}</span>
                     <span><UserRound size={14} /> {day.teacher_name || 'Professeur'}</span>
                   </div>
                 </div>

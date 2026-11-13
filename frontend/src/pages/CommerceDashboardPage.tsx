@@ -25,6 +25,15 @@ import {
 import { saveBlobFile } from '../lib/download'
 import { formatSchoolMoney } from '../public/publicHelpers'
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: 'En attente',
+  partially_paid: 'Paiement partiel',
+  paid: 'Payée',
+  late: 'En retard',
+  cancelled: 'Annulée',
+  payment_review: 'Paiement à vérifier',
+}
+
 export function CommerceDashboardPage() {
   const [dashboard, setDashboard] = useState<CommercialDashboard | null>(null)
   const [orders, setOrders] = useState<SchoolOrder[]>([])
@@ -90,7 +99,7 @@ export function CommerceDashboardPage() {
         <div>
           <span className="page-kicker">Commerce</span>
           <h1>Ventes & paiements étudiants</h1>
-          <p>Cette comptabilité est distincte de votre abonnement SaaS.</p>
+          <p>Cette comptabilité est distincte de votre abonnement à la plateforme.</p>
         </div>
       </header>
 
@@ -169,7 +178,7 @@ export function CommerceDashboardPage() {
               </span>
               <span>{formatSchoolMoney(order.final_price_cents, order.currency)}</span>
               <span>{formatSchoolMoney(order.paid_cents, order.currency)}</span>
-              <span className={'order-status ' + order.status} title={order.status === 'payment_review' ? 'Paiement arrivé après la fin de la réservation : vérifier le dossier et le remboursement éventuel.' : undefined}>{order.status === 'payment_review' ? 'Paiement à vérifier' : order.status}</span>
+              <span className={'order-status ' + order.status} title={order.status === 'payment_review' ? 'Paiement arrivé après la fin de la réservation : vérifier le dossier et le remboursement éventuel.' : undefined}>{ORDER_STATUS_LABELS[order.status] ?? order.status}</span>
             </div>
           ))}
           {ordersLoaded && orders.length === 0 && <div className="empty-row">Aucune commande pour cette école.</div>}
@@ -199,7 +208,7 @@ export function CommerceDashboardPage() {
               <span>#{invoice.order_id}</span>
               <span>{formatSchoolMoney(invoice.amount_cents, invoice.currency)}</span>
               <span>{new Date(invoice.issued_at).toLocaleDateString('fr-FR')}</span>
-              <span>{invoice.status}</span>
+              <span>{invoice.status === 'paid' ? 'Payée' : invoice.status === 'void' ? 'Annulée' : invoice.status}</span>
               <span>
                 <button
                   type="button"

@@ -41,13 +41,13 @@
 }
 
 .app-toast-content strong {
-  font-size: 13px;
+  font-size: var(--text-secondary);
   font-weight: 800;
 }
 
 .app-toast-content span {
   color: #5f6e84;
-  font-size: 12px;
+  font-size: var(--text-small);
   line-height: 1.45;
 }
 

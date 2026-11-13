@@ -1,0 +1,82 @@
+/* The filters shared by the school's pedagogy pages (components/PedagogyFilterBar.tsx). */
+.pedagogy-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid #e3e8ef;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.pedagogy-filters label {
+  display: grid;
+  gap: 5px;
+  min-width: 170px;
+  flex: 1 1 170px;
+  max-width: 280px;
+  color: #45507a;
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+
+.pedagogy-filters label > span {
+  letter-spacing: .02em;
+}
+
+.pedagogy-filters select,
+.pedagogy-filters input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d8e0ea;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2352;
+  font: inherit;
+  font-size: var(--text-secondary);
+  font-weight: 500;
+}
+
+.pedagogy-filters .pedagogy-filters__search {
+  flex: 2 1 220px;
+  max-width: none;
+}
+
+.pedagogy-filters .pedagogy-filters__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 0 0 auto;
+  min-height: 40px;
+  font-size: var(--text-secondary);
+  font-weight: 600;
+}
+
+.pedagogy-filters .pedagogy-filters__check input {
+  width: auto;
+  min-height: 0;
+}
+
+.pedagogy-filters__clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #eef0fb;
+  color: #1f2352;
+  font: inherit;
+  font-size: var(--text-secondary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .pedagogy-filters label { max-width: none; flex-basis: 100%; }
+}

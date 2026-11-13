@@ -6,7 +6,7 @@
 .public-school-shell .school-about .school-kicker,
 .public-school-shell .school-kicker {
   margin-bottom: 8px;
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   line-height: 1.35;
 }
 
@@ -19,7 +19,7 @@
 .public-school-shell .school-about p {
   margin: 1em 0;
   color: #66758a;
-  font-size: calc(15px * var(--school-font-scale, 1));
+  font-size: var(--site-subtitle);
   line-height: 1.55;
 }
 
@@ -34,12 +34,12 @@
 
 .public-school-shell .school-about-values strong {
   margin: 12px 0 7px;
-  font-size: calc(14px * var(--school-font-scale, 1));
+  font-size: var(--site-text);
   line-height: 1.35;
 }
 
 .public-school-shell .school-about-values span {
-  font-size: calc(12px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   line-height: 1.55;
 }
 
@@ -49,17 +49,17 @@
 .public-school-shell .school-hero a,
 .public-school-shell .school-primary-link,
 .public-school-shell .school-section-heading a {
-  font-size: calc(11px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
 }
 
 .public-school-shell .school-formation-meta,
 .public-school-shell .school-formation-foot > span,
 .public-school-shell .school-formation-foot a {
-  font-size: calc(10px * var(--school-font-scale, 1));
+  font-size: var(--site-tiny);
 }
 
 .public-school-shell .school-formation-card p {
-  font-size: calc(12px * var(--school-font-scale, 1));
+  font-size: var(--site-small);
   line-height: 1.55;
 }
 

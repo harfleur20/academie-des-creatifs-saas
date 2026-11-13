@@ -1,0 +1,115 @@
+/* The school's formations list (pages/FormationsManagementPage.tsx). */
+.formations-list { padding: 18px; }
+
+.formations-list__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.formations-list__toolbar select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d8e0ea;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2352;
+  font: inherit;
+  font-size: var(--text-secondary);
+}
+
+.formations-list__search {
+  display: flex;
+  flex: 1 1 260px;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d8e0ea;
+  border-radius: 10px;
+  color: #64748b;
+}
+
+.formations-list__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #1f2352;
+  font: inherit;
+  font-size: var(--text-secondary);
+}
+
+.formations-list__count { margin: 4px 0 6px; color: var(--muted); font-size: var(--text-small); }
+
+.formations-list__row {
+  display: grid;
+  grid-template-columns: minmax(220px, 2.2fr) minmax(150px, 1.4fr) minmax(120px, 1fr) minmax(110px, .9fr) minmax(120px, .9fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 8px;
+  border-top: 1px solid #eef1f4;
+  font-size: var(--text-secondary);
+}
+
+.formations-list__row.is-head {
+  border-top: 0;
+  padding-block: 8px;
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.formations-list__row > div { display: grid; gap: 3px; min-width: 0; }
+.formations-list__row strong { color: #1f2352; }
+.formations-list__row small { color: #64748b; font-size: var(--text-small); }
+.formations-list__title a { color: inherit; text-decoration: none; }
+.formations-list__title a:hover strong { text-decoration: underline; }
+
+.formations-list__format {
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef0fb;
+  color: #1f2352;
+  font-size: var(--text-small);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.formations-list__format.is-live { background: #e2f3f2; color: #146b67; }
+.formations-list__format.is-presentiel { background: #fff4e0; color: #8a5300; }
+
+.formations-list__bar {
+  display: block;
+  width: 100%;
+  max-width: 140px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eef1f6;
+}
+.formations-list__bar b { display: block; height: 100%; border-radius: inherit; background: #1c8480; }
+
+.formations-list__issues { color: #9a6400 !important; font-weight: 600; }
+
+.formations-list__actions {
+  display: flex !important;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .formations-list__row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .formations-list__row.is-head { display: none; }
+  .formations-list__title { grid-column: 1 / -1; }
+  .formations-list__actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+.formation-created { margin-bottom: 16px; }
+
+@media (max-width: 640px) {
+  .formations-page .formation-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

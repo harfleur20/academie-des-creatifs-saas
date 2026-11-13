@@ -76,6 +76,8 @@ def create_organization(
     start_default_trial(
         db,
         organization_id=organization.id,
+        chosen_plan_code=payload.plan_code,
+        chosen_billing_interval=payload.billing_interval,
     )
     db.commit()
     db.refresh(organization)

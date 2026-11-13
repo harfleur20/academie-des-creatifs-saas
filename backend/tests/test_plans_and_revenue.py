@@ -27,11 +27,12 @@ from app.models.entities import (
     UserRecord,
 )
 from app.services.membership_roles import replace_effective_roles
-from app.services.plan_limits import billing_usage, notify_student_quotas, quote, require_capacity, require_feature
+from app.services.plan_limits import billing_usage, quote, require_capacity, require_feature
+from app.services.public_catalog import school_white_label
 from app.services.school_revenue import cancel_payout, process_payout, record_sale, request_payout, revenue_summary
-from app.services.subscriptions import apply_subscription_lifecycle, start_default_trial
+from app.services.subscriptions import apply_subscription_lifecycle, get_effective_plan, list_public_plans, start_default_trial
 
-MIGRATION = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "20261112_0060_plans_addons_revenue.py"
+MIGRATION = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "20261112_0062_free_plan_annual_discount.py"
 _spec = importlib.util.spec_from_file_location("plans_migration", MIGRATION)
 grid = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(grid)
@@ -42,9 +43,9 @@ _unique = itertools.count()
 def plans(db) -> dict[str, PlanRecord]:
     """The grid the migration puts in production."""
     out = {}
-    for code, (description, monthly, annual, commission, entitlements) in grid.PLANS.items():
-        plan = PlanRecord(code=code, name=code.capitalize(), description=description, currency="XAF",
-                          monthly_price_cents=monthly, annual_price_cents=annual, trial_days=14,
+    for code, (name, description, monthly, annual, commission, trial_days, entitlements) in grid.PLANS.items():
+        plan = PlanRecord(code=code, name=name, description=description, currency="XAF",
+                          monthly_price_cents=monthly, annual_price_cents=annual, trial_days=trial_days,
                           is_public=True, is_active=True, sales_commission_bps=commission)
         plan.entitlements = [PlanEntitlementRecord(feature_key=key, enabled=enabled, limit_value=limit)
                              for key, enabled, limit in entitlements]
@@ -105,41 +106,61 @@ def add_teachers(db, org, count: int):
     db.commit()
 
 
-def test_a_school_beyond_its_students_quota_pays_each_extra_student():
+def test_the_grid_is_free_then_paid_with_twenty_percent_off_a_year():
+    db = build_db()
+    grid_plans = plans(db)
+    assert [plan.code for plan in list_public_plans(db)] == ["decouverte", "starter", "pro", "business"]
+    commissions = {code: plan.sales_commission_bps for code, plan in grid_plans.items()}
+    assert commissions == {"decouverte": 1_000, "starter": 800, "pro": 600, "business": 400}
+    for code, plan in grid_plans.items():
+        assert plan.annual_price_cents == plan.monthly_price_cents * 12 * 80 // 100, code
+        students = next(item for item in plan.entitlements if item.feature_key == "students")
+        assert (students.enabled, students.limit_value) == (True, None), code
+    assert (grid_plans["starter"].annual_price_cents, grid_plans["pro"].annual_price_cents,
+            grid_plans["business"].annual_price_cents) == (144_000, 336_000, 720_000)
+
+
+def test_students_are_never_limited_and_extra_teachers_are_billed_per_unit():
     db = build_db()
     grid_plans = plans(db)
     org, _owner = school(db, grid_plans["starter"])
-    add_students(db, org, 52)
-    add_students(db, org, 30, ended=True)  # a finished cohort no longer counts
+    add_students(db, org, 120)
+    add_teachers(db, org, 3)
 
     monthly = quote(db, org.id, grid_plans["starter"], "monthly")
     assert [(line.label, line.quantity, line.amount_cents) for line in monthly.lines] == [
         ("Forfait Starter (mensuel)", 1, 15_000),
-        ("Étudiant supplémentaire", 2, 600),
+        ("Professeur supplémentaire", 1, 2_500),
     ]
-    assert monthly.total_cents == 15_600
-    # Annual: ten months of the plan, and of each extra student.
-    assert quote(db, org.id, grid_plans["starter"], "annual").total_cents == 150_000 + 2 * 3_000
+    # Annual: twelve months minus 20 %, for the plan and for each extra teacher.
+    annual = quote(db, org.id, grid_plans["starter"], "annual")
+    assert [(line.label, line.amount_cents) for line in annual.lines] == [
+        ("Forfait Starter (annuel)", 144_000),
+        ("Professeur supplémentaire (12 mois, −20 %)", 24_000),
+    ]
     # On Pro, the same school fits in its plan.
     assert quote(db, org.id, grid_plans["pro"], "monthly").total_cents == 35_000
 
     usage = billing_usage(db, org.id)
     students = next(item for item in usage["metrics"] if item["feature_key"] == "students")
-    assert (students["current"], students["limit"], students["extra"], students["extra_amount_cents"]) == (52, 50, 2, 600)
+    assert (students["current"], students["limit"], students["extra"]) == (120, None, 0)
+    teachers = next(item for item in usage["metrics"] if item["feature_key"] == "teachers")
+    assert (teachers["current"], teachers["limit"], teachers["extra"], teachers["extra_amount_cents"]) == (3, 2, 1, 2_500)
     assert usage["commission_bps"] == 800 and usage["live_included"] is True
+    assert usage["next_payment"]["total_cents"] == 17_500
 
 
 def test_the_renewal_invoice_lists_the_plan_and_the_add_ons():
     db = build_db()
     grid_plans = plans(db)
     org, _owner = school(db, grid_plans["starter"])
-    add_students(db, org, 51)
+    add_teachers(db, org, 3)
     subscription = db.scalar(select(SubscriptionRecord).where(SubscriptionRecord.organization_id == org.id))
     apply_subscription_lifecycle(db, subscription, now=NOW + timedelta(days=2))
     db.commit()
     invoice = db.scalar(select(BillingInvoiceRecord).where(BillingInvoiceRecord.organization_id == org.id))
-    assert invoice.amount_cents == 15_300
-    assert [line["label"] for line in invoice.lines] == ["Forfait Starter (mensuel)", "Étudiant supplémentaire"]
+    assert invoice.amount_cents == 17_500
+    assert [line["label"] for line in invoice.lines] == ["Forfait Starter (mensuel)", "Professeur supplémentaire"]
 
 
 def test_one_teacher_too_many_asks_the_school_to_accept_the_add_on():
@@ -175,17 +196,21 @@ def test_without_an_add_on_the_school_moves_up_a_plan():
     assert "Passez au forfait supérieur" in refused.value.detail
 
 
-def test_every_plan_includes_live_classes_with_a_per_class_student_limit():
+def test_every_paid_plan_includes_live_classes_sized_per_class_and_at_once():
     db = build_db()
     grid_plans = plans(db)
     organizations = {}
-    for code, limit in {"starter": 10, "pro": 50, "business": 100}.items():
+    for code, (per_class, at_once) in {"starter": (10, 1), "pro": (50, 2), "business": (100, 5)}.items():
         org, _ = school(db, grid_plans[code])
         organizations[code] = org
-        entitlement = next(item for item in grid_plans[code].entitlements if item.feature_key == "live")
-        assert entitlement.enabled is True
-        assert entitlement.limit_value == limit
+        sizes = {item.feature_key: item.limit_value for item in grid_plans[code].entitlements if item.enabled}
+        assert (sizes["live"], sizes["live_rooms"]) == (per_class, at_once)
         require_feature(db, org.id, "live")
+
+    free, _ = school(db, grid_plans["decouverte"])
+    with pytest.raises(HTTPException) as no_live:
+        require_feature(db, free.id, "live")
+    assert no_live.value.detail == "Les cours en live sont inclus à partir du forfait Starter."
 
     starter = organizations["starter"]
     pro = organizations["pro"]
@@ -196,9 +221,8 @@ def test_every_plan_includes_live_classes_with_a_per_class_student_limit():
     require_feature(db, pro.id, "custom_domain")
 
 
-def test_a_school_without_a_plan_is_not_restricted():
+def test_without_a_free_plan_in_the_grid_a_school_without_a_plan_is_not_restricted():
     db = build_db()
-    plans(db)
     org = OrganizationRecord(name="Ancienne", slug="ancienne")
     db.add(org)
     db.commit()
@@ -216,6 +240,52 @@ def test_the_trial_lets_a_new_school_try_pro():
     subscription = start_default_trial(db, organization_id=org.id)
     assert subscription.status == "trialing"
     assert subscription.plan.code == "pro"
+
+
+def test_after_the_trial_a_school_goes_on_with_the_free_plan():
+    db = build_db()
+    grid_plans = plans(db)
+    org, owner = school(db, grid_plans["pro"], status="trialing")
+    subscription = db.scalar(select(SubscriptionRecord).where(SubscriptionRecord.organization_id == org.id))
+    subscription.trial_ends_at = NOW - timedelta(minutes=1)
+    db.commit()
+
+    assert get_effective_plan(db, org.id).code == "decouverte"
+    with pytest.raises(HTTPException):
+        require_feature(db, org.id, "live")
+    add_teachers(db, org, 1)
+    with pytest.raises(HTTPException) as one_teacher:
+        require_capacity(db, org.id, "teachers", accept_addon=True)
+    assert "Passez au forfait supérieur" in one_teacher.value.detail
+    usage = billing_usage(db, org.id)
+    assert (usage["plan_code"], usage["commission_bps"], usage["next_payment"]) == ("decouverte", 1_000, None)
+    order, installment = paid_installment(db, org, owner, amount=100_000)
+    assert record_sale(db, org, order, installment, NOW).commission_cents == 10_000
+
+
+def test_a_school_late_on_its_payment_keeps_its_plan_during_the_grace_period():
+    db = build_db()
+    grid_plans = plans(db)
+    org, _owner = school(db, grid_plans["pro"], status="past_due")
+    subscription = db.scalar(select(SubscriptionRecord).where(SubscriptionRecord.organization_id == org.id))
+    subscription.grace_period_ends_at = NOW + timedelta(days=3)
+    db.commit()
+    assert get_effective_plan(db, org.id).code == "pro"
+    subscription.grace_period_ends_at = NOW - timedelta(minutes=1)
+    db.commit()
+    assert get_effective_plan(db, org.id).code == "decouverte"
+
+
+def test_only_business_hides_the_platform_signature():
+    db = build_db()
+    grid_plans = plans(db)
+    assert school_white_label(db, school(db, grid_plans["business"])[0].id) is True
+    assert school_white_label(db, school(db, grid_plans["pro"])[0].id) is False
+    bare = build_db()
+    org = OrganizationRecord(name="Sans forfait", slug="sans-forfait")
+    bare.add(org)
+    bare.commit()
+    assert school_white_label(bare, org.id) is False
 
 
 def paid_installment(db, org, owner, amount=150_000):
@@ -253,7 +323,7 @@ def test_each_paid_instalment_credits_the_school_net_of_its_plans_commission():
 
     pro, pro_owner = school(db, grid_plans["pro"])
     pro_order, pro_installment = paid_installment(db, pro, pro_owner, amount=100_000)
-    assert record_sale(db, pro, pro_order, pro_installment, NOW).commission_cents == 5_000
+    assert record_sale(db, pro, pro_order, pro_installment, NOW).commission_cents == 6_000
 
 
 def test_a_school_asks_for_its_payout_and_the_platform_transfers_it():
@@ -261,7 +331,7 @@ def test_a_school_asks_for_its_payout_and_the_platform_transfers_it():
     grid_plans = plans(db)
     org, owner = school(db, grid_plans["business"])
     order, installment = paid_installment(db, org, owner, amount=50_000)
-    record_sale(db, org, order, installment, NOW)  # 3 % on Business: 48 500 owed
+    record_sale(db, org, order, installment, NOW)  # 4 % on Business: 48 000 owed
     db.commit()
     tenant = ctx(db, org, owner)
 
@@ -270,10 +340,10 @@ def test_a_school_asks_for_its_payout_and_the_platform_transfers_it():
     assert "10 000 FCFA" in too_small.value.detail
     with pytest.raises(HTTPException) as too_much:
         request_payout(db, tenant, amount_cents=60_000, method="mobile_money", destination="+237 600 000 000", account_name="École")
-    assert "48 500 FCFA" in too_much.value.detail
+    assert "48 000 FCFA" in too_much.value.detail
 
     payout = request_payout(db, tenant, amount_cents=40_000, method="mobile_money", destination="+237 600 000 000", account_name="École")
-    assert revenue_summary(db, org.id).available_cents == 8_500
+    assert revenue_summary(db, org.id).available_cents == 8_000
     with pytest.raises(HTTPException) as one_at_a_time:
         request_payout(db, tenant, amount_cents=10_000, method="bank", destination="CM21 0000", account_name="École")
     assert one_at_a_time.value.status_code == 409
@@ -282,7 +352,7 @@ def test_a_school_asks_for_its_payout_and_the_platform_transfers_it():
         process_payout(db, owner, payout.id, paid=True)  # a transfer reference is required
     process_payout(db, owner, payout.id, paid=True, transfer_reference="OM-123456")
     summary = revenue_summary(db, org.id)
-    assert (summary.paid_out_cents, summary.pending_payout_cents, summary.available_cents) == (40_000, 0, 8_500)
+    assert (summary.paid_out_cents, summary.pending_payout_cents, summary.available_cents) == (40_000, 0, 8_000)
     assert db.scalar(select(SchoolNotificationRecord).where(SchoolNotificationRecord.event_key == f"payout.paid:{payout.id}"))
 
 
@@ -300,25 +370,7 @@ def test_a_cancelled_or_rejected_payout_frees_the_balance():
     with pytest.raises(HTTPException):
         process_payout(db, owner, second.id, paid=False)  # a reason is required
     process_payout(db, owner, second.id, paid=False, note="RIB illisible")
-    assert revenue_summary(db, org.id).available_cents == 97_000
-
-
-def test_a_school_is_told_when_its_students_near_or_pass_the_quota():
-    db = build_db()
-    grid_plans = plans(db)
-    org, owner = school(db, grid_plans["starter"])
-    add_students(db, org, 41)
-    assert notify_student_quotas(db) == 1
-    keys = [row.event_key for row in db.scalars(select(SchoolNotificationRecord))]
-    assert keys == [f"quota.students.80:{org.id}:{(NOW - timedelta(days=30)).strftime('%Y%m%d')}"]
-    notify_student_quotas(db)  # once per period
-    assert db.scalar(select(SchoolNotificationRecord).where(SchoolNotificationRecord.event_key.like("quota.students.80:%"))).id
-    assert len(list(db.scalars(select(SchoolNotificationRecord)))) == 1
-
-    add_students(db, org, 12)
-    notify_student_quotas(db)
-    over = db.scalar(select(SchoolNotificationRecord).where(SchoolNotificationRecord.event_key.like("quota.students.over:%")))
-    assert "53 étudiants actifs pour 50" in over.message and "3 × 300 FCFA" in over.message
+    assert revenue_summary(db, org.id).available_cents == 96_000
 
 
 def test_a_student_payment_through_the_shop_credits_the_school():
@@ -337,3 +389,68 @@ def test_a_student_payment_through_the_shop_credits_the_school():
     # No plan on this school: the Starter rate applies.
     assert (entry.gross_cents, entry.commission_cents, entry.amount_cents) == (300_000, 24_000, 276_000)
     assert revenue_summary(db, org.id).available_cents == 276_000
+
+
+def test_a_plan_runs_so_many_live_classes_at_once(monkeypatch):
+    from test_academic_suite import seed
+
+    from app.models.entities import SessionCourseDayRecord
+    from app.services.live_classes import start_live_class
+
+    # Teacher readiness has its own tests; this fixture's teacher predates onboarding.
+    monkeypatch.setattr("app.services.live_classes.require_teacher_ready", lambda db, tenant: None)
+    db = build_db()
+    grid_plans = plans(db)
+    org, teacher, _student, _classmate, session, _enrollment, _other, _lesson, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.add(SubscriptionRecord(organization_id=org.id, plan_id=grid_plans["starter"].id, status="active",
+                              billing_interval="monthly", started_at=NOW, current_period_start=NOW,
+                              current_period_end=NOW + timedelta(days=30)))
+    second = SessionCourseDayRecord(organization_id=org.id, session_id=session.id, teacher_id=teacher.id, title="Cours 2",
+                                    scheduled_at=day.scheduled_at, duration_minutes=120, status="planned")
+    db.add(second)
+    db.commit()
+    tenant = ctx(db, org, teacher)
+    nine = datetime(2025, 1, 10, 9, 0, tzinfo=UTC)
+
+    start_live_class(db, tenant, day.id, now=nine)
+    with pytest.raises(HTTPException) as busy:
+        start_live_class(db, tenant, second.id, now=nine + timedelta(minutes=5))
+    assert busy.value.status_code == 409
+    assert "un seul cours en live à la fois" in busy.value.detail
+    # Once the first class is over (its time and a quarter of an hour after), the room is free.
+    assert start_live_class(db, tenant, second.id, now=nine + timedelta(minutes=136))["started_at"]
+
+
+def test_the_plan_picked_on_the_landing_is_kept_on_the_trial_and_reminded_before_it_ends():
+    from app.schemas.organizations import OrganizationCreate
+    from app.services.organizations import create_organization
+    from app.services.subscriptions import notify_trial_endings
+
+    db = build_db()
+    plans(db)
+    owner = UserRecord(email="fondatrice@test.dev", full_name="Fondatrice", status="active")
+    db.add(owner)
+    db.commit()
+    org = create_organization(db, user=owner, payload=OrganizationCreate(
+        name="Studio Neuf", slug="studio-neuf", plan_code="starter", billing_interval="annual",
+    ))
+    trial = db.scalar(select(SubscriptionRecord).where(SubscriptionRecord.organization_id == org.id))
+    # Whatever the school clicked, it tries Pro first; its choice is kept for later.
+    assert (trial.status, trial.plan.code, trial.chosen_plan_code, trial.chosen_billing_interval) == (
+        "trialing", "pro", "starter", "annual")
+
+    ends = trial.trial_ends_at.replace(tzinfo=UTC) if trial.trial_ends_at.tzinfo is None else trial.trial_ends_at
+    assert notify_trial_endings(db, now=ends - timedelta(days=10)) == 0
+    assert notify_trial_endings(db, now=ends - timedelta(days=2)) == 1
+    notify_trial_endings(db, now=ends - timedelta(days=2, hours=-1))  # once only
+    reminders = list(db.scalars(select(SchoolNotificationRecord).where(SchoolNotificationRecord.organization_id == org.id)))
+    assert [row.event_key for row in reminders] == [f"trial.ending.3:{trial.id}"]
+    assert reminders[0].action_path == "/app/manage/billing?plan=starter&interval=annual"
+    assert "Activez le forfait Starter" in reminders[0].message and "Découverte" in reminders[0].message
+    notify_trial_endings(db, now=ends - timedelta(hours=20))
+    keys = [row.event_key for row in db.scalars(select(SchoolNotificationRecord).where(SchoolNotificationRecord.organization_id == org.id))]
+    assert keys == [f"trial.ending.3:{trial.id}", f"trial.ending.1:{trial.id}"]
+
+    other = create_organization(db, user=owner, payload=OrganizationCreate(name="Sans choix", slug="sans-choix", plan_code="inconnu"))
+    assert db.scalar(select(SubscriptionRecord).where(SubscriptionRecord.organization_id == other.id)).chosen_plan_code is None

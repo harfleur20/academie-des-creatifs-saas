@@ -37,7 +37,7 @@
   background: #fff;
   text-decoration: none;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-small);
   font-weight: 800;
   cursor: pointer;
 }
@@ -53,14 +53,14 @@
 }
 .cv-formation-head__label {
   color: #8290a3;
-  font-size: 9px;
+  font-size: var(--text-small);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .055em;
 }
 .cv-formation-head strong {
   color: #26364b;
-  font-size: 13px;
+  font-size: var(--text-secondary);
   line-height: 1.4;
 }
 
@@ -83,8 +83,8 @@
 .cv-progress-row:hover { background: var(--cv-accent-hover); }
 .cv-progress-row__caret { display: grid; place-items: center; padding-top: 1px; color: #6f7d90; }
 .cv-progress-row__info { min-width: 0; display: grid; gap: 5px; }
-.cv-progress-row__info strong { color: #334359; font-size: 11.5px; line-height: 1.4; }
-.cv-progress-row__pct { color: #8591a2; font-size: 9px; }
+.cv-progress-row__info strong { color: #334359; font-size: var(--text-small); line-height: 1.4; }
+.cv-progress-row__pct { color: #8591a2; font-size: var(--text-small); }
 
 .cv-progress-bar {
   width: 100%;
@@ -119,7 +119,7 @@
 }
 .cv-chapter-header:hover { color: var(--cv-accent); background: #fff; }
 .cv-chapter-header__caret { display: grid; place-items: center; }
-.cv-chapter-header__title { font-size: 10.5px; font-weight: 800; line-height: 1.35; }
+.cv-chapter-header__title { font-size: var(--text-small); font-weight: 800; line-height: 1.35; }
 .cv-chapter-header__title.is-done { color: #187556; }
 .cv-chapter-header > svg { color: var(--cv-accent-bright); }
 
@@ -149,11 +149,11 @@
 .cv-lesson-item.is-locked { opacity: .58; cursor: default; }
 .cv-lesson-item__check { display: grid; place-items: center; }
 .cv-lesson-item.is-done:not(.is-active) .cv-lesson-item__check { color: var(--cv-accent-bright); }
-.cv-lesson-item__label { min-width: 0; font-size: 10.5px; line-height: 1.35; }
+.cv-lesson-item__label { min-width: 0; font-size: var(--text-small); line-height: 1.35; }
 .cv-lesson-item__type {
   max-width: 68px;
   overflow: hidden;
-  font-size: 8.5px;
+  font-size: var(--text-small);
   font-weight: 800;
   text-overflow: ellipsis;
   text-transform: uppercase;
@@ -161,7 +161,7 @@
   opacity: .82;
 }
 .cv-lesson-item.is-active .cv-lesson-item__type { color: #fff; }
-.cv-sidebar-empty { padding: 15px; color: #7c899a; font-size: 11px; }
+.cv-sidebar-empty { padding: 15px; color: #7c899a; font-size: var(--text-small); }
 
 .cv-content {
   min-width: 0;
@@ -182,7 +182,7 @@
   text-align: center;
 }
 .cv-welcome svg { color: color-mix(in srgb, var(--cv-accent) 25%, #d5dce4); }
-.cv-welcome p { max-width: 440px; margin: 0; color: #7b8798; font-size: 13px; line-height: 1.6; }
+.cv-welcome p { max-width: 440px; margin: 0; color: #7b8798; font-size: var(--text-secondary); line-height: 1.6; }
 
 .cv-lesson-nav {
   display: flex;
@@ -220,13 +220,13 @@
   box-shadow: 0 13px 30px rgba(18, 35, 57, .075);
 }
 .cv-picker-card__header { display: grid; gap: 5px; }
-.cv-picker-card__session { color: var(--student-brand); font-size: 9px; font-weight: 850; text-transform: uppercase; letter-spacing: .055em; }
-.cv-picker-card__title { margin: 0; color: #25354a; font-size: 16px; line-height: 1.35; }
-.cv-picker-card__meta { color: #7c899b; font-size: 10px; }
+.cv-picker-card__session { color: var(--student-brand); font-size: var(--text-small); font-weight: 850; text-transform: uppercase; letter-spacing: .055em; }
+.cv-picker-card__title { margin: 0; color: #25354a; font-size: var(--text-lead); line-height: 1.35; }
+.cv-picker-card__meta { color: #7c899b; font-size: var(--text-small); }
 .cv-picker-card__progress { display: grid; gap: 7px; }
-.cv-picker-card__progress-label { display: flex; justify-content: space-between; gap: 10px; color: #768397; font-size: 10px; }
+.cv-picker-card__progress-label { display: flex; justify-content: space-between; gap: 10px; color: #768397; font-size: var(--text-small); }
 .cv-picker-card__progress-label strong { color: var(--student-brand); }
-.cv-picker-card__cta { color: var(--student-brand); font-size: 11px; font-weight: 850; }
+.cv-picker-card__cta { color: var(--student-brand); font-size: var(--text-small); font-weight: 850; }
 
 @media (max-width: 980px) {
   .student-reader-page .cv-layout { grid-template-columns: 1fr; }

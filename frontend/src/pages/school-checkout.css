@@ -1,0 +1,85 @@
+/* The checkout of a school's public site: the payment choice and its schedule (SchoolCheckoutPage). */
+.school-checkout-page .school-page-heading p { margin: 0; }
+
+.school-checkout-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 15px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--school-primary) 8%, white);
+  color: #33415a;
+  font-size: var(--site-tiny);
+  line-height: 1.5;
+}
+.school-checkout-notice svg { flex: none; margin-top: 2px; color: var(--school-primary); }
+
+.school-checkout-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+.school-checkout-item img { width: 104px; height: 70px; border-radius: 10px; object-fit: cover; background: #eef3f8; }
+.school-checkout-item h2 { margin: 0 0 4px; font-size: var(--site-h3); }
+.school-checkout-item p { margin: 0; color: #748195; font-size: var(--site-tiny); }
+.school-checkout-item > strong { color: var(--school-primary); font-size: var(--site-small); white-space: nowrap; }
+
+.school-payment-choice h3 { margin: 0 0 12px; }
+.school-payment-options { display: grid; gap: 10px; }
+.school-payment-choice label.school-payment-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid #e2e7ed;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.school-payment-option input { margin-top: 3px; accent-color: var(--school-primary); }
+.school-payment-option span { display: grid; gap: 3px; }
+.school-payment-option strong { font-size: var(--site-small); color: #19283b; }
+.school-payment-option small { color: #66758a; font-size: var(--site-tiny); line-height: 1.5; }
+.school-payment-option:hover { border-color: color-mix(in srgb, var(--school-primary) 45%, #e2e7ed); }
+.school-payment-option.is-selected { border-color: var(--school-primary); background: color-mix(in srgb, var(--school-primary) 5%, white); }
+
+.school-payment-schedule { display: grid; gap: 2px; margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: #f6f8fb; list-style: none; }
+.school-payment-schedule li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  color: #4d5d73;
+  font-size: var(--site-tiny);
+}
+.school-payment-schedule li + li { border-top: 1px dashed #dde3ea; }
+.school-payment-schedule strong { color: #19283b; font-size: var(--site-tiny); }
+.school-payment-schedule li.is-today span:nth-child(2), .school-payment-schedule li.is-today strong { color: var(--school-primary); font-weight: 800; }
+.school-payment-schedule__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--school-secondary);
+}
+.school-payment-schedule li.is-today .school-payment-schedule__icon { background: var(--school-primary); color: #fff; }
+.school-payment-note { margin: 10px 0 0; color: #66758a; font-size: var(--site-tiny); }
+
+.school-checkout-due { display: grid; gap: 8px; margin: 0 0 14px; padding: 12px 0; border-top: 1px solid #edf0f4; border-bottom: 1px solid #edf0f4; }
+.school-checkout-due div { display: flex; justify-content: space-between; gap: 10px; font-size: var(--site-tiny); }
+.school-checkout-due dt { color: #66758a; }
+.school-checkout-due dd { margin: 0; color: #19283b; font-weight: 700; white-space: nowrap; }
+.school-checkout-due .is-today dt, .school-checkout-due .is-today dd { color: var(--school-primary); font-weight: 850; font-size: var(--site-small); }
+.school-checkout-mode { margin: 0 0 12px; color: #66758a; font-size: var(--site-tiny); }
+.school-checkout-mode b { color: #19283b; }
+.school-checkout-summary > button:disabled { opacity: .55; cursor: not-allowed; }
+
+@media (max-width: 560px) {
+  .school-checkout-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .school-checkout-item img { display: none; }
+}

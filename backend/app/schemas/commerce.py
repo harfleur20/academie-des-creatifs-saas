@@ -20,6 +20,8 @@ class PublicSiteConfigPayload(BaseModel):
     font_heading: str = Field(default="Inter", max_length=80)
     font_body: str = Field(default="Inter", max_length=80)
     font_size_scale: int = Field(default=100, ge=85, le=125)
+    heading_size_scale: int = Field(default=100, ge=85, le=125)
+    subtitle_size_scale: int = Field(default=100, ge=85, le=125)
     hero_title: str = Field(default="", max_length=255)
     hero_subtitle: str = Field(default="", max_length=5000)
     hero_cta_label: str = Field(default="Découvrir nos formations", max_length=120)
@@ -101,6 +103,8 @@ class PublicSchoolRead(BaseModel):
     font_heading: str
     font_body: str
     font_size_scale: int
+    heading_size_scale: int = 100
+    subtitle_size_scale: int = 100
     hero_title: str
     hero_subtitle: str
     hero_cta_label: str
@@ -120,6 +124,15 @@ class PublicSchoolRead(BaseModel):
     sales_terms: str
     privacy_policy: str
     refund_policy: str
+    # Business plans hide the platform's "Powered by" signature.
+    white_label: bool = False
+    # The read-only demonstration school: its site shows everything but takes no order.
+    is_demo: bool = False
+
+
+class PaymentScheduleLine(BaseModel):
+    amount_cents: int
+    due_date: date
 
 
 class PublicSessionRead(BaseModel):
@@ -139,6 +152,13 @@ class PublicSessionRead(BaseModel):
     promotion_discount_cents: int
     can_purchase: bool
     unavailable_reason: str | None
+    # How it is paid when bought today, before any promo code (the checkout shows the same):
+    # the deposit when it applies, then its balance; and the instalment plan when offered.
+    deposit_cents: int | None = None
+    deposit_percent: float | None = None
+    balance_cents: int | None = None
+    balance_due_date: date | None = None
+    schedule_installments: list[PaymentScheduleLine] = []
 
 
 class PublicFormationCardRead(BaseModel):
@@ -170,6 +190,7 @@ class PublicProgramModuleRead(BaseModel):
 
 class PublicFormationDetailRead(PublicFormationCardRead):
     description: str
+    presentation_video_url: str | None = None
     objectives: str
     prerequisites: str
     public_program: str
@@ -275,6 +296,12 @@ class PricePreviewRead(BaseModel):
     deposit_percent: float | None = None
     balance_cents: int | None = None
     balance_due_date: date | None = None
+    # The payments each choice creates, the first one today: paying at once (or the deposit
+    # then its balance), and in instalments (empty when not offered).
+    schedule_full: list[PaymentScheduleLine] = []
+    schedule_installments: list[PaymentScheduleLine] = []
+    # Set for a school account: it sees the plans but cannot buy.
+    purchase_blocked_reason: str | None = None
 
 
 class CheckoutCreate(BaseModel):

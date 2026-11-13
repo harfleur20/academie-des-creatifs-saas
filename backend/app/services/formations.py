@@ -39,6 +39,7 @@ from app.schemas.formations import (
     EnrollmentUpdate,
     FormationCreate,
     FormationDetailRead,
+    FormationNextSessionRead,
     FormationSummaryRead,
     FormationUpdate,
     LessonCreate,
@@ -53,6 +54,7 @@ from app.schemas.formations import (
     LessonRead,
     LessonVersionRead,
 )
+from app.services.assets import delete_presentation_video, presentation_video_location
 from app.services.assignments import release_assignment
 from app.services.membership_roles import member_has_role
 from app.services.online_formations import ensure_online_content_session
@@ -194,6 +196,7 @@ def _serialize_session(session: FormationSessionRecord) -> SessionRead:
                 student_id=item.student_id,
                 student_name=item.student.full_name,
                 student_email=item.student.email,
+                student_avatar_url=item.student.avatar_url,
                 status=item.status,
                 created_at=item.created_at,
             )
@@ -295,6 +298,37 @@ def _formation_counts(
     return session_count, teacher_count, student_count, course_count
 
 
+def _next_session(
+    db: Session,
+    organization_id: int,
+    formation: FormationRecord,
+    visible_session_ids: set[int] | None,
+) -> FormationNextSessionRead | None:
+    """The session running now, else the first one to come; online formations have none."""
+    if formation.format_type == "ligne":
+        return None
+    query = select(FormationSessionRecord).where(
+        FormationSessionRecord.organization_id == organization_id,
+        FormationSessionRecord.formation_id == formation.id,
+        FormationSessionRecord.status.not_in(["cancelled", "completed"]),
+        FormationSessionRecord.end_date >= date.today(),
+    ).order_by(FormationSessionRecord.start_date, FormationSessionRecord.id).limit(1)
+    if visible_session_ids is not None:
+        query = query.where(FormationSessionRecord.id.in_(visible_session_ids))
+    session = db.scalar(query)
+    if session is None:
+        return None
+    enrolled = int(db.scalar(select(func.count(EnrollmentRecord.id)).where(
+        EnrollmentRecord.organization_id == organization_id,
+        EnrollmentRecord.session_id == session.id,
+        EnrollmentRecord.status.in_(["active", "completed", "suspended_payment"]),
+    )) or 0)
+    return FormationNextSessionRead(
+        id=session.id, label=session.label, start_date=session.start_date, end_date=session.end_date,
+        enrolled_count=enrolled, seat_capacity=session.seat_capacity or 0,
+    )
+
+
 def _serialize_formation_summary(
     db: Session,
     tenant: TenantContext,
@@ -310,6 +344,7 @@ def _serialize_formation_summary(
     if formation.format_type == "ligne":
         session_count = 0
     return FormationSummaryRead(
+        next_session=_next_session(db, tenant.organization_id, formation, visible_session_ids),
         id=formation.id,
         organization_id=formation.organization_id,
         slug=formation.slug,
@@ -321,6 +356,7 @@ def _serialize_formation_summary(
         training_hours=formation.training_hours,
         short_description=formation.short_description,
         cover_image_url=formation.cover_image_url,
+        presentation_video_url=formation.presentation_video_url,
         objectives=formation.objectives,
         prerequisites=formation.prerequisites,
         public_program=formation.public_program,
@@ -487,6 +523,7 @@ def create_formation(
         training_hours=payload.training_hours,
         short_description=payload.short_description.strip(),
         cover_image_url=payload.cover_image_url,
+        presentation_video_url=_checked_presentation_video(payload.presentation_video_url, tenant.organization_id),
         objectives=payload.objectives.strip(),
         prerequisites=payload.prerequisites.strip(),
         public_program=payload.public_program.strip(),
@@ -539,7 +576,11 @@ def update_formation(
     previously_published = formation.status == "published"
     previously_live = formation.format_type == "live"
     previously_complete = not formation_content_issues(formation)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    previous_video = formation.presentation_video_url
+    changes = payload.model_dump(exclude_unset=True)
+    if "presentation_video_url" in changes and (changes["presentation_video_url"] or None) != previous_video:
+        changes["presentation_video_url"] = _checked_presentation_video(changes["presentation_video_url"], tenant.organization_id)
+    for key, value in changes.items():
         if isinstance(value, str):
             value = value.strip()
         if key == "currency" and value:
@@ -560,7 +601,29 @@ def update_formation(
                 raise
     db.commit()
     db.refresh(formation)
+    _forget_presentation_video(db, tenant.organization_id, previous_video, formation.presentation_video_url)
     return _serialize_formation_summary(db, tenant, formation)
+
+
+def _checked_presentation_video(url: str | None, organization_id: int) -> str | None:
+    """Only a video imported from the formation's page, stored for this school (no outside address)."""
+    url = (url or "").strip() or None
+    if url is not None and presentation_video_location(url, organization_id) is None:
+        raise HTTPException(status_code=422, detail="Importez la vidéo de présentation depuis la fiche de la formation.")
+    return url
+
+
+def _forget_presentation_video(db: Session, organization_id: int, previous: str | None, current: str | None) -> None:
+    """A replaced or removed presentation video is deleted, unless another formation still shows it."""
+    location = presentation_video_location(previous, organization_id) if previous != current else None
+    if location is None:
+        return
+    still_used = db.scalar(select(FormationRecord.id).where(
+        FormationRecord.organization_id == organization_id,
+        FormationRecord.presentation_video_url == previous,
+    ).limit(1))
+    if still_used is None:
+        delete_presentation_video(location)
 
 
 def _require_plan_room(
@@ -669,6 +732,11 @@ def create_session(
         if record.price_override_cents == 0:
             db.rollback()
             raise HTTPException(status_code=422, detail="Le prix de la session doit être supérieur à zéro.")
+    if payload.copy_content_from_session_id:
+        from app.services.session_content_copy import copy_session_content, copy_source_for
+
+        source = copy_source_for(db, tenant, formation.id, payload.copy_content_from_session_id)
+        copy_session_content(db, tenant, source, record, with_teachers=payload.copy_teachers)
     db.commit()
     return get_formation_detail(db, tenant, formation_id)
 

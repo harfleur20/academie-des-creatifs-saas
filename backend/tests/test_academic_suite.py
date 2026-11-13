@@ -803,6 +803,37 @@ def test_school_manager_can_review_course_day_reports() -> None:
     assert forbidden.value.status_code == 403
 
 
+def test_the_school_sees_course_days_still_waiting_for_their_report() -> None:
+    from app.services.planning import list_school_missing_course_day_reports
+
+    db = build_db()
+    org, teacher, student, _, session, _, _, _, day = seed(db)
+    manager = UserRecord(email="manager@test.dev", full_name="Manager", status="active")
+    db.add(manager)
+    db.flush()
+    member = OrganizationMemberRecord(organization_id=org.id, user_id=manager.id, role="manager", status="active")
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"manager"})
+    db.commit()
+    manager_tenant = ctx(db, org, manager)
+    # The course runs from 9:00 to 11:00: it is owed only once it is over.
+    assert list_school_missing_course_day_reports(db, manager_tenant, now=datetime(2025, 1, 10, 10, 30, tzinfo=UTC)) == []
+    missing = list_school_missing_course_day_reports(db, manager_tenant, now=datetime(2025, 1, 10, 12, tzinfo=UTC))
+    assert [(row.course_day_id, row.teacher_name, row.formation_id) for row in missing] == [
+        (day.id, "Teacher", session.formation_id)]
+    with pytest.raises(HTTPException) as forbidden:
+        list_school_missing_course_day_reports(db, ctx(db, org, student))
+    assert forbidden.value.status_code == 403
+
+    submit_course_day_report(db, ctx(db, org, teacher), day.id, CourseDayReportSubmit(
+        delivery_status="held", summary="Cours tenu.",
+    ), now=datetime(2025, 1, 10, 12, tzinfo=UTC))
+    assert list_school_missing_course_day_reports(db, manager_tenant, now=datetime(2025, 1, 10, 13, tzinfo=UTC)) == []
+    report = list_school_course_day_reports(db, manager_tenant)[0]
+    assert (report.formation_id, report.teacher_id) == (session.formation_id, teacher.id)
+
+
 def test_course_publication_publishes_valid_lessons_together() -> None:
     db = build_db()
     org, teacher, student, _, session, _, _, first_lesson, _ = seed(db)
@@ -1609,3 +1640,86 @@ def test_student_grades_returns_quiz_grade() -> None:
     assert len(grades) == 1
     assert grades[0].source_type == "quiz"
     assert grades[0].score == 20
+
+
+def test_the_formations_list_shows_the_session_running_or_coming_next() -> None:
+    from app.services.formations import list_formations
+
+    db = build_db()
+    org, teacher, student, _, session, _, _, _, _ = seed(db)
+    formation = db.get(FormationRecord, session.formation_id)
+    formation.format_type = "live"
+    db.commit()
+    manager = UserRecord(email="direction@test.dev", full_name="Direction", status="active")
+    db.add(manager)
+    db.flush()
+    member = OrganizationMemberRecord(organization_id=org.id, user_id=manager.id, role="manager", status="active")
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"manager"})
+    db.commit()
+    tenant = ctx(db, org, manager)
+    # The seeded session ended in 2025: nothing is coming.
+    assert list_formations(db, tenant)[0].next_session is None
+
+    today = date.today()
+    later = FormationSessionRecord(organization_id=org.id, formation_id=formation.id, label="Cohorte d'été",
+                                   start_date=today + timedelta(days=60), end_date=today + timedelta(days=120),
+                                   seat_capacity=20, status="planned")
+    sooner = FormationSessionRecord(organization_id=org.id, formation_id=formation.id, label="Cohorte de printemps",
+                                    start_date=today + timedelta(days=10), end_date=today + timedelta(days=70),
+                                    seat_capacity=15, status="open")
+    db.add_all([later, sooner])
+    db.commit()
+    db.add(EnrollmentRecord(organization_id=org.id, session_id=sooner.id, student_id=student.id, status="active"))
+    db.commit()
+    upcoming = list_formations(db, tenant)[0].next_session
+    assert (upcoming.label, upcoming.enrolled_count, upcoming.seat_capacity) == ("Cohorte de printemps", 1, 15)
+
+
+def test_a_new_session_takes_back_the_content_of_an_earlier_one() -> None:
+    from app.models.entities import AssignmentRecord, ChapterRecord, CourseRecord, LessonRecord, QuizQuestionRecord, QuizRecord, SessionTeacherRecord
+    from app.schemas.formations import SessionCreate
+    from app.services.formations import create_session
+
+    db = build_db()
+    org, teacher, student, _, session, _, _, lesson, _ = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    quiz = QuizRecord(organization_id=org.id, session_id=session.id, teacher_id=teacher.id, title="Quiz couleurs", status="published",
+                      scheduled_at=datetime(2025, 1, 15, 9, tzinfo=UTC), opened_at=datetime(2025, 1, 15, 9, tzinfo=UTC))
+    quiz.questions = [QuizQuestionRecord(organization_id=org.id, order_index=0, text="Couleur primaire ?", options=["Rouge", "Vert"], correct_index=0)]
+    homework = AssignmentRecord(organization_id=org.id, session_id=session.id, teacher_id=teacher.id, title="Affiche",
+                                due_date=datetime(2025, 1, 20, 18, tzinfo=UTC), publication_status="published")
+    db.add_all([quiz, homework])
+    db.flush()
+    chapter = db.get(LessonRecord, lesson.id).chapter
+    db.add(LessonRecord(organization_id=org.id, chapter_id=chapter.id, title="Quiz du module", order_index=5, lesson_type="quiz", quiz_id=quiz.id))
+    manager = UserRecord(email="direction@test.dev", full_name="Direction", status="active")
+    db.add(manager)
+    db.flush()
+    member = OrganizationMemberRecord(organization_id=org.id, user_id=manager.id, role="manager", status="active")
+    db.add(member)
+    db.flush()
+    replace_effective_roles(db, member, {"manager"})
+    db.commit()
+
+    # The new session starts 365 days after the old one (2025-01-01).
+    detail = create_session(db, ctx(db, org, manager), session.formation_id, SessionCreate(
+        label="Cohorte 2026", start_date=date(2026, 1, 1), end_date=date(2026, 2, 1), seat_capacity=10,
+        copy_content_from_session_id=session.id,
+    ))
+    new = next(item for item in detail.sessions if item.label == "Cohorte 2026")
+    old_lessons = db.scalars(select(LessonRecord).join(ChapterRecord).join(CourseRecord).where(CourseRecord.session_id == session.id)).all()
+    new_lessons = db.scalars(select(LessonRecord).join(ChapterRecord).join(CourseRecord).where(CourseRecord.session_id == new.id)).all()
+    assert sorted(item.title for item in new_lessons) == sorted(item.title for item in old_lessons)
+    new_quiz = db.scalar(select(QuizRecord).where(QuizRecord.session_id == new.id))
+    assert (new_quiz.title, new_quiz.status, new_quiz.opened_at, len(new_quiz.questions)) == ("Quiz couleurs", "draft", None, 1)
+    assert new_quiz.scheduled_at.replace(tzinfo=UTC) == datetime(2026, 1, 15, 9, tzinfo=UTC)
+    # The copied quiz lesson points to the copied quiz, not to the old session's.
+    assert next(item for item in new_lessons if item.lesson_type == "quiz").quiz_id == new_quiz.id
+    new_homework = db.scalar(select(AssignmentRecord).where(AssignmentRecord.session_id == new.id))
+    assert (new_homework.publication_status, new_homework.due_date.replace(tzinfo=UTC)) == ("draft", datetime(2026, 1, 20, 18, tzinfo=UTC))
+    teachers = db.scalars(select(SessionTeacherRecord).where(SessionTeacherRecord.session_id == new.id)).all()
+    assert [(item.teacher_id, item.role) for item in teachers] == [(teacher.id, "principal")]
+    assert new.enrollments == []
+    assert db.scalar(select(CourseRecord).where(CourseRecord.session_id == new.id)).teacher_id == teacher.id

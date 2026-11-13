@@ -1,5 +1,7 @@
 # Abonnements — Lot 3
 
+La grille actuelle, le forfait gratuit et la commission sont décrits dans [FORFAITS.md](FORFAITS.md).
+
 ## Objectif
 
 Le moteur d'abonnement est indépendant du fournisseur de paiement.
@@ -37,6 +39,7 @@ Exemples possibles :
 - `teachers` + limite ;
 - `active_formations` + limite ;
 - `live` + nombre maximal d'étudiants connectés par classe ;
+- `live_rooms` + nombre de cours en live en même temps ;
 - `custom_domain` ;
 - `automations` ;
 - `advanced_reporting`.

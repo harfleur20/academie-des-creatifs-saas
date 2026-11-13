@@ -44,7 +44,7 @@ export function AdminDashboardPage() {
   }, [])
 
   if (!dashboard && !error) {
-    return <div className="admin-page-state">Chargement du SaaS…</div>
+    return <div className="admin-page-state">Chargement de la plateforme…</div>
   }
 
   return (
@@ -52,7 +52,7 @@ export function AdminDashboardPage() {
       <header className="admin-page-header">
         <div>
           <span className="page-kicker">Super-admin</span>
-          <h1>Vue d’ensemble du SaaS</h1>
+          <h1>Vue d’ensemble de la plateforme</h1>
           <p>Suivez les écoles, abonnements et revenus depuis un seul espace.</p>
         </div>
       </header>

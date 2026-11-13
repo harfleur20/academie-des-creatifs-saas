@@ -1,3 +1,6 @@
+import { DEMO_READ_ONLY_MESSAGE, readDemoState } from './demoState'
+import { toast } from '../ui/toast'
+
 export type AuthUser = {
   id: number
   full_name: string
@@ -192,6 +195,8 @@ export type Subscription = {
   cancel_at_period_end: boolean
   cancelled_at: string | null
   provider: string | null
+  chosen_plan_code?: string | null
+  chosen_billing_interval?: 'monthly' | 'annual' | null
   plan: Plan
 }
 
@@ -355,6 +360,13 @@ async function request<T>(
     headers.set('Content-Type', 'application/json')
   }
 
+  // In the read-only demo, nothing is sent that would change something (the server refuses it too).
+  const method = (options.method || 'GET').toUpperCase()
+  if (method !== 'GET' && method !== 'HEAD' && !path.startsWith('/auth/demo') && readDemoState()) {
+    toast.info(DEMO_READ_ONLY_MESSAGE)
+    throw new ApiError(403, DEMO_READ_ONLY_MESSAGE, 'demo_read_only')
+  }
+
   const token = getAccessToken()
   if (token) {
     headers.set('Authorization', `Bearer ${token}`)
@@ -383,6 +395,7 @@ async function request<T>(
       else if (typeof body?.detail?.message === 'string') {
         message = body.detail.message
         code = typeof body.detail.code === 'string' ? body.detail.code : null
+        if (code === 'demo_read_only') toast.info(message)
       }
     } catch {
       // Keep generic message.
@@ -492,7 +505,12 @@ export const uploadMyAvatar = (file: File) => {
 export const listOrganizations = () =>
   request<Organization[]>('/organizations', { organizationId: null })
 
-export const createOrganization = (payload: { name: string; slug: string }) =>
+export const createOrganization = (payload: {
+  name: string
+  slug: string
+  plan_code?: string
+  billing_interval?: 'monthly' | 'annual'
+}) =>
   request<Organization>('/organizations', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -1133,6 +1151,7 @@ export type FormationSummary = {
   training_hours: number | null
   short_description: string
   cover_image_url: string | null
+  presentation_video_url: string | null
   objectives: string
   prerequisites: string
   public_program: string
@@ -1151,6 +1170,15 @@ export type FormationSummary = {
   student_count: number
   course_count: number
   created_at: string
+  /** The session running now or starting next (none for online formations). */
+  next_session?: {
+    id: number
+    label: string
+    start_date: string
+    end_date: string
+    enrolled_count: number
+    seat_capacity: number
+  } | null
 }
 
 export type SessionTeacher = {
@@ -1167,6 +1195,7 @@ export type Enrollment = {
   student_id: number
   student_name: string
   student_email: string
+  student_avatar_url?: string | null
   status: 'active' | 'completed' | 'cancelled'
   created_at: string
 }
@@ -1244,6 +1273,7 @@ export const createFormation = (payload: {
   training_hours?: number | null
   short_description?: string
   cover_image_url?: string | null
+  presentation_video_url?: string | null
   objectives?: string
   prerequisites?: string
   public_program?: string
@@ -1268,7 +1298,7 @@ export const updateFormation = (
   payload: Partial<Pick<
     FormationSummary,
     'title' | 'description' | 'category' | 'level' | 'format_type' | 'training_hours' |
-    'short_description' | 'cover_image_url' | 'objectives' | 'prerequisites' |
+    'short_description' | 'cover_image_url' | 'presentation_video_url' | 'objectives' | 'prerequisites' |
     'public_program' | 'price_cents' | 'currency' | 'allow_installments' |
     'installment_count' | 'reservation_deposit_enabled' | 'reservation_deposit_percent' |
     'is_featured' | 'featured_order' | 'status'
@@ -1291,6 +1321,9 @@ export const createFormationSession = (
     enrollment_close_at?: string | null
     price_override_cents?: number | null
     status?: 'planned' | 'open'
+    /** Take back the courses, activities (as drafts) and, if asked, the teachers of an earlier session. */
+    copy_content_from_session_id?: number | null
+    copy_teachers?: boolean
   },
 ) =>
   request<FormationDetail>(`/formations/${formationId}/sessions`, {
@@ -1604,8 +1637,10 @@ export const listCourseDayFeedback = (courseDayId: number) =>
 export type SchoolCourseDayReport = {
   course_day_id: number
   session_id: number
+  formation_id?: number | null
   formation_title: string
   session_label: string
+  teacher_id?: number | null
   teacher_name: string | null
   title: string
   scheduled_at: string
@@ -1620,6 +1655,23 @@ export type SchoolCourseDayReport = {
 }
 
 export const listSchoolCourseDayReports = () => request<SchoolCourseDayReport[]>('/planning/reports')
+
+/** A course day over whose teacher has not written the report yet. */
+export type SchoolMissingCourseDayReport = {
+  course_day_id: number
+  session_id: number
+  formation_id: number
+  formation_title: string
+  session_label: string
+  teacher_id: number | null
+  teacher_name: string | null
+  title: string
+  scheduled_at: string
+  ends_at: string
+}
+
+export const listSchoolMissingCourseDayReports = () =>
+  request<SchoolMissingCourseDayReport[]>('/planning/reports/missing')
 
 export type LiveRoom = {
   course_day_id: number
@@ -2242,6 +2294,7 @@ export type AttendanceCourseDay = {
     enrollment_id: number
     student_id: number
     student_name: string
+    student_avatar_url?: string | null
     status: AttendanceStatus | null
     /** Live classes: minutes in the room and roll calls answered, to check the prefilled attendance. */
     live_minutes?: number | null
@@ -2299,12 +2352,13 @@ export const listStudentGrades = () =>
 export type TeacherGradebook = {
   session_id: number
   can_grade_session: boolean
-  students: Array<{ enrollment_id: number; student_name: string }>
+  students: Array<{ enrollment_id: number; student_name: string; student_avatar_url?: string | null }>
   course_days: Array<{ id: number; title: string; scheduled_at: string; can_grade: boolean }>
   grades: Array<{
     id: number
     enrollment_id: number
     student_name: string
+    student_avatar_url?: string | null
     course_day_id: number | null
     course_day_title: string | null
     teacher_name: string | null
@@ -2533,6 +2587,8 @@ export type PublicSiteConfig = {
   font_heading: string
   font_body: string
   font_size_scale: number
+  heading_size_scale?: number
+  subtitle_size_scale?: number
   hero_title: string
   hero_subtitle: string
   hero_cta_label: string
@@ -2605,6 +2661,8 @@ export type PublicSchool = {
   font_heading: string
   font_body: string
   font_size_scale: number
+  heading_size_scale?: number
+  subtitle_size_scale?: number
   hero_title: string
   hero_subtitle: string
   hero_cta_label: string
@@ -2624,6 +2682,10 @@ export type PublicSchool = {
   sales_terms: string
   privacy_policy: string
   refund_policy: string
+  /** Business plans hide the platform's "Powered by" signature. */
+  white_label?: boolean
+  /** The read-only demonstration school: its site takes no order. */
+  is_demo?: boolean
 }
 
 export type PublicSession = {
@@ -2643,6 +2705,12 @@ export type PublicSession = {
   promotion_discount_cents: number
   can_purchase: boolean
   unavailable_reason: string | null
+  /** How it is paid when bought today, as the checkout will create it. */
+  deposit_cents: number | null
+  deposit_percent: number | null
+  balance_cents: number | null
+  balance_due_date: string | null
+  schedule_installments: PaymentScheduleLine[]
 }
 
 export type PublicFormationCard = {
@@ -2674,6 +2742,7 @@ export type PublicProgramModule = {
 
 export type PublicFormationDetail = PublicFormationCard & {
   description: string
+  presentation_video_url: string | null
   objectives: string
   prerequisites: string
   public_program: string
@@ -2850,6 +2919,16 @@ export type PricePreview = {
   deposit_percent: number | null
   balance_cents: number | null
   balance_due_date: string | null
+  /** The payments each choice creates, the first one today. */
+  schedule_full: PaymentScheduleLine[]
+  schedule_installments: PaymentScheduleLine[]
+  /** A school account sees the plans but cannot buy. */
+  purchase_blocked_reason: string | null
+}
+
+export type PaymentScheduleLine = {
+  amount_cents: number
+  due_date: string
 }
 
 export type Checkout = {
@@ -3056,6 +3135,21 @@ export const uploadSchoolAsset = (file: File) => {
   })
 }
 
+export const uploadFormationVideo = (file: File) => {
+  const body = new FormData()
+  body.append('file', file)
+  return request<{
+    filename: string
+    public_url: string
+    size: number
+    content_type: string
+    duration_seconds: number
+  }>('/commerce/formation-videos', {
+    method: 'POST',
+    body,
+  })
+}
+
 
 export type SchoolPedagogyStudent = {
   enrollment_id: number
@@ -3063,6 +3157,7 @@ export type SchoolPedagogyStudent = {
   student_id: number
   student_name: string
   student_code: string | null
+  formation_id?: number | null
   formation_title: string
   session_label: string
   enrollment_status: string
@@ -3079,8 +3174,10 @@ export type SchoolPedagogyStudent = {
 
 export type SchoolPedagogySession = {
   session_id: number
+  formation_id?: number | null
   formation_title: string
   session_label: string
+  teacher_ids?: number[]
   status: string
   enrolled_count: number
   seat_capacity: number
@@ -3139,3 +3236,74 @@ export const markSchoolNotificationsRead = (ids: number[]) =>
 
 export const dismissSchoolNotifications = (ids: number[]) =>
   request<void>('/notifications/dismiss', { method: 'POST', body: JSON.stringify({ ids }) })
+
+
+/** The read-only demo offered on the landing page (docs/DEMO.md). */
+export type DemoInfo = { enabled: boolean; school_name: string | null; organization_slug: string | null }
+export type DemoSpace = 'manage' | 'teacher' | 'student'
+export type DemoSession = { access_token: string; organization_id: number; space: DemoSpace; user: AuthUser }
+
+export const getDemoInfo = () => request<DemoInfo>('/auth/demo', { organizationId: null })
+
+export const startDemoSession = (space: DemoSpace) =>
+  request<DemoSession>('/auth/demo', { method: 'POST', body: JSON.stringify({ space }), organizationId: null })
+
+/* The student's transcript, for one enrollment (backend app/services/transcripts.py). */
+export type TranscriptLine = {
+  label: string
+  date: string | null
+  score: number
+  max_score: number
+  score_20: number
+  note: string
+  /** False for the automatic quiz grades, left out of the average. */
+  counted: boolean
+}
+
+export type TranscriptGroup = {
+  key: 'assignments' | 'exams' | 'session_grades' | 'teacher_grades' | 'quizzes'
+  label: string
+  lines: TranscriptLine[]
+}
+
+export type Transcript = {
+  enrollment_id: number
+  status: 'provisional' | 'final'
+  issued_at: string
+  school_name: string
+  logo_url: string | null
+  legal_name: string | null
+  legal_address: string | null
+  signer_name: string | null
+  signer_title: string | null
+  white_label: boolean
+  student_name: string
+  student_code: string | null
+  formation_title: string
+  format_label: string
+  training_hours: number | null
+  session_label: string
+  session_start: string
+  session_end: string
+  groups: TranscriptGroup[]
+  average_20: number | null
+  mention: string | null
+  counted_sessions: number
+  attended_sessions: number
+  attendance_pct: number | null
+  badge_label: string | null
+}
+
+export type TranscriptSummary = {
+  enrollment_id: number
+  formation_title: string
+  session_label: string
+  status: 'provisional' | 'final'
+  average_20: number | null
+}
+
+export const listMyTranscripts = () => request<TranscriptSummary[]>('/transcripts/mine')
+
+export const getTranscript = (enrollmentId: number) => request<Transcript>('/transcripts/' + enrollmentId)
+
+export const downloadTranscriptPdf = (enrollmentId: number) => requestBlob('/transcripts/' + enrollmentId + '/pdf')

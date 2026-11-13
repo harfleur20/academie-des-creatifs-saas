@@ -25,12 +25,12 @@
 
 .statistics-kpi-card > span {
   color: var(--text-muted, #64748b);
-  font-size: 0.82rem;
+  font-size: var(--text-secondary);
   font-weight: 700;
 }
 
 .statistics-kpi-card strong {
-  font-size: clamp(1.45rem, 2.3vw, 2.05rem);
+  font-size: var(--text-section-title);
   letter-spacing: -0.04em;
 }
 
@@ -190,7 +190,7 @@
 
 .statistics-donut-copy strong {
   display: block;
-  font-size: 2rem;
+  font-size: var(--text-page-title);
   letter-spacing: -0.04em;
 }
 
@@ -204,11 +204,6 @@
 .statistics-empty {
   padding: 24px 0 6px;
   color: var(--text-muted, #64748b);
-}
-
-.dashboard-mini-charts {
-  display: grid;
-  gap: 10px;
 }
 
 .dashboard-mini-chart-link {

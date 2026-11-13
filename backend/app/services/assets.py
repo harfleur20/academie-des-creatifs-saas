@@ -1,12 +1,18 @@
-from pathlib import Path
+import math
 import re
+import struct
 from io import BytesIO
+from pathlib import Path
 from uuid import uuid4
 from fastapi import HTTPException, UploadFile
+from mutagen import MutagenError
+from mutagen.mp4 import MP4
 from PIL import Image, UnidentifiedImageError
 from app.core.config import settings
 
 ALLOWED={".png":5*1024*1024,".jpg":5*1024*1024,".jpeg":5*1024*1024,".webp":5*1024*1024,".pdf":15*1024*1024,".zip":50*1024*1024,".rar":50*1024*1024,".docx":15*1024*1024,".mp4":50*1024*1024,".webm":50*1024*1024,".mov":50*1024*1024}
+PRESENTATION_VIDEO_MAX_BYTES = 50 * 1024 * 1024
+PRESENTATION_VIDEO_MAX_SECONDS = 3 * 60
 
 PUBLIC_CONTENT_TYPES = {
     ".png": "image/png",
@@ -210,6 +216,107 @@ async def store_school_asset(file: UploadFile, organization_id: int):
         "size": len(raw),
         "content_type": content_type,
     }
+
+
+async def store_formation_video_asset(file: UploadFile, organization_id: int):
+    name = Path(file.filename or "presentation.mp4").name
+    if Path(name).suffix.lower() != ".mp4":
+        raise HTTPException(415, "Format autorisé : MP4 (H.264 recommandé).")
+    raw = await file.read(PRESENTATION_VIDEO_MAX_BYTES + 1)
+    if len(raw) > PRESENTATION_VIDEO_MAX_BYTES:
+        raise HTTPException(413, "La vidéo de présentation ne doit pas dépasser 50 Mo.")
+    if len(raw) < 12 or raw[4:8] != b"ftyp":
+        raise HTTPException(415, "Le fichier ne contient pas une vidéo MP4 valide.")
+    try:
+        duration = MP4(BytesIO(raw)).info.length
+    except (MutagenError, OSError, ValueError, EOFError, struct.error) as exc:
+        raise HTTPException(415, "Le fichier ne contient pas une vidéo MP4 valide.") from exc
+    if duration is None or not math.isfinite(duration) or duration <= 0:
+        raise HTTPException(415, "Impossible de lire la durée de cette vidéo MP4.")
+    if duration > PRESENTATION_VIDEO_MAX_SECONDS:
+        raise HTTPException(422, "La vidéo de présentation ne doit pas dépasser 3 minutes.")
+
+    filename = f"{uuid4().hex}.mp4"
+    key = f"schools/{organization_id}/presentations/{filename}"
+    if settings.storage_provider == "r2":
+        if not settings.r2_configured:
+            raise HTTPException(503, "Stockage R2 non configuré.")
+        import boto3
+        client = boto3.client(
+            "s3",
+            endpoint_url=settings.r2_endpoint_url,
+            aws_access_key_id=settings.r2_access_key_id,
+            aws_secret_access_key=settings.r2_secret_access_key,
+            region_name="auto",
+        )
+        client.put_object(
+            Bucket=settings.r2_bucket_name,
+            Key=key,
+            Body=raw,
+            ContentType="video/mp4",
+            ContentDisposition="inline",
+        )
+        url = f"{settings.r2_public_base_url.rstrip('/')}/{key}"
+    else:
+        if settings.environment == "production":
+            raise HTTPException(503, "Le stockage local est désactivé en production.")
+        destination = Path(__file__).resolve().parents[2] / "uploads" / key
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(raw)
+        url = f"{settings.backend_public_url}/uploads/{key}"
+
+    return {
+        "filename": name,
+        "public_url": url,
+        "size": len(raw),
+        "content_type": "video/mp4",
+        "duration_seconds": duration,
+    }
+
+
+UPLOADS_ROOT = Path(__file__).resolve().parents[2] / "uploads"
+PRESENTATION_VIDEO_NAME = re.compile(r"[0-9a-f]{32}\.mp4")
+
+
+def presentation_video_location(url: str | None, organization_id: int) -> tuple[str, str] | None:
+    """Where a presentation video this school uploaded here is stored: ("r2" or "local", key).
+
+    None for any other address: a formation only shows a video imported from its page.
+    """
+    if not url:
+        return None
+    bases = [("local", f"{settings.backend_public_url.rstrip('/')}/uploads")]
+    if settings.r2_public_base_url:
+        bases.append(("r2", settings.r2_public_base_url.rstrip("/")))
+    for storage, base in bases:
+        prefix = f"{base}/schools/{organization_id}/presentations/"
+        if url.startswith(prefix) and PRESENTATION_VIDEO_NAME.fullmatch(url[len(prefix):]):
+            return storage, f"schools/{organization_id}/presentations/{url[len(prefix):]}"
+    return None
+
+
+def delete_presentation_video(location: tuple[str, str]) -> None:
+    """Remove a presentation video that no formation shows anymore. Best effort: a failure
+    only leaves a file behind."""
+    storage, key = location
+    try:
+        if storage == "r2":
+            if not settings.r2_configured:
+                return
+            import boto3
+            boto3.client(
+                "s3",
+                endpoint_url=settings.r2_endpoint_url,
+                aws_access_key_id=settings.r2_access_key_id,
+                aws_secret_access_key=settings.r2_secret_access_key,
+                region_name="auto",
+            ).delete_object(Bucket=settings.r2_bucket_name, Key=key)
+        else:
+            path = (UPLOADS_ROOT / key).resolve()
+            path.relative_to(UPLOADS_ROOT.resolve())
+            path.unlink(missing_ok=True)
+    except Exception:
+        return
 
 
 async def store_class_discussion_image(

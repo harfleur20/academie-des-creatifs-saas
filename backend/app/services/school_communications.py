@@ -12,6 +12,7 @@ from app.models.entities import (
     OrganizationRecord,
     UserRecord,
 )
+from app.services.demo import is_demo_organization
 from app.services.school_branding import branding_snapshot
 
 
@@ -160,6 +161,8 @@ def queue_school_event(
     context: Mapping[str, object] | None = None,
     include_whatsapp: bool = True,
 ) -> list[CommunicationOutboxRecord]:
+    if is_demo_organization(org):
+        return []  # its people are fictional: nothing is sent (docs/DEMO.md)
     snapshot = branding_snapshot(db, org)
     values = dict(context or {})
     values.setdefault("school_name", snapshot.get("school_name") or org.name)
