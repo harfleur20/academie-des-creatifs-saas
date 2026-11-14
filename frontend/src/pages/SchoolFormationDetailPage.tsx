@@ -223,7 +223,6 @@ export function SchoolFormationDetailPage() {
     : selected ?? (available.length === 1 ? available[0] : null)
   // The teachers with their photos; names only from an API that does not send them yet.
   const teachers = formation.teachers ?? formation.teacher_names.map((name) => ({ full_name: name, avatar_url: null }))
-  const teacherPhoto = teachers.length === 1 ? teachers[0].avatar_url : null
   const FormatIcon = formation.format_type === 'live' ? Radio : formation.format_type === 'ligne' ? CirclePlay : BookOpen
 
   return (
@@ -249,15 +248,20 @@ export function SchoolFormationDetailPage() {
             <span><GraduationCap size={15} />{formation.level}</span>
           </div>
 
-          {formation.teacher_names.length > 0 && (
-            <div className="school-detail-teacher-inline">
-              <span className={'school-detail-teacher-icon' + (teacherPhoto ? ' has-photo' : '')}>
-                {teacherPhoto ? <img src={teacherPhoto} alt="" /> : <UserRoundCheck size={18} />}
-              </span>
-              <span>
-                <small>Équipe pédagogique</small>
-                <strong>{formation.teacher_names.join(', ')}</strong>
-              </span>
+          {teachers.length > 0 && (
+            <div className="school-detail-teachers">
+              {/* Every teacher of the formation, each with their photo. */}
+              {teachers.map((teacher) => (
+                <div className="school-detail-teacher-inline" key={teacher.full_name}>
+                  <span className={'school-detail-teacher-icon' + (teacher.avatar_url ? ' has-photo' : '')}>
+                    {teacher.avatar_url ? <img src={teacher.avatar_url} alt="" /> : <UserRoundCheck size={18} />}
+                  </span>
+                  <span>
+                    <small>Enseignant de la formation</small>
+                    <strong>{teacher.full_name}</strong>
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -360,27 +364,6 @@ export function SchoolFormationDetailPage() {
             />
           )}
 
-          {formation.teacher_names.length > 0 && (
-            <section className="school-detail-section-block">
-              <div className="school-detail-section-heading-v2">
-                <span className="school-detail-section-icon"><UserRoundCheck size={19} /></span>
-                <div>
-                  <span className="school-detail-section-kicker">Accompagnement</span>
-                  <h2>Équipe pédagogique</h2>
-                </div>
-              </div>
-              <div className="school-detail-teacher-list">
-                {teachers.map((teacher) => (
-                  <article key={teacher.full_name}>
-                    <span className={teacher.avatar_url ? 'has-photo' : undefined}>
-                      {teacher.avatar_url ? <img src={teacher.avatar_url} alt="" /> : teacher.full_name.trim().charAt(0).toUpperCase()}
-                    </span>
-                    <div><strong>{teacher.full_name}</strong><small>Enseignant de la formation</small></div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
         </article>
 
         <aside className="school-session-panel school-session-panel-v2">
