@@ -51,7 +51,10 @@ Dans **Servers > votre serveur > Proxy > Configuration**, ajoutez à la liste `c
       - '--certificatesresolvers.letsencrypt-dns.acme.dnschallenge=true'
       - '--certificatesresolvers.letsencrypt-dns.acme.dnschallenge.provider=cloudflare'
       - '--certificatesresolvers.letsencrypt-dns.acme.storage=/traefik/acme-dns.json'
+      - '--certificatesresolvers.letsencrypt-dns.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53'
 ```
+
+La dernière ligne compte. Sans elle, Traefik vérifie l'enregistrement TXT de Let's Encrypt avec le DNS interne de Docker (`127.0.0.11`). Celui-ci garde en mémoire l'absence de l'enregistrement, et la demande échoue avec « time limit exceeded … did not return the expected TXT record ».
 
 et, sous `image:` (créez la clé si elle n'existe pas) :
 
