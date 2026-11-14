@@ -190,6 +190,12 @@ class PublicProgramModuleRead(BaseModel):
     chapters: list[str]
 
 
+class PublicTeacherRead(BaseModel):
+    """A formation's teacher as its public page shows them: name and photo."""
+    full_name: str
+    avatar_url: str | None = None
+
+
 class PublicFormationDetailRead(PublicFormationCardRead):
     description: str
     presentation_video_url: str | None = None
@@ -202,6 +208,7 @@ class PublicFormationDetailRead(PublicFormationCardRead):
     modules: list[PublicProgramModuleRead]
     sessions: list[PublicSessionRead]
     teacher_names: list[str]
+    teachers: list[PublicTeacherRead] = []
 
 
 class PublicHomeRead(BaseModel):

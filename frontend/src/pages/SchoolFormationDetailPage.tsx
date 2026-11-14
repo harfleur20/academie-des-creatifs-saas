@@ -221,6 +221,9 @@ export function SchoolFormationDetailPage() {
   const planSession = formation.format_type === 'ligne'
     ? (formation.next_session?.can_purchase ? formation.next_session : null)
     : selected ?? (available.length === 1 ? available[0] : null)
+  // The teachers with their photos; names only from an API that does not send them yet.
+  const teachers = formation.teachers ?? formation.teacher_names.map((name) => ({ full_name: name, avatar_url: null }))
+  const teacherPhoto = teachers.length === 1 ? teachers[0].avatar_url : null
   const FormatIcon = formation.format_type === 'live' ? Radio : formation.format_type === 'ligne' ? CirclePlay : BookOpen
 
   return (
@@ -248,7 +251,9 @@ export function SchoolFormationDetailPage() {
 
           {formation.teacher_names.length > 0 && (
             <div className="school-detail-teacher-inline">
-              <span className="school-detail-teacher-icon"><UserRoundCheck size={18} /></span>
+              <span className={'school-detail-teacher-icon' + (teacherPhoto ? ' has-photo' : '')}>
+                {teacherPhoto ? <img src={teacherPhoto} alt="" /> : <UserRoundCheck size={18} />}
+              </span>
               <span>
                 <small>Équipe pédagogique</small>
                 <strong>{formation.teacher_names.join(', ')}</strong>
@@ -365,10 +370,12 @@ export function SchoolFormationDetailPage() {
                 </div>
               </div>
               <div className="school-detail-teacher-list">
-                {formation.teacher_names.map((name) => (
-                  <article key={name}>
-                    <span>{name.trim().charAt(0).toUpperCase()}</span>
-                    <div><strong>{name}</strong><small>Enseignant de la formation</small></div>
+                {teachers.map((teacher) => (
+                  <article key={teacher.full_name}>
+                    <span className={teacher.avatar_url ? 'has-photo' : undefined}>
+                      {teacher.avatar_url ? <img src={teacher.avatar_url} alt="" /> : teacher.full_name.trim().charAt(0).toUpperCase()}
+                    </span>
+                    <div><strong>{teacher.full_name}</strong><small>Enseignant de la formation</small></div>
                   </article>
                 ))}
               </div>
