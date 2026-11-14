@@ -454,12 +454,14 @@ def public_formation_detail(
             )
 
     teacher_names: list[str] = []
+    teachers: list[dict] = []
     seen: set[int] = set()
     for session in formation.sessions:
         for assignment in session.teachers:
             if assignment.teacher_id not in seen:
                 seen.add(assignment.teacher_id)
                 teacher_names.append(assignment.teacher.full_name)
+                teachers.append({"full_name": assignment.teacher.full_name, "avatar_url": assignment.teacher.avatar_url})
     installment_count = formation.installment_count if formation.allow_installments else 1
     if source_session is not None and card.next_session is not None:
         # The price and the time left of the highlighted session cap the school's count.
@@ -482,4 +484,5 @@ def public_formation_detail(
         modules=modules,
         sessions=session_reads,
         teacher_names=teacher_names,
+        teachers=teachers,
     )

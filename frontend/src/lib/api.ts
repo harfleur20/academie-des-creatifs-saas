@@ -2759,6 +2759,8 @@ export type PublicFormationDetail = PublicFormationCard & {
   modules: PublicProgramModule[]
   sessions: PublicSession[]
   teacher_names: string[]
+  /** The teachers' names and photos, for the formation's page. */
+  teachers?: Array<{ full_name: string; avatar_url: string | null }>
 }
 
 export type PublicHome = {
