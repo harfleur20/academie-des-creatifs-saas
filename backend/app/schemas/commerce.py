@@ -128,6 +128,8 @@ class PublicSchoolRead(BaseModel):
     white_label: bool = False
     # The read-only demonstration school: its site shows everything but takes no order.
     is_demo: bool = False
+    # The platform's own site (its landing page), where the "Powered by" signature leads.
+    platform_url: str = ""
 
 
 class PaymentScheduleLine(BaseModel):

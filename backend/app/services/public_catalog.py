@@ -107,6 +107,7 @@ def public_school_read(
         refund_policy=site.refund_policy,
         white_label=school_white_label(db, org.id),
         is_demo=_is_demo(org),
+        platform_url=settings.frontend_url,
     )
 
 

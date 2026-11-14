@@ -2691,6 +2691,8 @@ export type PublicSchool = {
   white_label?: boolean
   /** The read-only demonstration school: its site takes no order. */
   is_demo?: boolean
+  /** The platform's landing page, where the "Powered by" signature leads. */
+  platform_url?: string
 }
 
 export type PublicSession = {

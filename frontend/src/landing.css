@@ -381,3 +381,28 @@
   .lp-live-stage > .lp-browser { margin-right: 0; }
   .lp-live-window { position: relative; width: 84%; margin: -14% 0 0 auto; }
 }
+
+/* Signed in: the visitor's photo and first name; "Mon espace" next to them is the way in. */
+.lp-account { display: inline-flex; align-items: center; gap: 9px; padding-right: 6px; color: var(--lp-navy); font-size: 14px; white-space: nowrap; }
+.lp-account__avatar { display: grid; place-items: center; width: 30px; height: 30px; overflow: hidden; border-radius: 50%; background: var(--lp-navy); color: #fff; font-size: 12px; font-weight: 800; flex: none; }
+.lp-account__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.lp-account__hello strong { font-weight: 800; }
+@media (max-width: 640px) {
+  .lp-account { padding-right: 0; }
+  .lp-account__hello { display: none; }
+  /* Signed in, "Mon espace" is the only way in from the header: it stays on phones. */
+  .lp-header .lp-account + .lp-btn--small { display: inline-flex; }
+}
+
+/* Phones: more room at the edges, and line heights that fit together (titles less tight,
+   text less airy), as on the computer layout. */
+@media (max-width: 640px) {
+  .lp-container { padding: 0 22px; }
+  .lp-band { width: calc(100% - 44px); }
+  .lp-hero h1 { line-height: 1.12; letter-spacing: -.025em; }
+  .lp-heading h2 { line-height: 1.18; letter-spacing: -.02em; }
+  .lp-feature__copy h3 { line-height: 1.22; }
+  .lp-cta h2 { line-height: 1.2; }
+  .lp-hero__lead, .lp-heading p, .lp-feature__copy > p { font-size: 16px; line-height: 1.55; }
+  .lp-step p, .lp-faq__item p { line-height: 1.55; }
+}
