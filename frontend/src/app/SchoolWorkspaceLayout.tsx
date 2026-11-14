@@ -11,8 +11,8 @@ import {
   Eye,
   ExternalLink,
   LifeBuoy,
-  LogOut,
   Menu,
+  Power,
   Search,
   Settings,
   UserRound,
@@ -26,10 +26,12 @@ import {
 } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { BrandLogo } from '../brand/BrandLogo'
+import { BrandWordmark } from '../brand/BrandWordmark'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import {
   DEFAULT_BRAND_COLORS,
   DEFAULT_PLATFORM_LOGO_URL,
+  PLATFORM_ICON_LIGHT_URL,
 } from '../brand/branding'
 import {
   endAdminSupportMode,
@@ -227,15 +229,13 @@ export function SchoolWorkspaceLayout({
         {sidebarOpen && <button className="manage-sidebar-backdrop" type="button" aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} />}
         <aside className={`app-sidebar${sidebarOpen ? ' is-open' : ''}`}>
           <div className="app-brand">
+            <BrandWordmark tone="light" className="app-brand-wordmark" />
+            {/* The narrow sidebar has only room for the round mark. */}
             <BrandLogo
-              logoUrl={DEFAULT_PLATFORM_LOGO_URL}
+              logoUrl={PLATFORM_ICON_LIGHT_URL}
               alt="Académie des Créatifs"
               className="app-brand-logo"
             />
-            <span className="app-brand-text">
-              <strong>Académie des Créatifs</strong>
-              <small>Premium Virtual School</small>
-            </span>
           </div>
 
           <div className="school-switcher">
@@ -338,9 +338,6 @@ export function SchoolWorkspaceLayout({
                   : `${workspaceLabels[space]} · ${user?.email || ''}`}
               </small>
             </div>
-            <button title="Se déconnecter" onClick={handleSignOut}>
-              <LogOut size={17} />
-            </button>
           </div>
         </aside>
 
@@ -372,7 +369,7 @@ export function SchoolWorkspaceLayout({
                   <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/support') }}><LifeBuoy size={16} /> Support</button>
                 </>}
                 <span className="account-menu-divider" aria-hidden="true" />
-                <button type="button" className="is-danger" onClick={() => { setProfileOpen(false); handleSignOut() }}><LogOut size={16} /> Se déconnecter</button>
+                <button type="button" className="is-danger" onClick={() => { setProfileOpen(false); handleSignOut() }}><Power size={16} /> Se déconnecter</button>
               </div>}
             </div>
           </header>
@@ -665,7 +662,7 @@ export function SchoolWorkspaceLayout({
                   className="is-danger"
                   onClick={handleSignOut}
                 >
-                  <LogOut size={19} />
+                  <Power size={19} />
                   Se déconnecter
                 </button>
               </div>

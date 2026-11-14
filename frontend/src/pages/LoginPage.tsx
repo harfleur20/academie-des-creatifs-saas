@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
-import { BrandLogo } from '../brand/BrandLogo'
+import { BrandWordmark } from '../brand/BrandWordmark'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { ArrowRight, Check, Eye, EyeOff } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -290,13 +290,10 @@ export function LoginPage() {
     >
       <section className="auth-panel auth-copy-panel">
         <a className="auth-logo" href={schoolKey ? '/school/' + encodeURIComponent(schoolKey) : '/'}>
-          {isPublicSchool
-            ? <SchoolLogo logoUrl={activeBrand?.logo_url} alt={activeBrand?.name || 'École'} className="platform-brand-logo" />
-            : <BrandLogo className="platform-brand-logo" />}
-          <span className="auth-logo__name">
-            {activeBrand?.name || (isPublicSchool ? 'Votre école' : 'Académie des Créatifs')}
-            {!isPublicSchool && <small>pour les écoles</small>}
-          </span>
+          {isPublicSchool ? <>
+            <SchoolLogo logoUrl={activeBrand?.logo_url} alt={activeBrand?.name || 'École'} className="platform-brand-logo" />
+            <span className="auth-logo__name">{activeBrand?.name || 'Votre école'}</span>
+          </> : <BrandWordmark tone="light" className="auth-logo__wordmark" />}
         </a>
         <div className="auth-visual-copy">
           {isInvitation ? <>

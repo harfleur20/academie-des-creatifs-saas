@@ -1,5 +1,5 @@
-import { Building2 } from 'lucide-react'
 import { AdaptiveLogoImage } from './AdaptiveLogoImage'
+import { DEFAULT_SCHOOL_LOGO_URL } from './branding'
 
 type SchoolLogoProps = {
   logoUrl?: string | null
@@ -7,14 +7,14 @@ type SchoolLogoProps = {
   className?: string
 }
 
+/** A school's logo, or the platform's round mark until the school uploads its own. */
 export function SchoolLogo({ logoUrl, alt, className = '' }: SchoolLogoProps) {
-  if (logoUrl?.trim()) {
-    return <AdaptiveLogoImage className={className} src={logoUrl} alt={alt} draggable={false} />
-  }
-
   return (
-    <span className={`school-logo-placeholder ${className}`.trim()} role="img" aria-label={alt}>
-      <Building2 aria-hidden="true" />
-    </span>
+    <AdaptiveLogoImage
+      className={className}
+      src={logoUrl?.trim() || DEFAULT_SCHOOL_LOGO_URL}
+      alt={alt}
+      draggable={false}
+    />
   )
 }
