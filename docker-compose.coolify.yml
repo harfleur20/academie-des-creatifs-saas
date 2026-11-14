@@ -1,0 +1,154 @@
+# The SaaS on Coolify (Build Pack: Docker Compose), built like the mother site's:
+# the app (backend serving the built frontend), its PostgreSQL and a daily backup.
+# Setup and variables: docs/DEPLOIEMENT_COOLIFY.md.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    restart: unless-stopped
+    logging: *default-logging
+    expose:
+      - "8000"
+    environment:
+      APP_ENV: production
+      # Hex password only (openssl rand -hex 24): it goes as is into this address.
+      DATABASE_URL: postgresql+psycopg://saas:${POSTGRES_PASSWORD:?}@saas-db:5432/academie_saas
+      FRONTEND_URL: ${PUBLIC_URL:?}
+      BACKEND_PUBLIC_URL: ${PUBLIC_URL:?}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?}
+      INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:?}
+      AUTH_COOKIE_SECURE: "true"
+      BILLING_CRON_SECRET: ${BILLING_CRON_SECRET:?}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
+      # Schools at <name>.academiecreatif.com; other sites' subdomains are reserved.
+      SAAS_BASE_DOMAIN: ${SAAS_BASE_DOMAIN:-academiecreatif.com}
+      SAAS_CNAME_TARGET: ${SAAS_CNAME_TARGET:-ecoles.academiecreatif.com}
+      SAAS_RESERVED_SUBDOMAINS: ${SAAS_RESERVED_SUBDOMAINS:-coupe,ferrolink}
+      DEMO_ORGANIZATION_SLUG: ${DEMO_ORGANIZATION_SLUG:-}
+      # Emails.
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-brevo}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Académie des Créatifs}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
+      # Payments (Taramoney).
+      TARAMONEY_API_KEY: ${TARAMONEY_API_KEY:-}
+      TARAMONEY_BUSINESS_ID: ${TARAMONEY_BUSINESS_ID:-}
+      TARAMONEY_WEBHOOK_SECRET: ${TARAMONEY_WEBHOOK_SECRET:-}
+      # Google sign-in (the same id is built into the frontend).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # Files: "local" keeps them in the volumes below; "r2" for Cloudflare R2.
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      R2_ENDPOINT_URL: ${R2_ENDPOINT_URL:-}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
+      R2_PRIVATE_BUCKET_NAME: ${R2_PRIVATE_BUCKET_NAME:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
+      # Live classes: "jitsi" once infra/live runs (infra/live/README.md), "jaas" otherwise.
+      LIVE_PROVIDER: ${LIVE_PROVIDER:-jaas}
+      JITSI_DOMAIN: ${JITSI_DOMAIN:-}
+      JITSI_APP_ID: ${JITSI_APP_ID:-academie-live}
+      JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
+      JITSI_XMPP_DOMAIN: ${JITSI_XMPP_DOMAIN:-meet.jitsi}
+      JAAS_ENABLED: ${JAAS_ENABLED:-false}
+      JAAS_APP_ID: ${JAAS_APP_ID:-}
+      JAAS_KID: ${JAAS_KID:-}
+      JAAS_PRIVATE_KEY: ${JAAS_PRIVATE_KEY:-}
+      JAAS_WEBHOOK_SECRET: ${JAAS_WEBHOOK_SECRET:-}
+      # WhatsApp messages (Wapino).
+      WAPINO_ENABLED: ${WAPINO_ENABLED:-false}
+      WAPINO_API_KEY: ${WAPINO_API_KEY:-}
+      WAPINO_INSTANCE: ${WAPINO_INSTANCE:-AcademieCreatifs}
+    volumes:
+      - uploads:/app/backend/uploads
+      - private_uploads:/app/backend/private_uploads
+    depends_on:
+      saas-db:
+        condition: service_healthy
+    # The server is shared with the mother site and the live classes.
+    mem_limit: 1g
+    cpus: 1.0
+    labels:
+      # Every school's own address (<name>.academiecreatif.com), with the wildcard certificate
+      # of the proxy's DNS resolver (letsencrypt-dns). Priority 1: explicit routes (www, coupe,
+      # ferrolink, live, ecoles...) always win. \z ends the address (a "$" would be read by Compose).
+      - traefik.enable=true
+      - traefik.http.middlewares.ecoles-https.redirectscheme.scheme=https
+      - 'traefik.http.routers.ecoles-wildcard-http.rule=HostRegexp(`^[a-z0-9-]+\.academiecreatif\.com\z`)'
+      - traefik.http.routers.ecoles-wildcard-http.entryPoints=http
+      - traefik.http.routers.ecoles-wildcard-http.priority=1
+      - traefik.http.routers.ecoles-wildcard-http.middlewares=ecoles-https
+      - traefik.http.routers.ecoles-wildcard-http.service=ecoles-wildcard
+      - 'traefik.http.routers.ecoles-wildcard.rule=HostRegexp(`^[a-z0-9-]+\.academiecreatif\.com\z`)'
+      - traefik.http.routers.ecoles-wildcard.entryPoints=https
+      - traefik.http.routers.ecoles-wildcard.priority=1
+      - traefik.http.routers.ecoles-wildcard.tls=true
+      - traefik.http.routers.ecoles-wildcard.tls.certresolver=letsencrypt-dns
+      - 'traefik.http.routers.ecoles-wildcard.tls.domains[0].main=*.academiecreatif.com'
+      - traefik.http.routers.ecoles-wildcard.service=ecoles-wildcard
+      - traefik.http.services.ecoles-wildcard.loadbalancer.server.port=8000
+
+  saas-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: academie_saas
+      POSTGRES_USER: saas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saas -d academie_saas"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 768m
+
+  backup:
+    build:
+      context: infra/backup
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      PGHOST: saas-db
+      PGPORT: 5432
+      PGDATABASE: academie_saas
+      PGUSER: saas
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - postgres_backups:/backups
+    depends_on:
+      saas-db:
+        condition: service_healthy
+    healthcheck:
+      # Unhealthy when no backup has succeeded for 26 hours.
+      test: ["CMD-SHELL", "test -s /backups/.last-success && test -n \"$$(find /backups/.last-success -mmin -1560 -print -quit)\""]
+      interval: 5m
+      timeout: 10s
+      start_period: 5m
+      retries: 3
+    mem_limit: 256m
+
+volumes:
+  postgres_data:
+  postgres_backups:
+  uploads:
+  private_uploads:
