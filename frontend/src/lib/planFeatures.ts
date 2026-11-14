@@ -40,7 +40,9 @@ export function planHighlights(entitlements: PlanEntitlement[]): PlanFeatureLine
     const perClass = plan.limit('live')
     const rooms = plan.limit('live_rooms')
     const atOnce = !plan.on('live_rooms') || rooms === null ? '' : rooms === 1 ? ', 1 à la fois' : `, ${rooms} en même temps`
-    add('live', perClass === null ? `Cours en live${atOnce}` : `Live jusqu’à ${perClass} étudiants${atOnce}`)
+    const monthly = plan.on('live_hours') ? plan.limit('live_hours') : null
+    const hours = monthly === null ? '' : `, ${monthly} h par mois`
+    add('live', perClass === null ? `Cours en live${atOnce}${hours}` : `Live jusqu’à ${perClass} étudiants${atOnce}${hours}`)
   } else {
     add('formats', 'Formations en ligne et en présentiel')
     if (plan.has('live')) add('live', 'Sans cours en live', false, true)
@@ -109,6 +111,17 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   { key: 'formats', label: 'Formations en ligne et en présentiel', soon: false, cell: (item) => item.entitlements.length > 0 },
   sizeRow('live', 'Cours en live : étudiants par classe'),
   sizeRow('live_rooms', 'Lives en même temps'),
+  {
+    // Live hours a month: counted on the free plan only, without limit elsewhere.
+    key: 'live_hours', label: 'Heures de live par mois', soon: false,
+    cell: (item) => {
+      const plan = lookup(item.entitlements)
+      if (!plan.on('live')) return false
+      const limit = plan.on('live_hours') ? plan.limit('live_hours') : null
+      return limit === null ? 'Illimitées' : `${limit} h`
+    },
+  },
+  sizeRow('live_class_hours', 'Durée d’un cours en live', '', false, (limit) => (limit === null ? 'Libre' : `${limit} h au plus`)),
   sizeRow('replays', 'Replays des lives par mois', ' h', true),
   sizeRow('replay_retention_days', 'Conservation des replays', '', true, retention),
   sizeRow('transcription', 'Transcription des lives par mois', ' h', true),

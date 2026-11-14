@@ -126,6 +126,7 @@ En production, le backend refuse de démarrer si le secret fait moins de 32 cara
    - Renseignez l'IP privée du serveur principal, `JVB_AUTH_PASSWORD` (celui du `.env` du serveur principal) et l'IP publique du relais.
    - Lancez `docker compose up -d`.
 3. **Contrôle :** le relais apparaît dans les journaux de Jicofo (`docker compose logs jicofo | grep -i bridge`).
+4. **SaaS :** relevez `LIVE_PLATFORM_MAX_PARTICIPANTS` d'environ 300 dans Coolify, puis redéployez. Ce plafond retient les nouveaux cours quand les serveurs sont pleins ; une alerte arrive sur `SUPPORT_EMAIL` quand il est atteint.
 
 **À valider au premier déploiement multi-relais :** cette configuration n'a pas encore tourné. Testez une classe sur chaque relais : la vidéo doit passer, et la console du navigateur ne doit pas signaler de canal de données fermé.
 

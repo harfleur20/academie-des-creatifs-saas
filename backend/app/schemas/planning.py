@@ -93,6 +93,8 @@ class LiveRoomRead(BaseModel):
     token: str
     moderator: bool
     started_at: datetime | None
+    # When the room ends for everyone (4 hours at most, the month's live hours): None, no forced end.
+    ends_by: datetime | None = None
 
 
 class LiveRoomInfoRead(BaseModel):
@@ -112,6 +114,9 @@ class LiveRoomInfoRead(BaseModel):
     started_at: datetime | None
     moderator: bool
     responsible_teacher: bool
+    ends_by: datetime | None = None
+    # The school's live minutes left this month, when its plan counts them (Découverte).
+    live_minutes_left: int | None = None
 
 
 class LiveRollCallRead(BaseModel):
@@ -126,11 +131,15 @@ class LiveRollCallRead(BaseModel):
 
 class LiveHeartbeatRead(BaseModel):
     roll_call: LiveRollCallRead | None = None
+    # When the room ends for everyone (4 hours at most, the month's live hours).
+    ends_by: datetime | None = None
 
 
 class LiveStartRead(BaseModel):
     course_day_id: int
     started_at: datetime
+    closes_at: datetime | None = None
+    ends_by: datetime | None = None
 
 
 class CourseDayReportSubmit(BaseModel):

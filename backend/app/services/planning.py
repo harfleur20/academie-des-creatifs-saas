@@ -32,6 +32,8 @@ from app.schemas.planning import (
 from app.services.school_communications import queue_session_students_event
 from app.services.school_notifications import notify_session_students
 from app.services.live_classes import live_attendance_evidence, live_course_window, live_provider_configured, prefill_live_status
+from app.services.plan_limits import allowance
+from app.services.subscriptions import get_effective_plan
 from app.services.tenancy import TenantContext
 from app.services.training_notifications import notify_absence, notify_attendance_risks
 
@@ -152,6 +154,18 @@ def _validate_interval_in_session(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Une séance ne peut pas se terminer le lendemain.",
+        )
+
+
+def _require_live_class_length(db: Session, session: FormationSessionRecord, duration_minutes: int) -> None:
+    """A live class lasts live_class_hours at most (4 hours in every plan); in person, any length."""
+    if session.formation.format_type != "live":
+        return
+    rule = allowance(get_effective_plan(db, session.organization_id), "live_class_hours")
+    if rule.enabled and rule.limit is not None and duration_minutes > rule.limit * 60:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Un cours en live dure {rule.limit} h au plus. Découpez-le en plusieurs séances.",
         )
 
 
@@ -486,6 +500,7 @@ def create_course_day(
         payload.scheduled_at,
         payload.duration_minutes,
     )
+    _require_live_class_length(db, session, payload.duration_minutes)
     _ensure_no_overlap(
         scheduled_at=payload.scheduled_at,
         duration_minutes=payload.duration_minutes,
@@ -552,6 +567,7 @@ def publish_course_day_draft(
             item.scheduled_at,
             item.duration_minutes,
         )
+        _require_live_class_length(db, session, item.duration_minutes)
         _ensure_no_overlap(
             scheduled_at=item.scheduled_at,
             duration_minutes=item.duration_minutes,
@@ -638,6 +654,7 @@ def update_course_day(
 
     if values.get("status") != "cancelled":
         _validate_interval_in_session(session, next_at, next_duration)
+        _require_live_class_length(db, session, next_duration)
         _ensure_no_overlap(
             scheduled_at=next_at,
             duration_minutes=next_duration,

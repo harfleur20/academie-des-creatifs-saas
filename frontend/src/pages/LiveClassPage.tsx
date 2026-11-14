@@ -21,6 +21,8 @@ function liveDevice(): LiveDevice {
 }
 
 const HEARTBEAT_MS = 30_000
+// Ten minutes before a forced end, the room says how long is left.
+const END_WARNING_MS = 10 * 60_000
 // While a roll call is open, the teacher's count of answers refreshes faster.
 const ROLL_CALL_REFRESH_MS = 10_000
 
@@ -74,6 +76,13 @@ function formatWait(ms: number) {
   return hours > 0 ? `${hours}h ${String(minutes).padStart(2, '0')}min ${seconds}s` : `${minutes}min ${seconds}s`
 }
 
+function formatMinutes(minutes: number) {
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  if (hours === 0) return `${rest} min`
+  return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`
+}
+
 /** The live class, full screen as on the mother site: waiting room, welcome card, then the room. */
 export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
   const { courseDayId } = useParams()
@@ -99,6 +108,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
   const [draft, setDraft] = useState({ delivery_status: 'held' as DeliveryStatus, summary: '', difficulties: '', homework: '', attendance_notes: '' })
   const [rollCall, setRollCall] = useState<LiveRollCall | null>(null)
   const [rollCallBusy, setRollCallBusy] = useState(false)
+  const [endsBy, setEndsBy] = useState<string | null>(null)
   const backPath = space === 'teacher' ? '/app/teacher/sessions' : '/app/student/formations'
 
   useEffect(() => {
@@ -106,7 +116,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     if (!Number.isInteger(id) || id < 1) { setError('Séance introuvable.'); return }
     let cancelled = false
     fetchLiveRoomInfo(id)
-      .then((loaded) => { if (!cancelled) setInfo(loaded) })
+      .then((loaded) => { if (!cancelled) { setInfo(loaded); setEndsBy(loaded.ends_by ?? null) } })
       .catch((caught) => { if (!cancelled) setError(caught instanceof ApiError ? caught.message : 'Classe live introuvable.') })
     return () => { cancelled = true }
   }, [courseDayId])
@@ -152,7 +162,9 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     let stopped = false
     const beat = () => {
       heartbeatLiveClass(courseDay, device.current).then((result) => {
-        if (!stopped) setRollCall(result?.roll_call ?? null)
+        if (stopped) return
+        setRollCall(result?.roll_call ?? null)
+        if (result && result.ends_by !== undefined) setEndsBy(result.ends_by ?? null)
       }).catch((caught) => {
         if (stopped || !(caught instanceof ApiError) || ![403, 404, 409].includes(caught.status)) return
         meeting.current?.dispose()
@@ -175,6 +187,16 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     }
   }, [entered])
 
+  // At its forced end the room closes for everyone; the server refuses it from then on too.
+  useEffect(() => {
+    if (!entered || !endsBy || Date.now() < Date.parse(endsBy)) return
+    meeting.current?.dispose()
+    meeting.current = null
+    setEntered(false)
+    if (info?.responsible_teacher) setEndOpen(true)
+    else setError('Ce cours en live est terminé : sa salle est fermée.')
+  }, [entered, endsBy, nowMs]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // The teacher sees the answers come in while the roll call is open.
   useEffect(() => {
     const courseDay = joinedRoom.current?.course_day_id
@@ -184,6 +206,9 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     }, ROLL_CALL_REFRESH_MS)
     return () => window.clearInterval(interval)
   }, [entered, rollCall?.open, rollCall?.answers_count === null]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const endsByMs = endsBy ? Date.parse(endsBy) : Number.NaN
+  const endingSoon = entered && !Number.isNaN(endsByMs) && endsByMs - nowMs <= END_WARNING_MS && endsByMs > nowMs
 
   if (error) {
     return <div className="live-room live-room--error">
@@ -213,6 +238,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
       await loadJitsiScript(room.external_api_url)
       if (!window.JitsiMeetExternalAPI) throw new Error('Le lecteur de classe live est indisponible.')
       joinedRoom.current = room
+      if (room.ends_by !== undefined) setEndsBy(room.ends_by ?? null)
       setEntered(true)
     } catch (caught) {
       setJoinError(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Impossible de rejoindre la classe.')
@@ -226,7 +252,8 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     setStarting(true)
     try {
       const started = await startLiveClass(info.course_day_id)
-      setInfo({ ...info, started_at: started.started_at })
+      setInfo({ ...info, started_at: started.started_at, closes_at: started.closes_at ?? info.closes_at })
+      setEndsBy(started.ends_by ?? null)
     } catch (caught) {
       setJoinError(caught instanceof ApiError ? caught.message : 'Démarrage du cours impossible.')
     } finally {
@@ -301,6 +328,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
         </> : <span className="live-room__loading">Connexion en cours…</span>}
       </div>
       <div className="live-room__bar-actions">
+        {endingSoon && <span className="live-room__roll-call-status" role="status">Fin du cours dans {formatWait(endsByMs - nowMs)}</span>}
         {phase === 'live' && info?.responsible_teacher && info.started_at && (rollCall?.open
           ? <span className="live-room__roll-call-status" role="status">Appel en cours · {rollCall.answers_count ?? 0} réponse(s) · {formatWait(Date.parse(rollCall.closes_at) - nowMs)}</span>
           : <>
@@ -337,6 +365,11 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
               ? <>Vous rejoignez la classe de {info.school_name} en tant que <span className="live-room__name-chip">{user.full_name}</span>.</>
               : `Préparez votre entrée dans la classe de ${info.school_name}.`}
           </p>
+          {info.responsible_teacher && !info.started_at && info.live_minutes_left != null && <p className="live-room__prejoin-hint">
+            {info.live_minutes_left > 0
+              ? `Il reste à votre école ${formatMinutes(info.live_minutes_left)} de live ce mois-ci : le cours s'arrêtera au plus tard à ce moment-là.`
+              : "Les heures de live incluses ce mois-ci dans votre forfait sont utilisées : le cours ne pourra pas démarrer."}
+          </p>}
           {!info.started_at && <p className="live-room__prejoin-hint">
             {info.responsible_teacher
               ? "Démarrez le cours à l'heure prévue avec le bouton en haut de la page."

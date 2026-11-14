@@ -334,7 +334,7 @@ export function BillingPage() {
             <span>
               La période payée est terminée. Régularisez avant le {formatDate(subscription.grace_period_ends_at)}
               {freePlan
-                ? `, sinon votre école passera en ${freePlan.name} : gratuite, sans cours en live.`
+                ? `, sinon votre école passera en ${freePlan.name} : gratuite, avec des cours en live limités.`
                 : ' pour éviter la suspension de l’école.'}
             </span>
           </div>
@@ -515,7 +515,7 @@ export function BillingPage() {
                 <strong>{remainingTrialDays} jour{remainingTrialDays > 1 ? 's' : ''} d’essai restant{remainingTrialDays > 1 ? 's' : ''}</strong>
                 <span>
                   Votre essai inclut tout le forfait {subscription.plan.name}. Choisissez votre forfait avant la fin de l’essai pour continuer sans interruption
-                  {freePlan ? `, sinon votre école passera en ${freePlan.name}, gratuite et sans cours en live.` : '.'}
+                  {freePlan ? `, sinon votre école passera en ${freePlan.name}, gratuite, avec des cours en live limités.` : '.'}
                 </span>
               </div>
             </div>

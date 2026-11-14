@@ -1,6 +1,6 @@
 # Forfaits, commission et options
 
-Ce document décrit le modèle économique des écoles et où il vit dans le code. La grille est posée par la migration `20261112_0062_free_plan_annual_discount` et reste modifiable dans l'administration (Forfaits).
+Ce document décrit le modèle économique des écoles et où il vit dans le code. La grille est posée par la migration `20261112_0062_free_plan_annual_discount`, revue le 2026-11-14 par `20261114_0066_live_for_every_plan`. Elle reste modifiable dans l'administration (Forfaits).
 
 ## Le principe
 
@@ -12,14 +12,16 @@ Ce document décrit le modèle économique des écoles et où il vit dans le cod
 
 | | Découverte | Starter | Pro | Business |
 | --- | --- | --- | --- | --- |
-| Mensuel | 0 | 15 000 FCFA | 35 000 FCFA | 75 000 FCFA |
-| Annuel (−20 %) | – | 144 000 FCFA | 336 000 FCFA | 720 000 FCFA |
+| Mensuel | 0 | 15 000 FCFA | 30 000 FCFA | 65 000 FCFA |
+| Annuel (−20 %) | – | 144 000 FCFA | 288 000 FCFA | 624 000 FCFA |
 | Commission sur les ventes, frais compris | 10 % | 8 % | 6 % | 4 % |
 | Étudiants | illimités | illimités | illimités | illimités |
-| Formations publiées | 1 | 3 | illimitées | illimitées |
+| Formations publiées | 1 | illimitées | illimitées | illimitées |
 | Professeurs | 1 | 2 | 10 | illimités |
-| Étudiants par classe live (`live`) | pas de live | 10 | 50 | 100 |
-| Lives en même temps (`live_rooms`) | – | 1 | 2 | 5 |
+| Étudiants par classe live (`live`) | 10 | 15 | 30 | 30 |
+| Lives en même temps (`live_rooms`) | 1 | 2 | 5 | 10 |
+| Heures de live par mois (`live_hours`) | 6 h | illimitées | illimitées | illimitées |
+| Durée d'un cours en live (`live_class_hours`) | 4 h au plus | 4 h au plus | 4 h au plus | 4 h au plus |
 | Replays par mois (`replays`, bientôt) | – | 2 h | 15 h | 50 h |
 | Conservation après la session (`replay_retention_days`, bientôt) | – | 0 jour | 30 jours | 180 jours |
 | Transcription par mois (`transcription`, bientôt) | – | – | 5 h | 50 h |
@@ -35,7 +37,7 @@ Sur ces deux pages, chaque carte ne montre que 4 ou 5 points clés (`planHighlig
 ## Le forfait gratuit
 
 - Une école crée son compte avec 14 jours d'essai du forfait Pro, lives compris, sans moyen de paiement.
-- **Sans forfait payé en cours, l'école est en Découverte** : essai terminé, forfait résilié, ou délai de paiement dépassé. Elle n'est jamais coupée ; elle perd les lives et les quotas plus larges, et la commission passe à 10 %. Ce qui existe déjà (formations publiées, professeurs) reste en place ; seul l'ajout au-delà du quota est refusé.
+- **Sans forfait payé en cours, l'école est en Découverte** : essai terminé, forfait résilié, ou délai de paiement dépassé. Elle n'est jamais coupée ; elle garde des lives plus petits (10 étudiants, un à la fois, 6 h par mois), perd les quotas plus larges, et la commission passe à 10 %. Ce qui existe déjà (formations publiées, professeurs) reste en place ; seul l'ajout au-delà du quota est refusé.
 - Pendant le délai de grâce d'un paiement en retard (`past_due`), l'école garde son forfait.
 - Code : `get_effective_plan` dans `backend/app/services/subscriptions.py`. Quand la grille n'a pas de forfait gratuit actif, une école sans forfait n'est pas limitée (comportement d'avant).
 
@@ -64,16 +66,19 @@ Douze mois moins 20 %, pour le forfait comme pour les options à l'unité (`peri
 | Option | Prix | Forfaits |
 | --- | --- | --- |
 | Professeur supplémentaire | 2 500 FCFA par mois | Starter, Pro |
-| Formation supplémentaire | 2 000 FCFA par mois | Starter |
 | 10 h de replay en plus (bientôt) | 3 000 FCFA | Starter, Pro, Business |
 | 10 h de transcription en plus (bientôt) | 3 000 FCFA | Pro, Business |
 
-L'école accepte l'option avant d'ajouter un professeur ou une formation au-delà de son quota ; l'option est ajoutée à sa prochaine facture. Découverte n'a pas d'option : il faut passer à un forfait payé. L'option « étudiant supplémentaire » est arrêtée.
+L'école accepte l'option avant d'ajouter un professeur au-delà de son quota ; l'option est ajoutée à sa prochaine facture. Découverte n'a pas d'option : il faut passer à un forfait payé. Les options « étudiant supplémentaire » et « formation supplémentaire » sont arrêtées : les formations sont illimitées dans tous les forfaits payants depuis 0066.
 
 ## Les lives
 
 - **Par classe** : au-delà de la taille du forfait, un étudiant de plus ne peut pas entrer (`join_live_class`).
 - **En même temps** : un professeur ne démarre un cours que si l'école a encore une salle libre. Un cours compte jusqu'à son compte rendu, ou jusqu'à 15 minutes après son heure de fin (`_require_live_room` dans `backend/app/services/live_classes.py`).
+- **30 étudiants au plus par classe**, même en Business : au-delà, la qualité baisse sur les téléphones et les réseaux mobiles, et l'appel comme les questions perdent leur sens. Une école qui a plus d'inscrits ouvre une autre session.
+- **4 h au plus par cours** (`live_class_hours`) : la programmation refuse un cours en live plus long (`_require_live_class_length` dans `planning.py`) ; le présentiel reste libre. Pendant le cours, la salle prévient 10 minutes avant et se ferme pour tous 4 h après le démarrage : le professeur passe à son compte rendu, les étudiants sont sortis par leur signal de présence (404).
+- **6 h par mois en Découverte** (`live_hours`) : le compteur tourne seulement quand le live est actif, c'est-à-dire quand au moins une personne (professeur ou étudiant) est dans la salle d'un cours démarré. Il se met en pause quand la salle est vide et reprend quand quelqu'un revient : 10 minutes, une heure de salle vide, puis 20 minutes consomment 30 minutes. Chaque signal de présence (toutes les 30 secondes) ajoute le temps écoulé depuis le précédent, sauf après plus de 90 secondes de silence (`live_active_seconds`, `_credit_room_activity` dans `live_classes.py`). Quand les heures du mois sont épuisées, la salle ouverte se ferme et plus aucun cours ne démarre jusqu'au 1er du mois suivant. Le professeur voit les heures restantes à l'accueil de la classe. Les heures de l'essai Pro comptent dans le mois.
+- **Capacité de la plateforme** (`LIVE_PLATFORM_MAX_PARTICIPANTS`) : toutes les écoles partagent les serveurs du live. Un cours ne démarre que si les étudiants qu'il peut amener (inscrits, dans la limite de la classe) tiennent avec ceux des cours en cours sous ce plafond. Sinon, le professeur lit seulement « Impossible d'ouvrir la salle pour le moment. Réessayez dans quelques minutes. », et `SUPPORT_EMAIL` reçoit une alerte, au plus une par heure. Plafond : environ 100 sur le serveur partagé, 300 de plus par relais vidéo (`infra/live/README.md`). 0 : pas de plafond.
 
 ## Ce qui reste à construire
 
