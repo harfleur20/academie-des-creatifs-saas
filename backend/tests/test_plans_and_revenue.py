@@ -32,10 +32,19 @@ from app.services.public_catalog import school_white_label
 from app.services.school_revenue import cancel_payout, process_payout, record_sale, request_payout, revenue_summary
 from app.services.subscriptions import apply_subscription_lifecycle, get_effective_plan, list_public_plans, start_default_trial
 
-MIGRATION = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "20261112_0062_free_plan_annual_discount.py"
-_spec = importlib.util.spec_from_file_location("plans_migration", MIGRATION)
-grid = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(grid)
+VERSIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
+
+
+def _migration(name: str):
+    spec = importlib.util.spec_from_file_location(name, VERSIONS / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# The grid in production: 0066's plans, 0062's add-ons (0066 stops the extra formation).
+grid = _migration("20261114_0066_live_for_every_plan")
+addons = _migration("20261112_0062_free_plan_annual_discount")
 NOW = datetime.now(UTC)
 _unique = itertools.count()
 
@@ -51,7 +60,8 @@ def plans(db) -> dict[str, PlanRecord]:
                              for key, enabled, limit in entitlements]
         db.add(plan)
         out[code] = plan
-    for code, name, description, feature_key, unit, price, status, plan_codes, order in grid.ADDONS:
+    for code, name, description, feature_key, unit, price, status, plan_codes, order in addons.ADDONS:
+        status = "inactive" if code == "extra_formation" else status
         db.add(AddonRecord(code=code, name=name, description=description, feature_key=feature_key, unit_label=unit,
                            unit_price_cents=price, currency="XAF", status=status, plan_codes=plan_codes, sort_order=order))
     db.commit()
@@ -117,7 +127,11 @@ def test_the_grid_is_free_then_paid_with_twenty_percent_off_a_year():
         students = next(item for item in plan.entitlements if item.feature_key == "students")
         assert (students.enabled, students.limit_value) == (True, None), code
     assert (grid_plans["starter"].annual_price_cents, grid_plans["pro"].annual_price_cents,
-            grid_plans["business"].annual_price_cents) == (144_000, 336_000, 720_000)
+            grid_plans["business"].annual_price_cents) == (144_000, 288_000, 624_000)
+    # Formations without limit in every paid plan.
+    for code in ("starter", "pro", "business"):
+        formations = next(item for item in grid_plans[code].entitlements if item.feature_key == "active_formations")
+        assert (formations.enabled, formations.limit_value) == (True, None), code
 
 
 def test_students_are_never_limited_and_extra_teachers_are_billed_per_unit():
@@ -139,7 +153,7 @@ def test_students_are_never_limited_and_extra_teachers_are_billed_per_unit():
         ("Professeur supplémentaire (12 mois, −20 %)", 24_000),
     ]
     # On Pro, the same school fits in its plan.
-    assert quote(db, org.id, grid_plans["pro"], "monthly").total_cents == 35_000
+    assert quote(db, org.id, grid_plans["pro"], "monthly").total_cents == 30_000
 
     usage = billing_usage(db, org.id)
     students = next(item for item in usage["metrics"] if item["feature_key"] == "students")
@@ -196,21 +210,19 @@ def test_without_an_add_on_the_school_moves_up_a_plan():
     assert "Passez au forfait supérieur" in refused.value.detail
 
 
-def test_every_paid_plan_includes_live_classes_sized_per_class_and_at_once():
+def test_every_plan_includes_live_classes_sized_per_class_and_at_once():
     db = build_db()
     grid_plans = plans(db)
     organizations = {}
-    for code, (per_class, at_once) in {"starter": (10, 1), "pro": (50, 2), "business": (100, 5)}.items():
+    sizes_by_plan = {"decouverte": (10, 1, 6), "starter": (15, 2, None), "pro": (30, 5, None), "business": (30, 10, None)}
+    for code, (per_class, at_once, monthly_hours) in sizes_by_plan.items():
         org, _ = school(db, grid_plans[code])
         organizations[code] = org
         sizes = {item.feature_key: item.limit_value for item in grid_plans[code].entitlements if item.enabled}
-        assert (sizes["live"], sizes["live_rooms"]) == (per_class, at_once)
+        assert (sizes["live"], sizes["live_rooms"], sizes.get("live_hours")) == (per_class, at_once, monthly_hours)
+        # A live class lasts 4 hours at most, whatever the plan.
+        assert sizes["live_class_hours"] == 4
         require_feature(db, org.id, "live")
-
-    free, _ = school(db, grid_plans["decouverte"])
-    with pytest.raises(HTTPException) as no_live:
-        require_feature(db, free.id, "live")
-    assert no_live.value.detail == "Les cours en live sont inclus à partir du forfait Starter."
 
     starter = organizations["starter"]
     pro = organizations["pro"]
@@ -251,8 +263,9 @@ def test_after_the_trial_a_school_goes_on_with_the_free_plan():
     db.commit()
 
     assert get_effective_plan(db, org.id).code == "decouverte"
-    with pytest.raises(HTTPException):
-        require_feature(db, org.id, "live")
+    # Découverte keeps live classes, smaller: 10 students, one at a time, 6 hours a month.
+    require_feature(db, org.id, "live")
+    assert billing_usage(db, org.id)["live_included"] is True
     add_teachers(db, org, 1)
     with pytest.raises(HTTPException) as one_teacher:
         require_capacity(db, org.id, "teachers", accept_addon=True)
@@ -403,7 +416,8 @@ def test_a_plan_runs_so_many_live_classes_at_once(monkeypatch):
     grid_plans = plans(db)
     org, teacher, _student, _classmate, session, _enrollment, _other, _lesson, day = seed(db)
     db.get(FormationRecord, session.formation_id).format_type = "live"
-    db.add(SubscriptionRecord(organization_id=org.id, plan_id=grid_plans["starter"].id, status="active",
+    # Découverte runs one live class at a time.
+    db.add(SubscriptionRecord(organization_id=org.id, plan_id=grid_plans["decouverte"].id, status="active",
                               billing_interval="monthly", started_at=NOW, current_period_start=NOW,
                               current_period_end=NOW + timedelta(days=30)))
     second = SessionCourseDayRecord(organization_id=org.id, session_id=session.id, teacher_id=teacher.id, title="Cours 2",
@@ -418,6 +432,7 @@ def test_a_plan_runs_so_many_live_classes_at_once(monkeypatch):
         start_live_class(db, tenant, second.id, now=nine + timedelta(minutes=5))
     assert busy.value.status_code == 409
     assert "un seul cours en live à la fois" in busy.value.detail
+    assert "Découverte" in busy.value.detail
     # Once the first class is over (its time and a quarter of an hour after), the room is free.
     assert start_live_class(db, tenant, second.id, now=nine + timedelta(minutes=136))["started_at"]
 

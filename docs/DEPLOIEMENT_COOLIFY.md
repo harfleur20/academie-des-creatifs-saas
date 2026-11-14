@@ -51,7 +51,10 @@ Dans **Servers > votre serveur > Proxy > Configuration**, ajoutez à la liste `c
       - '--certificatesresolvers.letsencrypt-dns.acme.dnschallenge=true'
       - '--certificatesresolvers.letsencrypt-dns.acme.dnschallenge.provider=cloudflare'
       - '--certificatesresolvers.letsencrypt-dns.acme.storage=/traefik/acme-dns.json'
+      - '--certificatesresolvers.letsencrypt-dns.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53'
 ```
+
+La dernière ligne compte. Sans elle, Traefik vérifie l'enregistrement TXT de Let's Encrypt avec le DNS interne de Docker (`127.0.0.11`). Celui-ci garde en mémoire l'absence de l'enregistrement, et la demande échoue avec « time limit exceeded … did not return the expected TXT record ».
 
 et, sous `image:` (créez la clé si elle n'existe pas) :
 
@@ -113,7 +116,7 @@ Le cookie de connexion est posé sur `.academiecreatif.com` et partagé par les 
 
 Selon ce que vous testez :
 
-- **Live :** `LIVE_PROVIDER=jitsi`, `JITSI_DOMAIN=live.academiecreatif.com`, `JITSI_APP_SECRET` (le `JWT_APP_SECRET` d'`infra/live`). `JITSI_APP_ID=academie-live` et `JITSI_XMPP_DOMAIN=meet.jitsi` sont déjà les valeurs par défaut. Dans le `main.env` d'`infra/live`, mettez `BRANDING_DATA_URL=https://ecoles.academiecreatif.com/api/v1/planning/live/room-branding` et `LIVE_HOME_URL=https://ecoles.academiecreatif.com`. Voir [infra/live/README.md](../infra/live/README.md).
+- **Live :** `LIVE_PROVIDER=jitsi`, `JITSI_DOMAIN=live.academiecreatif.com`, `JITSI_APP_SECRET` (le `JWT_APP_SECRET` d'`infra/live`). `JITSI_APP_ID=academie-live` et `JITSI_XMPP_DOMAIN=meet.jitsi` sont déjà les valeurs par défaut. `LIVE_PLATFORM_MAX_PARTICIPANTS` (100 par défaut) plafonne les étudiants en live en même temps, toutes écoles confondues : relevez-le de 300 à chaque relais vidéo ajouté ([FORFAITS.md](FORFAITS.md)). Dans le `main.env` d'`infra/live`, mettez `BRANDING_DATA_URL=https://ecoles.academiecreatif.com/api/v1/planning/live/room-branding` et `LIVE_HOME_URL=https://ecoles.academiecreatif.com`. Voir [infra/live/README.md](../infra/live/README.md).
 - **Emails :** `BREVO_API_KEY`, `SMTP_FROM` (adresse d'expédition validée dans Brevo), `SMTP_FROM_NAME`, `SUPPORT_EMAIL`.
 - **Paiements :** les variables `TARAMONEY_*`. Le mode démo est refusé en production.
 - **Connexion Google :** `GOOGLE_CLIENT_ID`. Le fichier le passe aussi au build du frontend : redéployez après l'avoir changé.

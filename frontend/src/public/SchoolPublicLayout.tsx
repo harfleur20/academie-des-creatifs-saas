@@ -42,6 +42,8 @@ export function SchoolPublicLayout() {
   const [error, setError] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
+  // The account's photo; the person icon when there is none or it does not load.
+  const [avatarBroken, setAvatarBroken] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
   const [cartItem, setCartItem] = useState<SchoolCartItem | null>(() => getSchoolCart(schoolSlug))
   const [favorites, setFavorites] = useState<PublicFormationCard[]>([])
@@ -249,7 +251,9 @@ export function SchoolPublicLayout() {
                 title={user.full_name}
                 onClick={() => setAccountOpen((value) => !value)}
               >
-                <UserRound size={17} />
+                {user.avatar_url && !avatarBroken
+                  ? <img className="public-school-account-avatar" src={user.avatar_url} alt="" onError={() => setAvatarBroken(true)} />
+                  : <UserRound size={17} />}
                 <span>{accountName}</span>
                 <ChevronDown size={14} className={accountOpen ? 'is-open' : ''} />
               </button>
@@ -302,7 +306,7 @@ export function SchoolPublicLayout() {
         </div>
         <div className="public-school-footer-bottom">
           <span>© {new Date().getFullYear()} {school.site_name || school.name}</span>
-          {!school.white_label && <span className="public-school-powered">Powered by <BrandLogo logoUrl="/logo_ico_hd.png" alt="Académie des Créatifs"/> <strong>Académie des Créatifs</strong></span>}
+          {!school.white_label && <span className="public-school-powered">Powered by <a className="public-school-powered-link" href={school.platform_url || '/'} target="_blank" rel="noopener"><BrandLogo logoUrl="/logo_ico_hd.png" alt=""/> <strong>Académie des Créatifs</strong></a></span>}
         </div>
       </footer>
     </div>

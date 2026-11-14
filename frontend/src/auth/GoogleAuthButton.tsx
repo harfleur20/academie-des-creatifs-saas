@@ -109,7 +109,7 @@ export function GoogleAuthButton({
         text: mode === 'login' ? 'signin_with' : 'signup_with',
         shape: 'rectangular',
         logo_alignment: 'left',
-        width: Math.max(240, Math.floor(target.getBoundingClientRect().width || 360)),
+        width: Math.min(420, Math.max(240, Math.floor(target.getBoundingClientRect().width || 360))),
         locale: 'fr',
       })
     }

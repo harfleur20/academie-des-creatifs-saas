@@ -39,6 +39,8 @@ FEATURE_LABELS = {
     "active_formations": "formations publiées",
     "live": "Les cours en live",
     "live_rooms": "cours en live en même temps",
+    "live_hours": "heures de live par mois",
+    "live_class_hours": "heures au plus par cours en live",
     "custom_domain": "Le domaine personnalisé",
     "white_label": "Le site sans la mention de la plateforme",
 }

@@ -273,7 +273,6 @@ export function SchoolMessagesPage() {
     <main className="app-page messages-page school-messages-page">
       <div className="messages-header">
         <div>
-          <p className="eyebrow">Messagerie</p>
           <h1>Messages</h1>
         </div>
         <button

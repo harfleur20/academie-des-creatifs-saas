@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+import logging
 from pathlib import Path
 import re
+import threading
 
 import jwt
 from fastapi import HTTPException
@@ -19,8 +21,11 @@ from app.models.entities import (
 from app.services.live_recordings import _source_url
 from app.services.plan_limits import allowance, require_feature
 from app.services.subscriptions import get_effective_plan
+from app.services.support_mail import send_support_request_email
 from app.services.teacher_readiness import require_teacher_ready
 from app.services.tenancy import TenantContext
+
+logger = logging.getLogger(__name__)
 
 
 def _aware(value: datetime) -> datetime:
@@ -183,14 +188,189 @@ def start_live_class(
         raise HTTPException(409, "Le cours ne peut démarrer qu'à l'heure prévue.")
     if day.started_at is None:
         require_feature(db, tenant.organization_id, "live")
+        _require_live_hours(db, tenant.organization_id, current)
         _require_live_room(db, tenant.organization_id, day, current)
+        _require_platform_capacity(db, tenant.organization_id, day, current)
         day.started_at = current
         db.commit()
-    return {"course_day_id": day.id, "started_at": _aware(day.started_at)}
+    window = live_room_window(db, tenant.organization_id, day, current)
+    return {
+        "course_day_id": day.id,
+        "started_at": _aware(day.started_at),
+        "closes_at": window.entries_close,
+        "ends_by": window.ends_by,
+    }
 
 
 ROOM_OPENS_BEFORE = timedelta(minutes=15)
 ROOM_CLOSES_AFTER = timedelta(minutes=15)
+# Said to a teacher whose class cannot start because the live servers are full: it names no cause.
+ROOM_UNAVAILABLE = "Impossible d'ouvrir la salle pour le moment. Réessayez dans quelques minutes."
+CAPACITY_ALERT_EVERY = timedelta(hours=1)
+_capacity_alert_lock = threading.Lock()
+_last_capacity_alert: datetime | None = None
+
+
+def _scheduled_close(day: SessionCourseDayRecord) -> datetime:
+    return _aware(day.scheduled_at) + timedelta(minutes=day.duration_minutes) + ROOM_CLOSES_AFTER
+
+
+def _cap(plan, feature_key: str) -> int | None:
+    """A plan's limit that applies only when the plan names it (live hours)."""
+    rule = allowance(plan, feature_key)
+    return rule.limit if rule.enabled else None
+
+
+@dataclass(frozen=True)
+class LiveWindow:
+    """When no one enters a live room any more, and when it ends for everyone (None: no forced end)."""
+    entries_close: datetime
+    ends_by: datetime | None
+
+
+def _live_month(db: Session, organization_id: int, current: datetime) -> tuple[dict[int, LiveWindow], int, int | None]:
+    """The school's live classes started this month with their windows, the seconds of live
+    used, and the minutes its plan grants a month (None: no limit).
+
+    A room takes entries until 15 minutes after the planned end. It ends for everyone
+    live_class_hours after the teacher started it. Live hours count only while the room is in
+    use, someone (teacher or student) in it: they pause while it stands empty
+    (live_active_seconds, credited by each participant's heartbeat). Once the month's hours are
+    used, an open room ends.
+    """
+    plan = get_effective_plan(db, organization_id)
+    per_class = _cap(plan, "live_class_hours")
+    monthly = _cap(plan, "live_hours")
+    quota = monthly * 60 if monthly is not None else None
+    month = current.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    days = db.scalars(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.organization_id == organization_id,
+        SessionCourseDayRecord.started_at.is_not(None),
+        SessionCourseDayRecord.started_at >= month,
+    ).order_by(SessionCourseDayRecord.started_at, SessionCourseDayRecord.id)).all()
+    used_seconds = sum(day.live_active_seconds or 0 for day in days)
+    seconds_left = None if quota is None else max(0, quota * 60 - used_seconds)
+    windows: dict[int, LiveWindow] = {}
+    for day in days:
+        started = _aware(day.started_at)
+        ends_by = started + timedelta(hours=per_class) if per_class is not None else None
+        if seconds_left is not None and day.report_submitted_at is None:
+            hours_end = current + timedelta(seconds=seconds_left)
+            ends_by = hours_end if ends_by is None else min(ends_by, hours_end)
+        entries_close = _scheduled_close(day) if ends_by is None else min(_scheduled_close(day), ends_by)
+        windows[day.id] = LiveWindow(entries_close, ends_by)
+    return windows, used_seconds, quota
+
+
+# A room is in use while someone in it sends a sign of presence at least every 90 seconds
+# (heartbeats come every 30 seconds): a longer silence means it stood empty.
+ROOM_IDLE_AFTER = timedelta(seconds=90)
+
+
+def _credit_room_activity(db: Session, day: SessionCourseDayRecord, current: datetime) -> None:
+    """Someone is in the started live room now: the time since its last sign of use counts,
+    unless the room stood empty in between."""
+    if day.started_at is None:
+        return
+    db.refresh(day, with_for_update=True)  # participants' heartbeats arrive together
+    last = _aware(day.live_active_at) if day.live_active_at is not None else None
+    if last is not None and current > last and current - last <= ROOM_IDLE_AFTER:
+        day.live_active_seconds = (day.live_active_seconds or 0) + int((current - last).total_seconds())
+    if last is None or current > last:
+        day.live_active_at = current
+    db.commit()
+
+
+def live_room_window(db: Session, organization_id: int, day: SessionCourseDayRecord, current: datetime) -> LiveWindow:
+    """This class's window (see _live_month); before it starts, entries until 15 minutes after its end."""
+    if day.started_at is not None:
+        windows, _used, _quota = _live_month(db, organization_id, current)
+        if day.id in windows:
+            return windows[day.id]
+    return LiveWindow(_scheduled_close(day), None)
+
+
+def _require_live_hours(db: Session, organization_id: int, current: datetime) -> None:
+    """Découverte grants so many live hours a month: once used, no new class starts this month."""
+    _windows, used_seconds, quota = _live_month(db, organization_id, current)
+    if quota is None or used_seconds < quota * 60:
+        return
+    plan = get_effective_plan(db, organization_id)
+    raise HTTPException(
+        409,
+        f"Les {quota // 60} h de live incluses chaque mois dans votre forfait {plan.name} sont utilisées. "
+        "Elles reviennent le 1er du mois prochain ; les forfaits payants n'ont pas cette limite.",
+    )
+
+
+def _expected_students(db: Session, day: SessionCourseDayRecord, class_sizes: dict[int, int | None]) -> int:
+    """The students a live class can bring: its session's enrolled students, up to its plan's class size."""
+    if day.organization_id not in class_sizes:
+        rule = allowance(get_effective_plan(db, day.organization_id), "live")
+        class_sizes[day.organization_id] = rule.limit if rule.enabled else 0
+    enrolled = db.scalar(select(func.count(EnrollmentRecord.id)).where(
+        EnrollmentRecord.organization_id == day.organization_id,
+        EnrollmentRecord.session_id == day.session_id,
+        EnrollmentRecord.status.in_(["active", "completed"]),
+    )) or 0
+    size = class_sizes[day.organization_id]
+    return enrolled if size is None else min(enrolled, size)
+
+
+def _require_platform_capacity(db: Session, organization_id: int, day: SessionCourseDayRecord, current: datetime) -> None:
+    """All schools share the live servers: a class starts only if the students it can bring fit
+    beside those of the classes running, below LIVE_PLATFORM_MAX_PARTICIPANTS."""
+    ceiling = settings.live_platform_max_participants
+    if ceiling <= 0:
+        return
+    started = db.scalars(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.id != day.id,
+        SessionCourseDayRecord.started_at.is_not(None),
+        SessionCourseDayRecord.started_at >= current - timedelta(days=1),
+        SessionCourseDayRecord.report_submitted_at.is_(None),
+        SessionCourseDayRecord.status != "cancelled",
+    )).all()
+    class_sizes: dict[int, int | None] = {}
+    booked = sum(_expected_students(db, other, class_sizes) for other in started if current <= _scheduled_close(other))
+    booked += _expected_students(db, day, class_sizes)
+    if booked <= ceiling:
+        return
+    db.rollback()
+    _alert_capacity(db, organization_id, booked, ceiling, current)
+    raise HTTPException(409, ROOM_UNAVAILABLE)
+
+
+def _alert_capacity(db: Session, organization_id: int, booked: int, ceiling: int, current: datetime) -> None:
+    """Tells the platform, at most once an hour, that live classes waited for room: time for a relay."""
+    global _last_capacity_alert
+    logger.warning("Live capacity reached: %s students for a ceiling of %s (school %s).", booked, ceiling, organization_id)
+    recipient = settings.support_email
+    if not recipient:
+        return
+    with _capacity_alert_lock:
+        if _last_capacity_alert is not None and current - _last_capacity_alert < CAPACITY_ALERT_EVERY:
+            return
+        _last_capacity_alert = current
+    organization = db.get(OrganizationRecord, organization_id)
+    school = organization.name if organization else f"#{organization_id}"
+
+    def send() -> None:
+        try:
+            send_support_request_email(
+                recipient=recipient, reference="LIVE-CAPACITE", requester_name="Plateforme",
+                requester_email=recipient, organization_name=school, organization_id=organization_id,
+                category="technical", priority="urgent", subject="Capacité live atteinte",
+                message=(
+                    f"Un cours en live de {school} n'a pas pu démarrer : {booked} étudiants prévus en même temps "
+                    f"pour un plafond de {ceiling} (LIVE_PLATFORM_MAX_PARTICIPANTS).\n\n"
+                    "Ajoutez un relais vidéo (infra/live/README.md), puis relevez le plafond dans Coolify."
+                ),
+                page_url=None,
+            )
+        except Exception:  # an alert must never break a request
+            logger.exception("Unable to send the live capacity alert.")
+
+    threading.Thread(target=send, daemon=True).start()
 
 
 def _require_live_room(db: Session, organization_id: int, day: SessionCourseDayRecord, current: datetime) -> None:
@@ -273,6 +453,9 @@ def live_class_info(db: Session, tenant: TenantContext, course_day_id: int) -> d
     starts_at = _aware(day.scheduled_at)
     ends_at = starts_at + timedelta(minutes=day.duration_minutes)
     school_name, school_logo_url, school_primary_color = _school_live_identity(db, tenant.organization_id)
+    current = datetime.now(UTC)
+    windows, used_seconds, quota = _live_month(db, tenant.organization_id, current)
+    window = windows.get(day.id, LiveWindow(_scheduled_close(day), None))
     return {
         "course_day_id": day.id,
         "title": day.title,
@@ -285,10 +468,12 @@ def live_class_info(db: Session, tenant: TenantContext, course_day_id: int) -> d
         "starts_at": starts_at,
         "ends_at": ends_at,
         "opens_at": starts_at - ROOM_OPENS_BEFORE,
-        "closes_at": ends_at + ROOM_CLOSES_AFTER,
+        "closes_at": window.entries_close,
+        "ends_by": window.ends_by,
         "started_at": _aware(day.started_at) if day.started_at else None,
         "moderator": bool(manager or teacher),
         "responsible_teacher": bool(teacher and day.teacher_id == tenant.user.id),
+        "live_minutes_left": max(0, quota * 60 - used_seconds) // 60 if quota is not None and (manager or teacher) else None,
     }
 
 
@@ -301,7 +486,10 @@ def join_live_class(
     current = _aware(now or datetime.now(UTC))
     starts_at = _aware(day.scheduled_at)
     ends_at = starts_at + timedelta(minutes=day.duration_minutes)
-    if current < starts_at - ROOM_OPENS_BEFORE or current > ends_at + ROOM_CLOSES_AFTER:
+    window = live_room_window(db, tenant.organization_id, day, current)
+    if window.ends_by is not None and current >= window.ends_by:
+        raise HTTPException(403, "Ce cours en live est terminé : sa salle est fermée.")
+    if current < starts_at - ROOM_OPENS_BEFORE or current > window.entries_close:
         raise HTTPException(403, "La salle ouvre 15 minutes avant le cours et ferme 15 minutes après.")
 
     if not live_provider_configured():
@@ -330,6 +518,7 @@ def join_live_class(
                     f"Cette classe a atteint la limite de {limit} étudiants en live prévue par votre forfait.",
                 )
         _hold_live_device(db, tenant, day, device_id, device_label, current)
+    _credit_room_activity(db, day, current)
 
     moderator = bool(manager or teacher)
     room = f"school-{tenant.organization_id}-session-{session.id}-day-{day.id}"
@@ -352,6 +541,7 @@ def join_live_class(
         **provider_room,
         "moderator": moderator,
         "started_at": _aware(day.started_at) if day.started_at else None,
+        "ends_by": window.ends_by,
     }
 
 
@@ -425,17 +615,23 @@ def heartbeat_live_class(
     """
     day, _session, manager, teacher, student = _live_class_access(db, tenant, course_day_id)
     current = _aware(now or datetime.now(UTC))
+    window = live_room_window(db, tenant.organization_id, day, current)
+    # Past its forced end (live_class_hours, or the month's live hours spent), the room is over.
+    if window.ends_by is not None and current >= window.ends_by:
+        raise HTTPException(404, "Ce cours en live est terminé : sa salle est fermée.")
     student_only = bool(student and not (manager or teacher))
     if student_only:
         _hold_live_device(db, tenant, day, device_id, device_label, current)
-    return {"roll_call": _roll_call_view(db, tenant, day, current, student_only=student_only)}
+    _credit_room_activity(db, day, current)
+    return {"roll_call": _roll_call_view(db, tenant, day, current, student_only=student_only), "ends_by": window.ends_by}
 
 
 def leave_live_class(
     db: Session, tenant: TenantContext, course_day_id: int, *, now: datetime | None = None,
     device_id: str | None = None,
 ) -> None:
-    """Frees the device at once, even once the class is closed."""
+    """Frees the device at once, even once the class is closed; the room's time in use counts until now."""
+    current = _aware(now or datetime.now(UTC))
     presence = db.scalar(select(LiveRoomPresenceRecord).where(
         LiveRoomPresenceRecord.organization_id == tenant.organization_id,
         LiveRoomPresenceRecord.course_day_id == course_day_id,
@@ -443,11 +639,16 @@ def leave_live_class(
         LiveRoomPresenceRecord.device_id == _device_id(device_id, tenant.user.id),
     ))
     if presence is not None and presence.left_at is None:
-        current = _aware(now or datetime.now(UTC))
         _credit_time_in_room(presence, current)
         presence.last_seen_at = current
         presence.left_at = current
         db.commit()
+    day = db.scalar(select(SessionCourseDayRecord).where(
+        SessionCourseDayRecord.id == course_day_id,
+        SessionCourseDayRecord.organization_id == tenant.organization_id,
+    ))
+    if day is not None and day.report_submitted_at is None:
+        _credit_room_activity(db, day, current)
 
 
 # The teacher's roll call: students have two minutes to answer "Je suis là".

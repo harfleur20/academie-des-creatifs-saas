@@ -65,6 +65,9 @@ services:
       JITSI_APP_ID: ${JITSI_APP_ID:-academie-live}
       JITSI_APP_SECRET: ${JITSI_APP_SECRET:-}
       JITSI_XMPP_DOMAIN: ${JITSI_XMPP_DOMAIN:-meet.jitsi}
+      # Students in live classes at once, all schools together: ~100 on the shared server,
+      # +300 with each video relay (infra/live/README.md). 0: no ceiling.
+      LIVE_PLATFORM_MAX_PARTICIPANTS: ${LIVE_PLATFORM_MAX_PARTICIPANTS:-100}
       JAAS_ENABLED: ${JAAS_ENABLED:-false}
       JAAS_APP_ID: ${JAAS_APP_ID:-}
       JAAS_KID: ${JAAS_KID:-}

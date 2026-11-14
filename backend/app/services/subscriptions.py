@@ -430,7 +430,7 @@ def notify_trial_endings(db: Session, *, now: datetime | None = None) -> int:
         message += (f"Activez le forfait {chosen.name} que vous aviez choisi pour garder vos cours en live."
                     if paid_choice else "Choisissez votre forfait pour garder vos cours en live.")
         if free is not None:
-            message += f" Sinon, votre école passera en {free.name}, gratuite, sans cours en live."
+            message += f" Sinon, votre école passera en {free.name}, gratuite, avec des cours en live limités."
         path = "/app/manage/billing"
         if paid_choice:
             path += f"?plan={chosen.code}&interval={trial.chosen_billing_interval or 'monthly'}"

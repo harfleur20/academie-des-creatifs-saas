@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  CirclePlay,
   Clock3,
   GraduationCap,
   Layers3,
@@ -220,7 +221,7 @@ export function SchoolFormationDetailPage() {
   const planSession = formation.format_type === 'ligne'
     ? (formation.next_session?.can_purchase ? formation.next_session : null)
     : selected ?? (available.length === 1 ? available[0] : null)
-  const FormatIcon = formation.format_type === 'live' ? Radio : BookOpen
+  const FormatIcon = formation.format_type === 'live' ? Radio : formation.format_type === 'ligne' ? CirclePlay : BookOpen
 
   return (
     <main className="school-detail-page school-detail-page-v2">
@@ -396,7 +397,7 @@ export function SchoolFormationDetailPage() {
           {formation.format_type === 'ligne' ? (
             <>
               <div className="school-session-panel-heading">
-                <span className="school-session-panel-heading-icon"><BookOpen size={17} /></span>
+                <span className="school-session-panel-heading-icon"><CirclePlay size={17} /></span>
                 <div><strong>Formation en ligne</strong><small>Accès après confirmation du paiement</small></div>
               </div>
               <p>Progressez à votre rythme depuis votre espace étudiant.</p>

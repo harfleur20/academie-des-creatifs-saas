@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import {
+  Navigate,
   NavLink,
   useLocation,
   useNavigate,
@@ -92,6 +93,7 @@ export function SchoolWorkspaceLayout({
     accessProfile,
     selectOrganization,
     schoolBranding,
+    loading: tenantLoading,
   } = useTenant()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -103,6 +105,16 @@ export function SchoolWorkspaceLayout({
   const profileRef = useRef<HTMLDivElement>(null)
 
   const isRoleSpace = space === 'teacher' || space === 'student'
+  // A new account without a school yet: every management screen but the dashboard (which
+  // creates the first school) and the account's own profile needs a school.
+  const spaceHome = `/app/${space}`
+  const awaitingFirstSchool = !isRoleSpace && !tenantLoading && !activeOrganization && !supportMode
+  const openWithoutSchool = [spaceHome, `${spaceHome}/profile`]
+  const visibleNavItems = awaitingFirstSchool
+    ? navItems.filter((item) => item.to === spaceHome)
+    : navItems
+  const visibleNavGroups = awaitingFirstSchool ? [] : navGroups
+  const visibleTrailingNavItems = awaitingFirstSchool ? [] : trailingNavItems
   const organizationPrimary =
     activeOrganization?.primary_color || DEFAULT_BRAND_COLORS.primary
   const organizationSecondary =
@@ -129,8 +141,8 @@ export function SchoolWorkspaceLayout({
   } as CSSProperties
 
   const allNavItems = useMemo(
-    () => [...navItems, ...navGroups.flatMap((group) => group.items), ...trailingNavItems],
-    [navItems, navGroups, trailingNavItems],
+    () => [...visibleNavItems, ...visibleNavGroups.flatMap((group) => group.items), ...visibleTrailingNavItems],
+    [visibleNavItems, visibleNavGroups, visibleTrailingNavItems],
   )
   const activeNavGroup = navGroups.find((group) =>
     group.items.some((item) => navItemMatches(location.pathname, item)),
@@ -276,12 +288,12 @@ export function SchoolWorkspaceLayout({
           )}
 
           <nav className="app-nav">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <MenuLink key={item.to} to={item.to} end={item.end}>
                 {item.icon} {item.label}
               </MenuLink>
             ))}
-            {navGroups.map((group) => {
+            {visibleNavGroups.map((group) => {
               const isOpen = openNavGroups.includes(group.key)
               const isActive = group.items.some((item) => navItemMatches(location.pathname, item))
               return (
@@ -355,8 +367,10 @@ export function SchoolWorkspaceLayout({
               {profileOpen && <div className="manage-topbar-profile-menu">
                 <div><strong>{user?.full_name}</strong><small>{user?.email}</small></div>
                 <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/profile') }}><UserRound size={16} /> Profil</button>
-                <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/settings') }}><Settings size={16} /> Paramètres de l’école</button>
-                <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/support') }}><LifeBuoy size={16} /> Support</button>
+                {!awaitingFirstSchool && <>
+                  <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/settings') }}><Settings size={16} /> Paramètres de l’école</button>
+                  <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/support') }}><LifeBuoy size={16} /> Support</button>
+                </>}
                 <span className="account-menu-divider" aria-hidden="true" />
                 <button type="button" className="is-danger" onClick={() => { setProfileOpen(false); handleSignOut() }}><LogOut size={16} /> Se déconnecter</button>
               </div>}
@@ -384,7 +398,9 @@ export function SchoolWorkspaceLayout({
               </button>
             </div>
           )}
-          <SpaceOutlet key={activeOrganization?.id ?? 'no-school'} />
+          {awaitingFirstSchool && !openWithoutSchool.includes(location.pathname.replace(/\/+$/, ''))
+            ? <Navigate to={spaceHome} replace />
+            : <SpaceOutlet key={activeOrganization?.id ?? 'no-school'} />}
         </div>
       </div>
     )

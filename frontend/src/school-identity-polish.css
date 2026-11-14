@@ -8,6 +8,7 @@
 
 .public-school-shell .school-favorite-button.is-active {
   background: color-mix(in srgb, var(--school-secondary, var(--school-primary)) 9%, white);
+  border-color: transparent; /* the filled heart is enough: no ring around it */
 }
 
 .public-school-shell .public-school-favorites-link span {
@@ -35,3 +36,22 @@
     flex-basis: 34px;
   }
 }
+
+/* The cart drawer locks the page's scroll: keep the scrollbar's room so the site does not
+   jump sideways when the drawer comes in and goes out. */
+html:has(.public-school-shell) {
+  scrollbar-gutter: stable;
+}
+
+/* The platform's signature leads to its landing page. */
+.public-school-powered-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  text-decoration: none;
+  transition: color .15s ease;
+}
+.public-school-powered-link:hover,
+.public-school-powered-link:focus-visible { color: #fff; }
+.public-school-powered-link:hover strong { text-decoration: underline; text-underline-offset: 3px; }

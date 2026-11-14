@@ -181,6 +181,9 @@ class Settings:
     jitsi_app_id: str = os.getenv("JITSI_APP_ID", "").strip()
     jitsi_app_secret: str = os.getenv("JITSI_APP_SECRET", "").strip()
     jitsi_xmpp_domain: str = os.getenv("JITSI_XMPP_DOMAIN", "meet.jitsi").strip()
+    # Students the live servers carry at once, all schools together; 0: no ceiling. Above it,
+    # a new live class waits (live_classes.py). Raise it with each video relay (infra/live).
+    live_platform_max_participants: int = max(0, int(os.getenv("LIVE_PLATFORM_MAX_PARTICIPANTS", "0") or 0))
     jaas_enabled: bool = _env_bool("JAAS_ENABLED", False)
     jaas_domain: str = os.getenv("JAAS_DOMAIN", "8x8.vc").strip().removeprefix("https://").rstrip("/")
     jaas_app_id: str = os.getenv("JAAS_APP_ID", "").strip()

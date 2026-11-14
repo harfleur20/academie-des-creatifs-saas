@@ -708,6 +708,9 @@ class SessionCourseDayRecord(OrganizationOwnedMixin, TimestampMixin, Base):
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=90)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="planned")
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Time the live room was in use (someone in it), and its last sign of use (live_classes.py).
+    live_active_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    live_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     delivery_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
     report_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     report_difficulties: Mapped[str | None] = mapped_column(Text, nullable=True)

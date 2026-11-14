@@ -1686,6 +1686,8 @@ export type LiveRoom = {
   token: string
   moderator: boolean
   started_at: string | null
+  /** When the room ends for everyone (4 h at most, the month's live hours); null: no forced end. */
+  ends_by?: string | null
 }
 
 /** The live room before entering: waiting room until opens_at, then the welcome card. */
@@ -1705,6 +1707,9 @@ export type LiveRoomInfo = {
   started_at: string | null
   moderator: boolean
   responsible_teacher: boolean
+  ends_by?: string | null
+  /** The school's live minutes left this month, when its plan counts them (Découverte). */
+  live_minutes_left?: number | null
 }
 
 export const fetchLiveRoomInfo = (courseDayId: number) =>
@@ -1729,7 +1734,7 @@ export type LiveRollCall = {
 }
 
 export const heartbeatLiveClass = (courseDayId: number, device: LiveDevice) =>
-  request<{ roll_call: LiveRollCall | null }>(`/planning/course-days/${courseDayId}/live/heartbeat`, { method: 'POST', headers: liveDeviceHeaders(device) })
+  request<{ roll_call: LiveRollCall | null; ends_by?: string | null }>(`/planning/course-days/${courseDayId}/live/heartbeat`, { method: 'POST', headers: liveDeviceHeaders(device) })
 
 export const startLiveRollCall = (courseDayId: number) =>
   request<LiveRollCall>(`/planning/course-days/${courseDayId}/live/roll-call`, { method: 'POST' })
@@ -1742,7 +1747,7 @@ export const leaveLiveClass = (courseDayId: number, device: LiveDevice) =>
   request<void>(`/planning/course-days/${courseDayId}/live/leave`, { method: 'POST', headers: liveDeviceHeaders(device), keepalive: true })
 
 export const startLiveClass = (courseDayId: number) =>
-  request<{ course_day_id: number; started_at: string }>(`/planning/course-days/${courseDayId}/live/start`, { method: 'POST' })
+  request<{ course_day_id: number; started_at: string; closes_at?: string | null; ends_by?: string | null }>(`/planning/course-days/${courseDayId}/live/start`, { method: 'POST' })
 
 export const createSessionCourseDay = (
   sessionId: number,
@@ -2686,6 +2691,8 @@ export type PublicSchool = {
   white_label?: boolean
   /** The read-only demonstration school: its site takes no order. */
   is_demo?: boolean
+  /** The platform's landing page, where the "Powered by" signature leads. */
+  platform_url?: string
 }
 
 export type PublicSession = {
