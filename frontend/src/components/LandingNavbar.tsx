@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
-import { BrandLogo } from '../brand/BrandLogo'
+import { BrandWordmark } from '../brand/BrandWordmark'
 import { readDemoState } from '../lib/demoState'
 import '../landing.css'
 
@@ -20,11 +20,7 @@ export function LandingNavbar() {
     <header className="lp-header">
       <div className="lp-container lp-header__inner">
         <a className="lp-brand" href="/" aria-label="Académie des Créatifs, accueil">
-          <BrandLogo className="lp-brand__logo" />
-          <span>
-            <strong>Académie des Créatifs</strong>
-            <small>pour les écoles</small>
-          </span>
+          <BrandWordmark className="lp-brand__wordmark" />
         </a>
         <nav className="lp-nav" aria-label="Navigation principale">
           <a href="/#fonctionnalites">Fonctionnalités</a>

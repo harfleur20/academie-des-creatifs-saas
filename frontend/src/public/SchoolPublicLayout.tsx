@@ -323,7 +323,7 @@ export function SchoolPublicLayout() {
         </div>
         <div className="public-school-footer-bottom">
           <span>© {new Date().getFullYear()} {school.site_name || school.name}</span>
-          {!school.white_label && <span className="public-school-powered">Powered by <a className="public-school-powered-link" href={school.platform_url || '/'} target="_blank" rel="noopener"><BrandLogo logoUrl="/logo_ico_hd.png" alt=""/> <strong>Académie des Créatifs</strong></a></span>}
+          {!school.white_label && <span className="public-school-powered">Powered by <a className="public-school-powered-link" href={school.platform_url || '/'} target="_blank" rel="noopener"><BrandLogo alt=""/> <strong>Académie des Créatifs</strong></a></span>}
         </div>
       </footer>
     </div>

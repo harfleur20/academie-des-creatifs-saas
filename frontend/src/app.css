@@ -118,6 +118,11 @@
   letter-spacing: -.04em;
 }
 
+.onboarding-card > .page-kicker {
+  display: block;
+  margin-bottom: 16px;
+}
+
 .auth-card > p,
 .onboarding-card > p {
   margin: 0 0 28px;
@@ -241,28 +246,10 @@
   flex-shrink: 0;
 }
 
-.app-brand-text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.app-brand-text strong {
-  color: #fff;
-  font-size: var(--text-lead);
-  font-weight: 800;
-  line-height: 1.08;
-  letter-spacing: -.02em;
-  white-space: nowrap;
-}
-
-.app-brand-text small {
+.app-brand-wordmark {
   display: block;
-  margin-top: 5px;
-  color: rgba(255,255,255,.62);
-  font-size: var(--text-small);
-  font-weight: 400;
+  width: auto;
+  height: 56px;
   line-height: 1;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -980,6 +967,16 @@
     grid-template-columns: 82px minmax(0, 1fr);
   }
 
+  .app-brand {
+    justify-content: center;
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .app-brand-wordmark {
+    display: none;
+  }
+
   .app-brand > span:last-child,
   .school-switcher label,
   .app-nav a:not(.active) span,
@@ -1069,6 +1066,12 @@
   .school-switcher {
     display: flex;
   }
+  .app-brand {
+    justify-content: flex-start;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+  .app-brand-wordmark { display: block; }
   .app-brand > span:last-child,
   .school-switcher label,
   .sidebar-user > div:not(.user-avatar) { display: block; }
@@ -7722,7 +7725,7 @@
 }
 
 .login-redesign .auth-logo__name { display: grid; gap: 1px; line-height: 1.15; }
-.login-redesign .auth-logo__name small { color: #63dfa8; font-size: 12px; font-weight: 700; }
+.login-redesign .auth-logo__wordmark { display: block; width: auto; height: 48px; }
 
 .login-redesign .auth-logo .platform-brand-logo {
   width: 36px;
@@ -7866,6 +7869,7 @@
   .login-redesign .auth-copy-panel { display: flex; min-height: 210px; padding: 23px; background-position: center, center, center 31%; }
   .login-redesign .auth-logo { align-self: flex-start; font-size: 15px; }
   .login-redesign .auth-logo .platform-brand-logo { width: 31px; height: 31px; }
+  .login-redesign .auth-logo__wordmark { height: 40px; }
   .login-redesign .auth-form-panel { min-height: calc(100dvh - 210px); padding: 42px 24px 64px; align-items: start; }
   .login-redesign .auth-card { max-width: 490px; }
   .login-redesign .auth-card h2 { font-size: 32px; }

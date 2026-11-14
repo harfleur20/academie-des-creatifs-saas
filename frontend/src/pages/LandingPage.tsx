@@ -18,7 +18,7 @@ import {
   Timer,
   X,
 } from 'lucide-react'
-import { BrandLogo } from '../brand/BrandLogo'
+import { BrandWordmark } from '../brand/BrandWordmark'
 import { getDemoInfo, listPlans, type DemoInfo, type Plan } from '../lib/api'
 import { DemoMenu } from '../components/DemoMenu'
 import { LandingNavbar } from '../components/LandingNavbar'
@@ -521,11 +521,7 @@ export default function LandingPage() {
       <footer className="lp-footer">
         <div className="lp-container lp-footer__inner">
           <a className="lp-brand lp-brand--footer" href="/">
-            <BrandLogo className="lp-brand__logo" />
-            <span>
-              <strong>Académie des Créatifs</strong>
-              <small>pour les écoles</small>
-            </span>
+            <BrandWordmark className="lp-brand__wordmark" />
           </a>
           <nav aria-label="Liens du pied de page">
             <a href="/mentions-legales">Mentions légales</a>
