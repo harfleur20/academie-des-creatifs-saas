@@ -1,6 +1,6 @@
 export function formatSchoolMoney(amount: number, currency: string) {
   if (currency === 'XAF') {
-    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount) + ' XAF'
+    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount) + ' FCFA'
   }
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount / 100)
 }

@@ -395,7 +395,7 @@ def create_tara_payment_attempt(
     if plan.currency.upper() != "XAF":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="TaraMoney exige un forfait configuré en XAF.",
+            detail="TaraMoney exige un forfait configuré en FCFA.",
         )
 
     amount = configured_plan_price(plan, billing_interval)

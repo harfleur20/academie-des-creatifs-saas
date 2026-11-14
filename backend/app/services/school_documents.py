@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.money import money_label
 from app.models.entities import (
     CertificateRecord,
     FormationRecord,
@@ -38,9 +39,7 @@ def _hex(value: str | None, fallback: str) -> HexColor:
 
 
 def _money(amount: int, currency: str) -> str:
-    if currency.upper() == "XAF":
-        return f"{amount:,} XAF".replace(",", " ")
-    return f"{amount / 100:,.2f} {currency.upper()}".replace(",", " ")
+    return money_label(amount, currency)
 
 
 def _safe_asset_bytes(url: str | None) -> bytes | None:

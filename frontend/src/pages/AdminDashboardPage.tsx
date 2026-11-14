@@ -124,7 +124,7 @@ export function AdminDashboardPage() {
                 ) : (
                   dashboard.revenue.map((item) => (
                     <div key={item.currency}>
-                      <span>{item.currency}</span>
+                      <span>{item.currency === 'XAF' ? 'FCFA' : item.currency}</span>
                       <strong>{formatRevenue(item.amount, item.currency)}</strong>
                       <small>{item.paid_invoices} facture{item.paid_invoices > 1 ? 's' : ''}</small>
                     </div>

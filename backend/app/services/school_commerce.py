@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
+from app.core.money import money_label
 from app.models.entities import (
     CouponRecord,
     EnrollmentRecord,
@@ -653,7 +654,7 @@ def _provider_link(
     if order.currency.upper() != "XAF":
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "TaraMoney exige une tarification en XAF.",
+            "TaraMoney exige une tarification en FCFA.",
         )
     reference = f"SCH-{org.id}-O{order.id}-E{installment.sequence}-{uuid4().hex[:12]}"
     try:
@@ -780,7 +781,7 @@ def create_checkout(
         if not settings.tara_configured:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Le paiement en ligne n'est pas configuré.")
         if preview.currency.upper() != "XAF":
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "TaraMoney exige une tarification en XAF.")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "TaraMoney exige une tarification en FCFA.")
 
     existing_enrollment = db.scalar(
         select(EnrollmentRecord).where(
@@ -1130,7 +1131,7 @@ def process_installment_lifecycle(
                         user=user,
                         event_key="student.payment.due",
                         context={
-                            "amount_label": f"{row.amount_cents} {order.currency}",
+                            "amount_label": money_label(row.amount_cents, order.currency),
                             "formation_title": formation.title,
                             "grace_date": f"{_aware(row.grace_until):%d/%m/%Y}",
                         },
@@ -1170,7 +1171,7 @@ def process_installment_lifecycle(
             if user:
                 formation = db.get(FormationRecord, order.formation_id)
                 event_context = {
-                    "amount_label": f"{row.amount_cents} {order.currency}",
+                    "amount_label": money_label(row.amount_cents, order.currency),
                     "formation_title": formation.title if formation else "votre formation",
                 }
                 queue_school_event(
