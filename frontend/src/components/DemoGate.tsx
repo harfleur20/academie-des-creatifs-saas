@@ -9,10 +9,11 @@ import '../demo.css'
 export function MenuLink({ to, end, children }: { to: string; end?: boolean; children: ReactNode }) {
   if (demoScreenLocked(to)) {
     return (
-      <span className="demo-locked-link" role="link" aria-disabled="true" title={DEMO_LOCKED_MESSAGE}>
+      // An <a> without href: it takes the menu's own link layout, and opens nothing.
+      <a className="demo-locked-link" role="link" aria-disabled="true" title={DEMO_LOCKED_MESSAGE}>
         {children}
         <Lock className="demo-locked-link__icon" size={13} aria-hidden="true" />
-      </span>
+      </a>
     )
   }
   return <NavLink to={to} end={end}>{children}</NavLink>

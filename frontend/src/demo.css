@@ -149,16 +149,14 @@ body.has-demo-bar .public-school-shell .public-school-footer { padding-bottom: 9
 }
 
 /* The demo tour (components/DemoGate.tsx): menu items outside it, and their screen. */
+/* The menu's own link layout applies (it is an <a>); only the look of a closed item is added. */
 .demo-locked-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   opacity: .45;
   cursor: not-allowed;
   user-select: none;
 }
-.app-nav .demo-locked-link { padding: 10px 12px; border-radius: 10px; color: inherit; }
-.tenant-role-nav .demo-locked-link { min-height: 42px; padding: 0 12px; color: inherit; }
+.app-nav a.demo-locked-link:hover,
+.tenant-role-nav a.demo-locked-link:hover { background: none; box-shadow: none; }
 .demo-locked-link__icon { margin-left: auto; flex: none; }
 
 .demo-locked-screen { display: grid; place-items: center; min-height: 60vh; }
