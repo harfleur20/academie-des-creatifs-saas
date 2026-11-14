@@ -135,6 +135,21 @@
   margin-bottom: 5px;
 }
 
+/* The demonstration school's site: the account's pages shown, read only. */
+.public-school-shell .public-school-account-menu button.is-locked {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.public-school-shell .public-school-account-menu button.is-locked:hover {
+  background: none;
+  transform: none;
+}
+
+.public-school-shell .public-school-account-menu .public-school-account-lock {
+  margin-left: auto;
+}
+
 .public-school-shell .public-school-account-menu button.is-danger {
   color: #c44747;
 }

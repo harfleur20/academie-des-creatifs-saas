@@ -437,7 +437,7 @@ export function FormationWorkspacePage() {
             {formation.format_type === 'live' && <>
               <label className="formation-payment-toggle"><input type="checkbox" checked={depositEnabled} onChange={(event) => setDepositEnabled(event.target.checked)} /> Réserver une place avec un acompte</label>
               {depositEnabled && <label>Acompte (% du prix)<input type="number" min={1} max={99} step={0.5} value={depositPercent} onChange={(event) => setDepositPercent(event.target.value)} /></label>}
-              {depositEnabled && <small>Comme sur le site mère, l’acompte non remboursable réserve la place quand la session commence dans plus de 10 jours. Le solde est dû 10 jours avant le début : sans lui, l’accès est suspendu mais la place reste gardée. Les montants en XAF sont arrondis à 500 FCFA.</small>}
+              {depositEnabled && <small>Comme sur le site mère, l’acompte non remboursable réserve la place quand la session commence dans plus de 10 jours. Le solde est dû 10 jours avant le début : sans lui, l’accès est suspendu mais la place reste gardée. Les montants en FCFA sont arrondis à 500 FCFA.</small>}
             </>}
           </fieldset>
           <button className="primary-button" type="submit" disabled={working}><Save size={15} /> Enregistrer le tarif</button>

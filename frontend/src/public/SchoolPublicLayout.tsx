@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { ChevronDown, Heart, LayoutDashboard, LifeBuoy, LogOut, Menu, Settings, ShoppingBag, UserRound, X } from 'lucide-react'
+import { ChevronDown, Heart, LayoutDashboard, LifeBuoy, Lock, Menu, Power, Settings, ShoppingBag, UserRound, X } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
@@ -9,10 +9,19 @@ import { BrandLogo } from '../brand/BrandLogo'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { schoolFontFamily } from '../brand/schoolTypography'
 import { addSchoolFavorite, getPublicSchoolIdentity, listSchoolFavorites, removeSchoolFavorite, type PublicFormationCard, type PublicSchool, type WorkspaceSpace } from '../lib/api'
+import { DEMO_LOCKED_MESSAGE } from '../lib/demoState'
+import { toast } from '../ui/toast'
 import { clearSchoolCart, getSchoolCart, type SchoolCartItem } from './schoolCart'
 import { SchoolCartDrawer } from './SchoolCartDrawer'
 import { SchoolAnnouncementBanner } from './SchoolAnnouncementBanner'
 import './PublicSchoolAccountMenu.css'
+
+// The account's pages, shown read only on the demonstration school's site.
+const DEMO_ACCOUNT_ITEMS = [
+  { icon: LayoutDashboard, label: 'Mon espace' },
+  { icon: UserRound, label: 'Profil' },
+  { icon: LifeBuoy, label: 'Support' },
+] as const
 
 export type SchoolPublicOutlet = {
   school: PublicSchool
@@ -262,16 +271,24 @@ export function SchoolPublicLayout() {
                   <strong>{user.full_name}</strong>
                   <small>{user.email}</small>
                 </div>
-                {accountSpace && <button type="button" onClick={() => openAccountPage('/school/' + schoolSlug + '/espace')}><LayoutDashboard size={17} /><span>Mon espace</span></button>}
-                {accountSpace && <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />}
-                {accountSpace && <SchoolNotificationBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
-                {accountSpace && <SchoolMessageBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
-                {accountSpace && <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />}
-                {profilePath && <button type="button" onClick={() => openAccountPage(profilePath)}><UserRound size={17} /><span>Profil</span></button>}
-                {canManageSchool && <button type="button" onClick={() => openAccountPage('/app/manage/settings')}><Settings size={17} /><span>Paramètres de l’école</span></button>}
-                {supportPath && <button type="button" onClick={() => openAccountPage(supportPath)}><LifeBuoy size={17} /><span>Support</span></button>}
-                <span className="public-school-account-menu-divider" aria-hidden="true" />
-                <button type="button" className="is-danger" onClick={() => { setAccountOpen(false); signOut(); navigate('/school/' + schoolSlug) }}><LogOut size={17} /><span>Se déconnecter</span></button>
+                {school.is_demo && <>
+                  {/* The demonstration school's site: the account's pages, read only. */}
+                  {DEMO_ACCOUNT_ITEMS.map(({ icon: ItemIcon, label }) => (
+                    <button key={label} type="button" className="is-locked" aria-disabled="true" title={DEMO_LOCKED_MESSAGE}
+                      onClick={() => toast.info(DEMO_LOCKED_MESSAGE)}><ItemIcon size={17} /><span>{label}</span><Lock className="public-school-account-lock" size={13} aria-hidden="true" /></button>
+                  ))}
+                </>}
+                {!school.is_demo && accountSpace && <button type="button" onClick={() => openAccountPage('/school/' + schoolSlug + '/espace')}><LayoutDashboard size={17} /><span>Mon espace</span></button>}
+                {!school.is_demo && accountSpace && <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />}
+                {!school.is_demo && accountSpace && <SchoolNotificationBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
+                {!school.is_demo && accountSpace && <SchoolMessageBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
+                {!school.is_demo && accountSpace && <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />}
+                {!school.is_demo && profilePath && <button type="button" onClick={() => openAccountPage(profilePath)}><UserRound size={17} /><span>Profil</span></button>}
+                {!school.is_demo && canManageSchool && <button type="button" onClick={() => openAccountPage('/app/manage/settings')}><Settings size={17} /><span>Paramètres de l’école</span></button>}
+                {!school.is_demo && supportPath && <button type="button" onClick={() => openAccountPage(supportPath)}><LifeBuoy size={17} /><span>Support</span></button>}
+                {/* One line between the entries and the sign-out, none when there is no entry. */}
+                {(school.is_demo || accountSpace || canManageSchool) && <span className="public-school-account-menu-divider" aria-hidden="true" />}
+                <button type="button" className="is-danger" onClick={() => { setAccountOpen(false); signOut(); navigate('/school/' + schoolSlug) }}><Power size={17} /><span>Se déconnecter</span></button>
               </div>}
             </div>
           ) : <Link className="public-school-login public-school-login--visitor" to={'/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')}>Connexion</Link>}

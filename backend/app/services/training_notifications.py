@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.money import money_label
 from app.models.entities import (
     AttendanceRecord,
     EnrollmentRecord,
@@ -158,7 +159,7 @@ def process_payment_reminders(db: Session, *, now: datetime | None = None) -> in
             continue
         formation = db.get(FormationRecord, order.formation_id)
         due_at = school_time(org, row.due_at)
-        amount_label = f"{row.amount_cents} {order.currency}"
+        amount_label = money_label(row.amount_cents, order.currency)
         notify_user(
             db, organization_id=org.id, user_id=user.id, event_key=event_key, audience="student",
             title="Échéance de paiement demain" if days_left == 1 else "Échéance de paiement dans 7 jours",
