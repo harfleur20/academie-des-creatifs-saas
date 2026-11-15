@@ -274,12 +274,14 @@
   border-radius: 50%;
 }
 
-.connect-priority-legend .is-recommended { background: #21c889; }
+.connect-priority-legend .is-connectable { background: #e58a12; }
+.connect-priority-legend .is-recommended { background: #1f2559; }
 .connect-priority-legend .is-planned { background: #a9b5c5; }
+.connect-priority-legend .is-connected { background: #16835f; }
 
 .connect-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -331,8 +333,15 @@
 }
 
 .connect-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  box-sizing: border-box;
   padding: 6px 9px;
-  border-radius: 999px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
   font-size: var(--text-small);
   font-weight: 800;
   letter-spacing: .04em;
@@ -340,15 +349,28 @@
 }
 
 .connect-status.recommended {
-  border: 1px solid #1f2559;
-  border-radius: 8px;
+  border-color: #1f2559;
   color: #1f2559;
-  background: transparent;
 }
 
 .connect-status.planned {
+  border-color: #a9b5c5;
   color: #647389;
-  background: #eef2f6;
+}
+
+.connect-status.is-connectable {
+  border-color: #e58a12;
+  color: #ad6100;
+}
+
+.connect-status.is-connected {
+  border-color: #16835f;
+  color: #147451;
+}
+
+.connect-status.is-error {
+  border-color: #e58a12;
+  color: #ad6100;
 }
 
 .connect-card-copy {
@@ -397,14 +419,48 @@
   cursor: not-allowed;
 }
 
+.connect-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.connect-pagination > span {
+  color: #647389;
+  font-weight: 700;
+}
+
+.connect-pagination button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.connect-pagination button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
 @media (max-width: 1180px) {
-  .reports-summary-grid,
-  .connect-grid {
+  .reports-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .connect-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .reports-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .connect-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -427,5 +483,13 @@
 
   .connect-priority-legend {
     min-width: 0;
+  }
+
+  .connect-pagination {
+    gap: 10px;
+  }
+
+  .connect-pagination button {
+    padding-inline: 12px;
   }
 }

@@ -36,6 +36,11 @@ export function TeacherLayout() {
           icon: <CalendarDays size={18} />,
         },
         {
+          to: '/app/teacher/planning',
+          label: 'Emploi du temps',
+          icon: <CalendarCheck2 size={18} />,
+        },
+        {
           to: '/app/teacher/courses',
           label: 'Cours',
           icon: <BookOpen size={18} />,

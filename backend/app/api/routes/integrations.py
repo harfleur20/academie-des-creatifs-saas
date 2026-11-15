@@ -5,7 +5,11 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
 from app.db.session import get_db
-from app.schemas.integrations import OpenAIIntegrationRead, OpenAIIntegrationWrite
+from app.schemas.integrations import (
+    IntegrationBadgePreferenceRead,
+    OpenAIIntegrationRead,
+    OpenAIIntegrationWrite,
+)
 from app.services.organization_integrations import (
     OPENAI_PROVIDER,
     delete_openai_integration,
@@ -13,10 +17,20 @@ from app.services.organization_integrations import (
     save_openai_integration,
     test_saved_openai_integration,
 )
+from app.services.platform_integrations import list_integration_badge_preferences
 from app.services.tenancy import TenantContext, require_organization_roles
 
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
+
+
+@router.get("/preferences", response_model=list[IntegrationBadgePreferenceRead])
+def integration_badge_preferences(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    require_organization_roles(tenant, "owner", "admin", "manager")
+    return list_integration_badge_preferences(db, organization_id=tenant.organization_id)
 
 
 def _read(record) -> OpenAIIntegrationRead:

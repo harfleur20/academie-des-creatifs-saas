@@ -719,7 +719,6 @@ export function BillingPage() {
           <div className="billing-addons__grid">
             {addons.map((addon) => (
               <article className={`billing-addon${addon.status === 'coming_soon' ? ' is-soon' : ''}`} key={addon.code}>
-                <Sparkles size={16} />
                 <div>
                   <strong>{addon.name}</strong>
                   <p>{addon.description}</p>

@@ -1,0 +1,63 @@
+.admin-integration-preferences {
+  padding: 22px;
+}
+
+.admin-integration-preferences__help {
+  margin: 0 0 18px;
+  color: #647389;
+  line-height: 1.55;
+}
+
+.admin-integration-preferences__list {
+  display: grid;
+}
+
+.admin-integration-preference {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(190px, 280px) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 0;
+  border-top: 1px solid #edf0f4;
+}
+
+.admin-integration-preference > div,
+.admin-integration-preference label {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-integration-preference small {
+  color: #718096;
+}
+
+.admin-integration-preference label {
+  color: #526176;
+  font-size: var(--text-small);
+  font-weight: 750;
+}
+
+.admin-integration-preference select {
+  min-height: 40px;
+  border: 1px solid #dfe5ed;
+  border-radius: 9px;
+  padding: 0 10px;
+  background: #fff;
+  color: #172a43;
+  font: inherit;
+}
+
+.admin-integration-preference button {
+  min-width: 130px;
+}
+
+@media (max-width: 760px) {
+  .admin-integration-preference {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .admin-integration-preference button {
+    width: 100%;
+  }
+}

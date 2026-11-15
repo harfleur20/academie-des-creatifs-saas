@@ -21,6 +21,16 @@ class OpenAIIntegrationRead(BaseModel):
     last_error: str | None = None
 
 
+class IntegrationBadgePreferenceRead(BaseModel):
+    provider: str
+    badge_mode: Literal["connect", "recommended"]
+    connected: bool = False
+
+
+class IntegrationBadgePreferenceWrite(BaseModel):
+    badge_mode: Literal["connect", "recommended"]
+
+
 class AiGenerationBasePayload(BaseModel):
     session_id: int
     topic: str = Field(min_length=3, max_length=5000)

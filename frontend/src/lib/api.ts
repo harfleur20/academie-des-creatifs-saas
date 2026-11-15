@@ -159,6 +159,12 @@ export type Payout = {
 
 export type AdminPayout = Payout & { organization_id: number; organization_name: string }
 
+export type IntegrationBadgePreference = {
+  provider: string
+  badge_mode: 'connect' | 'recommended'
+  connected: boolean
+}
+
 export const getRevenueSummary = () => request<RevenueSummary>('/revenue/summary')
 export const listLedgerEntries = () => request<LedgerEntry[]>('/revenue/entries')
 export const listPayouts = () => request<Payout[]>('/revenue/payouts')
@@ -174,6 +180,19 @@ export const markAdminPayoutPaid = (payoutId: number, payload: { transfer_refere
 export const rejectAdminPayout = (payoutId: number, note: string) =>
   request<AdminPayout>(`/admin/payouts/${payoutId}/reject`, { method: 'POST', body: JSON.stringify({ note }), organizationId: null })
 export const listAdminAddons = () => request<Addon[]>('/admin/addons', { organizationId: null })
+export const listAdminIntegrationBadgePreferences = () =>
+  request<IntegrationBadgePreference[]>('/admin/integration-preferences', { organizationId: null })
+export const updateAdminIntegrationBadgePreference = (
+  provider: string,
+  badge_mode: IntegrationBadgePreference['badge_mode'],
+) =>
+  request<IntegrationBadgePreference>(`/admin/integration-preferences/${provider}`, {
+    method: 'PUT',
+    body: JSON.stringify({ badge_mode }),
+    organizationId: null,
+  })
+export const getIntegrationBadgePreferences = () =>
+  request<IntegrationBadgePreference[]>('/integrations/preferences')
 export const updateAdminAddon = (
   code: string,
   payload: Partial<Pick<Addon, 'name' | 'description' | 'unit_price_cents' | 'status' | 'plan_codes'>>,
