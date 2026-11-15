@@ -4,6 +4,10 @@
   color: #1f2352;
 }
 
+.billing-plans-section > .plan-compare {
+  margin-bottom: 32px;
+}
+
 .plan-compare > summary {
   display: flex;
   width: fit-content;

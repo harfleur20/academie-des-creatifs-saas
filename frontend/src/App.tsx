@@ -30,11 +30,13 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage'
 import { AdminSchoolsPage } from './pages/AdminSchoolsPage'
 const AdminSchoolDetailPage = lazy(() => import('./pages/AdminSchoolDetailPage').then((module) => ({ default: module.AdminSchoolDetailPage })))
 const AdminPlansPage = lazy(() => import('./pages/AdminPlansPage').then((module) => ({ default: module.AdminPlansPage })))
+const AdminIntegrationPreferencesPage = lazy(() => import('./pages/AdminIntegrationPreferencesPage').then((module) => ({ default: module.AdminIntegrationPreferencesPage })))
 import { OnboardingPage } from './pages/OnboardingPage'
 import { FormationsManagementPage } from './pages/FormationsManagementPage'
 import { FormationWorkspacePage } from './pages/FormationWorkspacePage'
 import { TeacherDashboardPage } from './pages/TeacherDashboardPage'
 import { TeacherSessionsPage } from './pages/TeacherSessionsPage'
+import { TeacherPlanningPage } from './pages/TeacherPlanningPage'
 import { StudentDashboardPage } from './pages/StudentDashboardPage'
 import { TeacherSessionPlanningPage } from './pages/TeacherSessionPlanningPage'
 import { StudentSessionPlanningPage } from './pages/StudentSessionPlanningPage'
@@ -287,6 +289,7 @@ export default function App() {
               <Route path="notifications" element={<SchoolNotificationsPage space="teacher" />} />
               <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="sessions" element={<TeacherSessionsPage />} />
+              <Route path="planning" element={<TeacherPlanningPage />} />
               <Route path="sessions/:sessionId" element={<TeacherSessionPlanningPage />} />
               <Route path="courses" element={<TeacherCoursesPage />} />
               <Route path="resources" element={<TeacherResourcesPage />} />
@@ -344,6 +347,7 @@ export default function App() {
               <Route path="schools" element={<AdminSchoolsPage />} />
               <Route path="schools/:schoolId" element={<AdminSchoolDetailPage />} />
               <Route path="plans" element={<AdminPlansPage />} />
+              <Route path="integrations" element={<AdminIntegrationPreferencesPage />} />
               <Route path="payouts" element={<AdminPayoutsPage />} />
             </Route>
 

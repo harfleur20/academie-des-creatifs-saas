@@ -2,6 +2,7 @@ import {
   Building2,
   Gauge,
   LogOut,
+  Plug,
   Settings2,
   Wallet,
 } from 'lucide-react'
@@ -36,6 +37,10 @@ export function AdminLayout() {
           <NavLink to="/admin/plans">
             <Settings2 size={18} />
             Plans & quotas
+          </NavLink>
+          <NavLink to="/admin/integrations">
+            <Plug size={18} />
+            Intégrations
           </NavLink>
           <NavLink to="/admin/payouts">
             <Wallet size={18} />

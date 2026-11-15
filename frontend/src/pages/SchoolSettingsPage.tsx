@@ -19,6 +19,29 @@ import {
 
 type SettingsSection = 'school' | 'domains'
 
+const popularTimezones = [
+  { value: 'UTC', label: 'UTC' },
+  { value: 'Africa/Douala', label: 'Afrique centrale — Douala' },
+  { value: 'Africa/Abidjan', label: 'Afrique de l’Ouest — Abidjan' },
+  { value: 'Africa/Dakar', label: 'Afrique de l’Ouest — Dakar' },
+  { value: 'Africa/Lagos', label: 'Afrique de l’Ouest — Lagos' },
+  { value: 'Africa/Casablanca', label: 'Afrique du Nord — Casablanca' },
+  { value: 'Africa/Johannesburg', label: 'Afrique australe — Johannesburg' },
+  { value: 'Europe/Paris', label: 'Europe — Paris' },
+  { value: 'Europe/Brussels', label: 'Europe — Bruxelles' },
+  { value: 'Europe/London', label: 'Europe — Londres' },
+  { value: 'Europe/Berlin', label: 'Europe — Berlin' },
+  { value: 'America/New_York', label: 'Amérique — New York' },
+  { value: 'America/Toronto', label: 'Amérique — Toronto' },
+  { value: 'America/Los_Angeles', label: 'Amérique — Los Angeles' },
+  { value: 'America/Sao_Paulo', label: 'Amérique du Sud — São Paulo' },
+  { value: 'Asia/Dubai', label: 'Moyen-Orient — Dubaï' },
+  { value: 'Asia/Kolkata', label: 'Asie — Kolkata' },
+  { value: 'Asia/Singapore', label: 'Asie — Singapour' },
+  { value: 'Asia/Tokyo', label: 'Asie — Tokyo' },
+  { value: 'Australia/Sydney', label: 'Océanie — Sydney' },
+]
+
 export function SchoolSettingsPage({ section = 'school' }: { section?: SettingsSection }) {
   const { activeOrganization, refreshOrganizations } = useTenant()
   const [name, setName] = useState('')
@@ -176,7 +199,14 @@ export function SchoolSettingsPage({ section = 'school' }: { section?: SettingsS
             </label>
             <label>
               Fuseau horaire
-              <input value={timezone} onChange={(event) => setTimezone(event.target.value)} placeholder="Europe/Paris" />
+              <select value={timezone} onChange={(event) => setTimezone(event.target.value)}>
+                {!popularTimezones.some((item) => item.value === timezone) && (
+                  <option value={timezone}>{timezone} — fuseau actuel</option>
+                )}
+                {popularTimezones.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
             </label>
             <label>
               Langue / locale

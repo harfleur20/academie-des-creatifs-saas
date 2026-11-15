@@ -7955,15 +7955,15 @@
 .billing-plan-features .billing-plan-feature-text { display: block; }
 .billing-plan-soon { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #eef0ff; color: #2d2f8f; font-size: var(--text-small); font-weight: 800; font-style: normal; white-space: nowrap; }
 .billing-plan-note { display: block; margin-top: 8px; color: var(--muted); font-size: var(--text-small); line-height: 1.45; text-align: center; }
-.billing-addons__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-.billing-addon { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: start; padding: 14px 16px; border-radius: 14px; border: 1px solid #e6ebf2; }
-.billing-addon svg { color: #087a55; margin-top: 2px; }
+.billing-addons__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.billing-addon { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; align-items: start; padding: 14px 16px; border-radius: 14px; border: 1px solid #e6ebf2; }
 .billing-addon strong { color: #131735; font-size: var(--text-body); }
 .billing-addon p { margin: 2px 0 0; font-size: var(--text-secondary); line-height: 1.45; color: #637188; }
-.billing-addon > span { grid-column: 2; font-size: var(--text-secondary); font-weight: 800; color: #1f2559; }
+.billing-addon > span { grid-column: 1; font-size: var(--text-secondary); font-weight: 800; color: #1f2559; }
 .billing-addon.is-soon > span { color: #637188; }
 .invoice-lines { display: block; margin-top: 2px; font-size: var(--text-small); color: #637188; }
-@media (max-width: 900px) { .billing-usage__grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 900px) { .billing-usage__grid { grid-template-columns: minmax(0, 1fr); } .billing-addons__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .billing-addons__grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Revenue and payouts: the school's balance, its payouts, the detail of its sales. */
 .revenue-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }

@@ -20,26 +20,9 @@
   background: #f7f7f7;
 }
 
-.openai-live-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 27px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #64748b;
-  font-size: var(--text-small);
-  font-weight: 800;
-}
-
-.openai-live-status.is-connected {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.openai-live-status.is-error {
-  background: #fef3c7;
-  color: #92400e;
+.openai-brand-logo img {
+  width: 38px;
+  height: 38px;
 }
 
 .openai-connect-button {
@@ -157,7 +140,8 @@
   font-weight: 800;
 }
 
-.openai-modal > label input {
+.openai-modal > label input,
+.openai-modal > label select {
   width: 100%;
   min-height: 44px;
   box-sizing: border-box;
@@ -170,7 +154,8 @@
   font-weight: 500;
 }
 
-.openai-modal > label input:focus {
+.openai-modal > label input:focus,
+.openai-modal > label select:focus {
   outline: 2px solid color-mix(in srgb, var(--school-primary, #1f2559) 24%, transparent);
   border-color: var(--school-primary, #1f2559);
 }

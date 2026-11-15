@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from app.models.entities import AddonRecord, OrganizationRecord, UserRecord
 from app.schemas.revenue import AdminAddonUpdate, AdminPayoutProcess, AdminPayoutRead, PayoutRead
+from app.schemas.integrations import IntegrationBadgePreferenceRead, IntegrationBadgePreferenceWrite
 from app.schemas.subscriptions import AddonRead
 from app.services.plan_limits import admin_update_addon
 from app.services.school_revenue import admin_list_payouts, process_payout
@@ -37,9 +38,39 @@ from app.services.admin import (
     suspend_organization,
     update_admin_plan,
 )
+from app.services.platform_integrations import (
+    list_integration_badge_preferences,
+    update_integration_badge_preference,
+)
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get("/integration-preferences", response_model=list[IntegrationBadgePreferenceRead])
+def admin_integration_preferences(
+    db: Session = Depends(get_db),
+    _: UserRecord = Depends(get_super_admin),
+):
+    return list_integration_badge_preferences(db)
+
+
+@router.put(
+    "/integration-preferences/{provider}",
+    response_model=IntegrationBadgePreferenceRead,
+)
+def admin_update_integration_preference(
+    provider: str,
+    payload: IntegrationBadgePreferenceWrite,
+    db: Session = Depends(get_db),
+    current_admin: UserRecord = Depends(get_super_admin),
+):
+    return update_integration_badge_preference(
+        db,
+        provider=provider,
+        badge_mode=payload.badge_mode,
+        actor_id=current_admin.id,
+    )
 
 
 @router.get("/dashboard", response_model=AdminDashboardRead)
