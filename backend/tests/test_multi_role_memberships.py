@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.models.entities import (
+    FormationRecord,
+    OrganizationLegalProfileRecord,
     OrganizationMemberRecord,
     OrganizationPublicSiteRecord,
     OrganizationRecord,
@@ -41,6 +43,20 @@ def seed_owner(db: Session):
         organization_id=org.id,
         student_code_prefix="SC",
         student_code_prefix_confirmed_at=datetime.now(UTC),
+    ))
+    db.add(OrganizationLegalProfileRecord(
+        organization_id=org.id,
+        legal_name="School SARL",
+        legal_address="12 rue des écoles",
+        invoice_email="factures@example.com",
+        default_currency="XAF",
+    ))
+    db.add(FormationRecord(
+        organization_id=org.id,
+        slug="first-course",
+        title="First course",
+        description="",
+        status="draft",
     ))
     member = OrganizationMemberRecord(
         organization_id=org.id,

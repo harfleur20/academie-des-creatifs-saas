@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Activity, CalendarDays, ClipboardCheck, Users } from 'lucide-react'
 import { ApiError, getTeacherPerformance, type TeacherPerformance } from '../lib/api'
 
-const pct=(value:number|null)=>value===null?'—':value.toFixed(1)+'%'
+const pct=(value:number|null)=>value===null?'-':value.toFixed(1)+'%'
 
 export function TeacherPerformancePage() {
   const [data,setData]=useState<TeacherPerformance|null>(null)

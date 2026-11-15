@@ -49,7 +49,7 @@ function aggregateMoney(orders: SchoolOrder[], selector: (order: SchoolOrder) =>
   orders.forEach((order) => {
     totals.set(order.currency, (totals.get(order.currency) || 0) + selector(order))
   })
-  if (!totals.size) return '—'
+  if (!totals.size) return '-'
   return [...totals.entries()]
     .map(([currency, amount]) => formatSchoolMoney(amount, currency))
     .join(' · ')

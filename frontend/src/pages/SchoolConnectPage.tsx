@@ -38,10 +38,10 @@ type Integration = {
 }
 
 const OPENAI_MODELS = [
-  { id: 'gpt-6-luna', label: 'GPT-6 Luna — Rapide et économique' },
-  { id: 'gpt-6.1-terra', label: 'GPT-6.1 Terra — Rapide et polyvalent' },
-  { id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol — Équilibre performance / coût' },
-  { id: 'gpt-6-astra', label: 'GPT-6 Astra — Le plus puissant' },
+  { id: 'gpt-6-luna', label: 'GPT-6 Luna - Rapide et économique' },
+  { id: 'gpt-6.1-terra', label: 'GPT-6.1 Terra - Rapide et polyvalent' },
+  { id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol - Équilibre performance / coût' },
+  { id: 'gpt-6-astra', label: 'GPT-6 Astra - Le plus puissant' },
 ] as const
 
 const integrations: Integration[] = [
@@ -440,7 +440,7 @@ export function SchoolConnectPage() {
                 onChange={(event) => setModel(event.target.value)}
               >
                 {!OPENAI_MODELS.some((option) => option.id === model) && (
-                  <option value={model}>Modèle actuellement enregistré — {model}</option>
+                  <option value={model}>Modèle actuellement enregistré - {model}</option>
                 )}
                 {OPENAI_MODELS.map((option) => (
                   <option key={option.id} value={option.id}>{option.label}</option>

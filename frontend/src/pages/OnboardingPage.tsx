@@ -212,7 +212,7 @@ export function OnboardingPage() {
                     onChange={(event) => setTitle(event.target.value)}
                     minLength={2}
                     required
-                    placeholder="Ex. Motion Design — Cohorte Octobre"
+                    placeholder="Ex. Motion Design - Cohorte Octobre"
                   />
                   <CharacterCounter value={title} limit={FORMATION_CHARACTER_LIMITS.title} />
                 </label>

@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -7,9 +8,13 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  BookOpen,
+  Building2,
+  Check,
   ChevronDown,
   Eye,
   ExternalLink,
+  GraduationCap,
   LifeBuoy,
   Menu,
   PanelLeftClose,
@@ -38,6 +43,8 @@ import {
 import {
   endAdminSupportMode,
   updateCurrentOrganization,
+  type Organization,
+  type OrganizationAccessProfile,
   type WorkspaceSpace,
 } from '../lib/api'
 import { useTenant } from './TenantContext'
@@ -64,6 +71,204 @@ const workspaceLabels: Record<WorkspaceSpace, string> = {
   manage: 'Gestion',
   teacher: 'Enseignant',
   student: 'Étudiant',
+}
+
+const workspaceMenuLabels: Record<WorkspaceSpace, string> = {
+  manage: 'Espace direction',
+  teacher: 'Espace professeur',
+  student: 'Espace étudiant',
+}
+
+function WorkspaceSpaceIcon({ space }: { space: WorkspaceSpace }) {
+  if (space === 'manage') return <Building2 size={17} aria-hidden="true" />
+  if (space === 'teacher') return <GraduationCap size={17} aria-hidden="true" />
+  return <BookOpen size={17} aria-hidden="true" />
+}
+
+function SchoolWorkspaceSwitcher({
+  variant,
+  currentSpace,
+  collapsed = false,
+  organizations,
+  activeOrganization,
+  accessProfile,
+  profileLoading,
+  supportMode = false,
+  onSelectOrganization,
+  onSwitchWorkspace,
+  onOpenChange,
+}: {
+  variant: 'direction' | 'role'
+  currentSpace: WorkspaceSpace
+  collapsed?: boolean
+  organizations: Organization[]
+  activeOrganization: Organization | null
+  accessProfile: OrganizationAccessProfile | null
+  profileLoading: boolean
+  supportMode?: boolean
+  onSelectOrganization: (id: number) => void
+  onSwitchWorkspace: (space: WorkspaceSpace) => void
+  onOpenChange?: (open: boolean) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const canSwitchSchool = !supportMode && organizations.length > 1
+  const availableSpaces = supportMode ? [] : accessProfile?.spaces ?? []
+  const canSwitchSpace = availableSpaces.length > 1
+  const canOpen = !supportMode && Boolean(activeOrganization)
+  const schoolName = activeOrganization?.name || 'Aucune école'
+  const triggerLabel = supportMode
+    ? 'École consultée'
+    : variant === 'direction'
+      ? 'École active'
+      : 'Espace actif'
+  const triggerValue = variant === 'direction' ? schoolName : workspaceMenuLabels[currentSpace]
+
+  const setMenuOpen = useCallback((nextOpen: boolean) => {
+    setOpen(nextOpen)
+    onOpenChange?.(nextOpen)
+  }, [onOpenChange])
+
+  useEffect(() => {
+    if (!open) return
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open, setMenuOpen])
+
+  return (
+    <div ref={wrapperRef} className={`school-switcher school-switcher--${variant}${collapsed ? ' is-collapsed' : ''}${open ? ' is-open' : ''}`}>
+      <button
+        type="button"
+        className={`school-switcher-trigger${collapsed ? ' is-collapsed' : ''}`}
+        onClick={() => setMenuOpen(!open)}
+        disabled={!canOpen}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls="school-workspace-switcher-menu"
+        aria-label={`${triggerLabel} : ${triggerValue}${canOpen ? ', ouvrir le menu' : ''}`}
+        title={collapsed ? schoolName : undefined}
+      >
+        {collapsed ? (
+          <span className="school-switcher-initial" aria-hidden="true">
+            {schoolName.trim().charAt(0).toUpperCase() || '?'}
+          </span>
+        ) : (
+          <>
+            <SchoolLogo
+              logoUrl={activeOrganization?.logo_url}
+              alt={schoolName}
+              className="school-switcher-logo"
+            />
+            <span className="school-switcher-trigger-copy">
+              <small>{triggerLabel}</small>
+              <strong>{triggerValue}</strong>
+            </span>
+            {canOpen && <ChevronDown className="school-switcher-trigger-chevron" size={16} aria-hidden="true" />}
+          </>
+        )}
+      </button>
+
+      {open && (
+        <div id="school-workspace-switcher-menu" className="school-switcher-menu" role="dialog" aria-label="Écoles et espaces disponibles">
+          {canSwitchSchool && (
+            <section className="school-switcher-menu-section" aria-labelledby="school-switcher-schools-label">
+              <small id="school-switcher-schools-label">Changer d’école</small>
+              <div className="school-switcher-menu-options">
+                {organizations.map((organization) => {
+                  const selected = organization.id === activeOrganization?.id
+                  return (
+                    <button
+                      key={organization.id}
+                      type="button"
+                      className={`school-switcher-menu-option${selected ? ' is-active' : ''}`}
+                      aria-current={selected ? 'true' : undefined}
+                      onClick={() => {
+                        setMenuOpen(false)
+                        onSelectOrganization(organization.id)
+                      }}
+                    >
+                      <SchoolLogo logoUrl={organization.logo_url} alt="" className="school-switcher-menu-logo" />
+                      <span><strong>{organization.name}</strong>{selected && <small>École active</small>}</span>
+                      {selected && <Check size={16} aria-hidden="true" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {!canSwitchSchool && activeOrganization && (
+            <section className="school-switcher-menu-section" aria-labelledby="school-switcher-active-school-label">
+              <small id="school-switcher-active-school-label">École active</small>
+              <div className="school-switcher-menu-summary">
+                <SchoolLogo logoUrl={activeOrganization.logo_url} alt="" className="school-switcher-menu-logo" />
+                <span><strong>{schoolName}</strong><small>Vous êtes dans cette école</small></span>
+              </div>
+            </section>
+          )}
+
+          {canSwitchSpace && (
+            <section className="school-switcher-menu-section" aria-labelledby="school-switcher-spaces-label">
+              <small id="school-switcher-spaces-label">Changer d’espace</small>
+              <div className="school-switcher-menu-options">
+                {availableSpaces.map((item) => {
+                  const selected = item === currentSpace
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`school-switcher-menu-option${selected ? ' is-active' : ''}`}
+                      aria-current={selected ? 'page' : undefined}
+                      onClick={() => {
+                        setMenuOpen(false)
+                        onSwitchWorkspace(item)
+                      }}
+                    >
+                      <span className="school-switcher-menu-space-icon"><WorkspaceSpaceIcon space={item} /></span>
+                      <span><strong>{workspaceMenuLabels[item]}</strong>{selected && <small>Espace actuel</small>}</span>
+                      {selected && <Check size={16} aria-hidden="true" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {accessProfile && availableSpaces.length === 1 && (
+            <section className="school-switcher-menu-section" aria-labelledby="school-switcher-current-space-label">
+              <small id="school-switcher-current-space-label">Espace disponible</small>
+              <div className="school-switcher-menu-summary">
+                <span className="school-switcher-menu-space-icon"><WorkspaceSpaceIcon space={availableSpaces[0]} /></span>
+                <span><strong>{workspaceMenuLabels[availableSpaces[0]]}</strong><small>Aucun autre espace n’est associé à votre compte</small></span>
+              </div>
+            </section>
+          )}
+
+          {!accessProfile && (
+            <p className="school-switcher-menu-message">
+              {profileLoading ? 'Chargement des espaces disponibles…' : 'Les espaces disponibles n’ont pas pu être chargés.'}
+            </p>
+          )}
+
+          {accessProfile && availableSpaces.length === 0 && (
+            <p className="school-switcher-menu-message">Aucun espace n’est associé à votre compte dans cette école.</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function initialsFor(name?: string | null) {
@@ -97,6 +302,7 @@ export function SchoolWorkspaceLayout({
     organizations,
     activeOrganization,
     accessProfile,
+    profileLoading,
     selectOrganization,
     refreshOrganizations,
     schoolBranding,
@@ -107,6 +313,7 @@ export function SchoolWorkspaceLayout({
   const [savingSidebarPreference, setSavingSidebarPreference] = useState(false)
   const [supportsCompactSidebar, setSupportsCompactSidebar] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [openNavGroups, setOpenNavGroups] = useState<string[]>(
     () => space === 'student' && navGroups[0] ? [navGroups[0].key] : [],
@@ -262,7 +469,7 @@ export function SchoolWorkspaceLayout({
     return (
       <div className={`saas-app${directionSidebarCollapsed ? ' is-manage-sidebar-collapsed' : ''}`} style={brandStyle}>
         {sidebarOpen && <button className="manage-sidebar-backdrop" type="button" aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} />}
-        <aside className={`app-sidebar${sidebarOpen ? ' is-open' : ''}${directionSidebarCollapsed ? ' is-collapsed' : ''}`}>
+        <aside className={`app-sidebar${sidebarOpen ? ' is-open' : ''}${directionSidebarCollapsed ? ' is-collapsed' : ''}${workspaceSwitcherOpen ? ' has-workspace-menu-open' : ''}`}>
           <div className="app-brand">
             <DirectionWordmark accentColor={directionAccent} />
           </div>
@@ -280,60 +487,22 @@ export function SchoolWorkspaceLayout({
               {directionSidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
             </button>}
 
-          <div className={`school-switcher${directionSidebarCollapsed ? ' is-collapsed' : ''}`}>
-            {directionSidebarCollapsed ? (
-              <div className="school-switcher-initial" title={activeOrganization?.name || 'Aucune école'} aria-label={activeOrganization?.name || 'Aucune école'}>
-                {activeOrganization?.name.trim().charAt(0).toUpperCase() || '?'}
-              </div>
-            ) : <>
-              <SchoolLogo
-                logoUrl={activeOrganization?.logo_url}
-                alt={activeOrganization?.name || 'École'}
-                className="school-switcher-logo"
-              />
-              <label>
-                <small>{supportMode ? 'École consultée' : 'École active'}</small>
-                <span className="select-shell">
-                  <select
-                    value={activeOrganization?.id ?? ''}
-                    onChange={(event) => {
-                      selectOrganization(Number(event.target.value))
-                      navigate('/app')
-                    }}
-                    disabled={organizations.length === 0 || Boolean(supportMode)}
-                  >
-                    {organizations.length === 0 && (
-                      <option value="">Aucune école</option>
-                    )}
-                    {organizations.map((organization) => (
-                      <option key={organization.id} value={organization.id}>
-                        {organization.name}
-                      </option>
-                    ))}
-                  </select>
-                  {!supportMode && <ChevronDown size={14} />}
-                </span>
-              </label>
-            </>}
-          </div>
-
-          {accessProfile && accessProfile.spaces.length > 1 && (
-            <div className={`workspace-switcher${directionSidebarCollapsed ? ' is-hidden-when-collapsed' : ''}`}>
-              <small>Espace actif</small>
-              <select
-                value={space}
-                onChange={(event) => (
-                  switchWorkspace(event.target.value as WorkspaceSpace)
-                )}
-              >
-                {accessProfile.spaces.map((item) => (
-                  <option key={item} value={item}>
-                    {workspaceLabels[item]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <SchoolWorkspaceSwitcher
+            variant="direction"
+            currentSpace={space}
+            collapsed={directionSidebarCollapsed}
+            organizations={organizations}
+            activeOrganization={activeOrganization}
+            accessProfile={accessProfile}
+            profileLoading={profileLoading}
+            supportMode={Boolean(supportMode)}
+            onSelectOrganization={(id) => {
+              selectOrganization(id)
+              navigate('/app')
+            }}
+            onSwitchWorkspace={switchWorkspace}
+            onOpenChange={setWorkspaceSwitcherOpen}
+          />
 
           <nav className="app-nav">
             {visibleNavItems.map((item) => (
@@ -428,7 +597,7 @@ export function SchoolWorkspaceLayout({
                 <span className="support-mode-icon"><Eye size={17} /></span>
                 <span>
                   <strong>
-                    Mode support — {supportMode.organization_name}
+                    Mode support - {supportMode.organization_name}
                   </strong>
                   <small>
                     Lecture seule · session temporaire jusqu’à{' '}
@@ -484,7 +653,7 @@ export function SchoolWorkspaceLayout({
         />
       )}
 
-      <aside className={`tenant-role-sidebar${sidebarOpen ? ' is-open' : ''}`}>
+      <aside className={`tenant-role-sidebar${sidebarOpen ? ' is-open' : ''}${workspaceSwitcherOpen ? ' has-workspace-menu-open' : ''}`}>
         <NavLink className="tenant-role-brand" to={roleHome}>
           <SchoolLogo
             logoUrl={schoolLogo}
@@ -501,24 +670,21 @@ export function SchoolWorkspaceLayout({
           ESPACE {space === 'teacher' ? 'ENSEIGNANT' : 'ÉTUDIANT'}
         </div>
 
-        {organizations.length > 1 && !supportMode && (
-          <label className="tenant-role-school-select">
-            <small>École</small>
-            <select
-              value={activeOrganization?.id ?? ''}
-              onChange={(event) => {
-                selectOrganization(Number(event.target.value))
-                navigate(roleHome)
-              }}
-            >
-              {organizations.map((organization) => (
-                <option key={organization.id} value={organization.id}>
-                  {organization.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <SchoolWorkspaceSwitcher
+          variant="role"
+          currentSpace={space}
+          organizations={organizations}
+          activeOrganization={activeOrganization}
+          accessProfile={accessProfile}
+          profileLoading={profileLoading}
+          supportMode={Boolean(supportMode)}
+          onSelectOrganization={(id) => {
+            selectOrganization(id)
+            navigate('/app')
+          }}
+          onSwitchWorkspace={switchWorkspace}
+          onOpenChange={setWorkspaceSwitcherOpen}
+        />
 
         <nav className="tenant-role-nav">
           {navItems.map((item) => (
@@ -725,7 +891,7 @@ export function SchoolWorkspaceLayout({
               <span className="support-mode-icon"><Eye size={17} /></span>
               <span>
                 <strong>
-                  Mode support — {supportMode.organization_name}
+                  Mode support - {supportMode.organization_name}
                 </strong>
                 <small>Lecture seule</small>
               </span>

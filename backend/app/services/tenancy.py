@@ -40,7 +40,13 @@ class TenantContext:
             return frozenset({"super_admin"})
         if self.membership is None:
             return frozenset()
-        return effective_member_roles(self.membership)
+        roles = set(effective_member_roles(self.membership))
+        # The school owner can also use the teacher workspace by default.
+        # Teacher readiness (profile and enabled charter) is still enforced by
+        # the workspace gate before the teacher area opens.
+        if "owner" in roles:
+            roles.add("teacher")
+        return frozenset(roles)
 
     def has_role(self, role: str) -> bool:
         return role in self.organization_roles

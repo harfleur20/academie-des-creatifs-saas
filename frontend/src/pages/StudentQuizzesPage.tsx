@@ -222,10 +222,10 @@ export function StudentQuizzesPage() {
                 <div className="dsh-list-item__main">
                   <strong>{quiz.title}</strong>
                   <span className="dsh-list-item__meta">
-                    {quiz.assessment_type === 'exam' ? 'Examen' : 'Quiz'} · {quiz.formation_title} · {quiz.session_label} · Prof. {quiz.teacher_name || '—'}
+                    {quiz.assessment_type === 'exam' ? 'Examen' : 'Quiz'} · {quiz.formation_title} · {quiz.session_label} · Prof. {quiz.teacher_name || '-'}
                   </span>
                   <span className="dsh-list-item__meta">
-                    <span className="dsh-quiz-duration-badge"><Timer size={11} /> {quiz.duration_minutes || '—'} min</span>
+                    <span className="dsh-quiz-duration-badge"><Timer size={11} /> {quiz.duration_minutes || '-'} min</span>
                     {' · '}Seuil {quiz.pass_pct}% · {quiz.attempts_remaining} essai(s) restant(s)
                     {quiz.pdf_reading_pct !== null ? ` · PDF ${quiz.pdf_reading_pct}% lu` : ''}
                   </span>
@@ -311,7 +311,7 @@ export function StudentQuizzesPage() {
               ))}
             </div>
 
-            {secondsLeft === 0 && <div className="dsh-error" style={{ margin: '0 18px 14px' }}>Temps écoulé — soumission automatique en cours…</div>}
+            {secondsLeft === 0 && <div className="dsh-error" style={{ margin: '0 18px 14px' }}>Temps écoulé - soumission automatique en cours…</div>}
 
             <div className="dsh-modal__footer">
               <button className="dsh-btn dsh-btn--ghost" type="button" disabled={working} onClick={closeQuiz}>Fermer</button>

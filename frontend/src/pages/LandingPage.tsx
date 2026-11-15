@@ -392,8 +392,8 @@ function Pricing() {
                     return (
                       <article className="lp-sales-estimator__result" key={plan.id}>
                         <strong>{plan.name}</strong>
-                        <span>Abonnement {annual && !free ? '(moyenne mensuelle)' : '(par mois)'} : {subscriptionAmount === null ? '—' : formatPrice(subscriptionAmount, plan.currency)}</span>
-                        <span>Commission{commissionPercent ? ` (${commissionPercent} % du CA)` : ''} : {commissionAmount === null ? '—' : formatPrice(commissionAmount, plan.currency)}</span>
+                        <span>Abonnement {annual && !free ? '(moyenne mensuelle)' : '(par mois)'} : {subscriptionAmount === null ? '-' : formatPrice(subscriptionAmount, plan.currency)}</span>
+                        <span>Commission{commissionPercent ? ` (${commissionPercent} % du CA)` : ''} : {commissionAmount === null ? '-' : formatPrice(commissionAmount, plan.currency)}</span>
                         <b>{totalAmount === null ? 'Tarif indisponible' : `${formatPrice(totalAmount, plan.currency)} / mois`}</b>
                       </article>
                     )

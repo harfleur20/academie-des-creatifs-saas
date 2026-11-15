@@ -34,7 +34,7 @@ export function StudentResourcesPage() {
             <div>
               <span className="section-label">{item.resource_type}</span>
               <h3>{item.title}</h3>
-              <small>{item.formation_title} · {item.session_label} · Prof. {item.teacher_name || '—'}</small>
+              <small>{item.formation_title} · {item.session_label} · Prof. {item.teacher_name || '-'}</small>
             </div>
             <button className="primary-button compact-action" type="button" onClick={() => void openTeacherResource(item.url).catch((cause) => setError(cause instanceof Error ? cause.message : 'Téléchargement impossible.'))}>
               <ExternalLink size={13} /> Ouvrir

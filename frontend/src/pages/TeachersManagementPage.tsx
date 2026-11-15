@@ -48,8 +48,8 @@ export function TeachersManagementPage() {
 
   const teachers = useMemo(() => members.filter((member) => member.role === 'teacher' || member.roles.some((role) => role.role === 'teacher')), [members])
   const pending = invites.filter((invitation) => invitation.role === 'teacher' && invitation.status === 'pending')
-  const setupBlockingStep = setup?.steps.find((step) => ['identity', 'address', 'matricule'].includes(step.key) && !step.completed)
-  const invitationReady = Boolean(setup && !setupBlockingStep)
+  const setupBlockingStep = setup?.steps.find((step) => !step.completed)
+  const invitationReady = Boolean(setup?.is_complete)
 
   async function invite(event: FormEvent) {
     event.preventDefault()
@@ -136,7 +136,7 @@ export function TeachersManagementPage() {
     {error && <div className="form-error">{error}</div>}
     {message && <div className="form-success">{message}</div>}
 
-    {setupBlockingStep && <section className="app-card formation-readiness"><strong>Invitations verrouillées</strong><p>Terminez d’abord : {setupBlockingStep.label.toLowerCase()}.</p><Link className="secondary-button compact-action" to={setupBlockingStep.path}>Configurer cette étape</Link></section>}
+    {setupBlockingStep && <section className="app-card formation-readiness"><strong>Invitations d’enseignants verrouillées</strong><p>Terminez les 7 étapes de mise en route. Il reste notamment : {setupBlockingStep.label.toLowerCase()}.</p><Link className="secondary-button compact-action" to={setupBlockingStep.path}>Configurer cette étape</Link></section>}
 
     <section className="app-card teacher-invite-card"><div><span className="section-label">Nouvel enseignant</span><h2>Inviter un professeur</h2></div><form onSubmit={(event) => void invite(event)}><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="professeur@ecole.com" required /><button className="primary-button" disabled={working || !invitationReady}><MailPlus size={15} />{working ? 'Invitation…' : 'Inviter'}</button></form></section>
 

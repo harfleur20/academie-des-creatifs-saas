@@ -19,7 +19,7 @@
 .student-classmate-card__contact { grid-column: 1 / -1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 30px; border-radius: 8px; color: #fff; background: var(--school-primary); font-size: var(--text-small); font-weight: 800; text-decoration: none; }
 .student-classmate-card__contact:hover { background: var(--school-secondary); }
 
-/* Discussion de classe — parité fonctionnelle et visuelle avec le site mère. */
+/* Discussion de classe - parité fonctionnelle et visuelle avec le site mère. */
 .student-class-page .class-discussion {
   display: grid;
   gap: .82rem;

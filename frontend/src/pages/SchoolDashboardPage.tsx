@@ -221,7 +221,7 @@ export function SchoolDashboardPage() {
   const hasGuidedFormation = formations?.some((formation) => formation.format_type !== 'ligne') ?? false
   const hasOnlineFormation = formations?.some((formation) => formation.format_type === 'ligne') ?? false
   const courseCount = formations?.reduce((sum, formation) => sum + formation.course_count, 0) ?? null
-  const displayCount = (count: number | null) => count === null ? '—' : count.toLocaleString('fr-FR')
+  const displayCount = (count: number | null) => count === null ? '-' : count.toLocaleString('fr-FR')
   const unpublishedCount = formations ? Math.max(0, formations.length - (publishedCount ?? 0)) : 0
   const unpaidOrderCount = commerce ? Math.max(0, commerce.order_count - commerce.paid_order_count) : 0
   const sessionsToWatch = pedagogy
@@ -400,7 +400,7 @@ export function SchoolDashboardPage() {
             <Link to="/app/manage/performance" className={(sessionsToWatch ?? 0) > 0 ? 'is-alert' : ''}><CalendarDays size={18} /><span><strong>{displayCount(sessionsToWatch)}</strong><small>sessions à surveiller</small></span></Link>
             <Link to="/app/manage/formations" className={(draftCount ?? 0) > 0 ? 'is-alert' : ''}><GraduationCap size={18} /><span><strong>{displayCount(draftCount)}</strong><small>formations à finaliser</small></span></Link>
             <Link to="/app/manage/performance" className={(schoolAlerts ?? 0) > 0 ? 'is-alert' : ''}><Clock3 size={18} /><span><strong>{displayCount(schoolAlerts)}</strong><small>alertes école</small></span></Link>
-            <Link to="/app/manage/commerce" className={(commerce?.late_installments ?? 0) > 0 ? 'is-alert' : ''}><ShoppingCart size={18} /><span><strong>{paidOrderRate === null ? '—' : `${paidOrderRate}%`}</strong><small>commandes réglées</small></span></Link>
+            <Link to="/app/manage/commerce" className={(commerce?.late_installments ?? 0) > 0 ? 'is-alert' : ''}><ShoppingCart size={18} /><span><strong>{paidOrderRate === null ? '-' : `${paidOrderRate}%`}</strong><small>commandes réglées</small></span></Link>
           </div>
 
           <section className="owner-dashboard-stats-column">

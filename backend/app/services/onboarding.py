@@ -9,6 +9,7 @@ from app.models.entities import (
     OrganizationLegalProfileRecord,
     OrganizationMemberRecord,
     OrganizationPublicSiteRecord,
+    OrganizationRecord,
 )
 from app.schemas.onboarding import OnboardingStatusRead, OnboardingStepRead
 from app.services.membership_roles import effective_member_roles
@@ -23,14 +24,21 @@ def get_onboarding_status(
     db: Session,
     tenant: TenantContext,
 ) -> OnboardingStatusRead:
-    organization = tenant.organization
+    return get_organization_onboarding_status(db, tenant.organization)
+
+
+def get_organization_onboarding_status(
+    db: Session,
+    organization: OrganizationRecord,
+) -> OnboardingStatusRead:
+    organization_id = organization.id
 
     active_members = list(
         db.scalars(
             select(OrganizationMemberRecord)
             .options(selectinload(OrganizationMemberRecord.roles))
             .where(
-                OrganizationMemberRecord.organization_id == tenant.organization_id,
+                OrganizationMemberRecord.organization_id == organization_id,
                 OrganizationMemberRecord.status == "active",
             )
         ).all()
@@ -38,12 +46,12 @@ def get_onboarding_status(
     active_team_count = sum(
         1
         for member in active_members
-        if effective_member_roles(member).intersection(TEAM_ROLES)
+        if member.role == "owner" or effective_member_roles(member).intersection(TEAM_ROLES)
     )
     pending_team_invites = int(
         db.scalar(
             select(func.count(OrganizationInvitationRecord.id)).where(
-                OrganizationInvitationRecord.organization_id == tenant.organization_id,
+                OrganizationInvitationRecord.organization_id == organization_id,
                 OrganizationInvitationRecord.status == "pending",
                 OrganizationInvitationRecord.expires_at > datetime.now(UTC),
                 OrganizationInvitationRecord.role.in_(TEAM_ROLES),
@@ -54,18 +62,18 @@ def get_onboarding_status(
     formation_count = int(
         db.scalar(
             select(func.count(FormationRecord.id)).where(
-                FormationRecord.organization_id == tenant.organization_id,
+                FormationRecord.organization_id == organization_id,
             )
         )
         or 0
     )
     site = db.scalar(
         select(OrganizationPublicSiteRecord).where(
-            OrganizationPublicSiteRecord.organization_id == tenant.organization_id,
+            OrganizationPublicSiteRecord.organization_id == organization_id,
         )
     )
     legal = db.scalar(select(OrganizationLegalProfileRecord).where(
-        OrganizationLegalProfileRecord.organization_id == tenant.organization_id,
+        OrganizationLegalProfileRecord.organization_id == organization_id,
     ))
 
     steps = [
@@ -100,7 +108,7 @@ def get_onboarding_status(
         OnboardingStepRead(
             key="team",
             label="Construire l’équipe",
-            description="Ajoutez ou invitez un administrateur, manager ou professeur.",
+            description="Le propriétaire constitue le premier membre de l’équipe.",
             completed=(active_team_count + pending_team_invites) > 0,
             path="/app/manage/team",
         ),

@@ -185,9 +185,9 @@ export function SupportPage({ space }: { space: WorkspaceSpace }) {
               <ShieldCheck size={18} />
             </div>
             <dl>
-              <div><dt>Nom</dt><dd>{user?.full_name || '—'}</dd></div>
-              <div><dt>Email</dt><dd>{user?.email || '—'}</dd></div>
-              <div><dt>École</dt><dd>{activeOrganization?.name || '—'}</dd></div>
+              <div><dt>Nom</dt><dd>{user?.full_name || '-'}</dd></div>
+              <div><dt>Email</dt><dd>{user?.email || '-'}</dd></div>
+              <div><dt>École</dt><dd>{activeOrganization?.name || '-'}</dd></div>
               <div><dt>Espace</dt><dd>{spaceLabels[space]}</dd></div>
             </dl>
             <p className="support-info-note"><Clock3 size={15} /> La réponse du support est envoyée à l’adresse e-mail de votre compte.</p>

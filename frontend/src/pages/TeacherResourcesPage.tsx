@@ -143,7 +143,7 @@ export function TeacherResourcesPage() {
               <div>
                 <span className="section-label">{item.resource_type}</span>
                 <h3>{item.title}</h3>
-                <small>Prof. {item.teacher_name || '—'}</small>
+                <small>Prof. {item.teacher_name || '-'}</small>
               </div>
               <button className="secondary-button compact-action" type="button" onClick={() => void openTeacherResource(item.url).catch((cause) => setError(cause instanceof Error ? cause.message : 'Téléchargement impossible.'))}>
                 <ExternalLink size={13} /> Ouvrir

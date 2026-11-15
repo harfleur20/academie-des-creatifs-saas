@@ -9,7 +9,7 @@ import {
 } from '../lib/api'
 
 function formatDate(value: string | null) {
-  if (!value) return '—'
+  if (!value) return '-'
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
     month: 'short',
@@ -107,8 +107,8 @@ export function AdminSchoolsPage() {
             </div>
 
             <span className="admin-owner">
-              <strong>{school.owner_name || '—'}</strong>
-              <small>{school.owner_email || school.contact_email || '—'}</small>
+              <strong>{school.owner_name || '-'}</strong>
+              <small>{school.owner_email || school.contact_email || '-'}</small>
             </span>
 
             <span>
@@ -118,7 +118,7 @@ export function AdminSchoolsPage() {
                   ? 'Annuel'
                   : school.subscription
                     ? 'Mensuel'
-                    : '—'}
+                    : '-'}
               </small>
             </span>
 

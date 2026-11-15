@@ -6,6 +6,11 @@
   background: #f6f8fb;
 }
 
+.teacher-onboarding-page .page-kicker,
+.teacher-onboarding-page .section-label {
+  color: var(--school-secondary, var(--green, #18a7a3));
+}
+
 .teacher-onboarding-hero {
   display: flex;
   align-items: flex-end;
@@ -96,6 +101,19 @@
 
 .teacher-onboarding-section-title > svg {
   color: var(--school-primary, #344867);
+}
+
+.teacher-onboarding-page .primary-button {
+  background: linear-gradient(
+    135deg,
+    var(--school-primary, var(--blue, #1f2559)),
+    var(--school-secondary, var(--green, #18a7a3))
+  );
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--school-primary, var(--blue, #1f2559)) 20%, transparent);
+}
+
+.teacher-onboarding-page .primary-button:hover {
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--school-secondary, var(--green, #18a7a3)) 25%, transparent);
 }
 
 .teacher-identity-summary {

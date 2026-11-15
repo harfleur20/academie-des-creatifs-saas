@@ -84,7 +84,12 @@ export function TeamPage() {
   const setupBlockingStep = setup?.steps.find((step) =>
     ['identity', 'address', 'matricule'].includes(step.key) && !step.completed,
   )
+  const teacherInvitationBlockingStep = setup?.steps.find((step) => !step.completed)
   const invitationReady = Boolean(setup && !setupBlockingStep)
+
+  useEffect(() => {
+    if (setup && !setup.is_complete && role === 'teacher') setRole('admin')
+  }, [setup?.is_complete, role])
 
   async function invite(event: FormEvent) {
     event.preventDefault()
@@ -178,6 +183,7 @@ export function TeamPage() {
       </div>
 
       {setupBlockingStep && <section className="app-card formation-readiness"><strong>Invitations verrouillées</strong><p>Terminez d’abord : {setupBlockingStep.label.toLowerCase()}.</p><Link className="secondary-button compact-action" to={setupBlockingStep.path}>Configurer cette étape</Link></section>}
+      {teacherInvitationBlockingStep && !setupBlockingStep && <section className="app-card formation-readiness"><strong>Invitations de professeurs verrouillées</strong><p>Terminez les 7 étapes de mise en route avant d’inviter les professeurs. Vous pouvez encore inviter un administrateur ou un manager.</p><Link className="secondary-button compact-action" to={teacherInvitationBlockingStep.path}>Continuer la mise en route</Link></section>}
 
       <section className="app-card invite-card">
         <div>
@@ -196,9 +202,9 @@ export function TeamPage() {
           <select value={role} onChange={(event) => setRole(event.target.value as Invitation['role'])}>
             <option value="admin">Administrateur</option>
             <option value="manager">Manager</option>
-            <option value="teacher">Professeur</option>
+            <option value="teacher" disabled={!setup?.is_complete}>Professeur{!setup?.is_complete ? ' - après les 7 étapes' : ''}</option>
           </select>
-          <button className="primary-button" disabled={submitting || !invitationReady}>
+          <button className="primary-button" disabled={submitting || !invitationReady || (role === 'teacher' && !setup?.is_complete)}>
             <MailPlus size={17} />
             {submitting ? 'Invitation…' : 'Inviter'}
           </button>
@@ -255,8 +261,8 @@ export function TeamPage() {
                 <button
                   type="button"
                   className={`functional-role-toggle ${hasRole(member, 'teacher') ? 'active' : ''}`}
-                  disabled={member.role === 'teacher'}
-                  title={member.role === 'teacher' ? 'Ce rôle est déjà le rôle principal.' : undefined}
+                  disabled={member.role === 'teacher' || !setup?.is_complete}
+                  title={member.role === 'teacher' ? 'Ce rôle est déjà le rôle principal.' : !setup?.is_complete ? 'Terminez les 7 étapes de mise en route pour attribuer le rôle professeur.' : undefined}
                   onClick={() => void toggleFunctionalRole(member, 'teacher')}
                 >
                   Professeur
@@ -301,7 +307,7 @@ export function TeamPage() {
               </div>
               {invitation.status === 'pending' && (
                 <div className="teacher-invitation-actions">
-                  <button className="secondary-button" type="button" disabled={!invitationReady} onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button>
+                  <button className="secondary-button" type="button" disabled={!invitationReady || (invitation.role === 'teacher' && !setup?.is_complete)} onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button>
                   <button
                     className="text-danger-button"
                     type="button"

@@ -25,7 +25,7 @@ import {
 } from '../lib/api'
 
 function formatDate(value: string | null) {
-  if (!value) return '—'
+  if (!value) return '-'
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
     month: 'long',
@@ -266,8 +266,8 @@ export function AdminSchoolDetailPage() {
           <span className="section-label">Compte</span>
           <h2>Informations</h2>
           <dl className="admin-detail-list">
-            <div><dt>Propriétaire</dt><dd>{school.owner_name || '—'}</dd></div>
-            <div><dt>Email</dt><dd>{school.owner_email || school.contact_email || '—'}</dd></div>
+            <div><dt>Propriétaire</dt><dd>{school.owner_name || '-'}</dd></div>
+            <div><dt>Email</dt><dd>{school.owner_email || school.contact_email || '-'}</dd></div>
             <div><dt>Membres</dt><dd>{school.member_count}</dd></div>
             <div><dt>Sous-domaine</dt><dd>{school.subdomain || 'Non configuré'}</dd></div>
             <div><dt>Domaines vérifiés</dt><dd>{school.verified_domain_count}</dd></div>
@@ -279,8 +279,8 @@ export function AdminSchoolDetailPage() {
           <span className="section-label">Abonnement réel</span>
           <h2>{school.subscription?.plan_name || 'Aucun forfait'}</h2>
           <dl className="admin-detail-list">
-            <div><dt>Statut</dt><dd>{school.subscription?.status || '—'}</dd></div>
-            <div><dt>Périodicité</dt><dd>{school.subscription?.billing_interval || '—'}</dd></div>
+            <div><dt>Statut</dt><dd>{school.subscription?.status || '-'}</dd></div>
+            <div><dt>Périodicité</dt><dd>{school.subscription?.billing_interval || '-'}</dd></div>
             <div><dt>Fin d’essai</dt><dd>{formatDate(school.subscription?.trial_ends_at || null)}</dd></div>
             <div><dt>Échéance</dt><dd>{formatDate(school.subscription?.current_period_end || null)}</dd></div>
             <div><dt>Grâce jusqu’au</dt><dd>{formatDate(school.subscription?.grace_period_ends_at || null)}</dd></div>

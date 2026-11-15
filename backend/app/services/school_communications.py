@@ -34,7 +34,7 @@ SCHOOL_MESSAGE_TEMPLATES: dict[str, SchoolMessageTemplate] = {
     ),
     "student.payment.confirmed": SchoolMessageTemplate(
         "Paiement confirmé",
-        "Bonjour {recipient_name},\nvotre paiement pour {formation_title} — {session_label} est confirmé.\nVotre matricule est {student_code}.",
+        "Bonjour {recipient_name},\nvotre paiement pour {formation_title} - {session_label} est confirmé.\nVotre matricule est {student_code}.",
     ),
     "student.payment.due": SchoolMessageTemplate(
         "Échéance de paiement à régler",

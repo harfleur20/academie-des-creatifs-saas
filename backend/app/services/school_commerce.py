@@ -1266,8 +1266,8 @@ def _order_read(db: Session, order: StudentOrderRecord) -> OrderRead:
     base=_checkout_read(order)
     return OrderRead(
         **base.model_dump(),
-        student_name=user.full_name if user else "—",
-        student_email=user.email if user else "—",
+        student_name=user.full_name if user else "-",
+        student_email=user.email if user else "-",
         student_code=profile.student_code if profile else None,
         coupon_code=order.coupon_code,
         created_at=order.created_at,

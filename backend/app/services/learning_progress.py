@@ -513,7 +513,7 @@ def _course_day_attendance(
             AttendanceRowRead(
                 enrollment_id=enrollment.id,
                 student_id=enrollment.student_id,
-                student_name=student.full_name if student else "—",
+                student_name=student.full_name if student else "-",
                 student_avatar_url=student.avatar_url if student else None,
                 status=attendance.status if attendance else None,
                 live_minutes=(proof.seconds_in_room // 60 if proof else 0) if live else None,

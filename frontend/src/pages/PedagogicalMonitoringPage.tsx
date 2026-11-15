@@ -14,7 +14,7 @@ import { downloadCsv } from '../lib/csv'
 import { usePedagogyFilters, type FilterSession } from '../lib/pedagogyFilters'
 
 function pct(value: number | null) {
-  return value === null ? '—' : value.toFixed(0) + '%'
+  return value === null ? '-' : value.toFixed(0) + '%'
 }
 
 const SIGNAL_LABEL: Record<SchoolPedagogyStudent['alert_level'], string> = {
@@ -189,7 +189,7 @@ export function PedagogicalMonitoringPage() {
                     aria-expanded={openId === row.enrollment_id}
                     onClick={() => setOpenId(openId === row.enrollment_id ? null : row.enrollment_id)}
                   >
-                    <span><strong>{row.student_name}</strong><small>{row.student_code || '—'} · {row.enrollment_status}</small></span>
+                    <span><strong>{row.student_name}</strong><small>{row.student_code || '-'} · {row.enrollment_status}</small></span>
                     <span><strong>{row.formation_title}</strong><small>{row.session_label}</small></span>
                     <span>{pct(row.progress_pct)}<small>{row.submitted_assignments}/{row.total_assignments} devoirs</small></span>
                     <span>{pct(row.attendance_pct)}</span>

@@ -237,7 +237,7 @@ def list_submissions(db,tenant,aid):
     out=[]
     for s in rows:
         e=db.get(EnrollmentRecord,s.enrollment_id); u=db.get(UserRecord,e.student_id) if e else None
-        out.append(SubmissionRead(id=s.id,enrollment_id=s.enrollment_id,student_name=u.full_name if u else "—",file_url=s.file_url,submitted_at=s.submitted_at,is_reviewed=s.is_reviewed,review_score=s.review_score,review_max_score=s.review_max_score,comment_count=_count_comments(db,aid,s.enrollment_id)))
+        out.append(SubmissionRead(id=s.id,enrollment_id=s.enrollment_id,student_name=u.full_name if u else "-",file_url=s.file_url,submitted_at=s.submitted_at,is_reviewed=s.is_reviewed,review_score=s.review_score,review_max_score=s.review_max_score,comment_count=_count_comments(db,aid,s.enrollment_id)))
     return out
 
 def review_submission(db,tenant,aid,sid,p:ReviewSubmission):
@@ -300,7 +300,7 @@ def list_comments(db,tenant,aid,enrollment_id):
     a=_assignment(db,tenant,aid); role=_thread_access(db,tenant,a,enrollment_id)
     if role=="student": _require_student_thread_open(db,tenant,a)
     rows=db.scalars(select(AssignmentCommentRecord).where(AssignmentCommentRecord.organization_id==tenant.organization_id,AssignmentCommentRecord.assignment_id==aid,AssignmentCommentRecord.enrollment_id==enrollment_id).order_by(AssignmentCommentRecord.created_at)).all()
-    return [CommentRead(id=x.id,assignment_id=aid,enrollment_id=enrollment_id,author_role=x.author_role,author_name=(db.get(UserRecord,x.author_user_id).full_name if db.get(UserRecord,x.author_user_id) else "—"),body=x.body,attachment_url=x.attachment_url,created_at=x.created_at) for x in rows]
+    return [CommentRead(id=x.id,assignment_id=aid,enrollment_id=enrollment_id,author_role=x.author_role,author_name=(db.get(UserRecord,x.author_user_id).full_name if db.get(UserRecord,x.author_user_id) else "-"),body=x.body,attachment_url=x.attachment_url,created_at=x.created_at) for x in rows]
 
 def add_comment(db,tenant,aid,enrollment_id,p:CommentCreate):
     a=_assignment(db,tenant,aid); role=_thread_access(db,tenant,a,enrollment_id)

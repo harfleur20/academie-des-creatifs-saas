@@ -343,7 +343,7 @@ export function PromotionsPage() {
               </div>
             )}
             <div className="promo-preview-meta">
-              <span><CalendarDays size={14} /> {promoStartsOn ? formatDate(startOfDayIso(promoStartsOn)) : '—'} → {promoEndsOn ? formatDate(endOfDayIso(promoEndsOn)) : '—'}</span>
+              <span><CalendarDays size={14} /> {promoStartsOn ? formatDate(startOfDayIso(promoStartsOn)) : '-'} → {promoEndsOn ? formatDate(endOfDayIso(promoEndsOn)) : '-'}</span>
               <span>{promoMaxUses ? <UsersRound size={14} /> : <InfinityIcon size={14} />} {promoMaxUses ? `${promoMaxUses} utilisations maximum` : 'Utilisations illimitées'}</span>
             </div>
           </div>

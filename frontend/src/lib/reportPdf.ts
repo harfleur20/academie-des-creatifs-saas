@@ -172,7 +172,7 @@ export async function downloadSchoolReportPdf(options: ReportPdfOptions) {
     y += 6
 
     section.rows.forEach((row) => {
-      const valueLines = doc.splitTextToSize(row.value || '—', contentWidth - 54)
+      const valueLines = doc.splitTextToSize(row.value || '-', contentWidth - 54)
       const rowHeight = Math.max(12, valueLines.length * 4.3 + 6)
       y = ensureSpace(y, rowHeight + 2)
 
