@@ -414,7 +414,7 @@ export function AdminPlansPage() {
                 type="number"
                 min={0}
                 value={addon.unit_price_cents ?? ''}
-                placeholder="—"
+                placeholder="-"
                 onChange={(event) => updateLocalAddon(addon.code, { unit_price_cents: event.target.value === '' ? null : Number(event.target.value) })}
               />
             </label>

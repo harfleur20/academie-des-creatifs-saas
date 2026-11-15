@@ -647,7 +647,7 @@ def teacher_quiz_results(
         result.append(
             QuizResultAttemptRead(
                 enrollment_id=attempt.enrollment_id,
-                student_name=student.full_name if student else "—",
+                student_name=student.full_name if student else "-",
                 attempt_number=attempt.attempt_number,
                 score_pct=attempt.score_pct,
                 submitted_at=attempt.submitted_at,

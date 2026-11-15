@@ -227,11 +227,11 @@ def build_invoice_pdf(
     pdf.drawString(52, y - 20, "ÉTUDIANT")
     pdf.drawString(width / 2 + 4, y - 20, "FORMATION")
     pdf.setFont("Helvetica", 9)
-    pdf.drawString(52, y - 39, user.full_name if user else "—")
-    pdf.drawString(52, y - 54, user.email if user else "—")
-    pdf.drawString(52, y - 69, f"Matricule : {profile.student_code if profile else '—'}")
-    pdf.drawString(width / 2 + 4, y - 39, formation.title if formation else "—")
-    pdf.drawString(width / 2 + 4, y - 54, f"Session : {session.label if session else '—'}")
+    pdf.drawString(52, y - 39, user.full_name if user else "-")
+    pdf.drawString(52, y - 54, user.email if user else "-")
+    pdf.drawString(52, y - 69, f"Matricule : {profile.student_code if profile else '-'}")
+    pdf.drawString(width / 2 + 4, y - 39, formation.title if formation else "-")
+    pdf.drawString(width / 2 + 4, y - 54, f"Session : {session.label if session else '-'}")
     if session:
         pdf.drawString(
             width / 2 + 4,

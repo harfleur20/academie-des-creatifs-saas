@@ -140,7 +140,7 @@ export function SchoolCourseReportsPage() {
           {selected && <section className="app-card course-reports-detail">
             <span className="section-label">{statusLabel[selected.delivery_status]}</span><h2>{selected.title}</h2>
             <p>{selected.formation_title} · {selected.session_label}</p>
-            <p>Prof. {selected.teacher_name || '—'} · {dateLabel(selected.scheduled_at)}</p>
+            <p>Prof. {selected.teacher_name || '-'} · {dateLabel(selected.scheduled_at)}</p>
             <p>Rapport remis le {dateLabel(selected.submitted_at)}</p>
             <h3>Compte rendu du professeur</h3><p className="course-report-summary">{selected.summary}</p>
             {selected.difficulties && <p><strong>Difficultés :</strong> {selected.difficulties}</p>}

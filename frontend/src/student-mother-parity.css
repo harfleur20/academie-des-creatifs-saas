@@ -259,7 +259,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────
-   Course reader — mother-site positioning, SaaS tracking kept
+   Course reader - mother-site positioning, SaaS tracking kept
    ────────────────────────────────────────────────────────── */
 .student-reader-page {
   --cv-accent: var(--student-brand);
@@ -435,7 +435,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────
-   Assignments — mother-site list + delivery / thread modals
+   Assignments - mother-site list + delivery / thread modals
    ────────────────────────────────────────────────────────── */
 .asg-list-item.is-locked { opacity: .72; }
 
@@ -553,7 +553,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────
-   Quiz — mother-site list, result banner, resilient timer
+   Quiz - mother-site list, result banner, resilient timer
    ────────────────────────────────────────────────────────── */
 .dsh-result-banner {
   display: flex;
@@ -634,7 +634,7 @@
 .dsh-quiz-option input { margin-top: 2px; accent-color: var(--student-brand); }
 
 /* ──────────────────────────────────────────────────────────
-   Payments — mother-site KPIs, tabs, order cards, stepper
+   Payments - mother-site KPIs, tabs, order cards, stepper
    ────────────────────────────────────────────────────────── */
 .student-payments-mother { width: min(1200px, 100%); }
 

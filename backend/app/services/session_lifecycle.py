@@ -58,7 +58,7 @@ def notify_session_change(
     message = (
         f"La session « {session.label} » de {formation.title} est annulée."
         if cancelled
-        else f"« {formation.title} — {session.label} » : {period}{place}."
+        else f"« {formation.title} - {session.label} » : {period}{place}."
     )
     students = db.scalars(select(UserRecord).join(EnrollmentRecord, EnrollmentRecord.student_id == UserRecord.id).where(
         EnrollmentRecord.organization_id == org.id,
@@ -126,7 +126,7 @@ def process_session_lifecycle(db: Session, *, now: datetime | None = None) -> di
         missing = "; ".join(program_readiness(db, session, formation).missing)
         notify_school_managers(
             db, organization_id=org.id, event_key=event_key, title="Programme de session incomplet",
-            message=f"« {formation.title} — {session.label} » a commencé, mais son programme est incomplet : {missing}. Les badges attendent qu'il soit complet.",
+            message=f"« {formation.title} - {session.label} » a commencé, mais son programme est incomplet : {missing}. Les badges attendent qu'il soit complet.",
             category="learning", tone="warning", action_label="Ouvrir la formation",
             action_path=f"/app/manage/formations/{formation.id}",
         )

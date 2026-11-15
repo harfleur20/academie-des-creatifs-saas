@@ -64,10 +64,10 @@ export function SchoolReportsPage() {
   const alerts = sessionsToWatch.length + (commerce?.late_installments ?? 0) + (pedagogy?.at_risk_students ?? 0)
   const collected = commerce?.totals_by_currency.length
     ? commerce.totals_by_currency.map((row) => formatSchoolMoney(row.collected_cents, row.currency)).join(' · ')
-    : '—'
+    : '-'
   const outstanding = commerce?.totals_by_currency.length
     ? commerce.totals_by_currency.map((row) => formatSchoolMoney(row.outstanding_cents, row.currency)).join(' · ')
-    : '—'
+    : '-'
 
   async function downloadReport(kind: ReportKind) {
     if (!activeOrganization) return
@@ -99,10 +99,10 @@ export function SchoolReportsPage() {
             {
               title: 'Indicateurs de qualité',
               rows: [
-                { label: 'Étudiants actifs', value: String(pedagogy?.active_students ?? commerce?.active_students ?? '—') },
-                { label: 'Progression moyenne', value: pedagogy ? `${pedagogy.average_progress_pct}%` : '—' },
-                { label: 'Présence moyenne', value: pedagogy?.average_attendance_pct == null ? '—' : `${pedagogy.average_attendance_pct}%` },
-                { label: 'Étudiants à risque', value: String(pedagogy?.at_risk_students ?? '—') },
+                { label: 'Étudiants actifs', value: String(pedagogy?.active_students ?? commerce?.active_students ?? '-') },
+                { label: 'Progression moyenne', value: pedagogy ? `${pedagogy.average_progress_pct}%` : '-' },
+                { label: 'Présence moyenne', value: pedagogy?.average_attendance_pct == null ? '-' : `${pedagogy.average_attendance_pct}%` },
+                { label: 'Étudiants à risque', value: String(pedagogy?.at_risk_students ?? '-') },
               ],
             },
           ],
@@ -119,12 +119,12 @@ export function SchoolReportsPage() {
             {
               title: 'Situation commerciale',
               rows: [
-                { label: 'Commandes', value: commerce ? String(commerce.order_count) : '—' },
-                { label: 'Commandes réglées', value: commerce ? String(commerce.paid_order_count) : '—' },
-                { label: 'Échéances en retard', value: commerce ? String(commerce.late_installments) : '—' },
+                { label: 'Commandes', value: commerce ? String(commerce.order_count) : '-' },
+                { label: 'Commandes réglées', value: commerce ? String(commerce.paid_order_count) : '-' },
+                { label: 'Échéances en retard', value: commerce ? String(commerce.late_installments) : '-' },
                 { label: 'Encaissements', value: collected },
                 { label: 'Reste à encaisser', value: outstanding },
-                { label: 'Étudiants actifs', value: commerce ? String(commerce.active_students) : '—' },
+                { label: 'Étudiants actifs', value: commerce ? String(commerce.active_students) : '-' },
               ],
             },
           ],
@@ -141,7 +141,7 @@ export function SchoolReportsPage() {
             {
               title: 'Résumé du catalogue',
               rows: [
-                { label: 'Total', value: formations ? String(formations.length) : '—' },
+                { label: 'Total', value: formations ? String(formations.length) : '-' },
                 { label: 'Publiées', value: String(published) },
                 { label: 'À finaliser', value: String(drafts) },
                 { label: 'Archivées', value: String(archived) },
@@ -168,9 +168,9 @@ export function SchoolReportsPage() {
             {
               title: 'Synthèse',
               rows: [
-                { label: 'Sessions actives', value: pedagogy ? String(pedagogy.active_sessions) : '—' },
+                { label: 'Sessions actives', value: pedagogy ? String(pedagogy.active_sessions) : '-' },
                 { label: 'Sessions à surveiller', value: String(sessionsToWatch.length) },
-                { label: 'Étudiants à risque', value: pedagogy ? String(pedagogy.at_risk_students) : '—' },
+                { label: 'Étudiants à risque', value: pedagogy ? String(pedagogy.at_risk_students) : '-' },
               ],
             },
             {
@@ -178,7 +178,7 @@ export function SchoolReportsPage() {
               rows: sessionsToWatch.length > 0
                 ? sessionsToWatch.map((row) => ({
                     label: row.session_label || row.formation_title,
-                    value: `${row.formation_title} · ${row.at_risk_count} étudiant(s) à risque · ${row.pending_reviews_count} correction(s) en attente · remplissage ${row.fill_rate_pct}% · présence ${row.attendance_rate_pct == null ? '—' : `${row.attendance_rate_pct}%`}`,
+                    value: `${row.formation_title} · ${row.at_risk_count} étudiant(s) à risque · ${row.pending_reviews_count} correction(s) en attente · remplissage ${row.fill_rate_pct}% · présence ${row.attendance_rate_pct == null ? '-' : `${row.attendance_rate_pct}%`}`,
                   }))
                 : [{ label: 'État', value: 'Aucune session ne présente actuellement de signal particulier.' }],
             },
@@ -237,7 +237,7 @@ export function SchoolReportsPage() {
           <section className="reports-summary-grid">
             <article className="app-card reports-summary-card">
               <span><GraduationCap size={17} /> Catalogue</span>
-              <strong>{formations ? `${published}/${formations.length}` : '—'}</strong>
+              <strong>{formations ? `${published}/${formations.length}` : '-'}</strong>
               <small>{formations ? `${drafts} formation(s) à finaliser` : 'Donnée indisponible'}</small>
             </article>
             <article className="app-card reports-summary-card">
@@ -247,12 +247,12 @@ export function SchoolReportsPage() {
             </article>
             <article className="app-card reports-summary-card">
               <span><CalendarDays size={17} /> Sessions à surveiller</span>
-              <strong>{pedagogy ? sessionsToWatch.length : '—'}</strong>
+              <strong>{pedagogy ? sessionsToWatch.length : '-'}</strong>
               <small>{pedagogy ? `${pedagogy.active_sessions} session(s) active(s)` : 'Donnée indisponible'}</small>
             </article>
             <article className="app-card reports-summary-card">
               <span><AlertTriangle size={17} /> Alertes école</span>
-              <strong>{pedagogy || commerce ? alerts : '—'}</strong>
+              <strong>{pedagogy || commerce ? alerts : '-'}</strong>
               <small>{commerce ? `${commerce.late_installments} échéance(s) en retard` : 'Vue consolidée'}</small>
             </article>
           </section>

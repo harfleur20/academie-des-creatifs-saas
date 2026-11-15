@@ -37,7 +37,7 @@ export function SchoolPerformancePage() {
   const moneyByCurrency = (field: 'collected_cents' | 'outstanding_cents') =>
     commerce?.totals_by_currency.length
       ? commerce.totals_by_currency.map((row) => formatSchoolMoney(row[field], row.currency)).join(' · ')
-      : '—'
+      : '-'
 
   useEffect(() => {
     let active = true
@@ -102,22 +102,22 @@ export function SchoolPerformancePage() {
       <section className="statistics-kpi-grid">
         <article className="statistics-kpi-card">
           <span><GraduationCap size={16}/> Catalogue</span>
-          <strong>{formations ? `${publishedFormations}/${formations.length}` : '—'}</strong>
+          <strong>{formations ? `${publishedFormations}/${formations.length}` : '-'}</strong>
           <small>{formations ? `${draftFormations} formation(s) à finaliser` : 'Donnée catalogue indisponible'}</small>
         </article>
         <article className="statistics-kpi-card">
           <span><CalendarDays size={16}/> Sessions à surveiller</span>
-          <strong>{pedagogy ? sessionsToWatch.length : '—'}</strong>
+          <strong>{pedagogy ? sessionsToWatch.length : '-'}</strong>
           <small>{pedagogy ? (active ? `sur ${sessions.length} session(s) filtrée(s)` : `${pedagogy.active_sessions} session(s) active(s)`) : 'Donnée de session indisponible'}</small>
         </article>
         <article className="statistics-kpi-card">
           <span><Banknote size={16}/> Situation commerciale</span>
-          <strong>{commerce ? moneyByCurrency('collected_cents') : '—'}</strong>
+          <strong>{commerce ? moneyByCurrency('collected_cents') : '-'}</strong>
           <small>{commerce ? `${commerce.paid_order_count}/${commerce.order_count} commande(s) réglée(s)${active ? ' · toute l’école' : ''}` : 'Donnée commerciale indisponible'}</small>
         </article>
         <article className="statistics-kpi-card">
           <span><AlertTriangle size={16}/> Alertes école</span>
-          <strong>{pedagogy || commerce ? globalAlerts : '—'}</strong>
+          <strong>{pedagogy || commerce ? globalAlerts : '-'}</strong>
           <small>{commerce ? `${commerce.late_installments} échéance(s) en retard` : 'Vue consolidée des points à surveiller'}</small>
         </article>
       </section>

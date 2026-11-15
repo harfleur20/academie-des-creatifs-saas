@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.models.entities import (
     CommunicationOutboxRecord,
+    FormationRecord,
+    OrganizationLegalProfileRecord,
     OrganizationMemberRecord,
     OrganizationPublicSiteRecord,
     OrganizationRecord,
@@ -56,6 +58,20 @@ def add_org(db: Session, name: str, slug: str) -> OrganizationRecord:
         student_code_prefix="SC",
         student_code_prefix_confirmed_at=datetime.now(UTC),
     ))
+    db.add(OrganizationLegalProfileRecord(
+        organization_id=org.id,
+        legal_name=f"{name} SARL",
+        legal_address="12 rue des écoles",
+        invoice_email="factures@example.com",
+        default_currency="XAF",
+    ))
+    db.add(FormationRecord(
+        organization_id=org.id,
+        slug="first-course",
+        title="First course",
+        description="",
+        status="draft",
+    ))
     db.flush()
     return org
 
@@ -77,7 +93,7 @@ def add_membership(
     return member
 
 
-def test_setup_blocks_invitation_until_identity_address_and_matricule_are_confirmed() -> None:
+def test_teacher_invitation_waits_for_all_onboarding_steps() -> None:
     db = build_db()
     owner = add_user(db, "owner@example.com", "Owner")
     teacher = add_user(db, "teacher@example.com", "Teacher")
@@ -111,6 +127,27 @@ def test_setup_blocks_invitation_until_identity_address_and_matricule_are_confir
 
     confirmed = update_school_identity(db, tenant, confirmation)
     assert confirmed.public_site.student_code_prefix_confirmed
+    with pytest.raises(HTTPException) as exc:
+        create_invitation(db, tenant, invitation_payload)
+    assert exc.value.status_code == 409
+    assert "facturation" in exc.value.detail.lower()
+
+    legal = db.scalar(select(OrganizationLegalProfileRecord).where(
+        OrganizationLegalProfileRecord.organization_id == org.id,
+    ))
+    assert legal is not None
+    legal.legal_name = "New School SARL"
+    legal.legal_address = "12 rue des écoles"
+    legal.invoice_email = "factures@example.com"
+    legal.default_currency = "XAF"
+    db.add(FormationRecord(
+        organization_id=org.id,
+        slug="first-course",
+        title="First course",
+        description="",
+        status="draft",
+    ))
+    db.commit()
     invitation, token = create_invitation(db, tenant, invitation_payload)
     assert invitation.status == "pending"
 

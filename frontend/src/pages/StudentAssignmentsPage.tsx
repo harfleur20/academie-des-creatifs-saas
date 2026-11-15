@@ -174,7 +174,7 @@ export function StudentAssignmentsPage() {
                   <div className="dsh-list-item__main">
                     <strong>{assignment.title}</strong>
                     <span className="dsh-list-item__meta">
-                      {assignment.formation_title} · {assignment.session_label} · Prof. {assignment.teacher_name || '—'}
+                      {assignment.formation_title} · {assignment.session_label} · Prof. {assignment.teacher_name || '-'}
                     </span>
                     <span className="dsh-list-item__meta">
                       {assignment.is_locked

@@ -47,7 +47,7 @@ import {
 } from '../lib/api'
 
 function formatDate(value: string | null) {
-  if (!value) return '—'
+  if (!value) return '-'
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
     month: 'long',

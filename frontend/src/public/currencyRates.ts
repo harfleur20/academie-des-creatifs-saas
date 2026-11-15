@@ -1,6 +1,6 @@
 export const POPULAR_CURRENCIES = [
-  { code: 'XAF', label: 'FCFA — Afrique centrale (XAF)' },
-  { code: 'XOF', label: 'FCFA — Afrique de l’Ouest (XOF)' },
+  { code: 'XAF', label: 'FCFA - Afrique centrale (XAF)' },
+  { code: 'XOF', label: 'FCFA - Afrique de l’Ouest (XOF)' },
   { code: 'EUR', label: 'Euro (EUR)' },
   { code: 'USD', label: 'Dollar américain (USD)' },
   { code: 'GBP', label: 'Livre sterling (GBP)' },

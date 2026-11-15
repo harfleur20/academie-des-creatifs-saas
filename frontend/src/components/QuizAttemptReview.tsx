@@ -34,7 +34,7 @@ export function QuizAttemptReview({
                 <span>{isCorrect ? <><CheckCircle2 size={13} /> Correct</> : <><XCircle size={13} /> À revoir</>}</span>
               </div>
               <span>{multiple ? 'Vos réponses' : 'Votre réponse'} : {optionLabels(question, attempt.submitted_answers[index]) || 'Aucune'}</span>
-              {!isCorrect && <span>{multiple ? 'Bonnes réponses' : 'Bonne réponse'} : {optionLabels(question, attempt.correct_answers[index]) || '—'}</span>}
+              {!isCorrect && <span>{multiple ? 'Bonnes réponses' : 'Bonne réponse'} : {optionLabels(question, attempt.correct_answers[index]) || '-'}</span>}
             </li>
           )
         })}

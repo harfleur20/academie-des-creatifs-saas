@@ -233,8 +233,8 @@ export function TeacherQuizzesPage() {
             <article className="dsh-list-item teacher-quiz-row" key={quiz.id}>
               <div className="dsh-list-item__main">
                 <div className="teacher-assignment-title-row"><strong>{quiz.title}</strong><span className={`dsh-badge ${quiz.status === 'active' ? 'dsh-badge--green' : quiz.status === 'closed' ? 'dsh-badge--gray' : 'dsh-badge--yellow'}`}>{quiz.status === 'active' ? 'Actif' : quiz.status === 'closed' ? 'Fermé' : 'Brouillon'}</span></div>
-                <span className="dsh-list-item__meta">{quiz.assessment_type === 'exam' ? 'Examen' : 'Quiz'} · Prof. {quiz.teacher_name || '—'}</span>
-                <span className="dsh-list-item__meta"><Timer size={12} /> {quiz.duration_minutes || '—'} min · {quiz.questions.length} question(s) · {quiz.attempts_count} tentative(s)</span>
+                <span className="dsh-list-item__meta">{quiz.assessment_type === 'exam' ? 'Examen' : 'Quiz'} · Prof. {quiz.teacher_name || '-'}</span>
+                <span className="dsh-list-item__meta"><Timer size={12} /> {quiz.duration_minutes || '-'} min · {quiz.questions.length} question(s) · {quiz.attempts_count} tentative(s)</span>
               </div>
               <div className="dsh-list-item__actions teacher-quiz-actions">
                 <select value={quiz.status} onChange={(event) => void changeStatus(quiz, event.target.value as TeacherQuiz['status'])}><option value="draft">Brouillon</option><option value="active">Actif</option><option value="closed">Fermé</option></select>

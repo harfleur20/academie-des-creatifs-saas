@@ -10,7 +10,7 @@ import {
 import { ApiError, listStudentProgress, type StudentProgress } from '../lib/api'
 
 function meter(value: number | null) {
-  return value === null ? '—' : `${value.toFixed(0)}%`
+  return value === null ? '-' : `${value.toFixed(0)}%`
 }
 
 function levelLabel(value: string) {

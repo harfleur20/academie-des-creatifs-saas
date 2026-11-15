@@ -1210,7 +1210,7 @@
   align-items: center;
   gap: 12px;
   padding: 15px 18px;
-  border: 1px solid #cceede;
+  border: 0;
   border-radius: 14px;
   color: #08774f;
   background: var(--green-soft);
@@ -1351,7 +1351,7 @@
   align-items: center;
   margin-bottom: 20px;
   padding: 17px 18px;
-  border: 1px solid #c8dfef;
+  border: 0;
   border-radius: 16px;
   color: #16466c;
   background: #eff8ff;
@@ -3231,8 +3231,8 @@
 }
 
 .onboarding-step.complete .onboarding-step-number {
-  color: #08774f;
-  background: var(--green-soft);
+  color: var(--green-ink, color-mix(in srgb, var(--school-secondary, var(--green, #21c889)) 78%, #10233f));
+  background: var(--green-soft, color-mix(in srgb, var(--school-secondary, var(--green, #21c889)) 12%, white));
 }
 
 .onboarding-step strong {
@@ -3253,7 +3253,7 @@
 }
 
 .onboarding-done {
-  color: #1c8480;
+  color: var(--green-ink, color-mix(in srgb, var(--school-secondary, var(--green, #21c889)) 78%, #10233f));
 }
 
 .onboarding-current {
@@ -3327,8 +3327,8 @@
   display: grid;
   place-items: center;
   border-radius: 13px;
-  color: #08774f;
-  background: var(--green-soft);
+  color: var(--green-ink, color-mix(in srgb, var(--school-secondary, var(--green, #21c889)) 78%, #10233f));
+  background: var(--green-soft, color-mix(in srgb, var(--school-secondary, var(--green, #21c889)) 12%, white));
 }
 
 .onboarding-next-card > span {
@@ -6048,7 +6048,7 @@
 }
 
 
-/* White-label teacher/student shell — mirrors the established Academy UX */
+/* White-label teacher/student shell - mirrors the established Academy UX */
 .tenant-role-shell {
   --role-sidebar-w: 250px;
   min-height: 100vh;

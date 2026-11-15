@@ -7,7 +7,7 @@ import '../transcript.css'
 const numbers = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
 
 function day(value: string | null) {
-  return value ? new Date(value.slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR') : '—'
+  return value ? new Date(value.slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR') : '-'
 }
 
 function pdfName(transcript: Transcript) {
@@ -60,17 +60,17 @@ export function TranscriptView({ transcript, showStudent = false }: { transcript
       <div className="transcript__figures">
         <article>
           <span><Sigma size={15} /> Moyenne générale</span>
-          <strong>{transcript.average_20 === null ? '—' : `${numbers.format(transcript.average_20)} / 20`}</strong>
+          <strong>{transcript.average_20 === null ? '-' : `${numbers.format(transcript.average_20)} / 20`}</strong>
           <small>{transcript.average_20 === null ? 'Pas encore de note' : transcript.mention ?? 'Sans mention'}</small>
         </article>
         <article>
           <span><CalendarCheck2 size={15} /> Assiduité</span>
-          <strong>{transcript.counted_sessions ? `${transcript.attended_sessions} / ${transcript.counted_sessions} séances` : '—'}</strong>
+          <strong>{transcript.counted_sessions ? `${transcript.attended_sessions} / ${transcript.counted_sessions} séances` : '-'}</strong>
           <small>{transcript.attendance_pct === null ? 'Aucune séance comptée' : `${numbers.format(transcript.attendance_pct)} % de présence`}</small>
         </article>
         <article>
           <span><Award size={15} /> Badge</span>
-          <strong>{transcript.badge_label ?? '—'}</strong>
+          <strong>{transcript.badge_label ?? '-'}</strong>
           <small>Niveau atteint</small>
         </article>
       </div>

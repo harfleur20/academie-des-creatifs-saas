@@ -47,6 +47,24 @@ def require_team_setup(db: Session, organization: OrganizationRecord) -> None:
         )
 
 
+def require_teacher_invitation_readiness(db: Session, organization: OrganizationRecord) -> None:
+    from app.services.onboarding import get_organization_onboarding_status
+
+    onboarding = get_organization_onboarding_status(db, organization)
+    if onboarding.is_complete:
+        return
+
+    next_step = onboarding.next_step
+    pending_step = f" Étape en attente : {next_step.label}." if next_step else ""
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            "Terminez les 7 étapes de mise en route de l’école avant d’inviter "
+            f"un enseignant.{pending_step}"
+        ),
+    )
+
+
 def require_identity_address(organization: OrganizationRecord) -> None:
     if not (organization.contact_email or "").strip() or not (organization.subdomain or "").strip():
         raise HTTPException(

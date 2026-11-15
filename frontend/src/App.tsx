@@ -279,7 +279,7 @@ export default function App() {
             />
             <Route
               path="/app/teacher/setup"
-              element={<RequireSchoolUser><RequireWorkspace space="teacher"><TeacherSetupPage /></RequireWorkspace></RequireSchoolUser>}
+              element={<RequireSchoolUser><RequireWorkspace space="teacher"><RequireTeacherReady requireProfile={false}><TeacherSetupPage /></RequireTeacherReady></RequireWorkspace></RequireSchoolUser>}
             />
             <Route
               path="/app/teacher"

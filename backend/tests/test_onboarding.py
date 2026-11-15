@@ -66,7 +66,8 @@ def test_onboarding_status_is_derived_from_real_school_data() -> None:
     org, tenant = seed(db)
 
     initial = get_onboarding_status(db, tenant)
-    assert initial.completed_steps == 1
+    # The owner is already the first member of the school team.
+    assert initial.completed_steps == 2
     assert initial.next_step is not None
     assert initial.next_step.key == "identity"
     assert [step.available for step in initial.steps] == [True, True, False, False, False, False, False]

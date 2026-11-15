@@ -332,7 +332,7 @@ export function SchoolIdentityEditor({ section }: { section: IdentityEditorSecti
               <label>Identifiant fiscal<input value={data.legal.tax_number} onChange={(e)=>legal('tax_number',e.target.value)}/></label>
               <label>Devise par défaut
                 <select value={data.legal.default_currency} onChange={(e)=>legal('default_currency',e.target.value)}>
-                  {!POPULAR_CURRENCIES.some(({ code }) => code === data.legal.default_currency) && <option value={data.legal.default_currency}>{data.legal.default_currency} — devise actuelle non prise en charge</option>}
+                  {!POPULAR_CURRENCIES.some(({ code }) => code === data.legal.default_currency) && <option value={data.legal.default_currency}>{data.legal.default_currency} - devise actuelle non prise en charge</option>}
                   {POPULAR_CURRENCIES.map(({ code, label }) => <option key={code} value={code}>{label}</option>)}
                 </select>
                 <small className="school-currency-help">Les tarifs publics seront convertis dans cette devise à titre indicatif. Le règlement reste demandé dans la devise de la formation.</small>

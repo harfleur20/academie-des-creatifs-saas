@@ -64,7 +64,7 @@ def _number(value: float, digits: int = 2) -> str:
 
 
 def _day(value) -> str:
-    return value.strftime("%d/%m/%Y") if value else "—"
+    return value.strftime("%d/%m/%Y") if value else "-"
 
 
 def transcript_filename(transcript: TranscriptRead) -> str:
@@ -157,7 +157,7 @@ def build_transcript_pdf(transcript: TranscriptRead, *, primary_color: str | Non
 
     # Who and what.
     identity = [
-        ("Étudiant", t.student_name), ("Matricule", t.student_code or "—"),
+        ("Étudiant", t.student_name), ("Matricule", t.student_code or "-"),
         ("Formation", t.formation_title), ("Format", t.format_label),
         ("Session", t.session_label), ("Dates", f"{_day(t.session_start)} – {_day(t.session_end)}"),
     ]
@@ -178,10 +178,10 @@ def build_transcript_pdf(transcript: TranscriptRead, *, primary_color: str | Non
 
     # The three figures.
     boxes = [
-        ("Moyenne générale", f"{_number(t.average_20)} / 20" if t.average_20 is not None else "—", t.mention or ("Pas encore de note" if t.average_20 is None else "Sans mention")),
-        ("Assiduité", f"{t.attended_sessions} / {t.counted_sessions} séances" if t.counted_sessions else "—",
+        ("Moyenne générale", f"{_number(t.average_20)} / 20" if t.average_20 is not None else "-", t.mention or ("Pas encore de note" if t.average_20 is None else "Sans mention")),
+        ("Assiduité", f"{t.attended_sessions} / {t.counted_sessions} séances" if t.counted_sessions else "-",
          f"{_number(t.attendance_pct, 1)} % de présence" if t.attendance_pct is not None else "Aucune séance comptée"),
-        ("Badge", t.badge_label or "—", "Niveau atteint"),
+        ("Badge", t.badge_label or "-", "Niveau atteint"),
     ]
     gap = 10
     box_width = (width - 2 * MARGIN - 2 * gap) / 3

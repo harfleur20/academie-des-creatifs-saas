@@ -186,7 +186,7 @@ export function StudentDashboardPage() {
     ? validGrades.reduce((sum, item) => sum + (item.score / item.max_score) * 20, 0) / validGrades.length
     : null
   const averageLabel = averageOnTwenty === null
-    ? '—/20'
+    ? '-/20'
     : `${averageOnTwenty.toFixed(1).replace(/\.0$/, '')}/20`
   const courseProgress = learning.flatMap((session) => session.courses.map((course) => {
     const lessons = course.chapters.flatMap((chapter) => chapter.lessons)
@@ -344,7 +344,7 @@ export function StudentDashboardPage() {
               </article>
               <article className="student-dashboard-kpi student-dashboard-kpi--green">
                 <span className="student-dashboard-kpi__label">Assiduité</span>
-                <strong className="student-dashboard-kpi__value">{attendancePercent === null ? '—' : `${attendancePercent}%`}</strong>
+                <strong className="student-dashboard-kpi__value">{attendancePercent === null ? '-' : `${attendancePercent}%`}</strong>
                 <small className="student-dashboard-kpi__sub">{attendancePresent}/{attendanceTotal} présence{attendancePresent > 1 ? 's' : ''} validée{attendancePresent > 1 ? 's' : ''}</small>
                 <span className="student-dashboard-kpi__icon" aria-hidden="true"><Users size={52} /></span>
               </article>

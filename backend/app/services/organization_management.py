@@ -32,7 +32,7 @@ from app.schemas.organizations import (
 from app.services.school_branding import branding_snapshot
 from app.services.school_communications import queue_school_event
 from app.services.school_profiles import ensure_student_profile, ensure_teacher_profile
-from app.services.school_setup import require_team_setup
+from app.services.school_setup import require_team_setup, require_teacher_invitation_readiness
 from app.services.plan_limits import require_capacity
 from app.services.tenancy import TenantContext
 
@@ -191,6 +191,8 @@ def add_member(
 
     if role in {"admin", "manager", "teacher"}:
         require_team_setup(db, tenant.organization)
+    if role == "teacher":
+        require_teacher_invitation_readiness(db, tenant.organization)
 
     existing = db.scalar(
         select(OrganizationMemberRecord).where(
@@ -270,6 +272,7 @@ def update_member(
     if new_status == "active" and new_role == "teacher" and (
         member.status != "active" or "teacher" not in effective_member_roles(member)
     ):
+        require_teacher_invitation_readiness(db, tenant.organization)
         require_capacity(db, tenant.organization_id, "teachers", accept_addon=accept_addon)
 
     removes_active_owner = (
@@ -333,6 +336,7 @@ def update_member_functional_roles(
         )
 
     if "teacher" in requested and "teacher" not in effective_member_roles(member):
+        require_teacher_invitation_readiness(db, tenant.organization)
         require_team_setup(db, tenant.organization)
         require_capacity(db, tenant.organization_id, "teachers", accept_addon=accept_addon)
 
@@ -359,6 +363,7 @@ def create_invitation(
 
     require_team_setup(db, tenant.organization)
     if payload.role == "teacher":
+        require_teacher_invitation_readiness(db, tenant.organization)
         require_capacity(db, tenant.organization_id, "teachers", accept_addon=accept_addon)
 
     email = _normalize_email(str(payload.email))
@@ -476,6 +481,8 @@ def renew_invitation(
         raise HTTPException(status_code=409, detail="Cette invitation n'est plus en attente.")
 
     require_team_setup(db, tenant.organization)
+    if invitation.role == "teacher":
+        require_teacher_invitation_readiness(db, tenant.organization)
 
     _supersede_pending_invitation_emails(db, invitation)
     token = secrets.token_urlsafe(32)
@@ -638,6 +645,8 @@ def accept_invitation(
         )
 
     require_team_setup(db, organization)
+    if invitation.role == "teacher":
+        require_teacher_invitation_readiness(db, organization)
 
     membership = db.scalar(
         select(OrganizationMemberRecord).where(

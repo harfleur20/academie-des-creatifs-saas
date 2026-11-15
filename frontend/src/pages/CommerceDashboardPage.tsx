@@ -115,12 +115,12 @@ export function CommerceDashboardPage() {
           </article>
           <article>
             <CircleDollarSign />
-            <strong>{dashboard.totals_by_currency.length ? dashboard.totals_by_currency.map((row) => formatSchoolMoney(row.collected_cents, row.currency)).join(' · ') : '—'}</strong>
+            <strong>{dashboard.totals_by_currency.length ? dashboard.totals_by_currency.map((row) => formatSchoolMoney(row.collected_cents, row.currency)).join(' · ') : '-'}</strong>
             <span>Encaissé</span>
           </article>
           <article>
             <Clock3 />
-            <strong>{dashboard.totals_by_currency.length ? dashboard.totals_by_currency.map((row) => formatSchoolMoney(row.outstanding_cents, row.currency)).join(' · ') : '—'}</strong>
+            <strong>{dashboard.totals_by_currency.length ? dashboard.totals_by_currency.map((row) => formatSchoolMoney(row.outstanding_cents, row.currency)).join(' · ') : '-'}</strong>
             <span>À encaisser</span>
           </article>
           <article>

@@ -13,8 +13,8 @@
 }
 
 .teacher-onboarding-grid > label > select:focus {
-  border-color: #63dfa8;
-  box-shadow: 0 0 0 3px rgba(99, 223, 168, .12);
+  border-color: var(--school-secondary, var(--green, #63dfa8));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--school-secondary, var(--green, #63dfa8)) 12%, transparent);
   background: #fff;
 }
 
@@ -219,12 +219,12 @@
 
 .teacher-residence-country-picker > summary:hover,
 .teacher-residence-country-picker[open] > summary {
-  border-color: #63dfa8;
+  border-color: var(--school-secondary, var(--green, #63dfa8));
   background: #fff;
 }
 
 .teacher-residence-country-picker[open] > summary {
-  box-shadow: 0 0 0 3px rgba(99, 223, 168, .12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--school-secondary, var(--green, #63dfa8)) 12%, transparent);
 }
 
 .teacher-residence-country-picker > summary span {
@@ -312,7 +312,7 @@
   border-color: color-mix(in srgb, var(--green, #19b9a7) 65%, white);
   background: color-mix(in srgb, var(--green, #19b9a7) 9%, white);
   box-shadow: 0 6px 18px color-mix(in srgb, var(--green, #19b9a7) 10%, transparent);
-  color: #123f46;
+  color: var(--school-primary, #123f46);
 }
 
 .teacher-language-options input {
