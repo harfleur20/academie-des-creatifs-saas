@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { ArrowDown, ArrowUp, BookOpen, FileText, Layers3, Plus, Save, Trash2, X } from 'lucide-react'
+import { CharacterCounter } from './CharacterCounter'
+import { characterCount, FORMATION_CHARACTER_LIMITS } from '../lib/characterLimits'
 import '../public-program-editor.css'
 
 type ProgramLesson = {
@@ -123,6 +125,29 @@ export function serializeProgram(document: ProgramDocument) {
   })
 }
 
+export function getProgramCharacterLimitIssues(document: ProgramDocument) {
+  const issues: string[] = []
+  if (characterCount(document.intro) > FORMATION_CHARACTER_LIMITS.programIntro) {
+    issues.push(`L’introduction du programme dépasse ${FORMATION_CHARACTER_LIMITS.programIntro} caractères.`)
+  }
+  document.modules.forEach((module, moduleIndex) => {
+    if (characterCount(module.title) > FORMATION_CHARACTER_LIMITS.programModuleTitle) {
+      issues.push(`Le titre du module ${moduleIndex + 1} dépasse ${FORMATION_CHARACTER_LIMITS.programModuleTitle} caractères.`)
+    }
+    module.chapters.forEach((chapter, chapterIndex) => {
+      if (characterCount(chapter.title) > FORMATION_CHARACTER_LIMITS.programChapterTitle) {
+        issues.push(`Le titre du chapitre ${chapterIndex + 1} du module ${moduleIndex + 1} dépasse ${FORMATION_CHARACTER_LIMITS.programChapterTitle} caractères.`)
+      }
+      chapter.lessons.forEach((lesson, lessonIndex) => {
+        if (characterCount(lesson.title) > FORMATION_CHARACTER_LIMITS.programLessonTitle) {
+          issues.push(`Le titre de la leçon ${lessonIndex + 1} du chapitre ${chapterIndex + 1} dépasse ${FORMATION_CHARACTER_LIMITS.programLessonTitle} caractères.`)
+        }
+      })
+    })
+  })
+  return issues
+}
+
 export function summarizePublicProgram(value: string) {
   const document = parseProgram(value)
   const chapterCount = document.modules.reduce((sum, module) => sum + module.chapters.length, 0)
@@ -188,19 +213,25 @@ export function PublicProgramEditorModal({
       0,
     ),
   }), [document])
+  const characterLimitIssues = useMemo(() => getProgramCharacterLimitIssues(document), [document])
+  const serializedProgram = useMemo(() => serializeProgram(document), [document])
+  const serializedProgramTooLong = characterCount(serializedProgram) > FORMATION_CHARACTER_LIMITS.serializedProgram
 
   if (!open) return null
 
   async function save() {
-    const serialized = serializeProgram(document)
-    if (serialized.length > 30_000) {
+    if (characterLimitIssues.length > 0) {
+      setError(characterLimitIssues[0])
+      return
+    }
+    if (serializedProgramTooLong) {
       setError('Le programme est trop volumineux. Réduisez certains intitulés avant d’enregistrer.')
       return
     }
     setSaving(true)
     setError('')
     try {
-      await onSave(serialized)
+      await onSave(serializedProgram)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Impossible d’enregistrer le programme public.')
@@ -234,12 +265,14 @@ export function PublicProgramEditorModal({
         <div className="public-program-modal-body">
           <PublicProgramBuilder document={document} setDocument={setDocument} />
 
-          {error && <div className="form-error">{error}</div>}
+          {(characterLimitIssues[0] || (serializedProgramTooLong && 'Le programme dépasse la taille maximale autorisée.') || error) && (
+            <div className="form-error">{characterLimitIssues[0] || (serializedProgramTooLong ? 'Le programme dépasse la taille maximale autorisée.' : error)}</div>
+          )}
         </div>
 
         <footer className="public-program-modal-footer">
           <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>Annuler</button>
-          <button type="button" className="primary-button" onClick={() => void save()} disabled={saving}>
+          <button type="button" className="primary-button" onClick={() => void save()} disabled={saving || characterLimitIssues.length > 0 || serializedProgramTooLong}>
             <Save size={15} /> {saving ? 'Enregistrement…' : 'Enregistrer le programme'}
           </button>
         </footer>
@@ -273,9 +306,9 @@ export function PublicProgramBuilder({
         value={document.intro}
         onChange={(event) => setDocument((current) => ({ ...current, intro: event.target.value }))}
         placeholder="Ex. Un parcours progressif de la découverte des fondamentaux jusqu’au projet final."
-        maxLength={3000}
       />
       <small>Ce texte apparaît juste avant l’accordéon sur la fiche publique.</small>
+      <CharacterCounter value={document.intro} limit={FORMATION_CHARACTER_LIMITS.programIntro} />
     </label>
 
     <div className="public-program-builder">
@@ -283,13 +316,15 @@ export function PublicProgramBuilder({
         <article className="public-program-module" key={module.id}>
           <header className="public-program-module-header">
             <span className="public-program-index">Module {moduleIndex + 1}</span>
-            <input
-              value={module.title}
-              onChange={(event) => updateModule(module.id, (current) => ({ ...current, title: event.target.value }))}
-              placeholder="Titre du module"
-              maxLength={180}
-              aria-label={`Titre du module ${moduleIndex + 1}`}
-            />
+            <div className="public-program-title-field">
+              <input
+                value={module.title}
+                onChange={(event) => updateModule(module.id, (current) => ({ ...current, title: event.target.value }))}
+                placeholder="Titre du module"
+                aria-label={`Titre du module ${moduleIndex + 1}`}
+              />
+              <CharacterCounter value={module.title} limit={FORMATION_CHARACTER_LIMITS.programModuleTitle} />
+            </div>
             <div className="public-program-row-actions">
               <button type="button" title="Monter" disabled={moduleIndex === 0} onClick={() => setDocument((current) => ({ ...current, modules: moveItem(current.modules, moduleIndex, -1) }))}><ArrowUp size={15} /></button>
               <button type="button" title="Descendre" disabled={moduleIndex === document.modules.length - 1} onClick={() => setDocument((current) => ({ ...current, modules: moveItem(current.modules, moduleIndex, 1) }))}><ArrowDown size={15} /></button>
@@ -302,16 +337,18 @@ export function PublicProgramBuilder({
               <section className="public-program-chapter" key={chapter.id}>
                 <div className="public-program-chapter-header">
                   <span>Chapitre {chapterIndex + 1}</span>
-                  <input
-                    value={chapter.title}
-                    onChange={(event) => updateModule(module.id, (current) => ({
-                      ...current,
-                      chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, title: event.target.value } : item),
-                    }))}
-                    placeholder="Titre du chapitre"
-                    maxLength={180}
-                    aria-label={`Titre du chapitre ${chapterIndex + 1}`}
-                  />
+                  <div className="public-program-title-field">
+                    <input
+                      value={chapter.title}
+                      onChange={(event) => updateModule(module.id, (current) => ({
+                        ...current,
+                        chapters: current.chapters.map((item) => item.id === chapter.id ? { ...item, title: event.target.value } : item),
+                      }))}
+                      placeholder="Titre du chapitre"
+                      aria-label={`Titre du chapitre ${chapterIndex + 1}`}
+                    />
+                    <CharacterCounter value={chapter.title} limit={FORMATION_CHARACTER_LIMITS.programChapterTitle} />
+                  </div>
                   <div className="public-program-row-actions">
                     <button type="button" title="Monter" disabled={chapterIndex === 0} onClick={() => updateModule(module.id, (current) => ({ ...current, chapters: moveItem(current.chapters, chapterIndex, -1) }))}><ArrowUp size={14} /></button>
                     <button type="button" title="Descendre" disabled={chapterIndex === module.chapters.length - 1} onClick={() => updateModule(module.id, (current) => ({ ...current, chapters: moveItem(current.chapters, chapterIndex, 1) }))}><ArrowDown size={14} /></button>
@@ -323,23 +360,25 @@ export function PublicProgramBuilder({
                   {chapter.lessons.map((lesson, lessonIndex) => (
                     <div className="public-program-lesson" key={lesson.id}>
                       <span>Leçon {lessonIndex + 1}</span>
-                      <input
-                        value={lesson.title}
-                        onChange={(event) => updateModule(module.id, (current) => ({
-                          ...current,
-                          chapters: current.chapters.map((item) => item.id === chapter.id
-                            ? {
-                                ...item,
-                                lessons: item.lessons.map((currentLesson) => currentLesson.id === lesson.id
-                                  ? { ...currentLesson, title: event.target.value }
-                                  : currentLesson),
-                              }
-                            : item),
-                        }))}
-                        placeholder="Titre de la leçon"
-                        maxLength={180}
-                        aria-label={`Titre de la leçon ${lessonIndex + 1}`}
-                      />
+                      <div className="public-program-title-field">
+                        <input
+                          value={lesson.title}
+                          onChange={(event) => updateModule(module.id, (current) => ({
+                            ...current,
+                            chapters: current.chapters.map((item) => item.id === chapter.id
+                              ? {
+                                  ...item,
+                                  lessons: item.lessons.map((currentLesson) => currentLesson.id === lesson.id
+                                    ? { ...currentLesson, title: event.target.value }
+                                    : currentLesson),
+                                }
+                              : item),
+                          }))}
+                          placeholder="Titre de la leçon"
+                          aria-label={`Titre de la leçon ${lessonIndex + 1}`}
+                        />
+                        <CharacterCounter value={lesson.title} limit={FORMATION_CHARACTER_LIMITS.programLessonTitle} />
+                      </div>
                       <div className="public-program-row-actions">
                         <button type="button" title="Monter" disabled={lessonIndex === 0} onClick={() => updateModule(module.id, (current) => ({
                           ...current,

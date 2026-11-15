@@ -194,6 +194,8 @@ class OrganizationHostBrandingRead(BaseModel):
     subdomain: str | None
     hostname: str
     logo_url: str | None
+    auth_background_image_url: str | None = None
+    auth_show_school_name: bool = True
     primary_color: str
     secondary_color: str
     accent_color: str

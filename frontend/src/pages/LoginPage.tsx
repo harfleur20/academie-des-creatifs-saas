@@ -26,6 +26,7 @@ import {
 } from '../lib/schoolLoginBranding'
 import { planChoiceFromSearch, savePlanChoice } from '../lib/planChoice'
 import { formatMoney, monthlyEquivalent } from '../lib/planFeatures'
+import { rememberPlatformAuthOrigin, rememberSchoolAuthOrigin } from '../lib/authOrigin'
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 
@@ -175,6 +176,7 @@ export function LoginPage() {
     }
     const result = await acceptOrganizationInvitation(invitationToken)
     setStoredOrganizationId(result.organization.id)
+    rememberSchoolAuthOrigin(result.organization.slug)
     const destination = result.membership.role === 'teacher'
       ? '/app/teacher'
       : '/app/manage'
@@ -191,6 +193,7 @@ export function LoginPage() {
     try {
       if (mode === 'login') {
         await signIn(email, password)
+        rememberLoginOrigin()
         if (await finishInvitationFlow(email)) return
         navigate(returnPath || '/app', { replace: true })
         return
@@ -198,6 +201,7 @@ export function LoginPage() {
 
       if (mode === 'register') {
         await signUp(fullName, email, password)
+        rememberLoginOrigin()
         if (await finishInvitationFlow(email)) return
         navigate(returnPath || '/app', { replace: true })
         return
@@ -237,11 +241,13 @@ export function LoginPage() {
     setSuccess('')
     try {
       await signInWithGoogle(credential)
+      rememberLoginOrigin()
       if (invitation) {
         // Google authentication may resolve to a different address than the prefilled one.
         // The invitation endpoint performs the final identity check server-side.
         const result = await acceptOrganizationInvitation(invitationToken || '')
         setStoredOrganizationId(result.organization.id)
+        rememberSchoolAuthOrigin(result.organization.slug)
         window.location.assign(result.membership.role === 'teacher' ? '/app/teacher' : '/app/manage')
         return
       }
@@ -251,6 +257,12 @@ export function LoginPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function rememberLoginOrigin() {
+    const schoolSlug = hostBrand?.slug || schoolKey
+    if (schoolSlug) rememberSchoolAuthOrigin(schoolSlug)
+    else rememberPlatformAuthOrigin()
   }
 
   const invitationBrand = invitation ? {
@@ -267,6 +279,16 @@ export function LoginPage() {
   const activeBrand = invitationBrand || hostBrand
   const isInvitation = Boolean(invitationToken)
   const isPublicSchool = Boolean(schoolKey || hostBrand || invitation)
+  const showSchoolName = activeBrand?.auth_show_school_name !== false
+  const schoolAuthBackground = activeBrand?.auth_background_image_url
+  const authPageStyle: CSSProperties | undefined = activeBrand ? {
+    '--blue': activeBrand.primary_color,
+    '--green': activeBrand.secondary_color,
+    '--button-end': `color-mix(in srgb, ${activeBrand.primary_color} 80%, white)`,
+    ...(schoolAuthBackground ? {
+      '--school-auth-background': `url("${schoolAuthBackground.replaceAll('"', '%22')}")`,
+    } : {}),
+  } as CSSProperties : undefined
   const heading = mode === 'login'
     ? isInvitation ? 'Connectez-vous pour rejoindre l’équipe.' : 'Heureux de vous revoir.'
     : mode === 'register'
@@ -312,17 +334,13 @@ export function LoginPage() {
   return (
     <main
       className={`auth-page login-redesign ${isPublicSchool ? 'login-school' : 'login-platform'} ${isInvitation ? 'login-invitation' : ''} ${mode === 'register' ? 'auth-register-mode' : 'auth-login-mode'}`}
-      style={activeBrand ? {
-        '--blue': activeBrand.primary_color,
-        '--green': activeBrand.secondary_color,
-        '--button-end': `color-mix(in srgb, ${activeBrand.primary_color} 80%, white)`,
-      } as CSSProperties : undefined}
+      style={authPageStyle}
     >
       <section className="auth-panel auth-copy-panel">
         <a className="auth-logo" href={schoolKey ? '/school/' + encodeURIComponent(schoolKey) : '/'}>
           {isPublicSchool ? <>
             <SchoolLogo logoUrl={activeBrand?.logo_url} alt={activeBrand?.name || 'École'} className="platform-brand-logo" />
-            <span className="auth-logo__name">{activeBrand?.name || 'Votre école'}</span>
+            {showSchoolName && <span className="auth-logo__name">{activeBrand?.name || 'Votre école'}</span>}
           </> : <BrandWordmark tone="light" className="auth-logo__wordmark" />}
         </a>
         <div className="auth-visual-copy">

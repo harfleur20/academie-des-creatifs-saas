@@ -28,6 +28,7 @@ import { useAuth } from '../auth/AuthContext'
 import { BrandLogo } from '../brand/BrandLogo'
 import { BrandWordmark } from '../brand/BrandWordmark'
 import { SchoolLogo } from '../brand/SchoolLogo'
+import { takePostLogoutDestination } from '../lib/authOrigin'
 import {
   DEFAULT_BRAND_COLORS,
   DEFAULT_PLATFORM_LOGO_URL,
@@ -206,9 +207,7 @@ export function SchoolWorkspaceLayout({
 
   function handleSignOut() {
     const schoolSlug = activeOrganization?.slug
-    const destination = schoolSlug
-      ? `/school/${encodeURIComponent(schoolSlug)}`
-      : '/'
+    const destination = takePostLogoutDestination(schoolSlug)
     navigate(destination, { replace: true, flushSync: true })
     signOut()
   }
@@ -357,7 +356,7 @@ export function SchoolWorkspaceLayout({
                 <div><strong>{user?.full_name}</strong><small>{user?.email}</small></div>
                 <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/profile') }}><UserRound size={16} /> Profil</button>
                 {!awaitingFirstSchool && <>
-                  <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/settings') }}><Settings size={16} /> Paramètres de l’école</button>
+                  <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/identity?tab=school') }}><Settings size={16} /> Identité de l’école</button>
                   <button type="button" onClick={() => { setProfileOpen(false); navigate('/app/manage/support') }}><LifeBuoy size={16} /> Support</button>
                 </>}
                 <span className="account-menu-divider" aria-hidden="true" />

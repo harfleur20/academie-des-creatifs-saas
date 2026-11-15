@@ -91,6 +91,8 @@ def public_school_read(
         hero_subtitle=site.hero_subtitle,
         hero_cta_label=site.hero_cta_label,
         hero_image_url=site.hero_image_url,
+        auth_background_image_url=site.auth_background_image_url,
+        auth_show_school_name=site.auth_show_school_name,
         announcement_enabled=site.announcement_enabled,
         announcement_text=site.announcement_text,
         announcement_background_color=site.announcement_background_color,

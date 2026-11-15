@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.dependencies import get_non_support_user, get_tenant_context
 from app.db.session import get_db
-from app.models.entities import OrganizationMemberRecord, UserRecord
+from app.models.entities import OrganizationMemberRecord, OrganizationPublicSiteRecord, UserRecord
 from app.schemas.organizations import (
     OrganizationCreate,
     OrganizationInvitationAcceptResult,
@@ -374,13 +374,20 @@ def resolve_host_branding(
             detail="Aucune école n'est associée à ce domaine.",
         )
     organization, normalized = resolved
+    public_site = db.scalar(
+        select(OrganizationPublicSiteRecord).where(
+            OrganizationPublicSiteRecord.organization_id == organization.id,
+        )
+    )
     return OrganizationHostBrandingRead(
         organization_id=organization.id,
-        name=organization.name,
+        name=public_site.site_name if public_site and public_site.site_name else organization.name,
         slug=organization.slug,
         subdomain=organization.subdomain,
         hostname=normalized,
         logo_url=organization.logo_url,
+        auth_background_image_url=public_site.auth_background_image_url if public_site else None,
+        auth_show_school_name=public_site.auth_show_school_name if public_site else True,
         primary_color=organization.primary_color,
         secondary_color=organization.secondary_color,
         accent_color=organization.accent_color,

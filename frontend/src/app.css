@@ -595,7 +595,7 @@
   gap: 12px;
   margin-bottom: 22px;
   padding: 12px 16px;
-  border: 1px solid #f2d7aa;
+  border: 0;
   border-radius: 12px;
   color: #785321;
   background: #fff8e9;
@@ -7731,7 +7731,7 @@
   background-image:
     linear-gradient(180deg, rgba(16, 35, 63, .72) 0%, rgba(16, 35, 63, .08) 30%, rgba(16, 35, 63, .16) 52%, rgba(16, 35, 63, .96) 100%),
     linear-gradient(145deg, rgba(16, 35, 63, .38), rgba(23, 63, 114, .20)),
-    url('/login-creative-portrait.webp');
+    var(--school-auth-background, url('/login-creative-portrait.webp'));
   background-position: center, center, center 42%;
   background-size: cover;
 }
@@ -8083,3 +8083,128 @@ button.monitoring-row:focus-visible { outline: 2px solid #1c8480; outline-offset
 .school-account-switch-button:hover { background: #e9eaf0; }
 .school-account-switch-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--school-primary, #1f2352) 30%, transparent); outline-offset: 2px; }
 @media (max-width: 640px) { .school-workspace-entry-actions { width: 100%; flex-direction: column; } .school-workspace-entry-actions > * { max-width: 100%; } }
+
+/* One focused home for school identity, public site and related settings. */
+.school-identity-hub .app-page-header { margin-bottom: 18px; }
+.school-identity-tabs { display: flex; gap: 4px; margin: 0 0 18px; padding: 5px; overflow-x: auto; border: 1px solid #e2e7ef; border-radius: 13px; background: #fff; scrollbar-width: thin; }
+.school-identity-tabs button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 9px 13px; border: 0; border-radius: 9px; background: transparent; color: #526176; font: inherit; font-size: var(--text-small); font-weight: 750; white-space: nowrap; cursor: pointer; }
+.school-identity-tabs button:hover { background: #f4f6fa; color: #1f2559; }
+.school-identity-tabs button.is-active { background: #1f2559; color: #fff; }
+.school-identity-tabs button:focus-visible { outline: 3px solid rgba(31, 37, 89, .25); outline-offset: 2px; }
+.school-auth-brand-preview__sample { display: flex; align-items: center; gap: 12px; min-height: 190px; margin: 14px 0 8px; padding: 24px; border-radius: 14px; background-image: linear-gradient(180deg, rgba(16, 35, 63, .72), rgba(16, 35, 63, .96)), url('/login-creative-portrait.webp'); background-color: #10233f; background-position: center, center 42%; background-size: cover; color: white; }
+.school-auth-brand-preview__sample .platform-brand-logo { width: 48px; height: 48px; object-fit: contain; }
+.school-auth-brand-preview__sample strong { font-size: 20px; }
+.school-identity-panel > div[style*="display: block"] { display: grid !important; gap: 14px; }
+.identity-settings-form { margin: 0; }
+.identity-settings-form .settings-actions { justify-content: flex-end; }
+.identity-settings-form .settings-actions .primary-button { min-width: 210px; }
+.school-site-savebar-label { color: #526176; font-size: var(--text-small); font-weight: 750; }
+.school-brand-assets-grid { grid-template-columns: 1fr 1fr; max-width: 560px; }
+.school-site-admin .school-identity-tab-content { display: grid; gap: 14px; }
+@media (max-width: 760px) {
+  .school-identity-tabs { margin-right: -16px; border-radius: 11px 0 0 11px; }
+  .school-identity-tabs button { min-height: 40px; padding: 8px 10px; }
+  .identity-settings-form .settings-actions .primary-button { width: 100%; }
+  .school-brand-assets-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* Live previews of the school documents, styled after the generated PDFs. */
+.school-document-preview { overflow: hidden; border: 1px solid #dfe5ed; border-radius: 14px; background: #fff; }
+.school-document-preview > summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 18px; list-style: none; cursor: pointer; }
+.school-document-preview > summary::-webkit-details-marker { display: none; }
+.school-document-preview__heading,.school-document-preview__toggle { display: inline-flex; align-items: center; gap: 10px; }
+.school-document-preview__heading { color: #1f2559; }
+.school-document-preview__heading > span { display: grid; gap: 3px; }
+.school-document-preview__heading strong { font-size: var(--text-small); }
+.school-document-preview__heading small { color: #64748b; font-size: var(--text-small); font-weight: 450; }
+.school-document-preview__toggle { flex: 0 0 auto; color: #1f2559; font-size: var(--text-small); font-weight: 750; }
+.school-document-preview[open] .school-document-preview__toggle svg { transform: rotate(180deg); }
+.school-document-preview__body { display: flex; justify-content: center; padding: 18px; border-top: 1px solid #e6ebf1; background: #f1f4f8; }
+.school-invoice-preview,.school-certificate-preview { position: relative; overflow: hidden; color: #17243a; background: #fff; box-shadow: 0 8px 28px rgba(20, 40, 70, .12); font-family: Arial, Helvetica, sans-serif; }
+.school-invoice-preview { width: min(100%, 690px); min-height: 880px; }
+.school-invoice-preview__header { min-height: 118px; display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 20px 34px; color: #fff; background: var(--document-primary); }
+.school-invoice-preview__header > div { display: grid; gap: 5px; text-align: right; }
+.school-invoice-preview__header > div strong { font-size: 18px; }
+.school-invoice-preview__header > div span { font-size: 11px; }
+.school-invoice-preview__logo { max-width: 132px; max-height: 72px; object-fit: contain; }
+.school-invoice-preview__content { padding: 36px 34px 70px; }
+.school-invoice-preview__title,.school-invoice-preview__meta,.school-invoice-preview__table-head,.school-invoice-preview__line,.school-invoice-preview__total { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.school-invoice-preview__title { color: var(--document-accent); }
+.school-invoice-preview__title h3 { margin: 0; font-size: 25px; }
+.school-invoice-preview__title strong { font-size: 12px; }
+.school-invoice-preview__meta { margin-top: 15px; color: #64748b; font-size: 11px; }
+.school-invoice-preview__parties { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin: 30px 0 36px; padding: 20px; border-radius: 9px; background: #f7f9fc; }
+.school-invoice-preview__parties > div,.school-invoice-preview__legal { display: grid; gap: 7px; min-width: 0; }
+.school-invoice-preview__parties strong,.school-invoice-preview__table-head { color: var(--document-accent); font-size: 10px; }
+.school-invoice-preview__parties span { color: #475569; font-size: 11px; overflow-wrap: anywhere; }
+.school-invoice-preview__table-head { padding: 0 0 10px; border-bottom: 1px solid #e2e8f0; color: #64748b; }
+.school-invoice-preview__line { padding: 18px 0; color: var(--document-accent); font-size: 12px; }
+.school-invoice-preview__line strong:first-child { max-width: 65%; }
+.school-invoice-preview__total { width: 54%; margin-left: auto; padding: 16px 0 24px; border-top: 1px solid #e2e8f0; color: var(--document-primary); font-size: 16px; }
+.school-invoice-preview__legal { margin-top: 8px; color: #64748b; font-size: 10px; white-space: pre-wrap; }
+.school-invoice-preview__legal strong { color: #475569; }
+.school-invoice-preview__legal p { margin: 4px 0 0; }
+.school-invoice-preview__footer { position: absolute; right: 26px; bottom: 18px; left: 26px; color: #94a3b8; font-size: 9px; text-align: center; }
+.school-document-preview__sample { position: absolute; right: 10px; bottom: 10px; padding: 5px 8px; border-radius: 5px; color: #64748b; background: rgba(241, 245, 249, .92); font-size: 8px; font-weight: 800; letter-spacing: .08em; }
+.school-certificate-preview { width: min(100%, 1100px); aspect-ratio: 1.414; padding: 18px; }
+.school-certificate-preview__inner { position: relative; height: 100%; min-height: 520px; border: 5px solid var(--document-primary); outline: 1px solid var(--document-secondary); outline-offset: -11px; text-align: center; }
+.school-certificate-preview__inner > header { position: absolute; top: 7%; right: 6%; left: 6%; display: flex; justify-content: space-between; align-items: flex-start; color: var(--document-accent); font-size: 15px; }
+.school-certificate-preview__logo { max-width: 125px; max-height: 56px; object-fit: contain; }
+.school-certificate-preview__inner > h3 { margin: 13% 0 12px; color: var(--document-primary); font-size: clamp(17px, 2.4vw, 28px); }
+.school-certificate-preview__inner > p { margin: 10px 0; color: #64748b; font-size: clamp(10px, 1.2vw, 14px); }
+.school-certificate-preview__student { display: block; margin: 18px 0; color: var(--document-accent); font-size: clamp(20px, 3vw, 34px); }
+.school-certificate-preview__formation { display: block; margin: 16px 12px 8px; color: var(--document-primary); font-size: clamp(15px, 2.1vw, 24px); }
+.school-certificate-preview__session { display: block; color: #64748b; font-size: clamp(9px, 1vw, 12px); }
+.school-certificate-preview__bottom { position: absolute; right: 5%; bottom: 8%; left: 5%; display: grid; grid-template-columns: 1fr 100px 1fr; align-items: end; gap: 14px; text-align: left; }
+.school-certificate-preview__details,.school-certificate-preview__verification,.school-certificate-preview__signatures { display: grid; gap: 6px; color: #64748b; font-size: 9px; }
+.school-certificate-preview__details strong,.school-certificate-preview__signatures strong { color: var(--document-accent); }
+.school-certificate-preview__verification { justify-items: center; text-align: center; font-size: 7px; }
+.school-certificate-preview__qr { width: 65px; height: 65px; display: grid; grid-template-columns: repeat(19, 1fr); grid-template-rows: repeat(19, 1fr); padding: 3px; background: #fff; }
+.school-certificate-preview__qr i.is-dark { background: #1f2937; }
+.school-certificate-preview__signatures { width: min(100%, 245px); justify-self: end; justify-items: center; align-content: end; text-align: center; }
+.school-certificate-preview__signature-art { position: relative; width: 220px; max-width: 100%; height: 96px; }
+.school-certificate-preview__stamp { position: absolute; top: 0; right: 0; z-index: 0; width: 90px; height: 90px; object-fit: contain; }
+.school-certificate-preview__signature-image { position: absolute; top: 14px; right: 22px; z-index: 1; width: min(100%, 175px); height: 72px; object-fit: contain; }
+.school-certificate-preview__footer-note { display: block; margin-top: 0; color: #64748b; font-size: 6px; line-height: 1.3; text-align: left; }
+.school-certificate-preview__powered { position: absolute; right: 5%; bottom: 4%; color: #94a3b8; font-size: 7px; }
+@media (max-width: 760px) {
+  .school-document-preview > summary { align-items: flex-start; flex-direction: column; }
+  .school-document-preview__body { padding: 10px; }
+  .school-invoice-preview { min-height: 760px; }
+  .school-invoice-preview__header,.school-invoice-preview__content { padding-right: 18px; padding-left: 18px; }
+  .school-invoice-preview__parties { grid-template-columns: 1fr; gap: 16px; }
+  .school-certificate-preview { min-height: 570px; aspect-ratio: auto; padding: 10px; }
+  .school-certificate-preview__inner { min-height: 550px; }
+  .school-certificate-preview__inner > h3 { margin-top: 150px; }
+  .school-certificate-preview__bottom { grid-template-columns: 1fr 80px; }
+  .school-certificate-preview__verification { grid-column: 2; grid-row: 1; }
+  .school-certificate-preview__signatures { grid-column: 1 / -1; }
+}
+.school-document-preview__body { overflow-x: auto; }
+.school-invoice-preview { width: min(100%, 630px); min-width: 520px; min-height: 0; aspect-ratio: 210 / 297; }
+.school-certificate-preview { min-height: 0; }
+.school-certificate-preview__inner { min-height: 0; }
+@media (max-width: 760px) {
+  .school-document-preview__body { justify-content: flex-start; }
+  .school-invoice-preview { min-height: 0; }
+  .school-invoice-preview__parties { grid-template-columns: 1fr 1fr; }
+  .school-certificate-preview { min-height: 0; }
+  .school-certificate-preview__inner { min-height: 0; }
+  .school-certificate-preview__inner > h3 { margin-top: 13%; }
+  .school-certificate-preview__bottom { grid-template-columns: 1fr 100px 1fr; }
+  .school-certificate-preview__verification { grid-column: auto; grid-row: auto; }
+  .school-certificate-preview__signatures { grid-column: auto; }
+}
+.school-certificate-preview__inner { isolation: isolate; overflow: hidden; border-width: 4px; outline-width: 1.5px; outline-offset: -10px; }
+.school-certificate-preview__ornament { position: absolute; z-index: -1; inset: 0; width: 100%; height: 100%; color: var(--document-primary); opacity: .08; pointer-events: none; }
+.school-certificate-preview__inner > header { z-index: 1; }
+.school-certificate-preview__eyebrow { display: block; margin-top: 11%; color: var(--document-secondary); font-size: clamp(7px, .75vw, 9px); font-weight: 800; letter-spacing: .2em; }
+.school-certificate-preview__inner > h3 { margin: 8px 8px 10px; }
+.school-certificate-preview__divider { width: min(230px, 34%); display: flex; align-items: center; gap: 10px; margin: 0 auto 12px; color: var(--document-secondary); }
+.school-certificate-preview__divider::before,.school-certificate-preview__divider::after { height: 1px; flex: 1; background: currentColor; content: ''; opacity: .48; }
+.school-certificate-preview__divider i { width: 8px; height: 8px; flex: 0 0 8px; border: 1px solid currentColor; transform: rotate(45deg); }
+.school-certificate-preview__student { margin: 12px 0; }
+.school-certificate-preview__student::after { width: min(190px, 36%); display: block; margin: 8px auto 0; border-bottom: 1px solid color-mix(in srgb, var(--document-secondary) 45%, transparent); content: ''; }
+@media (max-width: 760px) {
+  .school-certificate-preview__eyebrow { margin-top: 11%; }
+}

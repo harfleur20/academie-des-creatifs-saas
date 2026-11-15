@@ -1,0 +1,14 @@
+.character-counter { display: block; margin-top: 2px; color: #64748b; font-size: 12px; line-height: 1.35; font-weight: 500; }
+.character-counter.is-warning { color: #9a6700; }
+.character-counter.is-exceeded { color: #b42318; }
+.new-formation-form label .character-counter { color: #64748b; font-size: 12px; font-weight: 500; }
+.new-formation-form label .character-counter.is-warning { color: #9a6700; }
+.new-formation-form label .character-counter.is-exceeded { color: #b42318; }
+.formation-presentation label > .character-counter { color: #64748b; font-size: 12px; font-weight: 500; }
+.formation-presentation label > .character-counter.is-warning { color: #9a6700; }
+.formation-presentation label > .character-counter.is-exceeded { color: #b42318; }
+.public-program-intro-field > .character-counter { color: #64748b; font-size: 12px; }
+.public-program-intro-field > .character-counter.is-warning { color: #9a6700; }
+.public-program-intro-field > .character-counter.is-exceeded { color: #b42318; }
+.public-program-title-field > .character-counter.is-warning { color: #9a6700; }
+.public-program-title-field > .character-counter.is-exceeded { color: #b42318; }

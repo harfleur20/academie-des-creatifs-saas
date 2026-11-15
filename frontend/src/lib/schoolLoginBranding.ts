@@ -2,6 +2,8 @@ import type { HostBranding, PublicSchool } from './api'
 
 export type SchoolLoginBranding = HostBranding & {
   favicon_url: string | null
+  auth_background_image_url: string | null
+  auth_show_school_name: boolean
 }
 
 const CACHE_PREFIX = 'academie_saas_school_login_brand:'
@@ -15,6 +17,8 @@ export function toSchoolLoginBranding(school: PublicSchool): SchoolLoginBranding
     hostname: school.slug,
     logo_url: school.logo_url,
     favicon_url: school.favicon_url,
+    auth_background_image_url: school.auth_background_image_url,
+    auth_show_school_name: school.auth_show_school_name,
     primary_color: school.primary_color,
     secondary_color: school.secondary_color,
     accent_color: school.accent_color,
