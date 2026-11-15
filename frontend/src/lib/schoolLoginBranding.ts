@@ -1,4 +1,6 @@
 import type { HostBranding, PublicSchool } from './api'
+import { DEFAULT_BRAND_COLORS, DEFAULT_PLATFORM_LOGO_URL } from '../brand/branding'
+import { recolorTealPixels } from '../brand/recolorTealPixels'
 
 export type SchoolLoginBranding = HostBranding & {
   favicon_url: string | null
@@ -7,6 +9,17 @@ export type SchoolLoginBranding = HostBranding & {
 }
 
 const CACHE_PREFIX = 'academie_saas_school_login_brand:'
+let faviconRequestId = 0
+
+function setSchoolFavicon(url: string) {
+  let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']")
+  if (!link) {
+    link = document.createElement('link')
+    link.rel = 'icon'
+    document.head.appendChild(link)
+  }
+  link.href = url
+}
 
 export function toSchoolLoginBranding(school: PublicSchool): SchoolLoginBranding {
   return {
@@ -47,16 +60,24 @@ export function readSchoolLoginBranding(key: string): SchoolLoginBranding | null
 export function applySchoolLoginBranding(branding: HostBranding & { favicon_url?: string | null }) {
   document.title = branding.name
   const favicon = branding.favicon_url || branding.logo_url
+  const requestId = ++faviconRequestId
   if (!favicon) {
     document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
     return
   }
 
-  let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']")
-  if (!link) {
-    link = document.createElement('link')
-    link.rel = 'icon'
-    document.head.appendChild(link)
+  if (favicon !== DEFAULT_PLATFORM_LOGO_URL) {
+    setSchoolFavicon(favicon)
+    return
   }
-  link.href = favicon
+
+  const schoolAccent = branding.secondary_color || DEFAULT_BRAND_COLORS.secondary
+  if (schoolAccent.toUpperCase() === DEFAULT_BRAND_COLORS.secondary) {
+    setSchoolFavicon(DEFAULT_PLATFORM_LOGO_URL)
+    return
+  }
+
+  recolorTealPixels(DEFAULT_PLATFORM_LOGO_URL, schoolAccent, (source) => {
+    if (faviconRequestId === requestId) setSchoolFavicon(source)
+  })
 }

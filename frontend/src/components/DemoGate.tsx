@@ -6,17 +6,17 @@ import { DEMO_LOCKED_MESSAGE, demoScreenLocked } from '../lib/demoState'
 import '../demo.css'
 
 /** A menu link; in the demo, a screen outside the tour shows greyed and does not open. */
-export function MenuLink({ to, end, children }: { to: string; end?: boolean; children: ReactNode }) {
+export function MenuLink({ to, end, title, children }: { to: string; end?: boolean; title?: string; children: ReactNode }) {
   if (demoScreenLocked(to)) {
     return (
       // An <a> without href: it takes the menu's own link layout, and opens nothing.
-      <a className="demo-locked-link" role="link" aria-disabled="true" title={DEMO_LOCKED_MESSAGE}>
+      <a className="demo-locked-link" role="link" aria-disabled="true" title={title ? `${title} · ${DEMO_LOCKED_MESSAGE}` : DEMO_LOCKED_MESSAGE}>
         {children}
         <Lock className="demo-locked-link__icon" size={13} aria-hidden="true" />
       </a>
     )
   }
-  return <NavLink to={to} end={end}>{children}</NavLink>
+  return <NavLink to={to} end={end} title={title}>{children}</NavLink>
 }
 
 /** The page of a space; in the demo, a screen outside the tour (typed in the address bar,

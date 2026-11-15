@@ -107,6 +107,16 @@ class OrganizationRecord(TimestampMixin, Base):
         nullable=False,
         default="#131735",
     )
+    direction_accent_color: Mapped[str | None] = mapped_column(
+        String(7),
+        nullable=True,
+    )
+    direction_sidebar_collapsed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
 
     members: Mapped[list["OrganizationMemberRecord"]] = relationship(
         back_populates="organization",

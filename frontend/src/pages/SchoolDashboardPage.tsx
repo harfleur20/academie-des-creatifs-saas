@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ChevronRight, BookOpen, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
+import { ChevronRight, BookOpen, CalendarDays, Clock3, CreditCard, GraduationCap, Settings2, ShoppingCart, UserPlus, Users } from 'lucide-react'
 import { billingPathFor, clearPlanChoice, PAY_FIRST_PLANS, readPlanChoice } from '../lib/planChoice'
 import {
   createOrganization,
@@ -360,7 +360,7 @@ export function SchoolDashboardPage() {
                   {subscription ? `${billingIntervalLabel} · ${providerLabel} · ${subscriptionPeriodText}` : subscriptionPeriodText}
                 </small>
               </span>
-              <span className="owner-dashboard-subscription-action">
+              <span className={`owner-dashboard-subscription-action${upgradePlan && subscription && !['past_due', 'suspended'].includes(subscription.status) ? ' is-upgrade' : ''}`}>
                 {subscriptionActionLabel} <ChevronRight size={14} />
               </span>
             </Link>
@@ -392,7 +392,7 @@ export function SchoolDashboardPage() {
             <div className="owner-dashboard-quick-actions">
               <Link className="primary-button" to="/app/manage/formations">Créer une formation <ChevronRight size={16} /></Link>
               <Link className="owner-dashboard-action" to="/app/manage/teachers"><UserPlus size={16} /> Inviter un enseignant</Link>
-              <Link className="owner-dashboard-action" to="/app/manage/identity?tab=site"><Store size={16} /> Voir le site</Link>
+              <Link className="owner-dashboard-action" to="/app/manage/identity?tab=school"><Settings2 size={16} /> Personnaliser l’école</Link>
             </div>
           </article>
 

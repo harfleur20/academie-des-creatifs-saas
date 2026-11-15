@@ -34,6 +34,11 @@ class OrganizationUpdate(BaseModel):
         default=None,
         pattern=r"^#[0-9A-Fa-f]{6}$",
     )
+    direction_accent_color: str | None = Field(
+        default=None,
+        pattern=r"^#[0-9A-Fa-f]{6}$",
+    )
+    direction_sidebar_collapsed: bool | None = None
 
 
 class OrganizationPolicyRead(BaseModel):
@@ -57,6 +62,8 @@ class OrganizationRead(BaseModel):
     primary_color: str
     secondary_color: str
     accent_color: str
+    direction_accent_color: str | None
+    direction_sidebar_collapsed: bool
     created_at: datetime
 
 

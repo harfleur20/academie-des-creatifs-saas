@@ -166,7 +166,7 @@ def update_organization_settings(
             value = str(value)
         if isinstance(value, str):
             value = value.strip()
-        if key in {"primary_color", "secondary_color", "accent_color"} and value:
+        if key in {"primary_color", "secondary_color", "accent_color", "direction_accent_color"} and value:
             value = value.upper()
         setattr(tenant.organization, key, value)
 

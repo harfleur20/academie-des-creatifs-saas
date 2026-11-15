@@ -12,6 +12,8 @@ import {
   ExternalLink,
   LifeBuoy,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Power,
   Search,
   Settings,
@@ -26,7 +28,7 @@ import {
 } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { BrandLogo } from '../brand/BrandLogo'
-import { BrandWordmark } from '../brand/BrandWordmark'
+import { DirectionWordmark } from '../brand/DirectionWordmark'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { takePostLogoutDestination } from '../lib/authOrigin'
 import {
@@ -35,12 +37,14 @@ import {
 } from '../brand/branding'
 import {
   endAdminSupportMode,
+  updateCurrentOrganization,
   type WorkspaceSpace,
 } from '../lib/api'
 import { useTenant } from './TenantContext'
 import { SchoolNotificationBell } from './SchoolNotificationBell'
 import { SchoolMessageBell } from './SchoolMessageBell'
 import { MenuLink, SpaceOutlet } from '../components/DemoGate'
+import { toast } from '../ui/toast'
 
 export type WorkspaceNavItem = {
   to: string
@@ -94,17 +98,27 @@ export function SchoolWorkspaceLayout({
     activeOrganization,
     accessProfile,
     selectOrganization,
+    refreshOrganizations,
     schoolBranding,
     loading: tenantLoading,
   } = useTenant()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [savingSidebarPreference, setSavingSidebarPreference] = useState(false)
+  const [supportsCompactSidebar, setSupportsCompactSidebar] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
   const [profileOpen, setProfileOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [openNavGroups, setOpenNavGroups] = useState<string[]>(
     () => space === 'student' && navGroups[0] ? [navGroups[0].key] : [],
   )
   const profileRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    const updateViewport = () => setSupportsCompactSidebar(media.matches)
+    media.addEventListener('change', updateViewport)
+    return () => media.removeEventListener('change', updateViewport)
+  }, [])
 
   const isRoleSpace = space === 'teacher' || space === 'student'
   // A new account without a school yet: every management screen but the dashboard (which
@@ -123,17 +137,26 @@ export function SchoolWorkspaceLayout({
     activeOrganization?.secondary_color || DEFAULT_BRAND_COLORS.secondary
   const organizationAccent =
     activeOrganization?.accent_color || DEFAULT_BRAND_COLORS.accent
+  const directionAccent = activeOrganization?.direction_accent_color || organizationSecondary || '#18A7A3'
+  const directionSidebarCollapsed = !isRoleSpace
+    && activeOrganization?.direction_sidebar_collapsed === true
+    && supportsCompactSidebar
 
   const brandStyle = {
     '--blue': isRoleSpace
       ? organizationPrimary
       : DEFAULT_BRAND_COLORS.primary,
-    '--green': isRoleSpace
-      ? organizationSecondary
-      : DEFAULT_BRAND_COLORS.secondary,
+    '--green': isRoleSpace ? organizationSecondary : directionAccent,
+    '--green-soft': isRoleSpace
+      ? undefined
+      : `color-mix(in srgb, ${directionAccent} 12%, white)`,
+    '--green-ink': isRoleSpace
+      ? undefined
+      : `color-mix(in srgb, ${directionAccent} 78%, #10233f)`,
+    '--direction-accent': directionAccent,
     '--button-end': isRoleSpace
       ? `color-mix(in srgb, ${organizationPrimary} 80%, white)`
-      : '#35409A',
+      : directionAccent,
     '--tenant-accent': isRoleSpace
       ? organizationAccent
       : DEFAULT_BRAND_COLORS.accent,
@@ -220,48 +243,82 @@ export function SchoolWorkspaceLayout({
     ))
   }
 
+  async function toggleDirectionSidebar() {
+    if (!activeOrganization || savingSidebarPreference) return
+    setSavingSidebarPreference(true)
+    try {
+      await updateCurrentOrganization({
+        direction_sidebar_collapsed: !activeOrganization.direction_sidebar_collapsed,
+      })
+      await refreshOrganizations()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Impossible de modifier la barre latérale.')
+    } finally {
+      setSavingSidebarPreference(false)
+    }
+  }
+
   if (!isRoleSpace) {
     return (
-      <div className="saas-app" style={brandStyle}>
+      <div className={`saas-app${directionSidebarCollapsed ? ' is-manage-sidebar-collapsed' : ''}`} style={brandStyle}>
         {sidebarOpen && <button className="manage-sidebar-backdrop" type="button" aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} />}
-        <aside className={`app-sidebar${sidebarOpen ? ' is-open' : ''}`}>
+        <aside className={`app-sidebar${sidebarOpen ? ' is-open' : ''}${directionSidebarCollapsed ? ' is-collapsed' : ''}`}>
           <div className="app-brand">
-            <BrandWordmark tone="light" className="app-brand-wordmark" />
+            <DirectionWordmark accentColor={directionAccent} />
           </div>
+          {activeOrganization
+            && !supportMode
+            && ['owner', 'admin', 'super_admin'].includes(accessProfile?.primary_role || '')
+            && supportsCompactSidebar && <button
+              type="button"
+              className="sidebar-collapse-toggle"
+              onClick={() => void toggleDirectionSidebar()}
+              disabled={savingSidebarPreference}
+              aria-label={directionSidebarCollapsed ? 'Développer la barre latérale' : 'Rétracter la barre latérale'}
+              title={directionSidebarCollapsed ? 'Développer la barre latérale' : 'Rétracter la barre latérale'}
+            >
+              {directionSidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
+            </button>}
 
-          <div className="school-switcher">
-            <SchoolLogo
-              logoUrl={activeOrganization?.logo_url}
-              alt={activeOrganization?.name || 'École'}
-              className="school-switcher-logo"
-            />
-            <label>
-              <small>{supportMode ? 'École consultée' : 'École active'}</small>
-              <span className="select-shell">
-                <select
-                  value={activeOrganization?.id ?? ''}
-                  onChange={(event) => {
-                    selectOrganization(Number(event.target.value))
-                    navigate('/app')
-                  }}
-                  disabled={organizations.length === 0 || Boolean(supportMode)}
-                >
-                  {organizations.length === 0 && (
-                    <option value="">Aucune école</option>
-                  )}
-                  {organizations.map((organization) => (
-                    <option key={organization.id} value={organization.id}>
-                      {organization.name}
-                    </option>
-                  ))}
-                </select>
-                {!supportMode && <ChevronDown size={14} />}
-              </span>
-            </label>
+          <div className={`school-switcher${directionSidebarCollapsed ? ' is-collapsed' : ''}`}>
+            {directionSidebarCollapsed ? (
+              <div className="school-switcher-initial" title={activeOrganization?.name || 'Aucune école'} aria-label={activeOrganization?.name || 'Aucune école'}>
+                {activeOrganization?.name.trim().charAt(0).toUpperCase() || '?'}
+              </div>
+            ) : <>
+              <SchoolLogo
+                logoUrl={activeOrganization?.logo_url}
+                alt={activeOrganization?.name || 'École'}
+                className="school-switcher-logo"
+              />
+              <label>
+                <small>{supportMode ? 'École consultée' : 'École active'}</small>
+                <span className="select-shell">
+                  <select
+                    value={activeOrganization?.id ?? ''}
+                    onChange={(event) => {
+                      selectOrganization(Number(event.target.value))
+                      navigate('/app')
+                    }}
+                    disabled={organizations.length === 0 || Boolean(supportMode)}
+                  >
+                    {organizations.length === 0 && (
+                      <option value="">Aucune école</option>
+                    )}
+                    {organizations.map((organization) => (
+                      <option key={organization.id} value={organization.id}>
+                        {organization.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!supportMode && <ChevronDown size={14} />}
+                </span>
+              </label>
+            </>}
           </div>
 
           {accessProfile && accessProfile.spaces.length > 1 && (
-            <div className="workspace-switcher">
+            <div className={`workspace-switcher${directionSidebarCollapsed ? ' is-hidden-when-collapsed' : ''}`}>
               <small>Espace actif</small>
               <select
                 value={space}
@@ -280,8 +337,8 @@ export function SchoolWorkspaceLayout({
 
           <nav className="app-nav">
             {visibleNavItems.map((item) => (
-              <MenuLink key={item.to} to={item.to} end={item.end}>
-                {item.icon} {item.label}
+              <MenuLink key={item.to} to={item.to} end={item.end} title={item.label}>
+                {item.icon}<span className="app-nav-label">{item.label}</span>
               </MenuLink>
             ))}
             {visibleNavGroups.map((group) => {
@@ -294,6 +351,7 @@ export function SchoolWorkspaceLayout({
                     className="app-nav-group-trigger"
                     onClick={() => toggleNavGroup(group.key)}
                     aria-expanded={isOpen}
+                    title={directionSidebarCollapsed ? group.label : undefined}
                   >
                     {group.icon}
                     <span>{group.label}</span>
@@ -302,8 +360,8 @@ export function SchoolWorkspaceLayout({
                   {isOpen && (
                     <div className="app-nav-subnav">
                       {group.items.map((item) => (
-                        <MenuLink key={item.to} to={item.to} end={item.end}>
-                          {item.icon} {item.label}
+                        <MenuLink key={item.to} to={item.to} end={item.end} title={item.label}>
+                          {item.icon}<span className="app-nav-label">{item.label}</span>
                         </MenuLink>
                       ))}
                     </div>
@@ -345,7 +403,7 @@ export function SchoolWorkspaceLayout({
               </div>}
             </div>
             <div className="manage-topbar-actions" ref={profileRef}>
-              {activeOrganization && <NavLink className="manage-topbar-site" to={`/school/${activeOrganization.slug}`} target="_blank" rel="noopener noreferrer" title="Voir le site public"><ExternalLink size={17} /><span>Voir le site</span></NavLink>}
+              {activeOrganization && <NavLink className="manage-topbar-site" to={`/school/${activeOrganization.slug}`} target="_blank" rel="noopener noreferrer" title="Voir le site public"><Eye size={17} /><span>Voir le site</span></NavLink>}
               <SchoolNotificationBell space="manage" />
               <button type="button" className="manage-topbar-profile" onClick={() => setProfileOpen((value) => !value)} aria-expanded={profileOpen} aria-label="Ouvrir le menu du compte">
                 <span className="manage-topbar-avatar">{user?.avatar_url ? <img src={user.avatar_url} alt="" /> : initialsFor(user?.full_name)}</span>
