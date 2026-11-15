@@ -1,5 +1,6 @@
 /* The plans side by side, under the plan cards (landing and billing pages). */
 .plan-compare {
+  width: 100%;
   margin-top: 28px;
   color: #1f2352;
 }
@@ -8,12 +9,20 @@
   margin-bottom: 32px;
 }
 
-.plan-compare > summary {
+.plan-compare__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.plan-compare__toggle {
   display: flex;
   width: fit-content;
   align-items: center;
   gap: 8px;
-  margin: 0 auto;
+  margin: 0;
   padding: 10px 18px;
   border: 1px solid #d9dfeb;
   border-radius: 999px;
@@ -21,13 +30,12 @@
   color: #1f2352;
   font-size: var(--text-body);
   font-weight: 750;
+  font-family: inherit;
   cursor: pointer;
-  list-style: none;
+  transition: background .18s ease, border-color .18s ease;
 }
 
-.plan-compare > summary::-webkit-details-marker { display: none; }
-
-.plan-compare > summary::after {
+.plan-compare__toggle::after {
   content: "";
   width: 7px;
   height: 7px;
@@ -38,19 +46,45 @@
   transition: transform .2s ease;
 }
 
-.plan-compare[open] > summary::after {
+.plan-compare__toggle[aria-expanded="true"]::after {
   margin-top: 3px;
   transform: rotate(-135deg);
 }
 
-.plan-compare > summary:focus-visible {
+.plan-compare__toggle:hover { background: #fbfcff; border-color: #cbd4e4; }
+
+.plan-compare__toggle:focus-visible {
   outline: 3px solid rgba(45, 47, 143, .35);
   outline-offset: 2px;
 }
 
-.plan-compare__scroll {
+.plan-compare__panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: grid-template-rows .28s ease, margin-top .28s ease, opacity .2s ease, transform .28s ease,
+    visibility 0s linear .28s;
+}
+
+.plan-compare__panel.is-open {
+  grid-template-rows: 1fr;
   margin-top: 20px;
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+.plan-compare__scroll {
+  min-height: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid #e6ebf2;
   border-radius: 18px;
   background: #fff;
@@ -131,4 +165,8 @@
   .plan-compare th,
   .plan-compare td { padding: 9px 8px; font-size: var(--text-small); }
   .plan-compare tbody th { min-width: 0; width: 132px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-compare__panel, .plan-compare__panel.is-open { transition-duration: .01ms; transform: none; }
 }

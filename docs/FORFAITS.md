@@ -1,6 +1,6 @@
 # Forfaits, commission et options
 
-Ce document décrit le modèle économique des écoles et où il vit dans le code. La grille est posée par la migration `20261112_0062_free_plan_annual_discount`, revue le 2026-11-14 par `20261114_0066_live_for_every_plan`. Elle reste modifiable dans l'administration (Forfaits).
+Ce document décrit le modèle économique des écoles et où il vit dans le code. La grille est posée par la migration `20261112_0062_free_plan_annual_discount`, revue le 2026-11-14 par `20261114_0066_live_for_every_plan` et mise à jour par `20261115_0070_adjust_live_plan_limits`. Elle reste modifiable dans l'administration (Forfaits).
 
 ## Le principe
 
@@ -18,13 +18,13 @@ Ce document décrit le modèle économique des écoles et où il vit dans le cod
 | Étudiants | illimités | illimités | illimités | illimités |
 | Formations publiées | 1 | illimitées | illimitées | illimitées |
 | Professeurs | 1 | 2 | 10 | illimités |
-| Étudiants par classe live (`live`) | 10 | 15 | 30 | 30 |
+| Étudiants par classe live (`live`) | 10 | 15 | 25 | 30 |
 | Lives en même temps (`live_rooms`) | 1 | 2 | 5 | 10 |
 | Heures de live par mois (`live_hours`) | 6 h | illimitées | illimitées | illimitées |
-| Durée d'un cours en live (`live_class_hours`) | 4 h au plus | 4 h au plus | 4 h au plus | 4 h au plus |
-| Replays par mois (`replays`, bientôt) | – | 2 h | 15 h | 50 h |
+| Durée d'un cours en live (`live_class_hours`) | 2 h au plus | 3 h au plus | 4 h au plus | 4 h au plus |
+| Replays par mois (`replays`, bientôt) | – | 2 h | 15 h | 25 h |
 | Conservation après la session (`replay_retention_days`, bientôt) | – | 0 jour | 30 jours | 180 jours |
-| Transcription par mois (`transcription`, bientôt) | – | – | 5 h | 50 h |
+| Transcription par mois (`transcription`, bientôt) | – | – | 5 h | 25 h |
 | Statistiques avancées et exports (`advanced_stats`, bientôt) | – | – | oui | oui |
 | Domaine personnalisé (`custom_domain`) | – | – | oui | oui |
 | Sans « Powered by » (`white_label`) | – | – | – | oui |
@@ -75,8 +75,8 @@ L'école accepte l'option avant d'ajouter un professeur au-delà de son quota ; 
 
 - **Par classe** : au-delà de la taille du forfait, un étudiant de plus ne peut pas entrer (`join_live_class`).
 - **En même temps** : un professeur ne démarre un cours que si l'école a encore une salle libre. Un cours compte jusqu'à son compte rendu, ou jusqu'à 15 minutes après son heure de fin (`_require_live_room` dans `backend/app/services/live_classes.py`).
-- **30 étudiants au plus par classe**, même en Business : au-delà, la qualité baisse sur les téléphones et les réseaux mobiles, et l'appel comme les questions perdent leur sens. Une école qui a plus d'inscrits ouvre une autre session.
-- **4 h au plus par cours** (`live_class_hours`) : la programmation refuse un cours en live plus long (`_require_live_class_length` dans `planning.py`) ; le présentiel reste libre. Pendant le cours, la salle prévient 10 minutes avant et se ferme pour tous 4 h après le démarrage : le professeur passe à son compte rendu, les étudiants sont sortis par leur signal de présence (404).
+- **25 étudiants au plus par classe en Pro et 30 en Business** : au-delà de la taille du forfait, un étudiant de plus ne peut pas entrer. Une école qui a plus d'inscrits ouvre une autre session.
+- **Durée selon le forfait** (`live_class_hours`) : 2 h en Découverte, 3 h en Starter et 4 h en Pro et Business. La programmation refuse un cours en live plus long (`_require_live_class_length` dans `planning.py`) ; le présentiel reste libre. Pendant le cours, la salle prévient 10 minutes avant sa limite et se ferme à la durée maximale du forfait.
 - **6 h par mois en Découverte** (`live_hours`) : le compteur tourne seulement quand le live est actif, c'est-à-dire quand au moins une personne (professeur ou étudiant) est dans la salle d'un cours démarré. Il se met en pause quand la salle est vide et reprend quand quelqu'un revient : 10 minutes, une heure de salle vide, puis 20 minutes consomment 30 minutes. Chaque signal de présence (toutes les 30 secondes) ajoute le temps écoulé depuis le précédent, sauf après plus de 90 secondes de silence (`live_active_seconds`, `_credit_room_activity` dans `live_classes.py`). Quand les heures du mois sont épuisées, la salle ouverte se ferme et plus aucun cours ne démarre jusqu'au 1er du mois suivant. Le professeur voit les heures restantes à l'accueil de la classe. Les heures de l'essai Pro comptent dans le mois.
 - **Capacité de la plateforme** (`LIVE_PLATFORM_MAX_PARTICIPANTS`) : toutes les écoles partagent les serveurs du live. Un cours ne démarre que si les étudiants qu'il peut amener (inscrits, dans la limite de la classe) tiennent avec ceux des cours en cours sous ce plafond. Sinon, le professeur lit seulement « Impossible d'ouvrir la salle pour le moment. Réessayez dans quelques minutes. », et `SUPPORT_EMAIL` reçoit une alerte, au plus une par heure. Plafond : environ 100 sur le serveur partagé, 300 de plus par relais vidéo (`infra/live/README.md`). 0 : pas de plafond.
 

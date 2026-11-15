@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import {
   ArrowRight,
   BellRing,
+  Calculator,
   CalendarDays,
   Check,
   ClipboardCheck,
@@ -231,6 +232,8 @@ function Pricing() {
   const [plans, setPlans] = useState<Plan[] | null>(null)
   const [failed, setFailed] = useState(false)
   const [annual, setAnnual] = useState(false)
+  const [estimatorOpen, setEstimatorOpen] = useState(false)
+  const [monthlySales, setMonthlySales] = useState('1000000')
 
   useEffect(() => {
     let active = true
@@ -320,7 +323,89 @@ function Pricing() {
             })}
           </div>
         )}
-        {plans && plans.length > 0 && <PlanComparison plans={plans} highlight="pro" />}
+        {plans && plans.length > 0 && (
+          <>
+            <PlanComparison
+              plans={plans}
+              highlight="pro"
+              onOpenChange={(open) => { if (open) setEstimatorOpen(false) }}
+              action={(
+              <button
+                className="lp-pricing__calculator"
+                type="button"
+                aria-label={estimatorOpen ? 'Fermer le calculateur de forfait' : 'Calculer abonnement et commission selon le chiffre d’affaires'}
+                aria-expanded={estimatorOpen}
+                aria-controls="lp-sales-estimator"
+                title="Calculer le coût mensuel. Le badge 10 % indique la commission du forfait Découverte."
+                onClick={() => setEstimatorOpen((open) => !open)}
+              >
+                <Calculator size={18} aria-hidden="true" />
+                <span className="lp-pricing__calculator-badge" aria-hidden="true">10%</span>
+              </button>
+              )}
+            />
+
+            <section
+              className={`lp-sales-estimator${estimatorOpen ? ' is-open' : ''}`}
+              id="lp-sales-estimator"
+              aria-label="Estimation du coût des forfaits"
+              aria-hidden={!estimatorOpen}
+            >
+              <div className="lp-sales-estimator__inner">
+                <div className="lp-sales-estimator__heading">
+                  <div>
+                    <strong>Estimez votre coût mensuel</strong>
+                    <p>Pour chaque forfait : commission sur le chiffre d’affaires + abonnement mensuel.</p>
+                  </div>
+                  <label>
+                    Chiffre d’affaires mensuel ({plans[0].currency})
+                    <input
+                      type="number"
+                      min="0"
+                      step={plans[0].currency.toUpperCase() === 'XAF' ? '10000' : '0.01'}
+                      inputMode="decimal"
+                      value={monthlySales}
+                      placeholder="Ex. 1 000 000"
+                      onChange={(event) => setMonthlySales(event.target.value)}
+                      aria-label={`Chiffre d’affaires mensuel estimé en ${plans[0].currency}`}
+                    />
+                    <small>Exemple prérempli : modifiez ce montant pour comparer.</small>
+                  </label>
+                </div>
+                <div className="lp-sales-estimator__results">
+                  {plans.map((plan) => {
+                    const free = plan.monthly_price_cents === 0
+                    const subscriptionAmount = monthlyEquivalent(plan, annual && !free)
+                    const commissionRate = plan.sales_commission_bps
+                    const commissionPercent = commissionRate === undefined
+                      ? null
+                      : (commissionRate / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })
+                    const salesAmount = Math.max(0, Number(monthlySales) || 0)
+                    const currencyScale = plan.currency.toUpperCase() === 'XAF' ? 1 : 100
+                    const commissionAmount = commissionRate === undefined
+                      ? null
+                      : Math.round(salesAmount * currencyScale * commissionRate / 10_000)
+                    const totalAmount = subscriptionAmount === null || commissionAmount === null
+                      ? null
+                      : subscriptionAmount + commissionAmount
+
+                    return (
+                      <article className="lp-sales-estimator__result" key={plan.id}>
+                        <strong>{plan.name}</strong>
+                        <span>Abonnement {annual && !free ? '(moyenne mensuelle)' : '(par mois)'} : {subscriptionAmount === null ? '—' : formatPrice(subscriptionAmount, plan.currency)}</span>
+                        <span>Commission{commissionPercent ? ` (${commissionPercent} % du CA)` : ''} : {commissionAmount === null ? '—' : formatPrice(commissionAmount, plan.currency)}</span>
+                        <b>{totalAmount === null ? 'Tarif indisponible' : `${formatPrice(totalAmount, plan.currency)} / mois`}</b>
+                      </article>
+                    )
+                  })}
+                </div>
+                <small className="lp-sales-estimator__note">
+                  Estimation indicative, frais de paiement compris et hors options. En annuel, l’abonnement est ramené au mois.
+                </small>
+              </div>
+            </section>
+          </>
+        )}
       </div>
     </section>
   )
