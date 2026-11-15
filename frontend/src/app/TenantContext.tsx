@@ -18,7 +18,9 @@ import {
   type Organization,
   type OrganizationAccessProfile,
 } from '../lib/api'
-import { DEFAULT_PLATFORM_LOGO_URL } from '../brand/branding'
+import { DEFAULT_BRAND_COLORS, DEFAULT_PLATFORM_LOGO_URL } from '../brand/branding'
+import { recolorTealPixels } from '../brand/recolorTealPixels'
+import { cacheDirectionAccent } from '../brand/directionAccentCache'
 import { getCurrentSchoolBranding, type CurrentSchoolBranding } from '../brand/schoolBrandingApi'
 import { useAuth } from '../auth/AuthContext'
 
@@ -73,6 +75,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState('')
   const profileRequest = useRef(0)
+  const iconRequest = useRef(0)
   const organizationsRequest = useRef(0)
   const brandingRequest = useRef(0)
   const organizationsReady = useRef(false)
@@ -242,15 +245,17 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   ])
 
   useEffect(() => {
+    const requestId = ++iconRequest.current
+    let active = true
     const pathname = location.pathname
 
     // Public school pages manage their own title/favicon because they can be
     // opened without an authenticated tenant session.
-    if (pathname.startsWith('/school/')) return
+    if (pathname.startsWith('/school/')) return () => { active = false }
 
     // The school-branded login page sets its own title/favicon from the public
     // identity, so the platform defaults must not overwrite them.
-    if (pathname === '/login' && new URLSearchParams(location.search).has('school')) return
+    if (pathname === '/login' && new URLSearchParams(location.search).has('school')) return () => { active = false }
 
     if (pathname.startsWith('/app') && activeOrganization) {
       const schoolName = schoolBranding?.school_name || activeOrganization.name
@@ -260,25 +265,46 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           ? 'Étudiant'
           : 'Gestion'
       document.title = `${schoolName} - ${section}`
-      setDocumentIcon(
+      const schoolIcon =
         schoolBranding?.favicon_url
         || schoolBranding?.logo_url
         || activeOrganization.logo_url
-        || DEFAULT_PLATFORM_LOGO_URL,
+      const iconUrl = schoolIcon || DEFAULT_PLATFORM_LOGO_URL
+      const directionAccent = activeOrganization.direction_accent_color
+        || activeOrganization.secondary_color
+        || DEFAULT_BRAND_COLORS.secondary
+      cacheDirectionAccent(
+        activeOrganization.id,
+        directionAccent,
+        activeOrganization.direction_accent_color == null,
       )
-      return
+      if (!schoolIcon || schoolIcon === DEFAULT_PLATFORM_LOGO_URL) {
+        if (directionAccent.toUpperCase() === DEFAULT_BRAND_COLORS.secondary) {
+          setDocumentIcon(DEFAULT_PLATFORM_LOGO_URL)
+        } else {
+          recolorTealPixels(DEFAULT_PLATFORM_LOGO_URL, directionAccent, (source) => {
+            if (active && iconRequest.current === requestId) setDocumentIcon(source)
+          })
+        }
+      } else {
+        setDocumentIcon(iconUrl)
+      }
+      return () => { active = false }
     }
 
     if (pathname.startsWith('/login') || pathname.startsWith('/invite') || pathname.startsWith('/admin')) {
       document.title = 'Académie des Créatifs'
       setDocumentIcon(DEFAULT_PLATFORM_LOGO_URL)
     }
+    return () => { active = false }
   }, [
     location.pathname,
     location.search,
     activeOrganization?.id,
     activeOrganization?.name,
     activeOrganization?.logo_url,
+    activeOrganization?.secondary_color,
+    activeOrganization?.direction_accent_color,
     schoolBranding?.school_name,
     schoolBranding?.logo_url,
     schoolBranding?.favicon_url,

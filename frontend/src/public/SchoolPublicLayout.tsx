@@ -10,7 +10,7 @@ import { SchoolLogo } from '../brand/SchoolLogo'
 import { clearAuthOrigin } from '../lib/authOrigin'
 import { schoolFontFamily } from '../brand/schoolTypography'
 import { addSchoolFavorite, getPublicSchoolIdentity, listSchoolFavorites, removeSchoolFavorite, type PublicFormationCard, type PublicSchool, type WorkspaceSpace } from '../lib/api'
-import { cacheSchoolLoginBranding, toSchoolLoginBranding } from '../lib/schoolLoginBranding'
+import { applySchoolLoginBranding, cacheSchoolLoginBranding, toSchoolLoginBranding } from '../lib/schoolLoginBranding'
 import { DEMO_LOCKED_MESSAGE } from '../lib/demoState'
 import { toast } from '../ui/toast'
 import { PersonAvatar } from '../components/PersonAvatar'
@@ -137,16 +137,7 @@ export function SchoolPublicLayout() {
         const loginBrand = toSchoolLoginBranding(value)
         cacheSchoolLoginBranding(schoolSlug, loginBrand)
         if (value.slug !== schoolSlug) cacheSchoolLoginBranding(value.slug, loginBrand)
-        if (value.favicon_url) {
-          let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']")
-          if (!link) {
-            link = document.createElement('link')
-            link.rel = 'icon'
-            document.head.appendChild(link)
-          }
-          link.href = value.favicon_url
-        }
-        document.title = value.site_name || value.name
+        applySchoolLoginBranding(loginBrand)
         const description = value.seo_description || value.tagline || value.site_name
         const setMeta = (selector: string, attribute: 'name' | 'property', key: string, content: string) => {
           let meta = document.head.querySelector<HTMLMetaElement>(selector)

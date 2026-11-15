@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { ImagePlus, Palette, Save, ShieldCheck } from 'lucide-react'
+import { Fingerprint, ImagePlus, Save, ShieldCheck } from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { SchoolLogo } from '../brand/SchoolLogo'
@@ -225,7 +225,7 @@ export function SchoolIdentityEditor({ section }: { section: IdentityEditorSecti
       <form className="school-site-admin-form" onSubmit={save}>
         {section === 'brand' && <>
           <section className="app-card school-site-section">
-            <div className="settings-section-heading"><div><span className="section-label">Identité visuelle</span><h2>Logo, couleurs et typographie</h2><p>Cette identité est reprise sur le site public et dans les espaces de l’école.</p></div><Palette size={19}/></div>
+            <div className="settings-section-heading"><div><span className="section-label">Identité visuelle</span><h2>Logo, couleurs et typographie</h2><p>Cette identité est reprise sur le site public et dans les espaces de l’école.</p></div><Fingerprint size={19}/></div>
             <div className="brand-assets-grid school-brand-assets-grid">
               <AssetPicker label="Logo de l’école" value={data.public_site.logo_url} onUpload={(e)=>void upload(e,'logo')} schoolLogo />
               <AssetPicker label="Favicon" value={data.public_site.favicon_url} onUpload={(e)=>void upload(e,'favicon')} />

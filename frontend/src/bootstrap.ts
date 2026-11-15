@@ -1,4 +1,7 @@
 import { getAccessToken, getStoredOrganizationId, type PublicSchool } from './lib/api'
+import { DEFAULT_BRAND_COLORS, DEFAULT_PLATFORM_LOGO_URL } from './brand/branding'
+import { readCachedDirectionAccent } from './brand/directionAccentCache'
+import { recolorTealPixels } from './brand/recolorTealPixels'
 import {
   applySchoolLoginBranding,
   cacheSchoolLoginBranding,
@@ -39,7 +42,18 @@ function applyWorkspaceBranding(branding: CachedBranding) {
       ? 'Étudiant'
       : 'Gestion'
   document.title = `${branding.school_name} - ${section}`
-  setFavicon(branding.favicon_url || branding.logo_url)
+  const schoolIcon = branding.favicon_url || branding.logo_url
+  if (schoolIcon && schoolIcon !== DEFAULT_PLATFORM_LOGO_URL) {
+    setFavicon(schoolIcon)
+    return
+  }
+
+  const directionAccent = readCachedDirectionAccent(branding.organization_id, branding.secondary_color)
+  if (directionAccent && directionAccent.toUpperCase() !== DEFAULT_BRAND_COLORS.secondary) {
+    recolorTealPixels(DEFAULT_PLATFORM_LOGO_URL, directionAccent, setFavicon)
+  } else {
+    setFavicon(DEFAULT_PLATFORM_LOGO_URL)
+  }
 }
 
 function cacheBranding(branding: CachedBranding) {

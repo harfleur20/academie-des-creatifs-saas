@@ -8093,7 +8093,7 @@ button.monitoring-row:focus-visible { outline: 2px solid #1c8480; outline-offset
 
 /* One focused home for school identity, public site and related settings. */
 .school-identity-hub .app-page-header { margin-bottom: 18px; }
-.school-identity-tabs { display: flex; gap: 4px; margin: 0 0 18px; padding: 5px; overflow-x: auto; border: 1px solid #e2e7ef; border-radius: 13px; background: #fff; scrollbar-width: thin; }
+.school-identity-tabs { display: flex; width: fit-content; max-width: 100%; box-sizing: border-box; gap: 4px; margin: 0 0 18px; padding: 5px; overflow-x: auto; border: 1px solid #e2e7ef; border-radius: 13px; background: #fff; scrollbar-width: thin; }
 .school-identity-tabs button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 9px 13px; border: 0; border-radius: 9px; background: transparent; color: #526176; font: inherit; font-size: var(--text-small); font-weight: 750; white-space: nowrap; cursor: pointer; }
 .school-identity-tabs button:hover { background: #f4f6fa; color: #1f2559; }
 .school-identity-tabs button.is-active { background: #1f2559; color: #fff; }
@@ -8101,6 +8101,7 @@ button.monitoring-row:focus-visible { outline: 2px solid #1c8480; outline-offset
 .school-auth-brand-preview__sample { display: flex; align-items: center; gap: 12px; min-height: 190px; margin: 14px 0 8px; padding: 24px; border-radius: 14px; background-image: linear-gradient(180deg, rgba(16, 35, 63, .72), rgba(16, 35, 63, .96)), url('/login-creative-portrait.webp'); background-color: #10233f; background-position: center, center 42%; background-size: cover; color: white; }
 .school-auth-brand-preview__sample .platform-brand-logo { width: 48px; height: 48px; object-fit: contain; }
 .school-auth-brand-preview__sample strong { font-size: 20px; }
+.school-identity-panel { display: grid; gap: 30px; }
 .school-identity-panel > div[style*="display: block"] { display: grid !important; gap: 14px; }
 .identity-settings-form { margin: 0; }
 .identity-settings-form .settings-actions { justify-content: flex-end; }

@@ -33,6 +33,8 @@ export type Organization = {
   primary_color: string
   secondary_color: string
   accent_color: string
+  direction_accent_color: string | null
+  direction_sidebar_collapsed: boolean
   created_at: string
 }
 
@@ -557,6 +559,8 @@ export const updateCurrentOrganization = (payload: {
   primary_color?: string
   secondary_color?: string
   accent_color?: string
+  direction_accent_color?: string | null
+  direction_sidebar_collapsed?: boolean
 }) =>
   request<Organization>('/organizations/current', {
     method: 'PATCH',

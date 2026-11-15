@@ -1,6 +1,7 @@
-import { Building2, ExternalLink, Globe2, LogIn, Mail, PanelsTopLeft, ShieldCheck } from 'lucide-react'
+import { Building2, Eye, Globe2, LogIn, Mail, PanelLeft, PanelsTopLeft, ShieldCheck } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
+import { DirectionAppearanceSettings } from './DirectionAppearanceSettings'
 import { SchoolIdentityEditor } from './SchoolPublicSitePage'
 import { SchoolSettingsPage } from './SchoolSettingsPage'
 
@@ -11,6 +12,7 @@ const identityTabs = [
   { id: 'domains', label: 'Adresses web', icon: Globe2 },
   { id: 'legal', label: 'Légal & facturation', icon: ShieldCheck },
   { id: 'communications', label: 'Communications & certificats', icon: Mail },
+  { id: 'direction', label: 'Espace Direction', icon: PanelLeft },
 ] as const
 
 type IdentityTab = typeof identityTabs[number]['id']
@@ -42,7 +44,7 @@ export function SchoolIdentityPage() {
         </div>
         {activeOrganization?.slug && (
           <Link className="secondary-button compact-action" target="_blank" rel="noreferrer" to={'/school/' + activeOrganization.slug}>
-            <ExternalLink size={15}/>Voir le site public
+            <Eye size={15}/>Voir le site public
           </Link>
         )}
       </header>
@@ -71,6 +73,7 @@ export function SchoolIdentityPage() {
         <div style={{ display: activeTab === 'school' || activeTab === 'site' || activeTab === 'auth' || activeTab === 'legal' || activeTab === 'communications' ? 'block' : 'none' }}>
           <SchoolIdentityEditor section={editorSection} />
         </div>
+        {activeTab === 'direction' && <DirectionAppearanceSettings />}
       </section>
     </main>
   )
