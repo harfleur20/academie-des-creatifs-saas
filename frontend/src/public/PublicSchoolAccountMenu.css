@@ -11,6 +11,12 @@
   object-fit: cover;
 }
 
+.public-school-shell .public-school-account-trigger > .person-avatar {
+  display: inline-grid;
+  flex: none;
+  border-radius: 50%;
+}
+
 .public-school-shell .public-school-account-trigger > span {
   min-width: 0;
   overflow: hidden;

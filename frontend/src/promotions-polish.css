@@ -281,8 +281,10 @@
 }
 
 .promo-state--live {
-  color: #08764f;
-  background: #e8f8f1;
+  border: 1px solid #1f2559;
+  border-radius: 8px;
+  color: #1f2559;
+  background: transparent;
 }
 
 .promo-state--scheduled {

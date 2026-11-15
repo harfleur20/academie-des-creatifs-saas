@@ -24,6 +24,9 @@ import { DemoMenu } from '../components/DemoMenu'
 import { LandingNavbar } from '../components/LandingNavbar'
 import { commissionLabel, monthlyEquivalent, planHighlights } from '../lib/planFeatures'
 import { PlanComparison } from '../components/PlanComparison'
+import { useAuth } from '../auth/AuthContext'
+import { readDemoState } from '../lib/demoState'
+import { Link } from 'react-router-dom'
 import '../landing.css'
 
 const REGISTER_URL = '/login?mode=register'
@@ -325,6 +328,8 @@ function Pricing() {
 
 export default function LandingPage() {
   useReveal()
+  const { user, loading: authLoading } = useAuth()
+  const signedIn = Boolean(user && !authLoading && !readDemoState())
   // The read-only demo, when the platform has a demo school.
   const [demo, setDemo] = useState<DemoInfo | null>(null)
   useEffect(() => {
@@ -346,7 +351,7 @@ export default function LandingPage() {
               jusqu’au certificat : tout est prêt, à vos couleurs.
             </p>
             <div className="lp-hero__actions">
-              <a className="lp-btn lp-btn--primary" href={REGISTER_URL}>Créer mon école <ArrowRight size={18} /></a>
+              <Link className="lp-btn lp-btn--primary" to={signedIn ? '/app' : REGISTER_URL}>Créer mon école <ArrowRight size={18} /></Link>
               {demo
                 ? <DemoMenu info={demo} />
                 : <a className="lp-btn lp-btn--ghost" href="#tarifs">Voir les tarifs</a>}

@@ -77,6 +77,8 @@
 .school-checkout-due .is-today dt, .school-checkout-due .is-today dd { color: var(--school-primary); font-weight: 850; font-size: var(--site-small); }
 .school-checkout-mode { margin: 0 0 12px; color: #66758a; font-size: var(--site-tiny); }
 .school-checkout-mode b { color: #19283b; }
+.school-checkout-currency-note { margin: 14px 0; color: #66758a; font-size: var(--site-tiny); line-height: 1.5; }
+.school-checkout-currency-note strong { color: #19283b; }
 .school-checkout-summary > button:disabled { opacity: .55; cursor: not-allowed; }
 
 @media (max-width: 560px) {

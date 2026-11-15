@@ -31,13 +31,13 @@ import {
 } from '../lib/api'
 import { saveBlobFile } from '../lib/download'
 import { clearSchoolCart, getSchoolCart } from '../public/schoolCart'
-import { formatSchoolMoney, formatSchoolPercent } from '../public/publicHelpers'
+import { formatSchoolMoney, formatSchoolPercent, formatSchoolRateDate, hasSchoolCurrencyRate } from '../public/publicHelpers'
 import { usePublicSchool } from '../public/SchoolPublicLayout'
 import './school-checkout.css'
 
 export function SchoolCheckoutPage() {
   const { schoolSlug = '' } = useParams()
-  const { school } = usePublicSchool()
+  const { school, currencyRates } = usePublicSchool()
   const { user } = useAuth()
   const { refreshOrganizations } = useTenant()
   const navigate = useNavigate()
@@ -352,7 +352,10 @@ export function SchoolCheckoutPage() {
 
   const total = preview?.final_price_cents ?? item.price_cents
   const currency = preview?.currency || item.currency
-  const money = (amount: number) => formatSchoolMoney(amount, currency)
+  const displayCurrency = school.default_currency || currency
+  const money = (amount: number) => formatSchoolMoney(amount, currency, displayCurrency, currencyRates)
+  const paymentMoney = (amount: number) => formatSchoolMoney(amount, currency)
+  const hasDisplayConversion = hasSchoolCurrencyRate(currency, displayCurrency, currencyRates)
   const hasDeposit = preview?.deposit_cents != null
   const canSplit = (preview?.schedule_installments.length ?? 0) >= 2
   const splitMode = paymentMode === 'installments' && canSplit
@@ -497,9 +500,16 @@ export function SchoolCheckoutPage() {
             </dl>
           )}
           {preview && <p className="school-checkout-mode">Mode choisi : <b>{modeLabel}</b></p>}
+          {currency.toUpperCase() !== displayCurrency.toUpperCase() && (
+            <p className="school-checkout-currency-note">
+              {hasDisplayConversion
+                ? <>Montants convertis en {displayCurrency} à titre indicatif{currencyRates?.date ? ` (taux du ${formatSchoolRateDate(currencyRates.date)})` : ''}. Montant réellement demandé aujourd’hui : <strong>{paymentMoney(dueToday)}</strong>. Les prochaines échéances seront encaissées en {currency}.</>
+                : <>Taux de conversion indisponible : le paiement sera demandé en <strong>{currency}</strong>.</>}
+            </p>
+          )}
           <button type="button" disabled={working || Boolean(blocked) || !preview || (preview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase() || (hasDeposit && !acceptDepositTerms)} onClick={() => void pay()}>
             <CreditCard size={16} />
-            {working ? 'Préparation…' : preview ? `Payer ${money(dueToday)} maintenant` : 'Payer maintenant'}
+            {working ? 'Préparation…' : preview ? `Payer ${paymentMoney(dueToday)} maintenant` : 'Payer maintenant'}
           </button>
           {schedule.length > 1 && (
             <small>Le premier paiement ouvre votre accès. Les échéances suivantes sont rappelées dans votre espace étudiant.</small>

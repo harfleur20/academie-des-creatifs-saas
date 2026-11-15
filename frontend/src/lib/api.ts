@@ -2654,6 +2654,7 @@ export type PublicSchool = {
   organization_id: number
   slug: string
   subdomain: string | null
+  default_currency: string
   name: string
   site_name: string
   tagline: string

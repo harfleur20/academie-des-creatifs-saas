@@ -375,8 +375,16 @@
 }
 
 .owner-dashboard-next-card > small {
+  display: block;
+  margin-bottom: 12px;
   color: #8190a5;
   font-size: var(--text-small);
+}
+
+.owner-dashboard-next-card > small + a {
+  display: flex;
+  width: max-content;
+  margin-top: 0;
 }
 
 .owner-dashboard-stats-heading {

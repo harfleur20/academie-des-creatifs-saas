@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { BrandWordmark } from '../brand/BrandWordmark'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { ArrowRight, Check, Eye, EyeOff } from 'lucide-react'
@@ -18,6 +18,12 @@ import {
   type InvitationPreview,
   type Plan,
 } from '../lib/api'
+import {
+  applySchoolLoginBranding,
+  cacheSchoolLoginBranding,
+  readSchoolLoginBranding,
+  toSchoolLoginBranding,
+} from '../lib/schoolLoginBranding'
 import { planChoiceFromSearch, savePlanChoice } from '../lib/planChoice'
 import { formatMoney, monthlyEquivalent } from '../lib/planFeatures'
 
@@ -41,6 +47,7 @@ export function LoginPage() {
   const invitationMatch = returnPath?.match(/^\/invite\/([^/?#]+)$/)
   const invitationToken = invitationMatch?.[1] ? decodeURIComponent(invitationMatch[1]) : null
   const schoolKey = searchParams.get('school')
+  const cachedSchoolBrand = schoolKey ? readSchoolLoginBranding(schoolKey) : null
   const resetToken = searchParams.get('reset_token')
   const [mode, setMode] = useState<AuthMode>(() =>
     resetToken
@@ -57,7 +64,8 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [hostBrand, setHostBrand] = useState<HostBranding | null>(null)
+  const [hostBrand, setHostBrand] = useState<(HostBranding & { favicon_url?: string | null }) | null>(() => cachedSchoolBrand)
+  const [schoolBrandLoading, setSchoolBrandLoading] = useState(Boolean(schoolKey && !cachedSchoolBrand))
   const [invitation, setInvitation] = useState<InvitationPreview | null>(null)
   const [invitationLoading, setInvitationLoading] = useState(Boolean(invitationToken))
   // The plan clicked on the landing page: kept for after signup, and reminded here.
@@ -109,26 +117,37 @@ export function LoginPage() {
 
   useEffect(() => {
     if (schoolKey) {
+      let active = true
+      setSchoolBrandLoading(!cachedSchoolBrand)
       getPublicSchoolIdentity(schoolKey)
-        .then((school) => setHostBrand({
-          organization_id: school.organization_id,
-          name: school.site_name,
-          slug: school.slug,
-          subdomain: school.subdomain,
-          hostname: school.slug,
-          logo_url: school.logo_url,
-          primary_color: school.primary_color,
-          secondary_color: school.secondary_color,
-          accent_color: school.accent_color,
-        }))
-        .catch(() => setHostBrand(null))
-      return
+        .then((school) => {
+          if (!active) return
+          const branding = toSchoolLoginBranding(school)
+          cacheSchoolLoginBranding(schoolKey, branding)
+          if (school.slug !== schoolKey) cacheSchoolLoginBranding(school.slug, branding)
+          setHostBrand(branding)
+        })
+        .catch(() => {
+          if (active && !cachedSchoolBrand) setHostBrand(null)
+        })
+        .finally(() => { if (active) setSchoolBrandLoading(false) })
+      return () => { active = false }
     }
     if (invitation) return
     const hostname = window.location.hostname
     if (hostname === 'localhost' || hostname === '127.0.0.1') return
     resolveHostBranding(hostname).then(setHostBrand).catch(() => setHostBrand(null))
   }, [schoolKey, invitation?.organization_id])
+
+  useLayoutEffect(() => {
+    if (!schoolKey) return
+    if (hostBrand) {
+      applySchoolLoginBranding(hostBrand)
+      return
+    }
+    document.title = 'Inscription à l’école'
+    document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
+  }, [schoolKey, hostBrand])
 
   function switchMode(nextMode: AuthMode) {
     setError('')
@@ -248,11 +267,12 @@ export function LoginPage() {
   const activeBrand = invitationBrand || hostBrand
   const isInvitation = Boolean(invitationToken)
   const isPublicSchool = Boolean(schoolKey || hostBrand || invitation)
-
   const heading = mode === 'login'
     ? isInvitation ? 'Connectez-vous pour rejoindre l’équipe.' : 'Heureux de vous revoir.'
     : mode === 'register'
-      ? isInvitation ? `Rejoignez ${invitation?.organization_name || 'votre école'}.` : 'Commençons ensemble.'
+      ? isInvitation
+        ? `Rejoignez ${invitation?.organization_name || 'votre école'}.`
+        : 'Commençons ensemble.'
       : mode === 'forgot'
         ? 'Mot de passe oublié ?'
         : 'Nouveau mot de passe.'
@@ -274,10 +294,20 @@ export function LoginPage() {
     : mode === 'login'
       ? isInvitation ? 'Me connecter et rejoindre' : 'Se connecter'
       : mode === 'register'
-        ? isInvitation ? 'Créer mon compte et rejoindre' : 'Créer mon compte'
+        ? isInvitation
+          ? 'Créer mon compte et rejoindre'
+          : 'Créer mon compte'
         : mode === 'forgot'
           ? 'Recevoir le lien'
           : 'Réinitialiser le mot de passe'
+
+  if (schoolKey && !hostBrand) {
+    return (
+      <main className="app-loading" aria-live="polite" aria-busy={schoolBrandLoading}>
+        {schoolBrandLoading ? 'Chargement du site de l’école…' : 'Impossible de charger l’identité de cette école.'}
+      </main>
+    )
+  }
 
   return (
     <main

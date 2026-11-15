@@ -9,11 +9,14 @@ import { BrandLogo } from '../brand/BrandLogo'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { schoolFontFamily } from '../brand/schoolTypography'
 import { addSchoolFavorite, getPublicSchoolIdentity, listSchoolFavorites, removeSchoolFavorite, type PublicFormationCard, type PublicSchool, type WorkspaceSpace } from '../lib/api'
+import { cacheSchoolLoginBranding, toSchoolLoginBranding } from '../lib/schoolLoginBranding'
 import { DEMO_LOCKED_MESSAGE } from '../lib/demoState'
 import { toast } from '../ui/toast'
+import { PersonAvatar } from '../components/PersonAvatar'
 import { clearSchoolCart, getSchoolCart, type SchoolCartItem } from './schoolCart'
 import { SchoolCartDrawer } from './SchoolCartDrawer'
 import { SchoolAnnouncementBanner } from './SchoolAnnouncementBanner'
+import { getCachedSchoolCurrencyRates, loadSchoolCurrencyRates, type SchoolCurrencyRates } from './currencyRates'
 import './PublicSchoolAccountMenu.css'
 
 // The account's pages, shown read only on the demonstration school's site.
@@ -25,6 +28,9 @@ const DEMO_ACCOUNT_ITEMS = [
 
 export type SchoolPublicOutlet = {
   school: PublicSchool
+  currencyRates: SchoolCurrencyRates | null
+  hasSchoolAccess: boolean
+  schoolAccessLoading: boolean
   openCart: () => void
   favorites: PublicFormationCard[]
   favoritesLoading: boolean
@@ -45,9 +51,10 @@ export function SchoolPublicLayout() {
   const { schoolSlug = '' } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, signOut } = useAuth()
-  const { organizations, activeOrganization, accessProfile, selectOrganization } = useTenant()
+  const { user, signOut, loading: authLoading } = useAuth()
+  const { organizations, activeOrganization, accessProfile, loading: tenantLoading, selectOrganization } = useTenant()
   const [school, setSchool] = useState<PublicSchool | null>(null)
+  const [currencyRates, setCurrencyRates] = useState<SchoolCurrencyRates | null>(() => getCachedSchoolCurrencyRates())
   const [error, setError] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -58,25 +65,53 @@ export function SchoolPublicLayout() {
   const [favorites, setFavorites] = useState<PublicFormationCard[]>([])
   const [favoritesLoading, setFavoritesLoading] = useState(false)
   const accountRef = useRef<HTMLDivElement>(null)
+  const schoolMembership = school && user?.platform_role !== 'super_admin'
+    ? organizations.find((organization) => organization.id === school.organization_id)
+    : undefined
+  const hasSchoolAccess = Boolean(school && (school.is_demo || schoolMembership))
+  const schoolAccessLoading = authLoading || Boolean(user && tenantLoading)
+  const canUseSchoolAccount = Boolean(user && !authLoading && !tenantLoading && hasSchoolAccess)
+  const accountActionsReady = !authLoading && (!user || !tenantLoading)
+  const accountUser = canUseSchoolAccount ? user : null
+  const schoolLoginHref = user
+    ? '/school/' + encodeURIComponent(schoolSlug) + '/espace'
+    : '/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')
+
+  useEffect(() => {
+    setAvatarBroken(false)
+  }, [user?.id, user?.avatar_url])
+
+  useEffect(() => {
+    let active = true
+    void loadSchoolCurrencyRates().then((rates) => { if (active) setCurrencyRates(rates) })
+    return () => { active = false }
+  }, [])
+
+  function handleSchoolSignOut() {
+    setAccountOpen(false)
+    navigate(`/school/${encodeURIComponent(schoolSlug)}`, { replace: true, flushSync: true })
+    signOut()
+  }
 
   useEffect(() => {
     let active = true
     setFavorites([])
-    setFavoritesLoading(Boolean(user))
-    if (user) listSchoolFavorites(schoolSlug)
+    setFavoritesLoading(canUseSchoolAccount)
+    if (canUseSchoolAccount) listSchoolFavorites(schoolSlug)
       .then((items) => { if (active) setFavorites(items) })
       .catch(() => {})
       .finally(() => { if (active) setFavoritesLoading(false) })
     return () => { active = false }
-  }, [schoolSlug, user?.id])
+  }, [schoolSlug, user?.id, canUseSchoolAccount])
 
   const toggleFavorite = useCallback(async (formationSlug: string) => {
+    if (!canUseSchoolAccount) throw new Error('Votre compte n’est pas inscrit à cette école.')
     const current = favorites.some((item) => item.slug === formationSlug)
     const next = current
       ? await removeSchoolFavorite(schoolSlug, formationSlug)
       : await addSchoolFavorite(schoolSlug, formationSlug)
     setFavorites(next)
-  }, [favorites, schoolSlug])
+  }, [canUseSchoolAccount, favorites, schoolSlug])
 
   useEffect(() => {
     let active = true
@@ -97,6 +132,9 @@ export function SchoolPublicLayout() {
       .then((value) => {
         if (!active) return
         setSchool(value)
+        const loginBrand = toSchoolLoginBranding(value)
+        cacheSchoolLoginBranding(schoolSlug, loginBrand)
+        if (value.slug !== schoolSlug) cacheSchoolLoginBranding(value.slug, loginBrand)
         if (value.favicon_url) {
           let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']")
           if (!link) {
@@ -124,6 +162,11 @@ export function SchoolPublicLayout() {
       .catch(() => { if (active) setError("Ce site d'école n'est pas disponible.") })
     return () => {
       active = false
+      // The school registration/login route takes over its own branding. Do not
+      // restore the platform title and favicon while that page is mounting.
+      const isSchoolLogin = window.location.pathname === '/login'
+        && new URLSearchParams(window.location.search).has('school')
+      if (isSchoolLogin) return
       document.title = previousTitle
       if (previousIcon) previousIcon.href = previousIconHref || ''
       else document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
@@ -211,14 +254,13 @@ export function SchoolPublicLayout() {
     '--school-subtitle-scale': String((school.subtitle_size_scale ?? 100) / 100),
   } as CSSProperties
   const validCartItem = cartItem?.organization_id === school.organization_id ? cartItem : null
-  const schoolMembership = organizations.find((organization) => organization.id === school.organization_id)
   const schoolAccessProfile = accessProfile?.organization_id === school.organization_id ? accessProfile : null
   const accountSpace: WorkspaceSpace | null = schoolAccessProfile?.spaces.includes('manage')
     ? 'manage'
     : schoolAccessProfile?.default_space || schoolAccessProfile?.spaces[0] || null
   const canManageSchool = schoolAccessProfile?.spaces.includes('manage') ?? false
   const hasFooterContact = Boolean(school.contact_address || school.contact_phone || school.contact_email)
-  const accountName = compactAccountName(user?.full_name)
+  const accountName = compactAccountName(accountUser?.full_name)
 
   function openAccountPage(path: string) {
     if (schoolMembership) selectOrganization(schoolMembership.id)
@@ -246,30 +288,30 @@ export function SchoolPublicLayout() {
           <NavLink to={'/school/' + schoolSlug + '/formations'}>Formations</NavLink>
           <NavLink to={'/school/' + schoolSlug + '/contact'}>Nous contacter</NavLink>
           {/* On phones, the header keeps only the burger and the cart: login lives in the menu. */}
-          {!user && <Link className="public-school-nav-login" to={'/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')}>Connexion</Link>}
+          {accountActionsReady && !accountUser && <Link className="public-school-nav-login" to={schoolLoginHref}>Connexion</Link>}
         </nav>
         <div className="public-school-actions">
-          {user && <Link className="public-school-favorites-link" to={'/school/' + schoolSlug + '/favoris'} aria-label="Mes formations favorites" title="Mes favoris"><Heart size={18}/>{favorites.length > 0 && <span>{favorites.length}</span>}</Link>}
-          {user ? (
+          {accountUser && <Link className="public-school-favorites-link" to={'/school/' + schoolSlug + '/favoris'} aria-label="Mes formations favorites" title="Mes favoris"><Heart size={18}/>{favorites.length > 0 && <span>{favorites.length}</span>}</Link>}
+          {accountUser ? (
             <div className="public-school-account" ref={accountRef}>
               <button
                 type="button"
                 className="public-school-login public-school-account-trigger"
                 aria-expanded={accountOpen}
                 aria-label="Ouvrir le menu du compte"
-                title={user.full_name}
+                title={accountUser.full_name}
                 onClick={() => setAccountOpen((value) => !value)}
               >
-                {user.avatar_url && !avatarBroken
-                  ? <img className="public-school-account-avatar" src={user.avatar_url} alt="" onError={() => setAvatarBroken(true)} />
-                  : <UserRound size={17} />}
+                {accountUser.avatar_url && !avatarBroken
+                  ? <img className="public-school-account-avatar" src={accountUser.avatar_url} alt="" onError={() => setAvatarBroken(true)} />
+                  : <PersonAvatar name={accountUser.full_name} size={28} />}
                 <span>{accountName}</span>
                 <ChevronDown size={14} className={accountOpen ? 'is-open' : ''} />
               </button>
               {accountOpen && <div className="public-school-account-menu">
                 <div className="public-school-account-menu-head">
-                  <strong>{user.full_name}</strong>
-                  <small>{user.email}</small>
+                  <strong>{accountUser.full_name}</strong>
+                  <small>{accountUser.email}</small>
                 </div>
                 {school.is_demo && <>
                   {/* The demonstration school's site: the account's pages, read only. */}
@@ -288,18 +330,26 @@ export function SchoolPublicLayout() {
                 {!school.is_demo && supportPath && <button type="button" onClick={() => openAccountPage(supportPath)}><LifeBuoy size={17} /><span>Support</span></button>}
                 {/* One line between the entries and the sign-out, none when there is no entry. */}
                 {(school.is_demo || accountSpace || canManageSchool) && <span className="public-school-account-menu-divider" aria-hidden="true" />}
-                <button type="button" className="is-danger" onClick={() => { setAccountOpen(false); signOut(); navigate('/school/' + schoolSlug) }}><Power size={17} /><span>Se déconnecter</span></button>
+                <button type="button" className="is-danger" onClick={handleSchoolSignOut}><Power size={17} /><span>Se déconnecter</span></button>
               </div>}
             </div>
-          ) : <Link className="public-school-login public-school-login--visitor" to={'/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')}>Connexion</Link>}
+          ) : accountActionsReady ? <Link className="public-school-login public-school-login--visitor" to={schoolLoginHref}>Connexion</Link> : null}
           <button className="public-school-cart" type="button" aria-label="Ouvrir le panier" aria-expanded={cartOpen} onClick={() => setCartOpen(true)}>
             <ShoppingBag size={18}/>{validCartItem && <i/>}
           </button>
         </div>
       </header>
 
-      <Outlet context={{ school, openCart: () => setCartOpen(true), favorites, favoritesLoading, toggleFavorite }} />
-      <SchoolCartDrawer open={cartOpen} item={validCartItem} schoolSlug={schoolSlug} onClose={closeCart} onClear={() => clearSchoolCart(schoolSlug)} />
+      <Outlet context={{ school, currencyRates, hasSchoolAccess: canUseSchoolAccount, schoolAccessLoading, openCart: () => setCartOpen(true), favorites, favoritesLoading, toggleFavorite }} />
+      <SchoolCartDrawer
+        open={cartOpen}
+        item={validCartItem}
+        schoolSlug={schoolSlug}
+        displayCurrency={school.default_currency || 'XAF'}
+        currencyRates={currencyRates}
+        onClose={closeCart}
+        onClear={() => clearSchoolCart(schoolSlug)}
+      />
 
       <footer className="public-school-footer">
         <div className={'public-school-footer-grid' + (hasFooterContact ? ' has-contact' : '')}>

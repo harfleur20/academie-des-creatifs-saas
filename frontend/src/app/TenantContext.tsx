@@ -28,6 +28,7 @@ type TenantContextValue = {
   schoolBranding: CurrentSchoolBranding | null
   accessProfile: OrganizationAccessProfile | null
   loading: boolean
+  organizationsReady: boolean
   profileLoading: boolean
   profileError: string
   refreshOrganizations: () => Promise<void>
@@ -68,12 +69,15 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [accessProfile, setAccessProfile] = useState<OrganizationAccessProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [resolvedUserId, setResolvedUserId] = useState<number | null>(null)
+  const [organizationsReadyKey, setOrganizationsReadyKey] = useState('')
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState('')
   const profileRequest = useRef(0)
   const organizationsRequest = useRef(0)
   const brandingRequest = useRef(0)
   const organizationsReady = useRef(false)
+  const organizationContextKey = user ? `${user.id}:${supportMode?.organization_id ?? ''}` : ''
+  const organizationsReadyForCurrentUser = Boolean(user && organizationsReadyKey === organizationContextKey)
 
   const applyCurrentBranding = useCallback(async (organization: Organization) => {
     const requestId = ++brandingRequest.current
@@ -96,6 +100,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     const requestId = ++organizationsRequest.current
     if (!user) {
       organizationsReady.current = false
+      setOrganizationsReadyKey('')
       setOrganizations([])
       setActiveOrganization(null)
       setSchoolBranding(null)
@@ -115,6 +120,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           setOrganizations([organization])
           setActiveOrganization(organization)
           organizationsReady.current = true
+          setOrganizationsReadyKey(organizationContextKey)
           await applyCurrentBranding(organization)
         }
         return
@@ -134,6 +140,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setSchoolBranding(null)
       setStoredOrganizationId(selected?.id ?? null)
       organizationsReady.current = true
+      setOrganizationsReadyKey(organizationContextKey)
       if (selected) await applyCurrentBranding(selected)
     } finally {
       if (organizationsRequest.current === requestId) {
@@ -241,6 +248,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     // opened without an authenticated tenant session.
     if (pathname.startsWith('/school/')) return
 
+    // The school-branded login page sets its own title/favicon from the public
+    // identity, so the platform defaults must not overwrite them.
+    if (pathname === '/login' && new URLSearchParams(location.search).has('school')) return
+
     if (pathname.startsWith('/app') && activeOrganization) {
       const schoolName = schoolBranding?.school_name || activeOrganization.name
       const section = pathname.startsWith('/app/teacher')
@@ -264,6 +275,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   }, [
     location.pathname,
+    location.search,
     activeOrganization?.id,
     activeOrganization?.name,
     activeOrganization?.logo_url,
@@ -312,6 +324,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       schoolBranding,
       accessProfile,
       loading: tenantLoading,
+      organizationsReady: organizationsReadyForCurrentUser,
       profileLoading,
       profileError,
       refreshOrganizations,
@@ -325,6 +338,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       schoolBranding,
       accessProfile,
       tenantLoading,
+      organizationsReadyForCurrentUser,
       profileLoading,
       profileError,
       refreshOrganizations,

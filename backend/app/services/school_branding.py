@@ -33,6 +33,9 @@ from app.services.school_setup import require_identity_address
 DEFAULT_PRIMARY = "#1F2559"
 DEFAULT_SECONDARY = "#18A7A3"
 DEFAULT_ACCENT = "#131735"
+SUPPORTED_DEFAULT_CURRENCIES = frozenset({
+    "XAF", "XOF", "EUR", "USD", "GBP", "CAD", "CHF", "MAD", "NGN", "ZAR", "GHS", "AUD", "CNY", "JPY",
+})
 
 
 def _prefix_from_name(name: str) -> str:
@@ -275,6 +278,11 @@ def update_school_identity(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Le mode support est en lecture seule.")
     if not tenant.organization_roles.intersection({"owner", "admin"}):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Seuls le propriétaire ou un administrateur peuvent modifier l'identité.")
+    if payload.legal.default_currency.strip().upper() not in SUPPORTED_DEFAULT_CURRENCIES:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Cette devise n’est pas prise en charge pour l’affichage du site public.",
+        )
 
     org = tenant.organization
     site, legal, comm, cert = get_or_create_identity_records(db, org)

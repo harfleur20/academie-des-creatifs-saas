@@ -2,19 +2,22 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, ShoppingBag, Trash2, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { SchoolCartItem } from './schoolCart'
-import { formatSchoolDate, formatSchoolMoney } from './publicHelpers'
+import { formatSchoolDate, formatSchoolMoney, hasSchoolCurrencyRate } from './publicHelpers'
+import type { SchoolCurrencyRates } from './currencyRates'
 
 type SchoolCartDrawerProps = {
   open: boolean
   item: SchoolCartItem | null
   schoolSlug: string
+  displayCurrency: string
+  currencyRates: SchoolCurrencyRates | null
   onClose: () => void
   onClear: () => void
 }
 
 const CART_ANIMATION_MS = 420
 
-export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: SchoolCartDrawerProps) {
+export function SchoolCartDrawer({ open, item, schoolSlug, displayCurrency, currencyRates, onClose, onClear }: SchoolCartDrawerProps) {
   const closeButton = useRef<HTMLButtonElement>(null)
   const [rendered, setRendered] = useState(open)
   const [active, setActive] = useState(false)
@@ -115,12 +118,12 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
                 <div>
                   <h3>{item.formation_title}</h3>
                   <p>{item.format_type === 'ligne' || item.session_label === 'Accès en ligne' ? 'Formation en ligne' : `Session : ${item.session_label}`}</p>
-                  <strong>{formatSchoolMoney(item.price_cents, item.currency)}</strong>
+                  <strong>{formatSchoolMoney(item.price_cents, item.currency, displayCurrency, currencyRates)}</strong>
                   {item.payment_mode === 'installments' ? (
                     <small className="school-cart-mode">Paiement en plusieurs fois</small>
                   ) : item.deposit_cents != null && item.balance_cents != null ? (
                     <small className="school-cart-mode">
-                      Acompte de {formatSchoolMoney(item.deposit_cents, item.currency)} à la réservation, puis solde de {formatSchoolMoney(item.balance_cents, item.currency)}{item.balance_due_date ? ` avant le ${formatSchoolDate(item.balance_due_date)}` : ''}.
+                      Acompte de {formatSchoolMoney(item.deposit_cents, item.currency, displayCurrency, currencyRates)} à la réservation, puis solde de {formatSchoolMoney(item.balance_cents, item.currency, displayCurrency, currencyRates)}{item.balance_due_date ? ` avant le ${formatSchoolDate(item.balance_due_date)}` : ''}.
                     </small>
                   ) : null}
                 </div>
@@ -128,7 +131,11 @@ export function SchoolCartDrawer({ open, item, schoolSlug, onClose, onClear }: S
               </article>
             </div>
             <footer className="school-cart-drawer-footer">
-              <div><span>Total</span><strong>{formatSchoolMoney(item.price_cents, item.currency)}</strong></div>
+              <div>
+                <span>Total</span>
+                <strong>{formatSchoolMoney(item.price_cents, item.currency, displayCurrency, currencyRates)}</strong>
+              </div>
+              {displayCurrency.toUpperCase() !== item.currency.toUpperCase() && <small className="school-currency-conversion-note">{hasSchoolCurrencyRate(item.currency, displayCurrency, currencyRates) ? `Équivalent indicatif · paiement en ${formatSchoolMoney(item.price_cents, item.currency)}.` : `Conversion momentanément indisponible · paiement en ${formatSchoolMoney(item.price_cents, item.currency)}.`}</small>}
               <Link to={'/school/' + schoolSlug + '/checkout'}>Passer au paiement <ArrowRight size={17} /></Link>
             </footer>
           </>

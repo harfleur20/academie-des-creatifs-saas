@@ -31,7 +31,6 @@ import { SchoolLogo } from '../brand/SchoolLogo'
 import {
   DEFAULT_BRAND_COLORS,
   DEFAULT_PLATFORM_LOGO_URL,
-  PLATFORM_ICON_LIGHT_URL,
 } from '../brand/branding'
 import {
   endAdminSupportMode,
@@ -207,12 +206,11 @@ export function SchoolWorkspaceLayout({
 
   function handleSignOut() {
     const schoolSlug = activeOrganization?.slug
+    const destination = schoolSlug
+      ? `/school/${encodeURIComponent(schoolSlug)}`
+      : '/'
+    navigate(destination, { replace: true, flushSync: true })
     signOut()
-    if (schoolSlug) {
-      window.location.assign(`/school/${encodeURIComponent(schoolSlug)}`)
-      return
-    }
-    navigate('/')
   }
 
   function toggleNavGroup(key: string) {
@@ -230,12 +228,6 @@ export function SchoolWorkspaceLayout({
         <aside className={`app-sidebar${sidebarOpen ? ' is-open' : ''}`}>
           <div className="app-brand">
             <BrandWordmark tone="light" className="app-brand-wordmark" />
-            {/* The narrow sidebar has only room for the round mark. */}
-            <BrandLogo
-              logoUrl={PLATFORM_ICON_LIGHT_URL}
-              alt="Académie des Créatifs"
-              className="app-brand-logo"
-            />
           </div>
 
           <div className="school-switcher">
