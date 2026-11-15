@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.models.entities import FormationRecord, OrganizationRecord, UserRecord
+from app.models.entities import FormationRecord, OrganizationMemberRecord, OrganizationRecord, UserRecord
 from app.services.school_favorites import add_school_favorite, list_school_favorites, remove_school_favorite
 
 
@@ -18,6 +18,11 @@ def test_favorites_are_scoped_to_school_and_user_and_hide_unpublished_formations
         second = OrganizationRecord(name="Second", slug="second", status="active", is_active=True)
         db.add_all([user, other_user, first, second])
         db.flush()
+        db.add_all([
+            OrganizationMemberRecord(organization_id=first.id, user_id=user.id, role="student", status="active"),
+            OrganizationMemberRecord(organization_id=second.id, user_id=user.id, role="student", status="active"),
+            OrganizationMemberRecord(organization_id=first.id, user_id=other_user.id, role="student", status="active"),
+        ])
 
         def formation(org: OrganizationRecord, slug: str, title: str, status: str = "published") -> FormationRecord:
             return FormationRecord(

@@ -46,8 +46,8 @@ Exemples possibles :
 
 Aucun quota commercial n'est codé en dur dans l'interface.
 
-Les trois forfaits publics incluent les classes live : 10 étudiants par classe en Starter,
-50 en Pro et 100 en Business. Cette limite est vérifiée côté serveur au moment de rejoindre la salle.
+Les quatre forfaits publics incluent les classes live : 10 étudiants par classe en Découverte,
+15 en Starter, 25 en Pro et 30 en Business. Cette limite est vérifiée côté serveur au moment de rejoindre la salle.
 
 ### subscriptions
 

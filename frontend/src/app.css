@@ -7956,11 +7956,18 @@
 .billing-plan-soon { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #eef0ff; color: #2d2f8f; font-size: var(--text-small); font-weight: 800; font-style: normal; white-space: nowrap; }
 .billing-plan-note { display: block; margin-top: 8px; color: var(--muted); font-size: var(--text-small); line-height: 1.45; text-align: center; }
 .billing-addons__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.billing-addon { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; align-items: start; padding: 14px 16px; border-radius: 14px; border: 1px solid #e6ebf2; }
+.billing-addon { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr auto auto; gap: 8px; align-items: start; padding: 14px 16px; border-radius: 14px; border: 1px solid #e6ebf2; }
 .billing-addon strong { color: #131735; font-size: var(--text-body); }
 .billing-addon p { margin: 2px 0 0; font-size: var(--text-secondary); line-height: 1.45; color: #637188; }
-.billing-addon > span { grid-column: 1; font-size: var(--text-secondary); font-weight: 800; color: #1f2559; }
-.billing-addon.is-soon > span { color: #637188; }
+.billing-addon__copy strong { display: flex; align-items: center; gap: 7px; }
+.billing-addon__copy strong svg { flex: none; color: #718096; }
+.billing-addon__pricing { display: grid; gap: 4px; }
+.billing-addon__pricing > span { font-size: var(--text-secondary); font-weight: 800; color: #1f2559; }
+.billing-addon.is-soon .billing-addon__pricing > span { color: #637188; }
+.billing-addon__pricing small { color: #637188; font-size: var(--text-small); line-height: 1.4; }
+.billing-addon__action { width: 100%; min-height: 42px; margin-top: 4px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; text-decoration: none; white-space: normal; line-height: 1.35; }
+.billing-addon__action:disabled { cursor: not-allowed; opacity: .7; }
+.billing-plans-section { scroll-margin-top: 90px; }
 .invoice-lines { display: block; margin-top: 2px; font-size: var(--text-small); color: #637188; }
 @media (max-width: 900px) { .billing-usage__grid { grid-template-columns: minmax(0, 1fr); } .billing-addons__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .billing-addons__grid { grid-template-columns: minmax(0, 1fr); } }

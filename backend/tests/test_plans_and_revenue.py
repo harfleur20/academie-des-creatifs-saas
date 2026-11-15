@@ -45,6 +45,7 @@ def _migration(name: str):
 # The grid in production: 0066's plans, 0062's add-ons (0066 stops the extra formation).
 grid = _migration("20261114_0066_live_for_every_plan")
 addons = _migration("20261112_0062_free_plan_annual_discount")
+current_limits = _migration("20261115_0070_adjust_live_plan_limits").LIMITS
 NOW = datetime.now(UTC)
 _unique = itertools.count()
 
@@ -58,6 +59,10 @@ def plans(db) -> dict[str, PlanRecord]:
                           is_public=True, is_active=True, sales_commission_bps=commission)
         plan.entitlements = [PlanEntitlementRecord(feature_key=key, enabled=enabled, limit_value=limit)
                              for key, enabled, limit in entitlements]
+        limits = current_limits.get(code, {})
+        for entitlement in plan.entitlements:
+            if entitlement.feature_key in limits:
+                entitlement.limit_value = limits[entitlement.feature_key]
         db.add(plan)
         out[code] = plan
     for code, name, description, feature_key, unit, price, status, plan_codes, order in addons.ADDONS:
@@ -214,14 +219,14 @@ def test_every_plan_includes_live_classes_sized_per_class_and_at_once():
     db = build_db()
     grid_plans = plans(db)
     organizations = {}
-    sizes_by_plan = {"decouverte": (10, 1, 6), "starter": (15, 2, None), "pro": (30, 5, None), "business": (30, 10, None)}
+    sizes_by_plan = {"decouverte": (10, 1, 6), "starter": (15, 2, None), "pro": (25, 5, None), "business": (30, 10, None)}
+    duration_by_plan = {"decouverte": 2, "starter": 3, "pro": 4, "business": 4}
     for code, (per_class, at_once, monthly_hours) in sizes_by_plan.items():
         org, _ = school(db, grid_plans[code])
         organizations[code] = org
         sizes = {item.feature_key: item.limit_value for item in grid_plans[code].entitlements if item.enabled}
         assert (sizes["live"], sizes["live_rooms"], sizes.get("live_hours")) == (per_class, at_once, monthly_hours)
-        # A live class lasts 4 hours at most, whatever the plan.
-        assert sizes["live_class_hours"] == 4
+        assert sizes["live_class_hours"] == duration_by_plan[code]
         require_feature(db, org.id, "live")
 
     starter = organizations["starter"]

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  ArrowRight,
   AlertTriangle,
   Ban,
   Check,
@@ -8,6 +9,8 @@ import {
   ExternalLink,
   FileText,
   FlaskConical,
+  LockKeyhole,
+  Plus,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -17,8 +20,9 @@ import {
 import { commissionLabel, formatMoney, monthlyEquivalent, planHighlights } from '../lib/planFeatures'
 import { PlanComparison } from '../components/PlanComparison'
 import { clearPlanChoice, planChoiceFromSearch } from '../lib/planChoice'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
+import { toast } from '../ui/toast'
 import {
   ApiError,
   getBillingUsage,
@@ -303,6 +307,14 @@ export function BillingPage() {
   const onFreePlan = Boolean(freePlan && usage?.plan_code === freePlan.code && !running)
   const showSubscription = subscription !== null && !onFreePlan
   const effectivePlanCode = usage?.plan_code ?? subscription?.plan.code ?? null
+  const effectivePlan = plans.find((plan) => plan.code === effectivePlanCode) ?? null
+  const currentPaidPlan = running && effectivePlan && (effectivePlan.monthly_price_cents ?? 0) > 0
+    ? effectivePlan
+    : null
+  const planAddons = currentPaidPlan
+    ? addons.filter((addon) => addon.plan_codes.includes(currentPaidPlan.code))
+    : []
+  const visibleAddons = addons.filter((addon) => addon.status !== 'inactive')
   const annualDiscount = (() => {
     const paid = plans.find((plan) => (plan.monthly_price_cents ?? 0) > 0 && plan.annual_price_cents !== null)
     if (!paid || !paid.monthly_price_cents || paid.annual_price_cents === null) return 0
@@ -588,7 +600,7 @@ export function BillingPage() {
         </section>
       )}
 
-      <section className="billing-plans-section">
+      <section className="billing-plans-section" id="billing-plans">
         {chosenPlan && (chosenPlan.monthly_price_cents ?? 0) > 0 && effectivePlanCode !== chosenPlan.code && (
           <div className="billing-alert neutral billing-choice">
             <CreditCard size={19} />
@@ -714,24 +726,77 @@ export function BillingPage() {
               <span className="section-label">Options à l’unité</span>
               <h2>Au-delà de votre forfait</h2>
             </div>
-            <span className="muted-note">Ajoutées à votre prochaine facture, seulement si vous les utilisez.</span>
+            <span className="muted-note">
+              {currentPaidPlan
+                ? 'Ajoutées à votre prochaine facture, seulement si vous les utilisez.'
+                : 'Options débloquées avec un forfait payant.'}
+            </span>
           </div>
           <div className="billing-addons__grid">
-            {addons.map((addon) => (
-              <article className={`billing-addon${addon.status === 'coming_soon' ? ' is-soon' : ''}`} key={addon.code}>
-                <div>
-                  <strong>{addon.name}</strong>
-                  <p>{addon.description}</p>
-                </div>
-                <span>
-                  {addon.unit_price_cents === null
-                    ? 'Bientôt'
-                    : addon.status === 'coming_soon'
-                      ? `Bientôt · ${formatMoney(addon.unit_price_cents, addon.currency)} / ${addon.unit_label}`
-                      : `${formatMoney(addon.unit_price_cents, addon.currency)} / ${addon.unit_label} / mois`}
-                </span>
-              </article>
-            ))}
+            {visibleAddons.map((addon) => {
+              const destination = addon.feature_key === 'teachers'
+                ? { to: '/app/manage/teachers', label: 'Ajouter un professeur' }
+                : addon.feature_key === 'active_formations'
+                  ? { to: '/app/manage/formations', label: 'Ajouter une formation' }
+                  : null
+              const includedWithoutQuota = Boolean(currentPaidPlan && addon.feature_key && currentPaidPlan.entitlements.some(
+                (entitlement) => entitlement.feature_key === addon.feature_key && entitlement.enabled && entitlement.limit_value === null,
+              ))
+              const locked = addon.status === 'active' && !includedWithoutQuota && !planAddons.some((eligible) => eligible.code === addon.code)
+              const available = !locked && !includedWithoutQuota && addon.status === 'active' && addon.unit_price_cents !== null && destination !== null
+              const eligiblePlanNames = plans
+                .filter((plan) => addon.plan_codes.includes(plan.code))
+                .map((plan) => plan.name)
+              const availabilityLabel = eligiblePlanNames.length > 0
+                ? `Disponible avec ${eligiblePlanNames.join(', ')}`
+                : 'Réservée aux forfaits payants'
+
+              function showUpgradeOptions() {
+                toast.info('Passez à un forfait adapté pour débloquer cette option.')
+                document.getElementById('billing-plans')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+
+              return (
+                <article className={`billing-addon${addon.status === 'coming_soon' ? ' is-soon' : ''}${locked ? ' is-locked' : ''}`} key={addon.code}>
+                  <div className="billing-addon__copy">
+                    <strong>
+                      {locked && <LockKeyhole size={15} aria-hidden="true" />}
+                      {addon.name}
+                    </strong>
+                    <p>{addon.description}</p>
+                  </div>
+                  <div className="billing-addon__pricing">
+                    <span>
+                      {includedWithoutQuota
+                        ? 'Déjà inclus sans limite'
+                        : addon.unit_price_cents === null
+                          ? 'Bientôt'
+                          : addon.status === 'coming_soon'
+                            ? `Bientôt · ${formatMoney(addon.unit_price_cents, addon.currency)} / ${addon.unit_label}`
+                            : `${formatMoney(addon.unit_price_cents, addon.currency)} / ${addon.unit_label} / mois`}
+                    </span>
+                    {locked && <small>{availabilityLabel}</small>}
+                  </div>
+                  {locked ? (
+                    <button className="secondary-button billing-addon__action" type="button" onClick={showUpgradeOptions}>
+                      Voir les forfaits <ArrowRight size={15} />
+                    </button>
+                  ) : available && destination ? (
+                    <Link className="primary-button billing-addon__action" to={destination.to}>
+                      <Plus size={16} /> {destination.label}
+                    </Link>
+                  ) : includedWithoutQuota ? (
+                    <button className="secondary-button billing-addon__action" type="button" disabled>
+                      Inclus dans votre forfait
+                    </button>
+                  ) : (
+                    <button className="secondary-button billing-addon__action" type="button" disabled>
+                      Bientôt
+                    </button>
+                  )}
+                </article>
+              )
+            })}
           </div>
         </section>
       )}

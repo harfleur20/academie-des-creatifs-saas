@@ -158,7 +158,7 @@ def _validate_interval_in_session(
 
 
 def _require_live_class_length(db: Session, session: FormationSessionRecord, duration_minutes: int) -> None:
-    """A live class lasts live_class_hours at most (4 hours in every plan); in person, any length."""
+    """A live class follows its plan's live_class_hours limit; in person, any length."""
     if session.formation.format_type != "live":
         return
     rule = allowance(get_effective_plan(db, session.organization_id), "live_class_hours")
