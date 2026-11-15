@@ -128,7 +128,7 @@ export function FormationsManagementPage() {
         </button>
       </header>
 
-      {message && <div className="form-success">{message} <Link to="/app/manage/site-public">Vérifier le site public</Link></div>}
+      {message && <div className="form-success">{message} <Link to="/app/manage/identity?tab=site">Vérifier le site public</Link></div>}
       {error && <div className="form-error">{error}</div>}
       {setupBlockingStep && <div className="app-card formation-readiness"><strong>Création verrouillée</strong><p>Terminez d’abord l’étape « {setupBlockingStep.label} ».</p><Link className="secondary-button compact-action" to={setupBlockingStep.path}>Continuer cette étape <ArrowRight size={15} /></Link></div>}
 

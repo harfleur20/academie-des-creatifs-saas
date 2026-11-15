@@ -6,6 +6,7 @@ import {
   BookOpenCheck,
   ClipboardList,
   CreditCard,
+  Building2,
   FileText,
   GraduationCap,
   HeartPulse,
@@ -13,7 +14,6 @@ import {
   Plug,
   Settings,
   ShoppingCart,
-  Store,
   UserRoundCog,
   Users,
   Wallet,
@@ -71,7 +71,6 @@ export function AppLayout() {
             { to: '/app/manage/commerce', label: 'Commerce', icon: <ShoppingCart size={18} /> },
             { to: '/app/manage/revenue', label: 'Revenus & retraits', icon: <Wallet size={18} /> },
             { to: '/app/manage/promotions', label: 'Promotions', icon: <BadgePercent size={18} /> },
-            { to: '/app/manage/site-public', label: 'Site public', icon: <Store size={18} /> },
           ],
         },
         {
@@ -79,8 +78,8 @@ export function AppLayout() {
           label: 'Administration',
           icon: <Settings size={18} />,
           items: [
+            { to: '/app/manage/identity?tab=school', label: 'Identité de l’école', icon: <Building2 size={18} /> },
             { to: '/app/manage/charters', label: 'Chartes & règles', icon: <BookOpenCheck size={18} /> },
-            { to: '/app/manage/settings', label: 'Paramètres', icon: <Settings size={18} /> },
           ],
         },
       ]}

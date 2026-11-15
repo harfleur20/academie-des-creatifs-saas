@@ -7,6 +7,7 @@ import { SchoolMessageBell } from '../app/SchoolMessageBell'
 import { SchoolNotificationBell } from '../app/SchoolNotificationBell'
 import { BrandLogo } from '../brand/BrandLogo'
 import { SchoolLogo } from '../brand/SchoolLogo'
+import { clearAuthOrigin } from '../lib/authOrigin'
 import { schoolFontFamily } from '../brand/schoolTypography'
 import { addSchoolFavorite, getPublicSchoolIdentity, listSchoolFavorites, removeSchoolFavorite, type PublicFormationCard, type PublicSchool, type WorkspaceSpace } from '../lib/api'
 import { cacheSchoolLoginBranding, toSchoolLoginBranding } from '../lib/schoolLoginBranding'
@@ -89,6 +90,7 @@ export function SchoolPublicLayout() {
 
   function handleSchoolSignOut() {
     setAccountOpen(false)
+    clearAuthOrigin()
     navigate(`/school/${encodeURIComponent(schoolSlug)}`, { replace: true, flushSync: true })
     signOut()
   }
@@ -326,7 +328,7 @@ export function SchoolPublicLayout() {
                 {!school.is_demo && accountSpace && <SchoolMessageBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
                 {!school.is_demo && accountSpace && <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />}
                 {!school.is_demo && profilePath && <button type="button" onClick={() => openAccountPage(profilePath)}><UserRound size={17} /><span>Profil</span></button>}
-                {!school.is_demo && canManageSchool && <button type="button" onClick={() => openAccountPage('/app/manage/settings')}><Settings size={17} /><span>Paramètres de l’école</span></button>}
+                {!school.is_demo && canManageSchool && <button type="button" onClick={() => openAccountPage('/app/manage/identity?tab=school')}><Settings size={17} /><span>Identité de l’école</span></button>}
                 {!school.is_demo && supportPath && <button type="button" onClick={() => openAccountPage(supportPath)}><LifeBuoy size={17} /><span>Support</span></button>}
                 {/* One line between the entries and the sign-out, none when there is no entry. */}
                 {(school.is_demo || accountSpace || canManageSchool) && <span className="public-school-account-menu-divider" aria-hidden="true" />}

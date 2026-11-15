@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
+import { CharacterCounter } from '../components/CharacterCounter'
+import { exceedsCharacterLimit, FORMATION_CHARACTER_LIMITS } from '../lib/characterLimits'
 import {
   ApiError,
   createFormation,
@@ -66,6 +68,13 @@ export function OnboardingPage() {
 
   async function createFirstFormation(event: FormEvent) {
     event.preventDefault()
+    if (
+      exceedsCharacterLimit(title, FORMATION_CHARACTER_LIMITS.title)
+      || exceedsCharacterLimit(description, FORMATION_CHARACTER_LIMITS.description)
+    ) {
+      setError('Raccourcissez les champs signalés avant de créer la formation.')
+      return
+    }
     const slug = slugify(title)
     if (!slug) return
 
@@ -202,10 +211,10 @@ export function OnboardingPage() {
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     minLength={2}
-                    maxLength={255}
                     required
                     placeholder="Ex. Motion Design — Cohorte Octobre"
                   />
+                  <CharacterCounter value={title} limit={FORMATION_CHARACTER_LIMITS.title} />
                 </label>
 
                 <label>
@@ -213,12 +222,12 @@ export function OnboardingPage() {
                   <textarea
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
-                    maxLength={5000}
                     placeholder="Une courte description de cette formation…"
                   />
+                  <CharacterCounter value={description} limit={FORMATION_CHARACTER_LIMITS.description} />
                 </label>
 
-                <button className="primary-button" disabled={submitting}>
+                <button className="primary-button" disabled={submitting || exceedsCharacterLimit(title, FORMATION_CHARACTER_LIMITS.title) || exceedsCharacterLimit(description, FORMATION_CHARACTER_LIMITS.description)}>
                   <GraduationCap size={16} />
                   {submitting ? 'Création…' : 'Créer la formation'}
                 </button>

@@ -26,6 +26,8 @@ class PublicSiteConfigPayload(BaseModel):
     hero_subtitle: str = Field(default="", max_length=5000)
     hero_cta_label: str = Field(default="Découvrir nos formations", max_length=120)
     hero_image_url: str | None = Field(default=None, max_length=1024)
+    auth_background_image_url: str | None = Field(default=None, max_length=1024)
+    auth_show_school_name: bool = True
     announcement_enabled: bool = False
     announcement_text: str = Field(default="", max_length=600)
     announcement_background_color: str = Field(default="#FFF4E7", pattern=r"^#[0-9A-Fa-f]{6}$")
@@ -110,6 +112,8 @@ class PublicSchoolRead(BaseModel):
     hero_subtitle: str
     hero_cta_label: str
     hero_image_url: str | None
+    auth_background_image_url: str | None = None
+    auth_show_school_name: bool = True
     announcement_enabled: bool
     announcement_text: str
     announcement_background_color: str

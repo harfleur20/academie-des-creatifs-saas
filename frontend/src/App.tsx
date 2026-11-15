@@ -19,7 +19,7 @@ import { LoginPage } from './pages/LoginPage'
 import { InvitationAcceptPage } from './pages/InvitationAcceptPage'
 import { SchoolDashboardPage } from './pages/SchoolDashboardPage'
 import { TeamPage } from './pages/TeamPage'
-import { SchoolSettingsPage } from './pages/SchoolSettingsPage'
+import { SchoolIdentityPage } from './pages/SchoolIdentityPage'
 import { BillingPage } from './pages/BillingPage'
 import { SchoolRevenuePage } from './pages/SchoolRevenuePage'
 import { AdminPayoutsPage } from './pages/AdminPayoutsPage'
@@ -255,6 +255,7 @@ export default function App() {
               <Route path="pedagogy" element={<PedagogicalMonitoringPage />} />
               <Route path="course-reports" element={<SchoolCourseReportsPage />} />
               <Route path="performance" element={<SchoolPerformancePage />} />
+              <Route path="identity" element={<SchoolIdentityPage />} />
               <Route path="site-public" element={<SchoolPublicSitePage />} />
               <Route path="team" element={<TeamPage />} />
               <Route path="charters" element={<CharterSettingsPage />} />
@@ -262,7 +263,7 @@ export default function App() {
               <Route path="revenue" element={<SchoolRevenuePage />} />
               <Route path="profile" element={<ManageProfilePage />} />
               <Route path="support" element={<SupportPage space="manage" />} />
-              <Route path="settings" element={<SchoolSettingsPage />} />
+              <Route path="settings" element={<Navigate to="/app/manage/identity?tab=school" replace />} />
             </Route>
 
             {/* The live class is full screen, outside the space's layout, as on the mother site. */}
@@ -336,7 +337,7 @@ export default function App() {
             <Route path="/app/billing" element={<Navigate to="/app/manage/billing" replace />} />
             <Route path="/app/profile" element={<Navigate to="/app/manage/profile" replace />} />
             <Route path="/app/support" element={<Navigate to="/app/manage/support" replace />} />
-            <Route path="/app/settings" element={<Navigate to="/app/manage/settings" replace />} />
+            <Route path="/app/settings" element={<Navigate to="/app/manage/identity?tab=school" replace />} />
 
             <Route path="/admin" element={<RequireSuperAdmin><AdminLayout /></RequireSuperAdmin>}>
               <Route index element={<AdminDashboardPage />} />

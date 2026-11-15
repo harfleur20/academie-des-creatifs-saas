@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
 from app.db.session import get_db
-from app.models.entities import CertificateRecord
+from app.models.entities import CertificateRecord, OrganizationRecord
 from app.services.academic_access import can_view_session, get_session
 from app.services.assets import store_class_discussion_image
 from app.schemas.academic import (
@@ -405,7 +405,11 @@ def download_student_certificate(
     ).first()
     if certificate is None:
         return Response(status_code=404)
-    filename, content = build_certificate_pdf(certificate)
+    organization = db.get(OrganizationRecord, certificate.organization_id)
+    filename, content = build_certificate_pdf(
+        certificate,
+        fallback_logo_url=organization.logo_url if organization else None,
+    )
     return Response(
         content=content,
         media_type="application/pdf",
@@ -429,7 +433,11 @@ def download_verified_certificate(
     certificate = db.get(CertificateRecord, certificate_id)
     if certificate is None:
         return Response(status_code=404)
-    filename, content = build_certificate_pdf(certificate)
+    organization = db.get(OrganizationRecord, certificate.organization_id)
+    filename, content = build_certificate_pdf(
+        certificate,
+        fallback_logo_url=organization.logo_url if organization else None,
+    )
     return Response(
         content=content,
         media_type="application/pdf",

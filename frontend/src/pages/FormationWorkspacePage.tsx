@@ -35,6 +35,8 @@ import {
   type FormationDetail,
   type Member,
 } from '../lib/api'
+import { CharacterCounter } from '../components/CharacterCounter'
+import { characterCount, exceedsCharacterLimit, FORMATION_CHARACTER_LIMITS } from '../lib/characterLimits'
 import { PublicProgramField } from '../components/PublicProgramField'
 import { formatSchoolDate, formatSchoolMoney } from '../public/publicHelpers'
 import '../formation-workspace.css'
@@ -123,6 +125,13 @@ export function FormationWorkspacePage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const justCreated = searchParams.get('nouvelle') === '1'
+  const longestObjective = Math.max(0, ...objectives.split(/\r\n|\n|\r/).map(characterCount))
+  const presentationHasCharacterLimitIssues =
+    exceedsCharacterLimit(shortDescription, FORMATION_CHARACTER_LIMITS.shortDescription)
+    || exceedsCharacterLimit(description, FORMATION_CHARACTER_LIMITS.description)
+    || exceedsCharacterLimit(objectives, FORMATION_CHARACTER_LIMITS.objectives)
+    || longestObjective > FORMATION_CHARACTER_LIMITS.objective
+    || exceedsCharacterLimit(prerequisites, FORMATION_CHARACTER_LIMITS.prerequisites)
 
   async function refresh() {
     try {
@@ -215,26 +224,31 @@ export function FormationWorkspacePage() {
     }
   }
 
-  async function save(event: FormEvent, success: string) {
+  async function save(event: FormEvent, success: string, includePresentation = true) {
     event.preventDefault()
     if (!formation) return
+    if (includePresentation && presentationHasCharacterLimitIssues) {
+      setError('Raccourcissez les champs signalés avant d’enregistrer la présentation.')
+      return
+    }
     setWorking(true)
     setError('')
     setMessage('')
     try {
       await updateFormation(formation.id, {
-        description: description.trim(),
-        short_description: shortDescription.trim(),
-        objectives: objectives.trim(),
-        prerequisites: prerequisites.trim(),
-        cover_image_url: coverUrl || null,
-        presentation_video_url: presentationVideoUrl || null,
+        ...(includePresentation ? {
+          description: description.trim(),
+          short_description: shortDescription.trim(),
+          objectives: objectives.trim(),
+          prerequisites: prerequisites.trim(),
+          cover_image_url: coverUrl || null,
+          presentation_video_url: presentationVideoUrl || null,
+        } : {}),
         price_cents: price ? Math.round(Number(price) * (formation.currency === 'XAF' ? 1 : 100)) : 0,
         allow_installments: allowInstallments,
         installment_count: Math.min(12, Math.max(2, Number(installmentCount) || 2)),
         reservation_deposit_enabled: depositEnabled,
         reservation_deposit_percent: Math.min(99, Math.max(1, Number(depositPercent) || 37.5)),
-        public_program: publicProgram.trim(),
       })
       setFormation(await getFormation(formation.id))
       setMessage(success)
@@ -355,7 +369,7 @@ export function FormationWorkspacePage() {
         </div>
       )}
       {error && <div className="form-error">{error}</div>}
-      {message && <div className="form-success">{message} {message.startsWith('Formation publiée') && <Link to="/app/manage/site-public">Vérifier le site public</Link>}</div>}
+      {message && <div className="form-success">{message} {message.startsWith('Formation publiée') && <Link to="/app/manage/identity?tab=site">Vérifier le site public</Link>}</div>}
 
       {issues.length > 0 && <section className="app-card formation-readiness"><strong>À compléter avant publication ou ouverture des inscriptions</strong>{formation.status === 'published' && <p>Les informations manquantes peuvent masquer la fiche publique ou bloquer les inscriptions.</p>}<ul>{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></section>}
 
@@ -405,10 +419,10 @@ export function FormationWorkspacePage() {
             </div>
             <small>Format accepté et recommandé : MP4 (H.264), horizontal en 16:9. Durée maximale : 3 minutes · Taille maximale : 50 Mo. Sans vidéo, la photo de couverture reste affichée.</small>
           </div>
-          <label>Résumé court<textarea value={shortDescription} onChange={(event) => setShortDescription(event.target.value)} maxLength={500} rows={3} placeholder="Texte court affiché dans l’introduction et sur les cartes du catalogue." /><small>{shortDescription.length}/500 caractères</small></label>
-          <label>Description générale<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} rows={5} placeholder="Présentez la formation, sa promesse et son approche pédagogique." /></label>
-          <label>À la fin de cette formation, l’apprenant sera capable de…<textarea value={objectives} onChange={(event) => setObjectives(event.target.value)} maxLength={10000} rows={5} placeholder={'Concevoir une application complète\nAutomatiser des tâches métier\nCréer une interface professionnelle'} /><small>Un acquis par ligne pour un affichage clair sur le site public.</small></label>
-          <label>À qui s’adresse cette formation ? / Prérequis<textarea value={prerequisites} onChange={(event) => setPrerequisites(event.target.value)} maxLength={10000} rows={4} placeholder="Décrivez le public cible, le niveau attendu et les éventuels prérequis." /></label>
+          <label>Résumé court<textarea value={shortDescription} onChange={(event) => setShortDescription(event.target.value)} rows={3} placeholder="Texte court affiché dans l’introduction et sur les cartes du catalogue." /><CharacterCounter value={shortDescription} limit={FORMATION_CHARACTER_LIMITS.shortDescription} /></label>
+          <label>Description générale<textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={5} placeholder="Présentez la formation, sa promesse et son approche pédagogique." /><CharacterCounter value={description} limit={FORMATION_CHARACTER_LIMITS.description} /></label>
+          <label>À la fin de cette formation, l’apprenant sera capable de…<textarea value={objectives} onChange={(event) => setObjectives(event.target.value)} rows={5} placeholder={'Concevoir une application complète\nAutomatiser des tâches métier\nCréer une interface professionnelle'} /><small>Un acquis par ligne pour un affichage clair sur le site public.</small><CharacterCounter value={objectives} limit={FORMATION_CHARACTER_LIMITS.objectives} /><CharacterCounter count={longestObjective} limit={FORMATION_CHARACTER_LIMITS.objective} label="Objectif le plus long" /></label>
+          <label>À qui s’adresse cette formation ? / Prérequis<textarea value={prerequisites} onChange={(event) => setPrerequisites(event.target.value)} rows={4} placeholder="Décrivez le public cible, le niveau attendu et les éventuels prérequis." /><CharacterCounter value={prerequisites} limit={FORMATION_CHARACTER_LIMITS.prerequisites} /></label>
           <PublicProgramField
             formationId={formation.id}
             value={publicProgram}
@@ -419,12 +433,12 @@ export function FormationWorkspacePage() {
               setMessage('Programme public enregistré. L’accordéon de la fiche publique est à jour.')
             }}
           />
-          <button className="primary-button" type="submit" disabled={working}><Save size={15} /> Enregistrer la présentation</button>
+          <button className="primary-button" type="submit" disabled={working || presentationHasCharacterLimitIssues}><Save size={15} /> Enregistrer la présentation</button>
         </form>
       )}
 
       {tab === 'tarif' && (
-        <form className="app-card formation-presentation" onSubmit={(event) => void save(event, 'Tarif enregistré.')}>
+        <form className="app-card formation-presentation" onSubmit={(event) => void save(event, 'Tarif enregistré.', false)}>
           <div className="settings-section-heading"><div><span className="section-label">Vente</span><h2>Tarif et paiement</h2><p>Le prix affiché sur la fiche, et comment vos étudiants peuvent le régler.</p></div></div>
           <label>Prix ({formation.currency})<input type="number" min={formation.currency === 'XAF' ? '1' : '0.01'} step={formation.currency === 'XAF' ? '1' : '0.01'} value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formation.currency === 'XAF' ? 'Ex. 150000' : 'Ex. 250.00'} /></label>
           <fieldset className="formation-payment-options">

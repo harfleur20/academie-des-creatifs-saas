@@ -292,7 +292,7 @@ export function SchoolDashboardPage() {
           : activeTeachers === 0
             ? { title: 'Invitez un enseignant', description: 'Confiez vos formations à un professeur pour animer vos cours.', to: '/app/manage/teachers', label: 'Gérer les enseignants' }
             : activeStudents === 0
-              ? { title: 'Faites connaître vos formations', description: 'Votre école est prête à accueillir ses premiers étudiants.', to: '/app/manage/site-public', label: 'Voir le site public' }
+              ? { title: 'Faites connaître vos formations', description: 'Votre école est prête à accueillir ses premiers étudiants.', to: '/app/manage/identity?tab=site', label: 'Voir le site public' }
               : { title: 'Supervisez l’activité de l’école', description: 'Contrôlez les sessions, les alertes et l’activité commerciale depuis la vue de pilotage.', to: '/app/manage/performance', label: 'Voir les statistiques' }
     : null
 
@@ -392,7 +392,7 @@ export function SchoolDashboardPage() {
             <div className="owner-dashboard-quick-actions">
               <Link className="primary-button" to="/app/manage/formations">Créer une formation <ChevronRight size={16} /></Link>
               <Link className="owner-dashboard-action" to="/app/manage/teachers"><UserPlus size={16} /> Inviter un enseignant</Link>
-              <Link className="owner-dashboard-action" to="/app/manage/site-public"><Store size={16} /> Voir le site</Link>
+              <Link className="owner-dashboard-action" to="/app/manage/identity?tab=site"><Store size={16} /> Voir le site</Link>
             </div>
           </article>
 

@@ -1,6 +1,7 @@
 from datetime import date, datetime
+import json
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 FORMATION_STATUSES = "^(draft|published|archived)$"
@@ -12,23 +13,84 @@ COURSE_STATUSES = "^(draft|published|archived)$"
 LESSON_TYPES = "^(text|video|pdf|quiz|assignment|resource)$"
 
 
+def _validate_formation_objectives(value: str | None) -> str | None:
+    if value is None:
+        return value
+    for objective in value.splitlines():
+        if len(objective) > 180:
+            raise ValueError("Chaque objectif ne peut pas dépasser 180 caractères.")
+    return value
+
+
+def _validate_public_program_text_limits(value: str | None) -> str | None:
+    if value is None or not value:
+        return value
+
+    try:
+        document = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        document = None
+
+    if not isinstance(document, dict) or document.get("version") != 1:
+        intro = value
+        modules = []
+    else:
+        intro = document.get("intro", "")
+        modules = document.get("modules", [])
+
+    if isinstance(intro, str) and len(intro) > 600:
+        raise ValueError("L’introduction du programme ne peut pas dépasser 600 caractères.")
+
+    if not isinstance(modules, list):
+        return value
+
+    for module in modules:
+        if not isinstance(module, dict):
+            continue
+        module_title = module.get("title", "")
+        if isinstance(module_title, str) and len(module_title) > 100:
+            raise ValueError("Le titre d’un module ne peut pas dépasser 100 caractères.")
+        chapters = module.get("chapters", [])
+        if not isinstance(chapters, list):
+            continue
+        for chapter in chapters:
+            if isinstance(chapter, str):
+                chapter_title = chapter
+            elif isinstance(chapter, dict):
+                chapter_title = chapter.get("title", "")
+            else:
+                continue
+            if isinstance(chapter_title, str) and len(chapter_title) > 100:
+                raise ValueError("Le titre d’un chapitre ne peut pas dépasser 100 caractères.")
+            if not isinstance(chapter, dict):
+                continue
+            lessons = chapter.get("lessons", [])
+            if not isinstance(lessons, list):
+                continue
+            for lesson in lessons:
+                lesson_title = lesson.get("title", "") if isinstance(lesson, dict) else lesson
+                if isinstance(lesson_title, str) and len(lesson_title) > 120:
+                    raise ValueError("Le titre d’une leçon ne peut pas dépasser 120 caractères.")
+    return value
+
+
 class FormationCreate(BaseModel):
     slug: str = Field(
         min_length=2,
         max_length=255,
         pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
     )
-    title: str = Field(min_length=2, max_length=255)
-    description: str = Field(default="", max_length=5000)
-    category: str = Field(default="", max_length=120)
-    level: str = Field(default="", max_length=120)
+    title: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=3000)
+    category: str = Field(default="", max_length=60)
+    level: str = Field(default="", max_length=40)
     format_type: str = Field(default="ligne", pattern=FORMATION_FORMATS)
     training_hours: int | None = Field(default=None, ge=1, le=10000)
-    short_description: str = Field(default="", max_length=500)
+    short_description: str = Field(default="", max_length=220)
     cover_image_url: str | None = Field(default=None, max_length=1024)
     presentation_video_url: str | None = Field(default=None, max_length=1024)
-    objectives: str = Field(default="", max_length=10000)
-    prerequisites: str = Field(default="", max_length=10000)
+    objectives: str = Field(default="", max_length=1500)
+    prerequisites: str = Field(default="", max_length=1000)
     public_program: str = Field(default="", max_length=30000)
     price_cents: int = Field(default=0, ge=0, le=2_000_000_000)
     currency: str = Field(default="XAF", min_length=3, max_length=3)
@@ -40,19 +102,29 @@ class FormationCreate(BaseModel):
     featured_order: int = Field(default=0, ge=0, le=1000)
     status: str = Field(default="draft", pattern=FORMATION_STATUSES)
 
+    @field_validator("objectives")
+    @classmethod
+    def validate_objective_line_lengths(cls, value: str) -> str:
+        return _validate_formation_objectives(value) or ""
+
+    @field_validator("public_program")
+    @classmethod
+    def validate_public_program_lengths(cls, value: str) -> str:
+        return _validate_public_program_text_limits(value) or ""
+
 
 class FormationUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=2, max_length=255)
-    description: str | None = Field(default=None, max_length=5000)
-    category: str | None = Field(default=None, max_length=120)
-    level: str | None = Field(default=None, max_length=120)
+    title: str | None = Field(default=None, min_length=2, max_length=120)
+    description: str | None = Field(default=None, max_length=3000)
+    category: str | None = Field(default=None, max_length=60)
+    level: str | None = Field(default=None, max_length=40)
     format_type: str | None = Field(default=None, pattern=FORMATION_FORMATS)
     training_hours: int | None = Field(default=None, ge=1, le=10000)
-    short_description: str | None = Field(default=None, max_length=500)
+    short_description: str | None = Field(default=None, max_length=220)
     cover_image_url: str | None = Field(default=None, max_length=1024)
     presentation_video_url: str | None = Field(default=None, max_length=1024)
-    objectives: str | None = Field(default=None, max_length=10000)
-    prerequisites: str | None = Field(default=None, max_length=10000)
+    objectives: str | None = Field(default=None, max_length=1500)
+    prerequisites: str | None = Field(default=None, max_length=1000)
     public_program: str | None = Field(default=None, max_length=30000)
     price_cents: int | None = Field(default=None, ge=0, le=2_000_000_000)
     currency: str | None = Field(default=None, min_length=3, max_length=3)
@@ -63,6 +135,16 @@ class FormationUpdate(BaseModel):
     is_featured: bool | None = None
     featured_order: int | None = Field(default=None, ge=0, le=1000)
     status: str | None = Field(default=None, pattern=FORMATION_STATUSES)
+
+    @field_validator("objectives")
+    @classmethod
+    def validate_objective_line_lengths(cls, value: str | None) -> str | None:
+        return _validate_formation_objectives(value)
+
+    @field_validator("public_program")
+    @classmethod
+    def validate_public_program_lengths(cls, value: str | None) -> str | None:
+        return _validate_public_program_text_limits(value)
 
 
 class FormationNextSessionRead(BaseModel):

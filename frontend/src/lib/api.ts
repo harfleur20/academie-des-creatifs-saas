@@ -783,6 +783,8 @@ export type HostBranding = {
   subdomain: string | null
   hostname: string
   logo_url: string | null
+  auth_background_image_url?: string | null
+  auth_show_school_name?: boolean
   primary_color: string
   secondary_color: string
   accent_color: string
@@ -2598,6 +2600,8 @@ export type PublicSiteConfig = {
   hero_subtitle: string
   hero_cta_label: string
   hero_image_url: string | null
+  auth_background_image_url: string | null
+  auth_show_school_name: boolean
   announcement_enabled: boolean
   announcement_text: string
   announcement_background_color: string
@@ -2673,6 +2677,8 @@ export type PublicSchool = {
   hero_subtitle: string
   hero_cta_label: string
   hero_image_url: string | null
+  auth_background_image_url: string | null
+  auth_show_school_name: boolean
   announcement_enabled: boolean
   announcement_text: string
   announcement_background_color: string
