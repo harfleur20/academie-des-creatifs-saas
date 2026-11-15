@@ -21,6 +21,7 @@ import { getPublicSchoolFormation, type PublicFormationDetail, type PublicSessio
 import { setSchoolCart } from '../public/schoolCart'
 import { formatSchoolDate, formatSchoolMoney, formatSchoolPercent } from '../public/publicHelpers'
 import { usePublicSchool } from '../public/SchoolPublicLayout'
+import type { SchoolCurrencyRates } from '../public/currencyRates'
 import { SchoolFavoriteButton } from '../public/SchoolFavoriteButton'
 import { PublicProgramSection } from '../components/PublicProgramSection'
 
@@ -44,7 +45,7 @@ function contentLines(value: string) {
 
 export function SchoolFormationDetailPage() {
   const { schoolSlug = '', formationSlug = '' } = useParams()
-  const { school, openCart } = usePublicSchool()
+  const { school, currencyRates, openCart } = usePublicSchool()
   const [formation, setFormation] = useState<PublicFormationDetail | null>(null)
   const [sessionId, setSessionId] = useState<number | null>(null)
   const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>('full')
@@ -369,10 +370,10 @@ export function SchoolFormationDetailPage() {
         <aside className="school-session-panel school-session-panel-v2">
           <div className="school-session-panel-price">
             <small>Tarif de la formation</small>
-            {hasDiscount && <del>{formatSchoolMoney(displayBasePrice, formation.currency)}</del>}
-            <strong>{formatSchoolMoney(displayPrice, formation.currency)}</strong>
+            {hasDiscount && <del>{formatSchoolMoney(displayBasePrice, formation.currency, school.default_currency, currencyRates)}</del>}
+            <strong>{formatSchoolMoney(displayPrice, formation.currency, school.default_currency, currencyRates)}</strong>
             {planSession ? (
-              <PaymentPlan session={planSession} mode={paymentMode} onChange={setPaymentMode} />
+              <PaymentPlan session={planSession} mode={paymentMode} onChange={setPaymentMode} displayCurrency={school.default_currency} currencyRates={currencyRates} />
             ) : (
               <>
                 {formation.allow_installments && <span>Paiement possible jusqu’en {formation.installment_count} tranches.</span>}
@@ -408,6 +409,8 @@ export function SchoolFormationDetailPage() {
                       key={session.id}
                       session={session}
                       selected={session.id === sessionId}
+                      displayCurrency={school.default_currency}
+                      currencyRates={currencyRates}
                       onSelect={() => {
                         if (!session.can_purchase) return
                         setSessionId(session.id)
@@ -437,12 +440,14 @@ function formatDay(iso: string) {
  * What the student pays today and later for this session, as on the checkout. When the school
  * allows instalments, the visitor picks here; the choice goes to the cart and the checkout.
  */
-function PaymentPlan({ session, mode, onChange }: {
+function PaymentPlan({ session, mode, onChange, displayCurrency, currencyRates }: {
   session: PublicSession
   mode: 'full' | 'installments'
   onChange: (mode: 'full' | 'installments') => void
+  displayCurrency: string
+  currencyRates: SchoolCurrencyRates | null
 }) {
-  const money = (amount: number) => formatSchoolMoney(amount, session.currency)
+  const money = (amount: number) => formatSchoolMoney(amount, session.currency, displayCurrency, currencyRates)
   const plan = session.schedule_installments
   const hasDeposit = session.deposit_cents != null
   const canSplit = plan.length >= 2
@@ -483,7 +488,13 @@ function splitDepositLabel(payments: number) {
   return payments > 2 ? `Acompte, puis le solde en ${payments - 1} fois` : 'Acompte, puis le solde plus tard'
 }
 
-function SessionChoice({ session, selected, onSelect }: { session: PublicSession; selected: boolean; onSelect: () => void }) {
+function SessionChoice({ session, selected, onSelect, displayCurrency, currencyRates }: {
+  session: PublicSession
+  selected: boolean
+  onSelect: () => void
+  displayCurrency: string
+  currencyRates: SchoolCurrencyRates | null
+}) {
   return (
     <button
       type="button"
@@ -499,8 +510,8 @@ function SessionChoice({ session, selected, onSelect }: { session: PublicSession
         {!session.can_purchase && <small>{session.unavailable_reason}</small>}
       </div>
       <div className="school-session-price">
-        {session.promotion_discount_cents > 0 && <del>{formatSchoolMoney(session.price_cents, session.currency)}</del>}
-        <strong>{formatSchoolMoney(session.current_price_cents, session.currency)}</strong>
+        {session.promotion_discount_cents > 0 && <del>{formatSchoolMoney(session.price_cents, session.currency, displayCurrency, currencyRates)}</del>}
+        <strong>{formatSchoolMoney(session.current_price_cents, session.currency, displayCurrency, currencyRates)}</strong>
         {session.can_purchase && <CheckCircle2 size={15} />}
       </div>
     </button>

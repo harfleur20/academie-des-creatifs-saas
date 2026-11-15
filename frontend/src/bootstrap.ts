@@ -1,4 +1,10 @@
-import { getAccessToken, getStoredOrganizationId } from './lib/api'
+import { getAccessToken, getStoredOrganizationId, type PublicSchool } from './lib/api'
+import {
+  applySchoolLoginBranding,
+  cacheSchoolLoginBranding,
+  readSchoolLoginBranding,
+  toSchoolLoginBranding,
+} from './lib/schoolLoginBranding'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const BRAND_CACHE_PREFIX = 'academie_saas_school_branding:'
@@ -95,21 +101,27 @@ async function prehydratePublicSchool() {
 
   const encodedKey = match[1]
   const schoolKey = decodeURIComponent(encodedKey)
+  const cached = readSchoolLoginBranding(schoolKey)
+  if (cached) {
+    // Apply the last known school identity before the network request so a
+    // refresh never briefly exposes the platform's title or favicon.
+    applySchoolLoginBranding(cached)
+  } else {
+    document.title = 'Chargement du site de l’école…'
+    document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
+  }
+
   try {
     const response = await fetch(
       `${API_BASE}/public/schools/${encodeURIComponent(schoolKey)}/identity`,
       { cache: 'no-store' },
     )
     if (!response.ok) return
-    const school = await response.json() as {
-      slug: string
-      site_name: string
-      name: string
-      logo_url: string | null
-      favicon_url: string | null
-    }
-    document.title = school.site_name || school.name
-    setFavicon(school.favicon_url || school.logo_url)
+    const school = await response.json() as PublicSchool
+    const branding = toSchoolLoginBranding(school)
+    cacheSchoolLoginBranding(schoolKey, branding)
+    if (school.slug !== schoolKey) cacheSchoolLoginBranding(school.slug, branding)
+    applySchoolLoginBranding(branding)
 
     if (school.slug && school.slug !== schoolKey) {
       const prefix = `/school/${encodedKey}`
@@ -125,11 +137,46 @@ async function prehydratePublicSchool() {
   }
 }
 
+async function prehydrateSchoolLogin() {
+  const schoolKey = new URLSearchParams(window.location.search).get('school')?.trim()
+  if (!schoolKey) return
+
+  const cached = readSchoolLoginBranding(schoolKey)
+  if (cached) {
+    applySchoolLoginBranding(cached)
+    return
+  }
+
+  document.title = 'Inscription à l’école'
+  document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
+
+  try {
+    const response = await Promise.race([
+      fetch(`${API_BASE}/public/schools/${encodeURIComponent(schoolKey)}/identity`, {
+        cache: 'no-store',
+      }),
+      new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error('school branding timeout')), 1800)
+      }),
+    ])
+    if (!response.ok) return
+    const school = await response.json() as PublicSchool
+    const branding = toSchoolLoginBranding(school)
+    cacheSchoolLoginBranding(schoolKey, branding)
+    if (school.slug !== schoolKey) cacheSchoolLoginBranding(school.slug, branding)
+    applySchoolLoginBranding(branding)
+  } catch {
+    // React shows a neutral loading/error state instead of platform branding.
+  }
+}
+
 async function bootstrap() {
   if (window.location.pathname.startsWith('/app')) {
     await prehydrateWorkspaceBranding()
   } else if (window.location.pathname.startsWith('/school/')) {
     await prehydratePublicSchool()
+  } else if (window.location.pathname === '/login') {
+    await prehydrateSchoolLogin()
   }
   await import('./main')
 }

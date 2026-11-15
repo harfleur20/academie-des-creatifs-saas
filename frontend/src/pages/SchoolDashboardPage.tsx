@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ChevronRight, BookOpen, Building2, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
+import { ChevronRight, BookOpen, CalendarDays, Clock3, CreditCard, GraduationCap, ShoppingCart, Store, UserPlus, Users } from 'lucide-react'
 import { billingPathFor, clearPlanChoice, PAY_FIRST_PLANS, readPlanChoice } from '../lib/planChoice'
 import {
   createOrganization,
@@ -305,7 +305,7 @@ export function SchoolDashboardPage() {
       <main className="app-page onboarding-page">
         <div className="onboarding-card">
           <span className="page-kicker">Première configuration</span>
-          <div className="large-icon"><Building2 size={28} /></div>
+          <div className="large-icon"><span className="onboarding-school-logo" role="img" aria-label="Logo de l’Académie des Créatifs" /></div>
           <h1>Créez votre première école</h1>
           <p>
             Ce sera votre espace isolé. Vous pourrez ensuite inviter vos administrateurs,

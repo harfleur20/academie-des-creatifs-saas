@@ -52,7 +52,7 @@
 }
 
 .transcript__status.is-provisional { background: #fff4e5; color: #b45309; }
-.transcript__status.is-final { background: #e6f6f5; color: #0b8a83; }
+.transcript__status.is-final { border: 1px solid #1f2559; border-radius: 8px; background: transparent; color: #1f2559; }
 
 .transcript__figures {
   display: grid;

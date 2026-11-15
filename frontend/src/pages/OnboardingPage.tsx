@@ -4,8 +4,8 @@ import {
   Check,
   Circle,
   GraduationCap,
+  Rocket,
   Settings2,
-  Sparkles,
   Users,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -111,7 +111,7 @@ export function OnboardingPage() {
           </p>
         </div>
         {status && (
-          <span className="status-chip">
+          <span className="status-chip onboarding-step-count">
             {status.completed_steps}/{status.total_steps} étapes
           </span>
         )}
@@ -121,7 +121,7 @@ export function OnboardingPage() {
 
       {trial && trial.trial_ends_at && (
         <div className="billing-alert neutral onboarding-trial">
-          <Sparkles size={19} />
+          <Rocket size={19} />
           <div>
             <strong>Votre essai {trial.plan.name} commence</strong>
             <span>

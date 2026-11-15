@@ -3,12 +3,26 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.entities import FormationRecord, OrganizationRecord, SchoolFavoriteRecord, UserRecord
+from app.models.entities import FormationRecord, OrganizationMemberRecord, OrganizationRecord, SchoolFavoriteRecord, UserRecord
 from app.schemas.commerce import PublicFormationCardRead
+from app.services.demo import is_demo_organization
 from app.services.public_catalog import list_public_formations
 
 
+def _require_school_membership(db: Session, org: OrganizationRecord, user: UserRecord) -> None:
+    if is_demo_organization(org):
+        return
+    membership_id = db.scalar(select(OrganizationMemberRecord.id).where(
+        OrganizationMemberRecord.organization_id == org.id,
+        OrganizationMemberRecord.user_id == user.id,
+        OrganizationMemberRecord.status == "active",
+    ))
+    if membership_id is None:
+        raise HTTPException(403, "Votre compte n’est pas encore inscrit à cette école.")
+
+
 def list_school_favorites(db: Session, org: OrganizationRecord, user: UserRecord) -> list[PublicFormationCardRead]:
+    _require_school_membership(db, org, user)
     rows = db.scalars(
         select(SchoolFavoriteRecord)
         .where(SchoolFavoriteRecord.organization_id == org.id, SchoolFavoriteRecord.user_id == user.id)
@@ -21,6 +35,7 @@ def list_school_favorites(db: Session, org: OrganizationRecord, user: UserRecord
 def add_school_favorite(db: Session, org: OrganizationRecord, user: UserRecord, slug: str) -> list[PublicFormationCardRead]:
     from app.services.demo import require_not_demo
 
+    _require_school_membership(db, org, user)
     require_not_demo(org)
     card = next((item for item in list_public_formations(db, org) if item.slug == slug), None)
     if card is None:
@@ -40,6 +55,7 @@ def add_school_favorite(db: Session, org: OrganizationRecord, user: UserRecord, 
 
 
 def remove_school_favorite(db: Session, org: OrganizationRecord, user: UserRecord, slug: str) -> list[PublicFormationCardRead]:
+    _require_school_membership(db, org, user)
     favorite = db.scalar(
         select(SchoolFavoriteRecord)
         .join(FormationRecord, FormationRecord.id == SchoolFavoriteRecord.formation_id)

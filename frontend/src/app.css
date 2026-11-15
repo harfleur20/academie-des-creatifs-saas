@@ -249,11 +249,20 @@
 .app-brand-wordmark {
   display: block;
   width: auto;
-  height: 56px;
+  height: 50px;
   line-height: 1;
   letter-spacing: .08em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.onboarding-school-logo {
+  display: block;
+  width: 38px;
+  height: 38px;
+  background-color: var(--blue, #1f2559);
+  -webkit-mask: url('/logo-academie-icone.png') center / contain no-repeat;
+  mask: url('/logo-academie-icone.png') center / contain no-repeat;
 }
 
 .school-switcher {
@@ -541,9 +550,10 @@
 
 .status-chip {
   padding: 9px 12px;
-  border-radius: 999px;
-  color: #08774f;
-  background: var(--green-soft);
+  border: 1px solid #1f2559;
+  border-radius: 8px;
+  color: #1f2559;
+  background: transparent;
   font-size: var(--text-small);
   font-weight: 800;
 }
@@ -602,6 +612,8 @@
 }
 
 .status-chip.is-inactive {
+  border: 0;
+  border-radius: 999px;
   color: #963c3c;
   background: #ffeded;
 }
@@ -853,8 +865,10 @@
 }
 
 .member-status.active {
-  color: #08774f;
-  background: var(--green-soft);
+  border: 1px solid #1f2559;
+  border-radius: 8px;
+  color: #1f2559;
+  background: transparent;
 }
 
 .member-status.suspended {
@@ -1245,9 +1259,10 @@
   top: 18px;
   right: 18px;
   padding: 6px 9px;
-  border-radius: 999px;
-  color: #08774f;
-  background: var(--green-soft);
+  border: 1px solid #1f2559;
+  border-radius: 8px;
+  color: #1f2559;
+  background: transparent;
   font-size: var(--text-small);
   font-weight: 800;
 }
@@ -1586,8 +1601,10 @@
 }
 
 .invoice-status.paid {
-  color: #08774f;
-  background: var(--green-soft);
+  border: 1px solid #1f2559;
+  border-radius: 8px;
+  color: #1f2559;
+  background: transparent;
 }
 
 .invoice-status.open {
@@ -2409,8 +2426,10 @@
 
 .admin-subscription-status.active,
 .admin-subscription-status.trialing {
-  color: #08774f;
-  background: #e9f9f2;
+  border: 1px solid #1f2559;
+  border-radius: 8px;
+  color: #1f2559;
+  background: transparent;
 }
 
 .admin-subscription-status.past_due {
@@ -3234,7 +3253,7 @@
 }
 
 .onboarding-done {
-  color: #08774f;
+  color: #1c8480;
 }
 
 .onboarding-current {
@@ -3518,8 +3537,10 @@
 }
 
 .formation-status.published {
-  color: #08774f;
-  background: #e9f9f2;
+  border: 1px solid #1f2559;
+  border-radius: 8px;
+  color: #1f2559;
+  background: transparent;
 }
 
 .formation-card-meta {
@@ -3562,7 +3583,8 @@
 }
 
 .formation-readiness, .formation-presentation { margin-bottom: 16px; padding: 20px; }
-.formation-readiness { border-color: #efcf9a; background: #fffaf1; }
+.formation-readiness { border: 0; background: #fffaf1; }
+.formation-readiness > .compact-action { display: flex; width: max-content; margin-top: 12px; }
 .formation-readiness strong, .formation-card-issues strong { color: #80500d; }
 .formation-readiness ul, .formation-card-issues ul { margin: 8px 0 0; padding-left: 20px; color: #80500d; line-height: 1.6; }
 .formation-card-issues { margin-top: 14px; padding: 12px; border-radius: 10px; background: #fffaf1; font-size: var(--text-small); }
@@ -4404,8 +4426,10 @@
 }
 
 .assignment-status.reviewed {
-  color: #08774f;
-  background: #eaf9f2;
+  border: 1px solid #1f2559;
+  border-radius: 8px;
+  color: #1f2559;
+  background: transparent;
 }
 
 .assignment-grade {
@@ -5371,7 +5395,7 @@
   font-size: var(--text-small);
 }
 
-.attendance-status.present { color: #08774f; background: #eaf9f2; }
+.attendance-status.present { border: 1px solid #1f2559; border-radius: 8px; color: #1f2559; background: transparent; }
 .attendance-status.late { color: #2f6a8f; background: #e8f3fb; }
 .attendance-status.absent { color: #a43e3e; background: #fff0f0; }
 .attendance-status.excused { color: #846000; background: #fff4d6; }
@@ -7544,7 +7568,7 @@
   border-radius: 999px;
   font-size: var(--text-small);
 }
-.monitoring-signal.good { color: #08774f; background: #eaf9f2; }
+.monitoring-signal.good { border: 1px solid #1f2559; border-radius: 8px; color: #1f2559; background: transparent; }
 .monitoring-signal.warning { color: #8a6400; background: #fff7dc; }
 .monitoring-signal.danger { color: #a43e3e; background: #fff0f0; }
 
@@ -7920,7 +7944,7 @@
 .billing-usage__total { padding-top: 8px; border-top: 1px solid #e6ebf2; font-weight: 800; color: #131735; }
 .billing-plan-commission { color: #087a55; font-weight: 700; }
 .billing-plan-card.chosen { border: 2px solid #1c8480; box-shadow: 0 18px 40px rgba(28, 132, 128, .16); }
-.current-badge.chosen-badge { background: #1c8480; color: #fff; }
+.current-badge.chosen-badge { border-color: #1f2559; background: transparent; color: #1f2559; }
 .billing-choice { margin-bottom: 18px; }
 .onboarding-trial { margin-bottom: 18px; }
 .billing-plan-period { display: block; margin: -4px 0 12px; color: var(--muted); font-size: var(--text-small); font-weight: 600; }
@@ -7955,7 +7979,7 @@
 .revenue-list strong { color: #131735; }
 .revenue-list small { font-size: var(--text-small); color: #637188; overflow-wrap: anywhere; }
 .revenue-status { flex: none; padding: 4px 10px; border-radius: 999px; font-size: var(--text-small); font-weight: 800; background: #eef0fb; color: #1f2559; }
-.revenue-status.is-paid { background: #dff9ef; color: #087a55; }
+.revenue-status.is-paid { border: 1px solid #1f2559; border-radius: 8px; background: transparent; color: #1f2559; }
 .revenue-status.is-rejected { background: #fdecec; color: #b42318; }
 .revenue-status.is-cancelled { background: #f2f4f7; color: #637188; }
 .revenue-table { display: grid; }
@@ -7984,6 +8008,30 @@
 /* The plan picked on the landing page, reminded on the signup form. */
 .auth-plan-choice { display: grid; gap: 2px; margin: 0 0 18px; padding: 12px 14px; border-radius: 14px; background: #f1f9f8; text-align: left; }
 .auth-plan-choice span { color: #1c8480; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+
+.school-currency-help {
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.school-cart-drawer-footer .school-currency-conversion-note {
+  display: block;
+  margin: -10px 0 14px;
+  color: #718096;
+  font-size: var(--text-small);
+  line-height: 1.45;
+}
+
+/* Keep successful status labels consistent with the blue outlined badge. */
+.student-access-status.active,
+.order-status.paid {
+  border: 1px solid #1f2559;
+  border-radius: 8px;
+  color: #1f2559;
+  background: transparent;
+}
 .auth-plan-choice strong { color: #1f2352; font-size: 15px; }
 .auth-plan-choice small { color: #5d6b82; font-size: 12.5px; line-height: 1.45; }
 
@@ -8026,3 +8074,12 @@ button.monitoring-row:focus-visible { outline: 2px solid #1c8480; outline-offset
 .course-reports-missing__row { display: grid; grid-template-columns: 1.2fr 1.6fr 1fr 1fr 1fr; gap: 10px; align-items: center; padding: 11px 8px; border-top: 1px solid #eef1f4; font-size: var(--text-small); }
 .course-reports-missing__row.is-head { border-top: 0; color: var(--muted); font-size: var(--text-small); font-weight: 800; }
 .course-reports-missing__late { color: #b42318; font-weight: 700; }
+
+/* Public school: choices shown when the signed-in account has no membership. */
+.school-workspace-entry-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 15px; margin-top: 8px; }
+.school-workspace-entry-actions .school-primary-link { min-height: 56px; box-sizing: border-box; margin: 0; }
+.school-account-switch-button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 56px; padding: 8px 22px 8px 12px; border: 0; border-radius: 999px; background: #f0f1f4; color: var(--school-primary, #1f2352); font: inherit; font-size: var(--site-small, 15px); font-weight: 800; cursor: pointer; transition: background-color .18s ease, color .18s ease; }
+.school-account-switch-icon { width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 40px; border-radius: 50%; background: #e7e8ee; color: var(--school-primary, #1f2352); }
+.school-account-switch-button:hover { background: #e9eaf0; }
+.school-account-switch-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--school-primary, #1f2352) 30%, transparent); outline-offset: 2px; }
+@media (max-width: 640px) { .school-workspace-entry-actions { width: 100%; flex-direction: column; } .school-workspace-entry-actions > * { max-width: 100%; } }
