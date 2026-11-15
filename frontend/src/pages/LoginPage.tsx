@@ -265,7 +265,7 @@ export function LoginPage() {
     else rememberPlatformAuthOrigin()
   }
 
-  const invitationBrand = invitation ? {
+  const invitationBrand: HostBranding | null = invitation ? {
     organization_id: invitation.organization_id,
     name: invitation.organization_name,
     slug: '',
@@ -275,7 +275,7 @@ export function LoginPage() {
     primary_color: invitation.primary_color,
     secondary_color: invitation.secondary_color,
     accent_color: invitation.secondary_color,
-  } satisfies HostBranding : null
+  } : null
   const activeBrand = invitationBrand || hostBrand
   const isInvitation = Boolean(invitationToken)
   const isPublicSchool = Boolean(schoolKey || hostBrand || invitation)
