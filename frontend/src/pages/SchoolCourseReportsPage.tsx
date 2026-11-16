@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState } from 'react'
 import { useTenant } from '../app/TenantContext'
 import { PedagogyFilterBar } from '../components/PedagogyFilterBar'
@@ -10,7 +11,7 @@ import { usePedagogyFilters, type FilterSession, type FilterTeacher } from '../l
 const statusLabel: Record<SchoolCourseDayReport['delivery_status'], string> = {
   held: 'Tenue', partial: 'Partielle', not_held: 'Non tenue', interrupted: 'Interrompue',
 }
-const dateLabel = (value: string) => new Date(value).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+const dateLabel = (value: string) => new Date(value).toLocaleString(activeSchoolLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 const plural = (count: number, one: string, many: string) => `${count} ${count > 1 ? many : one}`
 
 function lateLabel(endsAt: string) {
@@ -72,16 +73,16 @@ export function SchoolCourseReportsPage() {
     return { sessions: [...bySession.values()], teachers: [...byTeacher.values()] }
   }, [visibleReports, visibleMissing])
 
-  const needle = query.trim().toLocaleLowerCase('fr-FR')
+  const needle = query.trim().toLocaleLowerCase(activeSchoolLocale())
   const filteredReports = useMemo(() => visibleReports.filter((report) => {
     if (!matches({ formationId: report.formation_id, sessionId: report.session_id, teacherIds: report.teacher_id ? [report.teacher_id] : [], date: report.scheduled_at })) return false
     if (status && report.delivery_status !== status) return false
-    const haystack = `${report.formation_title} ${report.session_label} ${report.title} ${report.teacher_name || ''}`.toLocaleLowerCase('fr-FR')
+    const haystack = `${report.formation_title} ${report.session_label} ${report.title} ${report.teacher_name || ''}`.toLocaleLowerCase(activeSchoolLocale())
     return haystack.includes(needle)
   }), [visibleReports, matches, status, needle])
   const filteredMissing = useMemo(() => visibleMissing.filter((day) => {
     if (!matches({ formationId: day.formation_id, sessionId: day.session_id, teacherIds: day.teacher_id ? [day.teacher_id] : [], date: day.scheduled_at })) return false
-    const haystack = `${day.formation_title} ${day.session_label} ${day.title} ${day.teacher_name || ''}`.toLocaleLowerCase('fr-FR')
+    const haystack = `${day.formation_title} ${day.session_label} ${day.title} ${day.teacher_name || ''}`.toLocaleLowerCase(activeSchoolLocale())
     return haystack.includes(needle)
   }), [visibleMissing, matches, needle])
 

@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import {
   AlertTriangle,
@@ -15,13 +16,13 @@ import {
 
 function formatRevenue(amount: number, currency: string) {
   if (currency.toUpperCase() === 'XAF') {
-    return new Intl.NumberFormat('fr-FR', {
+    return new Intl.NumberFormat(activeSchoolLocale(), {
       style: 'currency',
       currency: 'XAF',
       maximumFractionDigits: 0,
     }).format(amount)
   }
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat(activeSchoolLocale(), {
     style: 'currency',
     currency,
   }).format(amount / 100)

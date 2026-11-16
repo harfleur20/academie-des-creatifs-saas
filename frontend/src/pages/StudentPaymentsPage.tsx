@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import {
   AlertTriangle,
   Check,
@@ -24,7 +25,7 @@ import { formatSchoolMoney } from '../public/publicHelpers'
 type PaymentTab = 'all' | 'installments' | 'single' | 'pending'
 
 function shortDate(value: string) {
-  return new Date(value).toLocaleDateString('fr-FR', {
+  return new Date(value).toLocaleDateString(activeSchoolLocale(), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

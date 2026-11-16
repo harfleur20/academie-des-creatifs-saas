@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type ReactNode } from 'react'
 import {
   ArrowRight,
@@ -113,9 +114,9 @@ const FAQ = [
 function formatPrice(amount: number, currency: string) {
   // XAF has no subunit: amounts are stored in whole francs.
   if (currency.toUpperCase() === 'XAF') {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(amount)
+    return new Intl.NumberFormat(activeSchoolLocale(), { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(amount)
   }
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount / 100)
+  return new Intl.NumberFormat(activeSchoolLocale(), { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount / 100)
 }
 
 /** Fades sections in as they scroll into view; everything stays visible without it. */
@@ -379,7 +380,7 @@ function Pricing() {
                     const commissionRate = plan.sales_commission_bps
                     const commissionPercent = commissionRate === undefined
                       ? null
-                      : (commissionRate / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })
+                      : (commissionRate / 100).toLocaleString(activeSchoolLocale(), { maximumFractionDigits: 2 })
                     const salesAmount = Math.max(0, Number(monthlySales) || 0)
                     const currencyScale = plan.currency.toUpperCase() === 'XAF' ? 1 : 100
                     const commissionAmount = commissionRate === undefined

@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import {
   Banknote,
   CalendarDays,
@@ -396,7 +397,7 @@ export function SchoolCheckoutPage() {
             <div className="school-checkout-item">
               {item.cover_image_url && <img src={item.cover_image_url} alt="" />}
               <div>
-                <h2>{item.formation_title}</h2>
+                <h2 data-no-translate>{item.formation_title}</h2>
                 <p>{item.format_type === 'ligne' || item.session_label === 'Accès en ligne' ? 'Formation en ligne' : `Session : ${item.session_label}`}</p>
               </div>
               <strong>{money(total)}</strong>
@@ -529,7 +530,7 @@ function splitDepositLabel(payments: number) {
 }
 
 function formatDay(iso: string) {
-  return new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  return new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString(activeSchoolLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function PaymentOption({ selected, onSelect, title, text }: { selected: boolean; onSelect: () => void; title: string; text: string }) {

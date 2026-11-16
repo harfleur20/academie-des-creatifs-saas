@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { BriefcaseBusiness, Copy, Eye, FileText, Globe2, Link2, MailPlus, MapPin, RefreshCw, UserRound, Users, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -149,7 +150,7 @@ export function TeachersManagementPage() {
       {teachers.length === 0 && <div className="app-card formation-empty"><Users size={26} /><strong>Aucun professeur</strong><p>Invitez votre premier enseignant.</p></div>}
     </section>
 
-    {pending.length > 0 && <section className="app-card"><div className="table-heading"><div><span className="section-label">Invitations</span><h2>En attente</h2></div></div><div className="invitation-list">{pending.map((invitation) => <div className="invitation-row teacher-invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><small>Expire le {new Date(invitation.expires_at).toLocaleDateString('fr-FR')}</small>{tokens[invitation.id] && <InvitationLink token={tokens[invitation.id]} />}</div><div className="teacher-invitation-actions"><button className="secondary-button" type="button" disabled={working || !invitationReady} onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button><button className="text-danger-button" type="button" disabled={working} onClick={() => void cancel(invitation)}>Annuler</button></div></div>)}</div></section>}
+    {pending.length > 0 && <section className="app-card"><div className="table-heading"><div><span className="section-label">Invitations</span><h2>En attente</h2></div></div><div className="invitation-list">{pending.map((invitation) => <div className="invitation-row teacher-invitation-row" key={invitation.id}><div><strong>{invitation.email}</strong><small>Expire le {new Date(invitation.expires_at).toLocaleDateString(activeSchoolLocale())}</small>{tokens[invitation.id] && <InvitationLink token={tokens[invitation.id]} />}</div><div className="teacher-invitation-actions"><button className="secondary-button" type="button" disabled={working || !invitationReady} onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button><button className="text-danger-button" type="button" disabled={working} onClick={() => void cancel(invitation)}>Annuler</button></div></div>)}</div></section>}
 
     {selectedTeacher && <div className="teacher-profile-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeTeacherProfile() }}>
       <section className="teacher-profile-modal" role="dialog" aria-modal="true" aria-label={`Fiche de ${selectedTeacher.user.full_name}`}>

@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   BarChart3,
@@ -323,7 +324,7 @@ export function TeacherQuizzesPage() {
         <div className="dsh-modal-overlay" onClick={() => setResults(null)}>
           <div className="dsh-modal dsh-modal--large teacher-results-modal" onClick={(event) => event.stopPropagation()}>
             <div className="dsh-modal__header"><div><span className="section-label">Résultats</span><h3>{results.title}</h3><p>{results.total_students} étudiant(s) inscrits</p></div><button className="dsh-icon-btn" type="button" onClick={() => setResults(null)}><X size={16} /></button></div>
-            <div className="teacher-results-list">{results.attempts.map((attempt, index) => <article key={index}><strong>{attempt.student_name}</strong><span>Tentative {attempt.attempt_number}</span><strong>{attempt.score_pct}%</strong><small>{new Date(attempt.submitted_at).toLocaleString('fr-FR')}</small></article>)}{results.attempts.length === 0 && <div className="dsh-empty">Aucune tentative.</div>}</div>
+            <div className="teacher-results-list">{results.attempts.map((attempt, index) => <article key={index}><strong>{attempt.student_name}</strong><span>Tentative {attempt.attempt_number}</span><strong>{attempt.score_pct}%</strong><small>{new Date(attempt.submitted_at).toLocaleString(activeSchoolLocale())}</small></article>)}{results.attempts.length === 0 && <div className="dsh-empty">Aucune tentative.</div>}</div>
           </div>
         </div>
       )}

@@ -46,6 +46,7 @@ def _migration(name: str):
 grid = _migration("20261114_0066_live_for_every_plan")
 addons = _migration("20261112_0062_free_plan_annual_discount")
 current_limits = _migration("20261115_0070_adjust_live_plan_limits").LIMITS
+organization_limits = _migration("20261116_0074_organization_creation_quotas").PLAN_LIMITS
 NOW = datetime.now(UTC)
 _unique = itertools.count()
 
@@ -54,6 +55,7 @@ def plans(db) -> dict[str, PlanRecord]:
     """The grid the migration puts in production."""
     out = {}
     for code, (name, description, monthly, annual, commission, trial_days, entitlements) in grid.PLANS.items():
+        entitlements = [*entitlements, ("organizations", True, organization_limits[code])]
         plan = PlanRecord(code=code, name=name, description=description, currency="XAF",
                           monthly_price_cents=monthly, annual_price_cents=annual, trial_days=trial_days,
                           is_public=True, is_active=True, sales_commission_bps=commission)

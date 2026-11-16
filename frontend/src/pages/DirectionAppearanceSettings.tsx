@@ -15,10 +15,12 @@ const accentPresets = [
 
 export function DirectionAppearanceSettings() {
   const { activeOrganization, refreshOrganizations } = useTenant()
+  const organization = activeOrganization
+  const currentSidebarCollapsed = activeOrganization?.direction_sidebar_collapsed ?? false
   const { supportMode } = useAuth()
   const [accentColor, setAccentColor] = useState('#18A7A3')
   const [followSchoolAccent, setFollowSchoolAccent] = useState(true)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapseEnabled, setSidebarCollapseEnabled] = useState(true)
   const [supportsCompactSidebar, setSupportsCompactSidebar] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -28,10 +30,10 @@ export function DirectionAppearanceSettings() {
     const inheritedAccent = activeOrganization?.secondary_color || '#18A7A3'
     setFollowSchoolAccent(activeOrganization?.direction_accent_color == null)
     setAccentColor(activeOrganization?.direction_accent_color || inheritedAccent)
-    setSidebarCollapsed(activeOrganization?.direction_sidebar_collapsed ?? false)
+    setSidebarCollapseEnabled(activeOrganization?.direction_sidebar_collapse_enabled ?? true)
     setMessage('')
     setError('')
-  }, [activeOrganization?.id, activeOrganization?.secondary_color, activeOrganization?.direction_accent_color, activeOrganization?.direction_sidebar_collapsed])
+  }, [activeOrganization?.id, activeOrganization?.secondary_color, activeOrganization?.direction_accent_color, activeOrganization?.direction_sidebar_collapse_enabled, activeOrganization?.direction_sidebar_collapsed])
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 1024px)')
@@ -40,7 +42,7 @@ export function DirectionAppearanceSettings() {
     return () => media.removeEventListener('change', updateViewport)
   }, [])
 
-  if (!activeOrganization) return <div className="page-state">Créez d’abord une école.</div>
+  if (!organization) return <div className="page-state">Créez d’abord une école.</div>
 
   async function saveSettings(event: FormEvent) {
     event.preventDefault()
@@ -50,7 +52,10 @@ export function DirectionAppearanceSettings() {
     try {
       await updateCurrentOrganization({
         direction_accent_color: followSchoolAccent ? null : accentColor.toUpperCase(),
-        direction_sidebar_collapsed: sidebarCollapsed,
+        direction_sidebar_collapse_enabled: sidebarCollapseEnabled,
+        direction_sidebar_collapsed: sidebarCollapseEnabled
+          ? currentSidebarCollapsed
+          : false,
       })
       await refreshOrganizations()
       setMessage('Les préférences de l’espace Direction ont été enregistrées.')
@@ -133,27 +138,27 @@ export function DirectionAppearanceSettings() {
 
           <section className="direction-setting-block">
             <h3>Barre latérale</h3>
-            <p>Gardez la navigation complète ou réduisez-la à une colonne d’icônes.</p>
+            <p>La barre reste ouverte par défaut. Son icône permet de la rétracter quand vous le souhaitez.</p>
             <label className="direction-collapse-option">
               <input
                 type="checkbox"
-                checked={sidebarCollapsed}
-                onChange={(event) => setSidebarCollapsed(event.target.checked)}
+                checked={sidebarCollapseEnabled}
+                onChange={(event) => setSidebarCollapseEnabled(event.target.checked)}
                 disabled={Boolean(supportMode) || !supportsCompactSidebar}
               />
               <span>
-                <strong>Activer la barre latérale compacte</strong>
-                <small>Les libellés sont masqués. Le nom de l’école devient son initiale dans un cercle blanc.</small>
+                <strong>Autoriser la rétraction de la barre latérale</strong>
+                <small>Décocher masque l’icône de rétraction et garde la barre toujours ouverte.</small>
               </span>
             </label>
             {!supportsCompactSidebar && (
               <p className="direction-collapse-availability">Disponible sur les tablettes larges et les ordinateurs (écran de 1024 px ou plus).</p>
             )}
-            <div className={`direction-sidebar-preview${sidebarCollapsed ? ' is-collapsed' : ''}`} aria-hidden="true">
+            <div className={`direction-sidebar-preview${sidebarCollapseEnabled && activeOrganization.direction_sidebar_collapsed ? ' is-collapsed' : ''}`} aria-hidden="true">
               <div className="direction-sidebar-preview__brand"><PanelLeft size={18} /></div>
               <div className="direction-sidebar-preview__school">{activeOrganization.name.trim().charAt(0).toUpperCase() || '?'}</div>
               <div className="direction-sidebar-preview__items"><i /><i /><i /><i /></div>
-              <span>{sidebarCollapsed ? 'Navigation compacte' : 'Navigation complète'}</span>
+              <span>{sidebarCollapseEnabled && activeOrganization.direction_sidebar_collapsed ? 'Navigation compacte' : 'Navigation complète'}</span>
             </div>
           </section>
         </div>

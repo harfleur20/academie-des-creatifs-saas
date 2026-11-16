@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { ChevronDown, GraduationCap, Save } from 'lucide-react'
 import {
@@ -108,7 +109,7 @@ export function TeacherGradesPage() {
         <div className="grade-entry-fields">
           <label>Séance liée<select value={courseDayId ?? ''} onChange={(event) => setCourseDayId(event.target.value ? Number(event.target.value) : null)}>
             <option value="">Note globale de la session</option>
-            {gradebook.course_days.map((item) => <option key={item.id} value={item.id}>{item.title} · {new Date(item.scheduled_at).toLocaleDateString('fr-FR')}</option>)}
+            {gradebook.course_days.map((item) => <option key={item.id} value={item.id}>{item.title} · {new Date(item.scheduled_at).toLocaleDateString(activeSchoolLocale())}</option>)}
           </select></label>
           <label>Intitulé<input value={label} onChange={(event) => setLabel(event.target.value)} maxLength={180} required placeholder="Examen mi-parcours" /></label>
           <label>Barème<input type="number" min={1} value={maxScore} onChange={(event) => setMaxScore(event.target.value)} required /></label>

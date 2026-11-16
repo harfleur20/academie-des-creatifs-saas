@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
@@ -59,10 +60,10 @@ export function StudentSessionPlanningPage() {
               <article className="app-card planning-day-card" key={day.id}>
                 <div className="planning-day-date">
                   <strong>
-                    {new Intl.DateTimeFormat('fr-FR', { day: '2-digit' }).format(new Date(day.scheduled_at))}
+                    {new Intl.DateTimeFormat(activeSchoolLocale(), { day: '2-digit' }).format(new Date(day.scheduled_at))}
                   </strong>
                   <span>
-                    {new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(new Date(day.scheduled_at))}
+                    {new Intl.DateTimeFormat(activeSchoolLocale(), { month: 'short' }).format(new Date(day.scheduled_at))}
                   </span>
                 </div>
                 <div className="planning-day-main">
@@ -71,7 +72,7 @@ export function StudentSessionPlanningPage() {
                     <h3>{day.title}</h3>
                   </div>
                   <div className="planning-day-meta">
-                    <span><Clock3 size={14} /> {new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(day.scheduled_at))} · {formatDuration(day.duration_minutes)}</span>
+                    <span><Clock3 size={14} /> {new Intl.DateTimeFormat(activeSchoolLocale(), { hour: '2-digit', minute: '2-digit' }).format(new Date(day.scheduled_at))} · {formatDuration(day.duration_minutes)}</span>
                     <span><UserRound size={14} /> {day.teacher_name || 'Professeur'}</span>
                   </div>
                 </div>

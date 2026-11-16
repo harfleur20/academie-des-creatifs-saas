@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import { Award, BookOpen, CheckCircle2, ClipboardCheck } from 'lucide-react'
 import {
@@ -110,7 +111,7 @@ export function StudentProgressPage() {
                           ? work.kind === 'quiz'
                             ? <>Quiz « {work.title} » : à rattraper</>
                             : <>TP « {work.title} » : en retard, vous pouvez encore le rendre</>
-                          : <>{work.kind === 'quiz' ? 'Quiz' : 'TP'} « {work.title} » avant le {new Date(work.due_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</>}
+                          : <>{work.kind === 'quiz' ? 'Quiz' : 'TP'} « {work.title} » avant le {new Date(work.due_at).toLocaleDateString(activeSchoolLocale(), { day: 'numeric', month: 'long' })}</>}
                       </li>
                     ))}
                   </ul>

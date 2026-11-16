@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -10,7 +11,7 @@ import {
 
 function formatDate(value: string | null) {
   if (!value) return '-'
-  return new Intl.DateTimeFormat('fr-FR', {
+  return new Intl.DateTimeFormat(activeSchoolLocale(), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

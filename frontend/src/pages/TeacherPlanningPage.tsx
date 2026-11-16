@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import { CalendarDays, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -9,7 +10,7 @@ import {
 } from '../lib/api'
 
 function dateLabel(value: string) {
-  return new Date(value).toLocaleDateString('fr-FR', {
+  return new Date(value).toLocaleDateString(activeSchoolLocale(), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

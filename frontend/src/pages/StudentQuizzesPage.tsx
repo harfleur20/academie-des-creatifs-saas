@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useRef, useState } from 'react'
 import {
   CheckCircle2,
@@ -201,7 +202,7 @@ export function StudentQuizzesPage() {
                 Meilleur score : {result.best_score_pct ?? 0}% · seuil de réussite : {result.pass_pct}%.
                 {!result.passed && result.attempts_remaining > 0 ? ` ${result.attempts_remaining} essai(s) restant(s).` : ''}
                 {!result.passed && result.next_attempt_available_at
-                  ? ` Vos 3 essais sont utilisés : un nouveau cycle de 3 essais s'ouvre le ${new Date(result.next_attempt_available_at).toLocaleString('fr-FR')}.`
+                  ? ` Vos 3 essais sont utilisés : un nouveau cycle de 3 essais s'ouvre le ${new Date(result.next_attempt_available_at).toLocaleString(activeSchoolLocale())}.`
                   : ''}
               </p>
             </div>
@@ -230,10 +231,10 @@ export function StudentQuizzesPage() {
                     {quiz.pdf_reading_pct !== null ? ` · PDF ${quiz.pdf_reading_pct}% lu` : ''}
                   </span>
                   {quiz.is_locked && !quiz.pdf_reading_locked && quiz.available_at && (
-                    <span className="dsh-list-item__meta">Disponible le {new Date(quiz.available_at).toLocaleString('fr-FR')}</span>
+                    <span className="dsh-list-item__meta">Disponible le {new Date(quiz.available_at).toLocaleString(activeSchoolLocale())}</span>
                   )}
                   {quiz.next_attempt_available_at && (
-                    <span className="dsh-list-item__meta">Prochain essai : {new Date(quiz.next_attempt_available_at).toLocaleString('fr-FR')}</span>
+                    <span className="dsh-list-item__meta">Prochain essai : {new Date(quiz.next_attempt_available_at).toLocaleString(activeSchoolLocale())}</span>
                   )}
                 </div>
 

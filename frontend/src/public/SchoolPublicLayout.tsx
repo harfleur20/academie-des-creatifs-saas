@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronDown, Heart, LayoutDashboard, LifeBuoy, Lock, Menu, Power, Settings, ShoppingBag, UserRound, X } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -10,11 +10,12 @@ import { SchoolLogo } from '../brand/SchoolLogo'
 import { clearAuthOrigin } from '../lib/authOrigin'
 import { schoolFontFamily } from '../brand/schoolTypography'
 import { addSchoolFavorite, getPublicSchoolIdentity, listSchoolFavorites, removeSchoolFavorite, type PublicFormationCard, type PublicSchool, type WorkspaceSpace } from '../lib/api'
-import { applySchoolLoginBranding, cacheSchoolLoginBranding, toSchoolLoginBranding } from '../lib/schoolLoginBranding'
+import { applySchoolLoginBranding, cacheSchoolLoginBranding, readSchoolLoginBranding, toSchoolLoginBranding } from '../lib/schoolLoginBranding'
 import { DEMO_LOCKED_MESSAGE } from '../lib/demoState'
 import { toast } from '../ui/toast'
 import { PersonAvatar } from '../components/PersonAvatar'
 import { clearSchoolCart, getSchoolCart, type SchoolCartItem } from './schoolCart'
+import { setSchoolInterfaceLocale } from '../app/schoolLocale'
 import { SchoolCartDrawer } from './SchoolCartDrawer'
 import { SchoolAnnouncementBanner } from './SchoolAnnouncementBanner'
 import { getCachedSchoolCurrencyRates, loadSchoolCurrencyRates, type SchoolCurrencyRates } from './currencyRates'
@@ -78,6 +79,10 @@ export function SchoolPublicLayout() {
     ? '/school/' + encodeURIComponent(schoolSlug) + '/espace'
     : '/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')
 
+  useLayoutEffect(() => {
+    setSchoolInterfaceLocale(readSchoolLoginBranding(schoolSlug)?.locale)
+  }, [schoolSlug])
+
   useEffect(() => {
     setAvatarBroken(false)
   }, [user?.id, user?.avatar_url])
@@ -134,6 +139,7 @@ export function SchoolPublicLayout() {
       .then((value) => {
         if (!active) return
         setSchool(value)
+        setSchoolInterfaceLocale(value.locale)
         const loginBrand = toSchoolLoginBranding(value)
         cacheSchoolLoginBranding(schoolSlug, loginBrand)
         if (value.slug !== schoolSlug) cacheSchoolLoginBranding(value.slug, loginBrand)
@@ -271,7 +277,7 @@ export function SchoolPublicLayout() {
       <header className="public-school-header">
         <Link className="public-school-brand" to={'/school/' + schoolSlug}>
           <SchoolLogo logoUrl={school.logo_url} alt={school.site_name} />
-          <strong>{school.site_name || school.name}</strong>
+          <strong data-no-translate>{school.site_name || school.name}</strong>
         </Link>
         <button className="public-school-mobile-menu" type="button" onClick={() => setMenuOpen((v) => !v)}>
           {menuOpen ? <X size={20}/> : <Menu size={20}/>}
@@ -349,23 +355,23 @@ export function SchoolPublicLayout() {
           <div>
             <div className="public-school-footer-brand">
               <SchoolLogo logoUrl={school.logo_url} alt={school.site_name} />
-              <strong>{school.site_name || school.name}</strong>
+              <strong data-no-translate>{school.site_name || school.name}</strong>
             </div>
-            <p>{school.footer_text || school.tagline}</p>
+            <p data-no-translate>{school.footer_text || school.tagline}</p>
           </div>
           <div><strong>Navigation</strong><Link to={'/school/' + schoolSlug}>Accueil</Link><Link to={'/school/' + schoolSlug + '/formations'}>Formations</Link><Link to={'/school/' + schoolSlug + '/contact'}>Nous contacter</Link></div>
           <div><strong>Informations</strong><Link to={'/school/' + schoolSlug + '/mentions-legales'}>Mentions légales</Link><Link to={'/school/' + schoolSlug + '/cgv'}>Conditions générales de vente</Link><Link to={'/school/' + schoolSlug + '/confidentialite'}>Confidentialité</Link><Link to={'/school/' + schoolSlug + '/remboursement'}>Remboursement / annulation</Link></div>
           {hasFooterContact && (
             <div className="public-school-footer-contact">
               <strong>Contact</strong>
-              {school.contact_address && <span>{school.contact_address}</span>}
+              {school.contact_address && <span data-no-translate>{school.contact_address}</span>}
               {school.contact_phone && <a href={'tel:' + school.contact_phone.replace(/\s+/g, '')}>{school.contact_phone}</a>}
               {school.contact_email && <a href={'mailto:' + school.contact_email}>{school.contact_email}</a>}
             </div>
           )}
         </div>
         <div className="public-school-footer-bottom">
-          <span>© {new Date().getFullYear()} {school.site_name || school.name}</span>
+          <span>© {new Date().getFullYear()} <span data-no-translate>{school.site_name || school.name}</span></span>
           {!school.white_label && <span className="public-school-powered">Powered by <a className="public-school-powered-link" href={school.platform_url || '/'} target="_blank" rel="noopener"><BrandLogo alt=""/> <strong>Académie des Créatifs</strong></a></span>}
         </div>
       </footer>

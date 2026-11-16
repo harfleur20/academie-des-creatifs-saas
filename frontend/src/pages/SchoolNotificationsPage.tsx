@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { Bell, Check, ChevronRight, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -46,7 +47,7 @@ export function SchoolNotificationsPage({ space }: { space: WorkspaceSpace }) {
       {!loading && visible.length === 0 && <div className="school-notifications-empty">{filter === 'unread' ? 'Aucune notification non lue.' : 'Aucune notification pour le moment.'}</div>}
       {visible.map((item) => <article key={item.id} className={`school-notifications-row ${item.read_at ? 'is-read' : ''}`}>
         <span className={`school-notif-dot is-${item.tone}`} />
-        <div><div className="school-notifications-row-head"><strong>{item.title}</strong><time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</time></div><p>{item.message}</p><small>{categoryNames[item.category] || item.category}</small></div>
+        <div><div className="school-notifications-row-head"><strong>{item.title}</strong><time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString(activeSchoolLocale(), { dateStyle: 'medium', timeStyle: 'short' })}</time></div><p>{item.message}</p><small>{categoryNames[item.category] || item.category}</small></div>
         <div className="school-notifications-row-actions">
           {item.action_path && <button type="button" onClick={() => void openNotification(item.id, item.action_path)}>{item.action_label || 'Voir'} <ChevronRight size={14} /></button>}
           {!item.read_at && !supportMode && <button type="button" onClick={() => void markRead([item.id])}>Marquer lu</button>}

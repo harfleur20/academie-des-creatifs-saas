@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import { CalendarDays, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -42,8 +43,8 @@ export function StudentPlanningPage() {
               <h3>{session.formation_title}</h3>
               <small>
                 {session.session_label} · du{' '}
-                {new Date(session.start_date).toLocaleDateString('fr-FR')} au{' '}
-                {new Date(session.end_date).toLocaleDateString('fr-FR')}
+                {new Date(session.start_date).toLocaleDateString(activeSchoolLocale())} au{' '}
+                {new Date(session.end_date).toLocaleDateString(activeSchoolLocale())}
               </small>
             </div>
             <ChevronRight size={17} />

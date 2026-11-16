@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useMemo, useState } from 'react'
 import { CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -81,7 +82,7 @@ export function RoleDashboardCalendar({
             <ChevronLeft size={15} />
           </button>
           <strong>
-            {capitalize(cursor.toLocaleDateString('fr-FR', {
+            {capitalize(cursor.toLocaleDateString(activeSchoolLocale(), {
               month: 'long',
               year: 'numeric',
             }))}
@@ -134,11 +135,11 @@ export function RoleDashboardCalendar({
           <strong>
             {selected === dateKey(today)
               ? 'Aujourd’hui'
-              : capitalize(selectedDate.toLocaleDateString('fr-FR', {
+              : capitalize(selectedDate.toLocaleDateString(activeSchoolLocale(), {
                   weekday: 'long',
                 }))}
             {' · '}
-            {selectedDate.toLocaleDateString('fr-FR', {
+            {selectedDate.toLocaleDateString(activeSchoolLocale(), {
               day: 'numeric',
               month: 'long',
               year: 'numeric',
@@ -159,12 +160,12 @@ export function RoleDashboardCalendar({
                   <strong>{item.title}</strong>
                   <p>
                     <b>
-                      {starts.toLocaleTimeString('fr-FR', {
+                      {starts.toLocaleTimeString(activeSchoolLocale(), {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
                       {'–'}
-                      {ends.toLocaleTimeString('fr-FR', {
+                      {ends.toLocaleTimeString(activeSchoolLocale(), {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}

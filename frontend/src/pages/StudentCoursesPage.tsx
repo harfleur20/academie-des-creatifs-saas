@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { BookOpen, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, LockKeyhole, PlayCircle } from 'lucide-react'
@@ -344,7 +345,7 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
 
   return <main className="app-page student-reader-page">
     {error && <div className="dsh-error">{error}</div>}
-    {session.is_locked && <div className="student-reader-lock">Ce parcours ouvrira au début de la session{session.available_at ? `, le ${new Date(session.available_at).toLocaleDateString('fr-FR')}` : ''}.</div>}
+    {session.is_locked && <div className="student-reader-lock">Ce parcours ouvrira au début de la session{session.available_at ? `, le ${new Date(session.available_at).toLocaleDateString(activeSchoolLocale())}` : ''}.</div>}
 
     <div className="dsh-page cv-layout">
       <aside className="cv-sidebar">
@@ -409,7 +410,7 @@ export function StudentCoursesPage({ mode }: { mode?: Mode }) {
                     className={`cv-lesson-item${activeLesson?.id === lesson.id ? ' is-active' : ''}${lesson.completed ? ' is-done' : ''}${lesson.is_locked ? ' is-locked' : ''}`}
                     key={lesson.id}
                     onClick={() => selectLesson(lesson, course.id, chapter.id)}
-                    title={lesson.is_locked ? `Disponible ${lesson.available_at ? `le ${new Date(lesson.available_at).toLocaleString('fr-FR')}` : 'plus tard'}` : undefined}
+                    title={lesson.is_locked ? `Disponible ${lesson.available_at ? `le ${new Date(lesson.available_at).toLocaleString(activeSchoolLocale())}` : 'plus tard'}` : undefined}
                   >
                     <span className="cv-lesson-item__check">{lesson.completed ? <CheckCircle2 size={13} /> : <PlayCircle size={12} />}</span>
                     <span className="cv-lesson-item__label">Leçon {lessonIndex + 1} : {lesson.title}</span>

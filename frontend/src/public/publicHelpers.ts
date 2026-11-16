@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import type { SchoolCurrencyRates } from './currencyRates'
 
 export function hasSchoolCurrencyRate(fromCurrency: string, toCurrency: string, rates: SchoolCurrencyRates | null) {
@@ -28,9 +29,9 @@ export function formatSchoolMoney(
   }
 
   if (target === 'XAF') {
-    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(displayedMajor) + ' FCFA'
+    return new Intl.NumberFormat(activeSchoolLocale(), { maximumFractionDigits: 0 }).format(displayedMajor) + ' FCFA'
   }
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat(activeSchoolLocale(), {
     style: 'currency',
     currency: target,
     minimumFractionDigits: 0,
@@ -40,22 +41,22 @@ export function formatSchoolMoney(
 
 function formatNativeSchoolMoney(amount: number, currency: string) {
   if (currency === 'XAF') {
-    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount) + ' FCFA'
+    return new Intl.NumberFormat(activeSchoolLocale(), { maximumFractionDigits: 0 }).format(amount) + ' FCFA'
   }
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat(activeSchoolLocale(), {
     style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2,
   }).format(amount / 100)
 }
 
 /** 37.5 → "37,5 %". */
 export function formatSchoolPercent(value: number) {
-  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(value) + ' %'
+  return new Intl.NumberFormat(activeSchoolLocale(), { maximumFractionDigits: 1 }).format(value) + ' %'
 }
 
 export function formatSchoolDate(value: string) {
-  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value + (value.length === 10 ? 'T12:00:00' : '')))
+  return new Intl.DateTimeFormat(activeSchoolLocale(), { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value + (value.length === 10 ? 'T12:00:00' : '')))
 }
 
 export function formatSchoolRateDate(value: string) {
-  return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value + 'T12:00:00'))
+  return new Intl.DateTimeFormat(activeSchoolLocale(), { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value + 'T12:00:00'))
 }

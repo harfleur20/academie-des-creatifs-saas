@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import {
   Banknote,
@@ -166,7 +167,7 @@ export function CommerceDashboardPage() {
             <div className="commerce-row" key={order.order_id}>
               <span>
                 <strong>{order.order_number}</strong>
-                <small>{new Date(order.created_at).toLocaleDateString('fr-FR')}</small>
+                <small>{new Date(order.created_at).toLocaleDateString(activeSchoolLocale())}</small>
               </span>
               <span>
                 <strong>{order.student_name}</strong>
@@ -207,7 +208,7 @@ export function CommerceDashboardPage() {
               <strong>{invoice.invoice_number}</strong>
               <span>#{invoice.order_id}</span>
               <span>{formatSchoolMoney(invoice.amount_cents, invoice.currency)}</span>
-              <span>{new Date(invoice.issued_at).toLocaleDateString('fr-FR')}</span>
+              <span>{new Date(invoice.issued_at).toLocaleDateString(activeSchoolLocale())}</span>
               <span>{invoice.status === 'paid' ? 'Payée' : invoice.status === 'void' ? 'Annulée' : invoice.status}</span>
               <span>
                 <button

@@ -35,6 +35,7 @@ export type Organization = {
   accent_color: string
   direction_accent_color: string | null
   direction_sidebar_collapsed: boolean
+  direction_sidebar_collapse_enabled: boolean
   created_at: string
 }
 
@@ -526,6 +527,19 @@ export const uploadMyAvatar = (file: File) => {
 export const listOrganizations = () =>
   request<Organization[]>('/organizations', { organizationId: null })
 
+export type OrganizationCreationCapacity = {
+  owned_organizations: number
+  maximum_organizations: number | null
+  can_create: boolean
+  plan_code: string | null
+  plan_name: string | null
+}
+
+export const getOrganizationCreationCapacity = () =>
+  request<OrganizationCreationCapacity>('/organizations/creation-capacity', {
+    organizationId: null,
+  })
+
 export const createOrganization = (payload: {
   name: string
   slug: string
@@ -561,6 +575,7 @@ export const updateCurrentOrganization = (payload: {
   accent_color?: string
   direction_accent_color?: string | null
   direction_sidebar_collapsed?: boolean
+  direction_sidebar_collapse_enabled?: boolean
 }) =>
   request<Organization>('/organizations/current', {
     method: 'PATCH',
@@ -805,6 +820,7 @@ export type HostBranding = {
   slug: string
   subdomain: string | null
   hostname: string
+  locale?: string
   logo_url: string | null
   auth_background_image_url?: string | null
   auth_show_school_name?: boolean
@@ -2681,6 +2697,7 @@ export type PublicSchool = {
   organization_id: number
   slug: string
   subdomain: string | null
+  locale: string
   default_currency: string
   name: string
   site_name: string

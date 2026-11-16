@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type FormEvent } from 'react'
 import { ArrowDownToLine, Banknote, Clock3, Percent, Wallet } from 'lucide-react'
 import {
@@ -22,7 +23,7 @@ const PAYOUT_STATUS: Record<Payout['status'], string> = {
 const METHODS: Record<Payout['method'], string> = { mobile_money: 'Mobile Money', bank: 'Virement bancaire' }
 
 function dateLabel(value: string) {
-  return new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(value).toLocaleDateString(activeSchoolLocale(), { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 /** What the school earned from its sales, net of the platform's commission, and its payouts (docs/FORFAITS.md). */
@@ -208,7 +209,7 @@ export function SchoolRevenuePage() {
                 <span>{dateLabel(entry.occurred_at)}</span>
                 <span>{entry.description}</span>
                 <span>{formatMoney(entry.gross_cents, entry.currency)}</span>
-                <span>{formatMoney(entry.commission_cents, entry.currency)} <small>({(entry.commission_bps / 100).toLocaleString('fr-FR')} %)</small></span>
+                <span>{formatMoney(entry.commission_cents, entry.currency)} <small>({(entry.commission_bps / 100).toLocaleString(activeSchoolLocale())} %)</small></span>
                 <strong>{formatMoney(entry.amount_cents, entry.currency)}</strong>
               </div>
             ))}

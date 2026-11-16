@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models.entities import OrganizationMemberRecord, OrganizationPublicSiteRecord, UserRecord
 from app.schemas.organizations import (
     OrganizationCreate,
+    OrganizationCreationCapacityRead,
     OrganizationInvitationAcceptResult,
     OrganizationInvitationCreate,
     OrganizationInvitationCreated,
@@ -51,7 +52,9 @@ from app.services.organization_management import (
 )
 from app.services.organizations import (
     OrganizationConflictError,
+    OrganizationLimitError,
     create_organization,
+    get_organization_creation_capacity,
     list_user_organizations,
 )
 from app.services.tenancy import TenantContext, require_organization_roles
@@ -68,6 +71,14 @@ def list_organizations_route(
     return list_user_organizations(db, current_user)
 
 
+@router.get("/creation-capacity", response_model=OrganizationCreationCapacityRead)
+def organization_creation_capacity_route(
+    db: Session = Depends(get_db),
+    current_user: UserRecord = Depends(get_non_support_user),
+):
+    return get_organization_creation_capacity(db, current_user)
+
+
 @router.post(
     "",
     response_model=OrganizationRead,
@@ -80,6 +91,11 @@ def create_organization_route(
 ):
     try:
         return create_organization(db, user=current_user, payload=payload)
+    except OrganizationLimitError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
     except OrganizationConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -385,6 +401,7 @@ def resolve_host_branding(
         slug=organization.slug,
         subdomain=organization.subdomain,
         hostname=normalized,
+        locale=organization.locale,
         logo_url=organization.logo_url,
         auth_background_image_url=public_site.auth_background_image_url if public_site else None,
         auth_show_school_name=public_site.auth_show_school_name if public_site else True,

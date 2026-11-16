@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import type { PlanEntitlement } from './api'
 
 /** The plan fields the cards and the comparison read. */
@@ -29,6 +30,9 @@ export function planHighlights(entitlements: PlanEntitlement[]): PlanFeatureLine
   const lines: PlanFeatureLine[] = []
   const add = (key: string, label: string, soon = false, excluded = false) => lines.push({ key, label, soon, excluded })
 
+  if (plan.on('organizations')) {
+    add('organizations', count(plan.limit('organizations'), 'école', 'écoles', 'Écoles illimitées'))
+  }
   if (plan.on('students')) add('students', count(plan.limit('students'), 'étudiant', 'étudiants', 'Étudiants illimités'))
   const formations = plan.on('active_formations') ? plan.limit('active_formations') : 0
   const teachers = plan.on('teachers') ? plan.limit('teachers') : 0
@@ -81,7 +85,7 @@ function quotaRow(key: string, label: string, unlimited: string): ComparisonRow 
       const plan = lookup(item.entitlements)
       if (!plan.on(key)) return false
       const limit = plan.limit(key)
-      return limit === null ? unlimited : limit.toLocaleString('fr-FR')
+      return limit === null ? unlimited : limit.toLocaleString(activeSchoolLocale())
     },
   }
 }
@@ -105,6 +109,7 @@ function featureRow(key: string, label: string, soon = false): ComparisonRow {
 
 /** Everything the plans include, row by row, for the comparison table. */
 export const COMPARISON_ROWS: ComparisonRow[] = [
+  quotaRow('organizations', 'Écoles gérées', 'Illimitées'),
   quotaRow('students', 'Étudiants', 'Illimités'),
   quotaRow('active_formations', 'Formations publiées', 'Illimitées'),
   quotaRow('teachers', 'Professeurs', 'Illimités'),
@@ -132,7 +137,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   featureRow('priority_support', 'Support prioritaire et aide à la mise en place'),
   {
     key: 'commission', label: 'Commission sur vos ventes, frais de paiement compris', soon: false,
-    cell: (item) => (item.sales_commission_bps === undefined ? false : `${(item.sales_commission_bps / 100).toLocaleString('fr-FR')} %`),
+    cell: (item) => (item.sales_commission_bps === undefined ? false : `${(item.sales_commission_bps / 100).toLocaleString(activeSchoolLocale())} %`),
   },
 ]
 
@@ -150,13 +155,13 @@ export function monthlyEquivalent(plan: { monthly_price_cents: number | null; an
 /** XAF has no subunit: amounts are stored in whole francs. Other currencies are in cents. */
 export function formatMoney(amount: number, currency: string): string {
   if (currency.toUpperCase() === 'XAF') {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(amount)
+    return new Intl.NumberFormat(activeSchoolLocale(), { style: 'currency', currency: 'XAF', maximumFractionDigits: 0 }).format(amount)
   }
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount / 100)
+  return new Intl.NumberFormat(activeSchoolLocale(), { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount / 100)
 }
 
 export function commissionLabel(bps: number | undefined): string | null {
   if (bps === undefined) return null
-  const pct = (bps / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })
+  const pct = (bps / 100).toLocaleString(activeSchoolLocale(), { maximumFractionDigits: 2 })
   return `${pct} % sur vos ventes`
 }

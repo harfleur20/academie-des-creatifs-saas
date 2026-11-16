@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import { CalendarCheck2, LockKeyhole } from 'lucide-react'
 import {
@@ -19,7 +20,7 @@ const DELIVERY_LABELS: Record<string, string> = {
 }
 
 function dateTime(value: string) {
-  return new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+  return new Date(value).toLocaleString(activeSchoolLocale(), { dateStyle: 'short', timeStyle: 'short' })
 }
 
 function dayNote(day: AttendanceCourseDay) {
@@ -69,7 +70,7 @@ export function TeacherAttendancePage() {
     <label className="academic-session-select">Session<select value={sessionId ?? ''} onChange={(event)=>setSessionId(Number(event.target.value))}>{workspace?.sessions.map((item)=><option key={item.session_id} value={item.session_id}>{item.formation_title} · {item.session_label}</option>)}</select></label>
     <section className="attendance-day-list">
       {days.map((day)=><article className="app-card attendance-day-card" key={day.course_day_id}>
-        <header><div><span className="section-label">{new Date(day.scheduled_at).toLocaleString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span><h2>{day.title}</h2><p>Prof. {day.teacher_name || '-'}</p>{dayNote(day) && <small>{dayNote(day)}</small>}{!day.can_edit && day.edit_blocked_reason && <small>{day.edit_blocked_reason}</small>}</div>{day.can_edit?<CalendarCheck2 size={20}/>:<LockKeyhole size={18}/>}</header>
+        <header><div><span className="section-label">{new Date(day.scheduled_at).toLocaleString(activeSchoolLocale(), { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span><h2>{day.title}</h2><p>Prof. {day.teacher_name || '-'}</p>{dayNote(day) && <small>{dayNote(day)}</small>}{!day.can_edit && day.edit_blocked_reason && <small>{day.edit_blocked_reason}</small>}</div>{day.can_edit?<CalendarCheck2 size={20}/>:<LockKeyhole size={18}/>}</header>
         <div className="attendance-table">
           {day.rows.map((row)=><div className="attendance-row" key={row.enrollment_id}><span className="attendance-row__person"><PersonAvatar name={row.student_name} url={row.student_avatar_url} size={36} /><span className="attendance-row__who"><strong>{row.student_name}</strong>{row.live_minutes != null && <small>{row.live_minutes} min en salle{day.live_roll_calls ? ` · appel ${row.live_roll_calls_answered ?? 0}/${day.live_roll_calls}` : ''}</small>}</span></span><select value={row.status ?? ''} disabled={!day.can_edit} onChange={(event)=>void mark(day,row.enrollment_id,event.target.value as AttendanceStatus)}><option value="" disabled>Non marqué</option>{(Object.keys(ATTENDANCE_LABELS) as AttendanceStatus[]).map((value)=><option key={value} value={value}>{ATTENDANCE_LABELS[value]}</option>)}</select></div>)}
         </div>

@@ -72,6 +72,7 @@ def public_school_read(
         organization_id=org.id,
         slug=org.slug,
         subdomain=org.subdomain,
+        locale=org.locale,
         default_currency=legal.default_currency,
         name=org.name,
         site_name=site.site_name or org.name,

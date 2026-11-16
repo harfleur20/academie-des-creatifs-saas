@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, MessageCircle, MessagesSquare } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -41,9 +42,9 @@ function compactDate(value: string) {
   const now = new Date()
   const sameDay = date.toDateString() === now.toDateString()
   if (sameDay) {
-    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleTimeString(activeSchoolLocale(), { hour: '2-digit', minute: '2-digit' })
   }
-  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  return date.toLocaleDateString(activeSchoolLocale(), { day: '2-digit', month: 'short' })
 }
 
 function privateMessageRow(

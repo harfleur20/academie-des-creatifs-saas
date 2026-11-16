@@ -1,13 +1,12 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import { Award, CalendarCheck2, Download, FileText, Sigma, X } from 'lucide-react'
 import { ApiError, downloadTranscriptPdf, getTranscript, type Transcript } from '../lib/api'
 import { saveBlobFile } from '../lib/download'
 import '../transcript.css'
 
-const numbers = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
-
 function day(value: string | null) {
-  return value ? new Date(value.slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR') : '-'
+  return value ? new Date(value.slice(0, 10) + 'T00:00:00').toLocaleDateString(activeSchoolLocale()) : '-'
 }
 
 function pdfName(transcript: Transcript) {
@@ -23,6 +22,7 @@ function pdfName(transcript: Transcript) {
 export function TranscriptView({ transcript, showStudent = false }: { transcript: Transcript; showStudent?: boolean }) {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
+  const numbers = new Intl.NumberFormat(activeSchoolLocale(), { maximumFractionDigits: 2 })
   const final = transcript.status === 'final'
 
   async function download() {

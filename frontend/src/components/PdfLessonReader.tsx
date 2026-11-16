@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react'
@@ -189,7 +190,7 @@ export function PdfLessonReader({ lesson, onCompleted }: { lesson: LearningLesso
         {quiz && <>
           <p>Seuil de réussite : {quiz.pass_pct} % · {quiz.attempts_remaining} essai(s) disponible(s).</p>
           {quiz.best_score_pct !== null && <p>Meilleur score : {quiz.best_score_pct} %.</p>}
-          {quiz.next_attempt_available_at && <p>Prochain cycle le {new Date(quiz.next_attempt_available_at).toLocaleString('fr-FR')}.</p>}
+          {quiz.next_attempt_available_at && <p>Prochain cycle le {new Date(quiz.next_attempt_available_at).toLocaleString(activeSchoolLocale())}.</p>}
           {review && !hasStarted && <QuizAttemptReview questions={review.questions} attempt={review.attempt} passPct={quiz.pass_pct} />}
           {quiz.can_attempt && !hasStarted && <button className="primary-button" type="button" onClick={() => {
             setReview(null)

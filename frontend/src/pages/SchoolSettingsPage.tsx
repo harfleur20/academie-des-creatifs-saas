@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { CheckCircle2, Copy, Globe2, Save, Trash2 } from 'lucide-react'
 import { useTenant } from '../app/TenantContext'
+import { activeSchoolLocale, setSchoolInterfaceLocale } from '../app/schoolLocale'
 import {
   ApiError,
   createOrganizationDomain,
@@ -189,7 +190,7 @@ export function SchoolSettingsPage({ section = 'school' }: { section?: SettingsS
               <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={180} disabled={nameChangeLocked} />
               <small className={nameChangeLocked ? 'name-change-lock' : 'settings-help'}>
                 {nameChangeLocked && nextNameChangeAt
-                  ? `Nom verrouillé jusqu’au ${new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }).format(nextNameChangeAt)}. Un changement est autorisé tous les ${cooldownDays} jours.`
+                  ? `Nom verrouillé jusqu’au ${new Intl.DateTimeFormat(activeSchoolLocale(), { day: '2-digit', month: 'long', year: 'numeric' }).format(nextNameChangeAt)}. Un changement est autorisé tous les ${cooldownDays} jours.`
                   : `Le propriétaire peut renommer l’école une fois tous les ${cooldownDays} jours.`}
               </small>
             </label>
@@ -210,7 +211,11 @@ export function SchoolSettingsPage({ section = 'school' }: { section?: SettingsS
             </label>
             <label>
               Langue / locale
-              <select value={locale} onChange={(event) => setLocale(event.target.value)}>
+              <select value={locale} onChange={(event) => {
+                const nextLocale = event.target.value
+                setLocale(nextLocale)
+                setSchoolInterfaceLocale(nextLocale)
+              }}>
                 <option value="fr-FR">Français - France</option>
                 <option value="fr-CM">Français - Cameroun</option>
                 <option value="en-US">English - US</option>

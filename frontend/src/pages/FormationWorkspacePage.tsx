@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   Archive,
@@ -703,7 +704,7 @@ function SessionWorkspace({
             {session.seat_capacity > 0 ? ` · ${enrollments.length}/${session.seat_capacity} places` : ''}
             {isOnsite && session.campus_label ? ` · ${session.campus_label}` : ''}
           </p>
-          {session.program_frozen_at && <small className="session-program-status is-frozen">Programme figé le {new Date(session.program_frozen_at).toLocaleDateString('fr-FR')} : les badges se mesurent sur ce programme et les contenus qui le composent ne changent plus de structure.</small>}
+          {session.program_frozen_at && <small className="session-program-status is-frozen">Programme figé le {new Date(session.program_frozen_at).toLocaleDateString(activeSchoolLocale())} : les badges se mesurent sur ce programme et les contenus qui le composent ne changent plus de structure.</small>}
           {!session.program_frozen_at && (session.program_missing?.length ?? 0) > 0 && <small className="session-program-status">Programme à compléter avant le début : {session.program_missing?.join(' ; ')}. Il sera figé au démarrage de la session.</small>}
         </div>
         <div className="session-workspace-stats">

@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { BookOpen, CalendarDays, ChevronLeft, ChevronRight, GraduationCap, MonitorPlay, Users } from 'lucide-react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -14,7 +15,7 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: 'assignments', label: 'Devoirs' },
   { id: 'quizzes', label: 'Quiz' }, { id: 'resources', label: 'Ressources' }, { id: 'results', label: 'Notes' },
 ]
-const dateLabel = (value: string) => new Date(value).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })
+const dateLabel = (value: string) => new Date(value).toLocaleString(activeSchoolLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 
 function startOfWeek(value: Date) {
   const date = new Date(value)
@@ -39,7 +40,7 @@ function localDateKey(value: Date) {
 function courseDayTimeRange(day: CourseDay) {
   const start = new Date(day.scheduled_at)
   const end = new Date(start.getTime() + day.duration_minutes * 60_000)
-  const time = (value: Date) => value.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const time = (value: Date) => value.toLocaleTimeString(activeSchoolLocale(), { hour: '2-digit', minute: '2-digit' })
   return `${time(start)} – ${time(end)}`
 }
 
@@ -133,7 +134,7 @@ export function StudentGuidedWorkspacePage() {
     return { date, entries }
   }), [days, weekStart])
   const weekEnd = addDays(weekStart, 6)
-  const weekRange = `Semaine du ${weekStart.toLocaleDateString('fr-FR', { dateStyle: 'medium' })} au ${weekEnd.toLocaleDateString('fr-FR', { dateStyle: 'medium' })}`
+  const weekRange = `Semaine du ${weekStart.toLocaleDateString(activeSchoolLocale(), { dateStyle: 'medium' })} au ${weekEnd.toLocaleDateString(activeSchoolLocale(), { dateStyle: 'medium' })}`
   const nextDay = days.find((day) => new Date(day.scheduled_at).getTime() >= Date.now())
   const pendingAssignments = assignments.filter((item) => item.student_status === 'pending' || item.student_status === 'late')
   const activeQuizzes = quizzes.filter((item) => !item.is_locked && !item.passed && item.can_attempt)
@@ -217,12 +218,12 @@ export function StudentGuidedWorkspacePage() {
           <div className="guided-week-scroll" role="region" aria-label="Programme de la semaine sur sept jours" tabIndex={0}>
             <div className="guided-week-grid">
               {weekDays.map(({ date, entries }) => {
-                const weekday = date.toLocaleDateString('fr-FR', { weekday: 'long' })
+                const weekday = date.toLocaleDateString(activeSchoolLocale(), { weekday: 'long' })
                 const isToday = localDateKey(date) === localDateKey(new Date())
                 return (
                   <article className={`guided-week-day${isToday ? ' is-today' : ''}`} key={localDateKey(date)}>
                     <header className="guided-week-day__heading">
-                      <span>{weekday.charAt(0).toLocaleUpperCase('fr-FR')}{weekday.slice(1)}</span>
+                      <span>{weekday.charAt(0).toLocaleUpperCase(activeSchoolLocale())}{weekday.slice(1)}</span>
                       <strong>{date.getDate()}</strong>
                     </header>
                     <div className="guided-week-day__events">

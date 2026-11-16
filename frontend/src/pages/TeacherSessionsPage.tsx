@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import {
   BookOpen,
@@ -41,7 +42,7 @@ const formatLabels = {
 }
 
 function dateLabel(value: string) {
-  return new Date(value).toLocaleDateString('fr-FR', {
+  return new Date(value).toLocaleDateString(activeSchoolLocale(), {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

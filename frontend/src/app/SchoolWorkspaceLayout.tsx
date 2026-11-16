@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from './schoolLocale'
 import {
   useCallback,
   useEffect,
@@ -5,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FormEvent,
   type ReactNode,
 } from 'react'
 import {
@@ -19,12 +21,14 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
   Power,
   Search,
   Settings,
   UserRound,
   X,
 } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import {
   Navigate,
   NavLink,
@@ -42,9 +46,13 @@ import {
 } from '../brand/branding'
 import {
   endAdminSupportMode,
+  createOrganization,
+  getOrganizationCreationCapacity,
+  setStoredOrganizationId,
   updateCurrentOrganization,
   type Organization,
   type OrganizationAccessProfile,
+  type OrganizationCreationCapacity,
   type WorkspaceSpace,
 } from '../lib/api'
 import { useTenant } from './TenantContext'
@@ -79,6 +87,17 @@ const workspaceMenuLabels: Record<WorkspaceSpace, string> = {
   student: 'Espace étudiant',
 }
 
+function slugifyOrganizationName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 120)
+    .replace(/-$/g, '')
+}
+
 function WorkspaceSpaceIcon({ space }: { space: WorkspaceSpace }) {
   if (space === 'manage') return <Building2 size={17} aria-hidden="true" />
   if (space === 'teacher') return <GraduationCap size={17} aria-hidden="true" />
@@ -94,11 +113,18 @@ function SchoolWorkspaceSwitcher({
   accessProfile,
   profileLoading,
   supportMode = false,
+  creationCapacity,
+  creationCapacityLoading = false,
+  canManageSchools = false,
+  schoolPrimaryColor,
+  schoolSecondaryColor,
+  onCreateOrganization,
+  onUpgradePlan,
   onSelectOrganization,
   onSwitchWorkspace,
   onOpenChange,
 }: {
-  variant: 'direction' | 'role'
+  variant: 'direction'
   currentSpace: WorkspaceSpace
   collapsed?: boolean
   organizations: Organization[]
@@ -106,23 +132,65 @@ function SchoolWorkspaceSwitcher({
   accessProfile: OrganizationAccessProfile | null
   profileLoading: boolean
   supportMode?: boolean
+  creationCapacity: OrganizationCreationCapacity | null
+  creationCapacityLoading?: boolean
+  canManageSchools?: boolean
+  schoolPrimaryColor: string
+  schoolSecondaryColor: string
+  onCreateOrganization: (name: string) => Promise<void>
+  onUpgradePlan: () => void
   onSelectOrganization: (id: number) => void
   onSwitchWorkspace: (space: WorkspaceSpace) => void
   onOpenChange?: (open: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newSchoolName, setNewSchoolName] = useState('')
+  const [creatingSchool, setCreatingSchool] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canSwitchSchool = !supportMode && organizations.length > 1
   const availableSpaces = supportMode ? [] : accessProfile?.spaces ?? []
   const canSwitchSpace = availableSpaces.length > 1
   const canOpen = !supportMode && Boolean(activeOrganization)
   const schoolName = activeOrganization?.name || 'Aucune école'
-  const triggerLabel = supportMode
-    ? 'École consultée'
-    : variant === 'direction'
-      ? 'École active'
-      : 'Espace actif'
-  const triggerValue = variant === 'direction' ? schoolName : workspaceMenuLabels[currentSpace]
+  const triggerLabel = supportMode ? 'École consultée' : 'École active'
+  const triggerValue = schoolName
+  const creationQuotaDescription = creationCapacity
+    ? creationCapacity.maximum_organizations === null
+      ? `${creationCapacity.owned_organizations} ${creationCapacity.owned_organizations > 1 ? 'écoles' : 'école'} · sans limite`
+      : `${creationCapacity.owned_organizations}/${creationCapacity.maximum_organizations} ${creationCapacity.maximum_organizations > 1 ? 'écoles' : 'école'} · ${creationCapacity.plan_name || 'forfait actuel'}`
+    : 'Quota indisponible'
+
+  async function submitNewSchool(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const name = newSchoolName.trim()
+    if (!name || creatingSchool) return
+    setCreatingSchool(true)
+    try {
+      await onCreateOrganization(name)
+      setCreateOpen(false)
+      setNewSchoolName('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Impossible de créer cette école.')
+    } finally {
+      setCreatingSchool(false)
+    }
+  }
+
+  function beginSchoolCreation() {
+    setMenuOpen(false)
+    if (creationCapacityLoading || !creationCapacity) {
+      toast.info('Vérification du quota de votre forfait. Réessayez dans un instant.')
+      return
+    }
+    if (!creationCapacity.can_create) {
+      toast.info('La limite d’écoles de votre forfait est atteinte. Choisissez un forfait supérieur pour continuer.')
+      onUpgradePlan()
+      return
+    }
+    setNewSchoolName('')
+    setCreateOpen(true)
+  }
 
   const setMenuOpen = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen)
@@ -200,7 +268,7 @@ function SchoolWorkspaceSwitcher({
                       }}
                     >
                       <SchoolLogo logoUrl={organization.logo_url} alt="" className="school-switcher-menu-logo" />
-                      <span><strong>{organization.name}</strong>{selected && <small>École active</small>}</span>
+                      <span><strong>{organization.name}</strong></span>
                       {selected && <Check size={16} aria-hidden="true" />}
                     </button>
                   )
@@ -237,7 +305,7 @@ function SchoolWorkspaceSwitcher({
                       }}
                     >
                       <span className="school-switcher-menu-space-icon"><WorkspaceSpaceIcon space={item} /></span>
-                      <span><strong>{workspaceMenuLabels[item]}</strong>{selected && <small>Espace actuel</small>}</span>
+                      <span><strong>{workspaceMenuLabels[item]}</strong></span>
                       {selected && <Check size={16} aria-hidden="true" />}
                     </button>
                   )
@@ -265,7 +333,67 @@ function SchoolWorkspaceSwitcher({
           {accessProfile && availableSpaces.length === 0 && (
             <p className="school-switcher-menu-message">Aucun espace n’est associé à votre compte dans cette école.</p>
           )}
+
+          {canManageSchools && (
+            <section className="school-switcher-menu-section school-switcher-menu-create-section">
+              <button
+                type="button"
+                className="school-switcher-create"
+                onClick={beginSchoolCreation}
+                disabled={creationCapacityLoading}
+              >
+                <Plus size={17} aria-hidden="true" />
+                <span><strong>Ajouter une école</strong><small>
+                  {creationCapacityLoading
+                    ? 'Vérification du forfait…'
+                    : creationQuotaDescription}
+                </small></span>
+              </button>
+            </section>
+          )}
         </div>
+      )}
+
+      {createOpen && typeof document !== 'undefined' && createPortal(
+        <div className="school-create-overlay" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !creatingSchool) setCreateOpen(false)
+        }}>
+          <section
+            className="school-create-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="school-create-title"
+            style={{
+              '--school-create-primary': schoolPrimaryColor,
+              '--school-create-secondary': schoolSecondaryColor,
+            } as CSSProperties}
+          >
+            <button type="button" className="school-create-close" onClick={() => setCreateOpen(false)} aria-label="Fermer" disabled={creatingSchool}><X size={19} /></button>
+            <span className="school-create-kicker">+ NOUVEL ESPACE</span>
+            <h2 id="school-create-title">Ajouter une école</h2>
+            <p>Cette école aura son propre site, ses membres et ses réglages.</p>
+            <form onSubmit={(event) => void submitNewSchool(event)}>
+              <label htmlFor="new-school-name">Nom de l’école</label>
+              <input
+                id="new-school-name"
+                autoFocus
+                maxLength={180}
+                minLength={2}
+                placeholder="Ex. Studio Créatif Academy"
+                value={newSchoolName}
+                onChange={(event) => setNewSchoolName(event.target.value)}
+                required
+              />
+              <div className="school-create-dialog-actions">
+                <button type="button" className="school-create-cancel" onClick={() => setCreateOpen(false)} disabled={creatingSchool}>Annuler</button>
+                <button type="submit" className="school-create-submit" disabled={creatingSchool || newSchoolName.trim().length < 2}>
+                  {creatingSchool ? 'Création…' : 'Créer mon école'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -314,11 +442,54 @@ export function SchoolWorkspaceLayout({
   const [supportsCompactSidebar, setSupportsCompactSidebar] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
   const [profileOpen, setProfileOpen] = useState(false)
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false)
+  const [organizationCapacity, setOrganizationCapacity] = useState<OrganizationCreationCapacity | null>(null)
+  const [organizationCapacityLoading, setOrganizationCapacityLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [openNavGroups, setOpenNavGroups] = useState<string[]>(
     () => space === 'student' && navGroups[0] ? [navGroups[0].key] : [],
   )
   const profileRef = useRef<HTMLDivElement>(null)
+
+  const loadOrganizationCapacity = useCallback(async () => {
+    if (!user || supportMode || space === 'teacher' || space === 'student') {
+      setOrganizationCapacity(null)
+      return
+    }
+    setOrganizationCapacityLoading(true)
+    try {
+      setOrganizationCapacity(await getOrganizationCreationCapacity())
+    } catch {
+      setOrganizationCapacity(null)
+    } finally {
+      setOrganizationCapacityLoading(false)
+    }
+  }, [user, supportMode, space])
+
+  useEffect(() => {
+    void loadOrganizationCapacity()
+  }, [loadOrganizationCapacity])
+
+  async function createSchoolFromSwitcher(name: string) {
+    const organization = await createOrganization({
+      name,
+      slug: slugifyOrganizationName(name),
+    })
+    setStoredOrganizationId(organization.id)
+    await refreshOrganizations()
+    await loadOrganizationCapacity()
+    navigate('/app/manage/onboarding?essai=1')
+    toast.success(`${organization.name} a été créée.`)
+  }
+
+  function handleSwitcherOpenChange(open: boolean) {
+    setWorkspaceSwitcherOpen(open)
+    if (open) void loadOrganizationCapacity()
+  }
+
+  const canManageSchools = !supportMode && (
+    accessProfile?.roles.includes('owner') === true
+    || user?.platform_role === 'super_admin'
+  )
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 1024px)')
@@ -345,9 +516,12 @@ export function SchoolWorkspaceLayout({
   const organizationAccent =
     activeOrganization?.accent_color || DEFAULT_BRAND_COLORS.accent
   const directionAccent = activeOrganization?.direction_accent_color || organizationSecondary || '#18A7A3'
-  const directionSidebarCollapsed = !isRoleSpace
-    && activeOrganization?.direction_sidebar_collapsed === true
+  const directionSidebarCollapseEnabled = !isRoleSpace
+    && activeOrganization?.direction_sidebar_collapse_enabled === true
     && supportsCompactSidebar
+  const directionSidebarCollapsed = !isRoleSpace
+    && directionSidebarCollapseEnabled
+    && activeOrganization?.direction_sidebar_collapsed === true
 
   const brandStyle = {
     '--blue': isRoleSpace
@@ -387,10 +561,10 @@ export function SchoolWorkspaceLayout({
     || workspaceLabels[space]
 
   const searchResults = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase('fr-FR')
+    const query = search.trim().toLocaleLowerCase(activeSchoolLocale())
     if (!query) return []
     return allNavItems
-      .filter((item) => item.label.toLocaleLowerCase('fr-FR').includes(query))
+      .filter((item) => item.label.toLocaleLowerCase(activeSchoolLocale()).includes(query))
       .slice(0, 6)
   }, [allNavItems, search])
 
@@ -451,7 +625,7 @@ export function SchoolWorkspaceLayout({
   }
 
   async function toggleDirectionSidebar() {
-    if (!activeOrganization || savingSidebarPreference) return
+    if (!activeOrganization || !directionSidebarCollapseEnabled || savingSidebarPreference) return
     setSavingSidebarPreference(true)
     try {
       await updateCurrentOrganization({
@@ -476,7 +650,7 @@ export function SchoolWorkspaceLayout({
           {activeOrganization
             && !supportMode
             && ['owner', 'admin', 'super_admin'].includes(accessProfile?.primary_role || '')
-            && supportsCompactSidebar && <button
+            && directionSidebarCollapseEnabled && <button
               type="button"
               className="sidebar-collapse-toggle"
               onClick={() => void toggleDirectionSidebar()}
@@ -496,12 +670,19 @@ export function SchoolWorkspaceLayout({
             accessProfile={accessProfile}
             profileLoading={profileLoading}
             supportMode={Boolean(supportMode)}
+            creationCapacity={organizationCapacity}
+            creationCapacityLoading={organizationCapacityLoading}
+            canManageSchools={canManageSchools}
+            schoolPrimaryColor={organizationPrimary}
+            schoolSecondaryColor={directionAccent}
+            onCreateOrganization={createSchoolFromSwitcher}
+            onUpgradePlan={() => navigate('/app/manage/billing')}
             onSelectOrganization={(id) => {
               selectOrganization(id)
               navigate('/app')
             }}
             onSwitchWorkspace={switchWorkspace}
-            onOpenChange={setWorkspaceSwitcherOpen}
+            onOpenChange={handleSwitcherOpenChange}
           />
 
           <nav className="app-nav">
@@ -601,7 +782,7 @@ export function SchoolWorkspaceLayout({
                   </strong>
                   <small>
                     Lecture seule · session temporaire jusqu’à{' '}
-                    {new Intl.DateTimeFormat('fr-FR', {
+                    {new Intl.DateTimeFormat(activeSchoolLocale(), {
                       hour: '2-digit',
                       minute: '2-digit',
                     }).format(new Date(supportMode.expires_at))}
@@ -653,7 +834,7 @@ export function SchoolWorkspaceLayout({
         />
       )}
 
-      <aside className={`tenant-role-sidebar${sidebarOpen ? ' is-open' : ''}${workspaceSwitcherOpen ? ' has-workspace-menu-open' : ''}`}>
+      <aside className={`tenant-role-sidebar${sidebarOpen ? ' is-open' : ''}`}>
         <NavLink className="tenant-role-brand" to={roleHome}>
           <SchoolLogo
             logoUrl={schoolLogo}
@@ -669,22 +850,6 @@ export function SchoolWorkspaceLayout({
         <div className="tenant-role-badge">
           ESPACE {space === 'teacher' ? 'ENSEIGNANT' : 'ÉTUDIANT'}
         </div>
-
-        <SchoolWorkspaceSwitcher
-          variant="role"
-          currentSpace={space}
-          organizations={organizations}
-          activeOrganization={activeOrganization}
-          accessProfile={accessProfile}
-          profileLoading={profileLoading}
-          supportMode={Boolean(supportMode)}
-          onSelectOrganization={(id) => {
-            selectOrganization(id)
-            navigate('/app')
-          }}
-          onSwitchWorkspace={switchWorkspace}
-          onOpenChange={setWorkspaceSwitcherOpen}
-        />
 
         <nav className="tenant-role-nav">
           {navItems.map((item) => (

@@ -22,24 +22,28 @@ from app.models.entities import (
     EnrollmentRecord,
     FormationRecord,
     FormationSessionRecord,
+    LiveRecordingRecord,
     OrganizationDomainRecord,
     OrganizationInvitationRecord,
     OrganizationMemberRecord,
     OrganizationMemberRoleRecord,
     PlanRecord,
+    SessionCourseDayRecord,
+    UsageCounterRecord,
 )
 from app.services.subscriptions import configured_plan_price, get_effective_plan, list_public_plans
 
 # The quotas an add-on can extend; students are shown, never limited.
 METERED = ("teachers", "active_formations")
 SHOWN = ("students", *METERED)
+REMAINING_HOUR_METRICS = ("replays", "transcription")
 FEATURE_LABELS = {
     "students": "étudiants actifs",
     "teachers": "professeurs",
     "active_formations": "formations publiées",
     "live": "Les cours en live",
-    "live_rooms": "cours en live en même temps",
-    "live_hours": "heures de live par mois",
+    "replays": "heures de replay restantes",
+    "transcription": "heures de transcription restantes",
     "live_class_hours": "heures au plus par cours en live",
     "custom_domain": "Le domaine personnalisé",
     "white_label": "Le site sans la mention de la plateforme",
@@ -100,9 +104,10 @@ def included(plan: PlanRecord | None, feature_key: str) -> bool:
     return plan is not None and any(entry.feature_key == feature_key and entry.enabled for entry in plan.entitlements)
 
 
-def usage(db: Session, organization_id: int, *, today: date | None = None) -> dict[str, int]:
+def usage(db: Session, organization_id: int, *, today: date | None = None) -> dict[str, int | float]:
     """What the school uses now, as the plans count it."""
-    today = today or datetime.now(UTC).date()
+    current_time = datetime.now(UTC)
+    today = today or current_time.date()
     students = db.scalar(
         select(func.count(distinct(EnrollmentRecord.student_id)))
         .join(FormationSessionRecord, FormationSessionRecord.id == EnrollmentRecord.session_id)
@@ -143,11 +148,32 @@ def usage(db: Session, organization_id: int, *, today: date | None = None) -> di
             OrganizationDomainRecord.status == "verified",
         )
     ) or 0
+    month_start = current_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    next_month_start = month_start.replace(
+        year=month_start.year + (1 if month_start.month == 12 else 0),
+        month=1 if month_start.month == 12 else month_start.month + 1,
+    )
+    month_key = month_start.strftime("%Y-%m")
+    replay_seconds = db.scalar(select(func.coalesce(func.sum(LiveRecordingRecord.duration_seconds), 0)).join(
+        SessionCourseDayRecord, SessionCourseDayRecord.id == LiveRecordingRecord.course_day_id,
+    ).where(
+        LiveRecordingRecord.organization_id == organization_id,
+        SessionCourseDayRecord.started_at >= month_start,
+        SessionCourseDayRecord.started_at < next_month_start,
+    )) or 0
+    # Transcription is not active yet; its monthly seconds counter is ready for that integration.
+    transcription_seconds = db.scalar(select(func.coalesce(func.sum(UsageCounterRecord.current_value), 0)).where(
+        UsageCounterRecord.organization_id == organization_id,
+        UsageCounterRecord.metric_key == "live_transcription_seconds",
+        UsageCounterRecord.window_key == month_key,
+    )) or 0
     return {
         "students": int(students),
         "teachers": int(teachers) + int(invited),
         "active_formations": int(formations),
         "custom_domain": int(domains),
+        "replays_used_hours": round(int(replay_seconds) / 3600, 1),
+        "transcription_used_hours": round(int(transcription_seconds) / 3600, 1),
     }
 
 
@@ -270,15 +296,22 @@ def billing_usage(db: Session, organization_id: int) -> dict:
     interval = subscription.billing_interval if subscription is not None else "monthly"
     current = usage(db, organization_id)
     metrics = []
-    for feature_key in SHOWN:
-        limit = allowance(plan, feature_key).limit if feature_key in METERED else None
+    feature_keys = list(SHOWN)
+    feature_keys.extend(key for key in REMAINING_HOUR_METRICS if allowance(plan, key).enabled)
+    for feature_key in feature_keys:
+        limit = allowance(plan, feature_key).limit if feature_key in (*METERED, *REMAINING_HOUR_METRICS) else None
         addon = addon_for(db, plan, feature_key) if feature_key in METERED else None
-        extra = max(0, current[feature_key] - limit) if limit is not None else 0
+        if feature_key in REMAINING_HOUR_METRICS:
+            used_hours = current[f"{feature_key}_used_hours"]
+            metric_current = max(0, round(limit - used_hours, 1)) if limit is not None else 0
+        else:
+            metric_current = current[feature_key]
+        extra = max(0, int(current[feature_key]) - limit) if feature_key in METERED and limit is not None else 0
         unit_price = addon.unit_price_cents if addon is not None else None
         metrics.append({
             "feature_key": feature_key,
             "label": FEATURE_LABELS[feature_key].capitalize(),
-            "current": current[feature_key],
+            "current": metric_current,
             "limit": limit,
             "extra": extra,
             "unit_price_cents": unit_price,

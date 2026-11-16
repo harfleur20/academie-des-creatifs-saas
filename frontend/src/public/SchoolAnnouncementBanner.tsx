@@ -9,10 +9,10 @@ export function SchoolAnnouncementBanner({ text, backgroundColor, textColor }: {
 
   return <aside className="school-announcement" aria-label="Annonce de l’école" style={{ '--school-announcement-background': backgroundColor, '--school-announcement-text': textColor } as CSSProperties}>
     <Megaphone aria-hidden="true" size={17} />
-    <span className="school-announcement-accessible">{message}</span>
+    <span className="school-announcement-accessible" data-no-translate>{message}</span>
     <div className="school-announcement-window" aria-hidden="true">
       <div className={'school-announcement-track' + (paused ? ' is-paused' : '')}>
-        <span>{message}</span><span>{message}</span>
+        <span data-no-translate>{message}</span><span data-no-translate>{message}</span>
       </div>
     </div>
     <button type="button" onClick={() => setPaused((value) => !value)} aria-label={paused ? 'Reprendre le défilement' : 'Mettre en pause le défilement'}>

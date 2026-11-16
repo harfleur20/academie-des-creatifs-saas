@@ -7928,8 +7928,8 @@
 
 /* Billing: usage against the plan, next payment, add-ons. */
 .billing-usage { display: grid; gap: 18px; }
-.billing-usage__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.billing-usage__metric { display: grid; gap: 6px; padding: 14px 16px; border-radius: 14px; background: #f6f8fc; border: 1px solid #e6ebf2; }
+.billing-usage__grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.billing-usage__metric { display: grid; gap: 6px; padding: 14px 16px; border-radius: 14px; background: #f6f8fc; }
 .billing-usage__metric span { font-size: var(--text-small); font-weight: 700; color: #637188; }
 .billing-usage__metric strong { font-size: var(--text-section-title); color: #131735; }
 .billing-usage__metric strong small { font-size: var(--text-secondary); font-weight: 600; color: #637188; }
@@ -7969,8 +7969,9 @@
 .billing-addon__action:disabled { cursor: not-allowed; opacity: .7; }
 .billing-plans-section { scroll-margin-top: 90px; }
 .invoice-lines { display: block; margin-top: 2px; font-size: var(--text-small); color: #637188; }
-@media (max-width: 900px) { .billing-usage__grid { grid-template-columns: minmax(0, 1fr); } .billing-addons__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .billing-addons__grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1200px) { .billing-usage__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .billing-usage__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .billing-addons__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .billing-usage__grid, .billing-addons__grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Revenue and payouts: the school's balance, its payouts, the detail of its sales. */
 .revenue-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }

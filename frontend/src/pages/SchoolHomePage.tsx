@@ -25,15 +25,15 @@ export function SchoolHomePage() {
   return <main>
     <section className="school-hero" style={school.hero_image_url ? { backgroundImage: 'linear-gradient(90deg, rgba(8,22,43,.82), rgba(8,22,43,.32)), url(' + school.hero_image_url + ')' } : undefined}>
       <div>
-        <span>{school.tagline}</span>
-        <h1>{school.hero_title}</h1>
-        <p>{school.hero_subtitle}</p>
-        <Link to={'/school/' + schoolSlug + '/formations'}>{school.hero_cta_label}<ArrowRight size={16}/></Link>
+        <span data-no-translate>{school.tagline}</span>
+        <h1 data-no-translate>{school.hero_title}</h1>
+        <p data-no-translate>{school.hero_subtitle}</p>
+        <Link to={'/school/' + schoolSlug + '/formations'}><span data-no-translate>{school.hero_cta_label}</span><ArrowRight size={16}/></Link>
       </div>
     </section>
 
     <section className="school-section school-about">
-      <div><span className="school-kicker">Notre école</span><h2>{school.about_title}</h2><p>{school.about_text || school.tagline}</p></div>
+      <div><span className="school-kicker">Notre école</span><h2 data-no-translate>{school.about_title}</h2><p data-no-translate>{school.about_text || school.tagline}</p></div>
       <div className="school-about-values"><article><GraduationCap/><strong>Formations structurées</strong><span>Des parcours organisés par sessions.</span></article><article><CalendarDays/><strong>Planning clair</strong><span>Suivez vos cours, devoirs et évaluations.</span></article><article><BookOpen/><strong>Espace pédagogique</strong><span>Tout votre apprentissage au même endroit.</span></article></div>
     </section>
 
@@ -53,12 +53,12 @@ export function FormationCard({ schoolSlug, formation }: { schoolSlug: string; f
     <SchoolFavoriteButton slug={formation.slug} title={formation.title}/>
     <Link className="school-formation-image" to={'/school/' + schoolSlug + '/formations/' + formation.slug}>
       {formation.cover_image_url ? <img src={formation.cover_image_url} alt={formation.title}/> : <div><GraduationCap size={34}/></div>}
-      {formation.promotion_label && <span className="school-promo-badge">{formation.promotion_label}</span>}
+      {formation.promotion_label && <span className="school-promo-badge" data-no-translate>{formation.promotion_label}</span>}
     </Link>
     <div className="school-formation-card-body">
-      <div className="school-formation-meta"><span>{formation.category || 'Formation'}</span><span>{formation.level}</span></div>
-      <h3><Link to={'/school/' + schoolSlug + '/formations/' + formation.slug}>{formation.title}</Link></h3>
-      <p>{formation.short_description}</p>
+      <div className="school-formation-meta"><span data-no-translate>{formation.category || 'Formation'}</span><span data-no-translate>{formation.level}</span></div>
+      <h3><Link data-no-translate to={'/school/' + schoolSlug + '/formations/' + formation.slug}>{formation.title}</Link></h3>
+      <p data-no-translate>{formation.short_description}</p>
       <div className="school-formation-price">{formation.promotion_discount_cents > 0 && <del>{formatSchoolMoney(formation.price_cents, formation.currency, school.default_currency, currencyRates)}</del>}<strong>{formatSchoolMoney(formation.current_price_cents, formation.currency, school.default_currency, currencyRates)}</strong></div>
       <div className="school-formation-foot"><span>{formation.format_type === 'ligne' ? (formation.can_purchase ? 'Disponible en ligne' : 'Indisponible') : formation.available_session_count > 0 ? formation.available_session_count + ' session(s) disponible(s)' : 'Aucune session disponible'}</span><Link to={'/school/' + schoolSlug + '/formations/' + formation.slug}>Voir la formation <ArrowRight size={14}/></Link></div>
     </div>

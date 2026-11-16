@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { ArrowRight, CheckCircle2, Mail, ShieldCheck } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -106,7 +107,7 @@ export function InvitationAcceptPage() {
                 <span><ShieldCheck size={14} /> {roleLabel[preview.role]}</span>
                 <small>
                   Valable jusqu’au{' '}
-                  {new Date(preview.expires_at).toLocaleDateString('fr-FR')}
+                  {new Date(preview.expires_at).toLocaleDateString(activeSchoolLocale())}
                 </small>
               </div>
             )}

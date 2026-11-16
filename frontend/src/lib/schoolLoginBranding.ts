@@ -3,6 +3,7 @@ import { DEFAULT_BRAND_COLORS, DEFAULT_PLATFORM_LOGO_URL } from '../brand/brandi
 import { recolorTealPixels } from '../brand/recolorTealPixels'
 
 export type SchoolLoginBranding = HostBranding & {
+  locale: string
   favicon_url: string | null
   auth_background_image_url: string | null
   auth_show_school_name: boolean
@@ -28,6 +29,7 @@ export function toSchoolLoginBranding(school: PublicSchool): SchoolLoginBranding
     slug: school.slug,
     subdomain: school.subdomain,
     hostname: school.slug,
+    locale: school.locale,
     logo_url: school.logo_url,
     favicon_url: school.favicon_url,
     auth_background_image_url: school.auth_background_image_url,

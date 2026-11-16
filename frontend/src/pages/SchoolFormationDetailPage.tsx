@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import {
   ArrowLeft,
   BookOpen,
@@ -236,17 +237,17 @@ export function SchoolFormationDetailPage() {
 
       <section className="school-detail-hero school-detail-hero-v2">
         <div className="school-detail-intro school-detail-intro-v2">
-          <span className="school-kicker">{formation.category} · {formation.level}</span>
+          <span className="school-kicker"><span data-no-translate>{formation.category}</span> · <span data-no-translate>{formation.level}</span></span>
           <div className="school-detail-title-line">
-            <h1>{formation.title}</h1>
+            <h1 data-no-translate>{formation.title}</h1>
             <SchoolFavoriteButton slug={formation.slug} title={formation.title} />
           </div>
-          <p>{formation.short_description || formation.description}</p>
+          <p data-no-translate>{formation.short_description || formation.description}</p>
 
           <div className="school-detail-meta school-detail-meta-v2">
             <span><Clock3 size={15} />{formation.training_hours ? `${formation.training_hours} h` : formation.format_type === 'ligne' ? 'À votre rythme' : 'Selon la session'}</span>
             <span><FormatIcon size={15} />{formatLabels[formation.format_type]}</span>
-            <span><GraduationCap size={15} />{formation.level}</span>
+            <span><GraduationCap size={15} /><span data-no-translate>{formation.level}</span></span>
           </div>
 
           {teachers.length > 0 && (
@@ -320,7 +321,7 @@ export function SchoolFormationDetailPage() {
             <div>
               <span className="school-detail-section-kicker">La formation</span>
               <h2>Présentation</h2>
-              <p>{formation.description}</p>
+              <p data-no-translate>{formation.description}</p>
             </div>
           </section>
 
@@ -433,7 +434,7 @@ export function SchoolFormationDetailPage() {
 }
 
 function formatDay(iso: string) {
-  return new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  return new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString(activeSchoolLocale(), { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 /**
@@ -503,9 +504,9 @@ function SessionChoice({ session, selected, onSelect, displayCurrency, currencyR
     >
       <span className="school-session-radio" />
       <div>
-        <strong>{session.label}</strong>
+        <strong data-no-translate>{session.label}</strong>
         <span><CalendarDays size={13} />{formatSchoolDate(session.start_date)} → {formatSchoolDate(session.end_date)}</span>
-        {session.campus_label && <span><MapPin size={13} />{session.campus_label}</span>}
+        {session.campus_label && <span><MapPin size={13} /><span data-no-translate>{session.campus_label}</span></span>}
         {session.seats_remaining !== null && <span><Users size={13} />{session.seats_remaining} place(s) restante(s)</span>}
         {!session.can_purchase && <small>{session.unavailable_reason}</small>}
       </div>

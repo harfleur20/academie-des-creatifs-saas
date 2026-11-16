@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type FormEvent } from 'react'
 import { ChevronRight, BookOpen, CalendarDays, Clock3, CreditCard, GraduationCap, Settings2, ShoppingCart, UserPlus, Users } from 'lucide-react'
 import { billingPathFor, clearPlanChoice, PAY_FIRST_PLANS, readPlanChoice } from '../lib/planChoice'
@@ -221,7 +222,7 @@ export function SchoolDashboardPage() {
   const hasGuidedFormation = formations?.some((formation) => formation.format_type !== 'ligne') ?? false
   const hasOnlineFormation = formations?.some((formation) => formation.format_type === 'ligne') ?? false
   const courseCount = formations?.reduce((sum, formation) => sum + formation.course_count, 0) ?? null
-  const displayCount = (count: number | null) => count === null ? '-' : count.toLocaleString('fr-FR')
+  const displayCount = (count: number | null) => count === null ? '-' : count.toLocaleString(activeSchoolLocale())
   const unpublishedCount = formations ? Math.max(0, formations.length - (publishedCount ?? 0)) : 0
   const unpaidOrderCount = commerce ? Math.max(0, commerce.order_count - commerce.paid_order_count) : 0
   const sessionsToWatch = pedagogy

@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
@@ -98,12 +99,12 @@ export function FormationsManagementPage() {
   )
 
   const rows = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase('fr-FR')
+    const needle = query.trim().toLocaleLowerCase(activeSchoolLocale())
     return formations.filter((item) => {
       if (format && item.format_type !== format) return false
       if (status && item.status !== status) return false
       if (category && item.category.trim() !== category) return false
-      return !needle || `${item.title} ${item.category} ${item.level}`.toLocaleLowerCase('fr-FR').includes(needle)
+      return !needle || `${item.title} ${item.category} ${item.level}`.toLocaleLowerCase(activeSchoolLocale()).includes(needle)
     })
   }, [formations, query, format, status, category])
 

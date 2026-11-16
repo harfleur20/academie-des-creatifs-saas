@@ -1,6 +1,6 @@
 # Forfaits, commission et options
 
-Ce document décrit le modèle économique des écoles et où il vit dans le code. La grille est posée par la migration `20261112_0062_free_plan_annual_discount`, revue le 2026-11-14 par `20261114_0066_live_for_every_plan` et mise à jour par `20261115_0070_adjust_live_plan_limits`. Elle reste modifiable dans l'administration (Forfaits).
+Ce document décrit le modèle économique des écoles et où il vit dans le code. La grille est posée par la migration `20261112_0062_free_plan_annual_discount`, revue le 2026-11-14 par `20261114_0066_live_for_every_plan`, mise à jour par `20261115_0070_adjust_live_plan_limits` et complétée par le quota multi-écoles dans `20261116_0074_organization_creation_quotas`. Elle reste modifiable dans l'administration (Forfaits).
 
 ## Le principe
 
@@ -14,6 +14,7 @@ Ce document décrit le modèle économique des écoles et où il vit dans le cod
 | --- | --- | --- | --- | --- |
 | Mensuel | 0 | 15 000 FCFA | 30 000 FCFA | 65 000 FCFA |
 | Annuel (−20 %) | – | 144 000 FCFA | 288 000 FCFA | 624 000 FCFA |
+| Écoles gérées par le propriétaire | 1 | 1 | 2 | 5 |
 | Commission sur les ventes, frais compris | 10 % | 8 % | 6 % | 4 % |
 | Étudiants | illimités | illimités | illimités | illimités |
 | Formations publiées | 1 | illimitées | illimitées | illimitées |
@@ -39,6 +40,7 @@ Sur ces deux pages, chaque carte ne montre que 4 ou 5 points clés (`planHighlig
 - Une école crée son compte avec 14 jours d'essai du forfait Pro, lives compris, sans moyen de paiement.
 - **Sans forfait payé en cours, l'école est en Découverte** : essai terminé, forfait résilié, ou délai de paiement dépassé. Elle n'est jamais coupée ; elle garde des lives plus petits (10 étudiants, un à la fois, 6 h par mois), perd les quotas plus larges, et la commission passe à 10 %. Ce qui existe déjà (formations publiées, professeurs) reste en place ; seul l'ajout au-delà du quota est refusé.
 - Pendant le délai de grâce d'un paiement en retard (`past_due`), l'école garde son forfait.
+- Le nombre d'écoles est un quota du compte propriétaire : le forfait le plus élevé de ses écoles détermine la limite. Une baisse de forfait ne supprime aucune école existante, mais bloque les nouvelles créations au-delà de la nouvelle limite.
 - Code : `get_effective_plan` dans `backend/app/services/subscriptions.py`. Quand la grille n'a pas de forfait gratuit actif, une école sans forfait n'est pas limitée (comportement d'avant).
 
 ## Le parcours après un clic sur un forfait

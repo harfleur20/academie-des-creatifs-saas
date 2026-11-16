@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
@@ -48,7 +49,7 @@ import {
 
 function formatDate(value: string | null) {
   if (!value) return '-'
-  return new Intl.DateTimeFormat('fr-FR', {
+  return new Intl.DateTimeFormat(activeSchoolLocale(), {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -59,18 +60,22 @@ function formatPrice(amount: number | null, currency: string) {
   if (amount === null) return 'Tarif à définir'
 
   if (currency.toUpperCase() === 'XAF') {
-    return new Intl.NumberFormat('fr-FR', {
+    return new Intl.NumberFormat(activeSchoolLocale(), {
       style: 'currency',
       currency: 'XAF',
       maximumFractionDigits: 0,
     }).format(amount)
   }
 
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat(activeSchoolLocale(), {
     style: 'currency',
     currency,
     maximumFractionDigits: 2,
   }).format(amount / 100)
+}
+
+function formatUsageValue(value: number) {
+  return new Intl.NumberFormat(activeSchoolLocale(), { maximumFractionDigits: 1 }).format(value)
 }
 
 const statusLabels: Record<Subscription['status'], string> = {
@@ -562,13 +567,16 @@ export function BillingPage() {
           </div>
           <div className="billing-usage__grid">
             {usage.metrics.map((metric) => {
+              const hoursQuota = metric.feature_key === 'replays' || metric.feature_key === 'transcription'
               const share = metric.limit ? Math.min(100, Math.round((metric.current / metric.limit) * 100)) : 0
               return (
                 <div className={`billing-usage__metric${metric.extra > 0 ? ' is-over' : ''}`} key={metric.feature_key}>
                   <span>{metric.label}</span>
                   <strong>
-                    {metric.current}
-                    <small>{metric.limit === null ? ' · illimité' : ` / ${metric.limit}`}</small>
+                    {hoursQuota && metric.limit === null ? 'Illimité' : <>
+                      {formatUsageValue(metric.current)}{hoursQuota ? ' h' : ''}
+                      <small>{metric.limit === null ? ' · illimité' : ` / ${formatUsageValue(metric.limit)}${hoursQuota ? ' h' : ''}`}</small>
+                    </>}
                   </strong>
                   {metric.limit !== null && <i className="billing-usage__bar"><b style={{ width: `${share}%` }} /></i>}
                   {metric.extra > 0 && (

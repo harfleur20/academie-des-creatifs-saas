@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -187,7 +188,7 @@ export function TeacherDashboardPage() {
                     <strong>{nextCourse.title}</strong>
                     <p>
                       {nextCourse.detail} ·{' '}
-                      {new Date(nextCourse.startsAt).toLocaleString('fr-FR', {
+                      {new Date(nextCourse.startsAt).toLocaleString(activeSchoolLocale(), {
                         weekday: 'long',
                         day: 'numeric',
                         month: 'long',

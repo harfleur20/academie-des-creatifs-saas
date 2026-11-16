@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import { ApiError, listAdminPayouts, markAdminPayoutPaid, rejectAdminPayout, type AdminPayout, type Payout } from '../lib/api'
 import { formatMoney } from '../lib/planFeatures'
@@ -78,7 +79,7 @@ export function AdminPayoutsPage() {
                 <div>
                   <strong>{payout.organization_name} · {formatMoney(payout.amount_cents, payout.currency)}</strong>
                   <small>{METHODS[payout.method]} · {payout.destination} · {payout.account_name}</small>
-                  <small>Demandé le {new Date(payout.requested_at).toLocaleString('fr-FR')}{payout.transfer_reference ? ` · réf. ${payout.transfer_reference}` : ''}{payout.note ? ` · ${payout.note}` : ''}</small>
+                  <small>Demandé le {new Date(payout.requested_at).toLocaleString(activeSchoolLocale())}{payout.transfer_reference ? ` · réf. ${payout.transfer_reference}` : ''}{payout.note ? ` · ${payout.note}` : ''}</small>
                 </div>
                 {payout.status === 'requested' ? (
                   <span className="admin-payout-actions">

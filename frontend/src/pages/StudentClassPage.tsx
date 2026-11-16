@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   BadgeCheck,
@@ -33,11 +34,11 @@ const DISCUSSION_INITIAL_VISIBLE_POSTS = 2
 const DISCUSSION_VISIBLE_POSTS_STEP = 2
 
 function initials(name: string) {
-  return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase('fr-FR')
+  return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase(activeSchoolLocale())
 }
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString('fr-FR', {
+  return new Date(value).toLocaleString(activeSchoolLocale(), {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

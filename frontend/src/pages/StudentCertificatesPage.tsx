@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import {
   Award,
@@ -115,7 +116,7 @@ export function StudentCertificatesPage() {
                       <strong>{certificate.certificate_number}</strong>
                       <small>
                         Émis le{' '}
-                        {new Date(certificate.issued_at).toLocaleDateString('fr-FR')}
+                        {new Date(certificate.issued_at).toLocaleDateString(activeSchoolLocale())}
                       </small>
                       <div className="certificate-actions">
                         <a

@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState } from 'react'
 import { CalendarCheck2, FileText } from 'lucide-react'
 import {
@@ -65,7 +66,7 @@ export function StudentResultsPage() {
               onClick={() => setSelectedId(item.enrollment_id)}
             >
               <strong>{item.formation_title}</strong>
-              <small>{item.session_label}{item.average_20 !== null ? ` · ${item.average_20.toLocaleString('fr-FR')}/20` : ''}</small>
+              <small>{item.session_label}{item.average_20 !== null ? ` · ${item.average_20.toLocaleString(activeSchoolLocale())}/20` : ''}</small>
             </button>
           ))}
         </div>
@@ -85,7 +86,7 @@ export function StudentResultsPage() {
         <div className="result-list">
           {attendance.map((row) => (
             <div className="result-row" key={row.course_day_id}>
-              <div><strong>{row.title}</strong><small>{new Date(row.scheduled_at).toLocaleString('fr-FR')}</small></div>
+              <div><strong>{row.title}</strong><small>{new Date(row.scheduled_at).toLocaleString(activeSchoolLocale())}</small></div>
               <span className={'attendance-status ' + (row.status || 'pending')}>{row.status ? ATTENDANCE_LABELS[row.status] : 'À confirmer'}</span>
             </div>
           ))}

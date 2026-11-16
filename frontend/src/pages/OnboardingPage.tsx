@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   ArrowRight,
@@ -135,7 +136,7 @@ export function OnboardingPage() {
             <strong>Votre essai {trial.plan.name} commence</strong>
             <span>
               Tout le forfait {trial.plan.name} est ouvert, cours en live compris, jusqu’au{' '}
-              {new Date(trial.trial_ends_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}, sans moyen de paiement.
+              {new Date(trial.trial_ends_at).toLocaleDateString(activeSchoolLocale(), { day: 'numeric', month: 'long' })}, sans moyen de paiement.
               Ensuite, sans forfait payé, votre école continue gratuitement en Découverte.
             </span>
           </div>

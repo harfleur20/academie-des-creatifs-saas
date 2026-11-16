@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   ArrowRight,
@@ -71,7 +72,7 @@ function localPhoneValue(phone: string | null, dialCode: string) {
 }
 
 function normalizeLanguageName(value: string) {
-  return value.trim().toLocaleLowerCase('fr-FR')
+  return value.trim().toLocaleLowerCase(activeSchoolLocale())
 }
 
 function normalizeCountryLabel(value: string) {
@@ -79,7 +80,7 @@ function normalizeCountryLabel(value: string) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim()
-    .toLocaleLowerCase('fr-FR')
+    .toLocaleLowerCase(activeSchoolLocale())
 }
 
 export function TeacherSetupPage() {
@@ -114,11 +115,14 @@ export function TeacherSetupPage() {
   const [uploading, setUploading] = useState<'portfolio' | 'cv' | null>(null)
   const [error, setError] = useState('')
 
-  const regionNames = useMemo(() => new Intl.DisplayNames(['fr-FR'], { type: 'region' }), [])
+  const regionNames = useMemo(
+    () => new Intl.DisplayNames([activeSchoolLocale()], { type: 'region' }),
+    [activeOrganization?.locale],
+  )
 
   const sortedPhoneCountries = useMemo(() => (
     [...phoneCountries].sort((a, b) => (
-      (regionNames.of(a.code) || a.code).localeCompare(regionNames.of(b.code) || b.code, 'fr-FR')
+      (regionNames.of(a.code) || a.code).localeCompare(regionNames.of(b.code) || b.code, activeSchoolLocale())
     ))
   ), [phoneCountries, regionNames])
 

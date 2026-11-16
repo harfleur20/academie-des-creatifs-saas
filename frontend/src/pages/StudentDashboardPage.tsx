@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -48,7 +49,7 @@ function firstName(name?: string | null) {
 }
 
 function shortDate(value: string) {
-  return new Date(`${value}T12:00:00`).toLocaleDateString('fr-FR', {
+  return new Date(`${value}T12:00:00`).toLocaleDateString(activeSchoolLocale(), {
     day: 'numeric', month: 'long', year: 'numeric',
   })
 }
@@ -252,7 +253,7 @@ export function StudentDashboardPage() {
                     <strong>{nextCourse.title}</strong>
                     <p>
                       {nextCourse.detail} ·{' '}
-                      {new Date(nextCourse.startsAt).toLocaleString('fr-FR', {
+                      {new Date(nextCourse.startsAt).toLocaleString(activeSchoolLocale(), {
                         weekday: 'long',
                         day: 'numeric',
                         month: 'long',

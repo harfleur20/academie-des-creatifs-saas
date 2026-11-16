@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from './schoolLocale'
 import { Bell, Check, ChevronRight, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -82,7 +83,7 @@ export function SchoolNotificationBell({
         {!loading && !error && items.length === 0 && <p className="school-notif-empty">Aucune notification.</p>}
         {items.slice(0, 6).map((item) => <button key={item.id} type="button" className={`school-notif-item ${item.read_at ? 'is-read' : ''}`} onClick={() => void openTarget(item.id, item.action_path)}>
           <span className={`school-notif-dot is-${item.tone}`} />
-          <span><strong>{item.title}</strong><small>{item.message}</small><time dateTime={item.created_at}>{new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time></span>
+          <span><strong>{item.title}</strong><small>{item.message}</small><time dateTime={item.created_at}>{new Date(item.created_at).toLocaleDateString(activeSchoolLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time></span>
           {item.action_path && <ChevronRight size={15} />}
         </button>)}
       </div>

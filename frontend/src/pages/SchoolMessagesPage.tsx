@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { MessageCircle, Plus, Search, Send, UserRound, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -27,7 +28,7 @@ const roleLabel = (role: string) => {
 }
 
 const messageDate = (value: string | null) => value
-  ? new Date(value).toLocaleString('fr-FR', {
+  ? new Date(value).toLocaleString(activeSchoolLocale(), {
       day: 'numeric',
       month: 'short',
       hour: '2-digit',

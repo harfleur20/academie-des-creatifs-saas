@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -23,6 +24,8 @@ import { recolorTealPixels } from '../brand/recolorTealPixels'
 import { cacheDirectionAccent } from '../brand/directionAccentCache'
 import { getCurrentSchoolBranding, type CurrentSchoolBranding } from '../brand/schoolBrandingApi'
 import { useAuth } from '../auth/AuthContext'
+import { setSchoolInterfaceLocale } from './schoolLocale'
+import { readSchoolLoginBranding } from '../lib/schoolLoginBranding'
 
 type TenantContextValue = {
   organizations: Organization[]
@@ -81,6 +84,20 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const organizationsReady = useRef(false)
   const organizationContextKey = user ? `${user.id}:${supportMode?.organization_id ?? ''}` : ''
   const organizationsReadyForCurrentUser = Boolean(user && organizationsReadyKey === organizationContextKey)
+
+  useLayoutEffect(() => {
+    if (location.pathname.startsWith('/app/')) {
+      setSchoolInterfaceLocale(activeOrganization?.locale)
+      return
+    }
+
+    const schoolLoginKey = location.pathname === '/login'
+      ? new URLSearchParams(location.search).get('school')
+      : null
+    const schoolPublicKey = location.pathname.match(/^\/school\/([^/]+)/)?.[1] ?? null
+    const schoolKey = schoolLoginKey ?? (schoolPublicKey ? decodeURIComponent(schoolPublicKey) : null)
+    setSchoolInterfaceLocale(schoolKey ? readSchoolLoginBranding(schoolKey)?.locale : null)
+  }, [location.pathname, location.search, activeOrganization?.id, activeOrganization?.locale])
 
   const applyCurrentBranding = useCallback(async (organization: Organization) => {
     const requestId = ++brandingRequest.current

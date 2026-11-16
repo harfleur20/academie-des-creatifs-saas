@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   ArrowLeft,
@@ -26,7 +27,7 @@ import {
 
 function formatDate(value: string | null) {
   if (!value) return '-'
-  return new Intl.DateTimeFormat('fr-FR', {
+  return new Intl.DateTimeFormat(activeSchoolLocale(), {
     day: '2-digit',
     month: 'long',
     year: 'numeric',

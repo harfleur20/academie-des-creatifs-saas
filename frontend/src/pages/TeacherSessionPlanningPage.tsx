@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   ArrowLeft,
@@ -164,8 +165,8 @@ export function TeacherSessionPlanningPage() {
             <h1>{planning.formation_title}</h1>
             <p>
               {planning.session_label} · du{' '}
-              {new Date(planning.session_start_date).toLocaleDateString('fr-FR')} au{' '}
-              {new Date(planning.session_end_date).toLocaleDateString('fr-FR')}
+              {new Date(planning.session_start_date).toLocaleDateString(activeSchoolLocale())} au{' '}
+              {new Date(planning.session_end_date).toLocaleDateString(activeSchoolLocale())}
             </p>
           </div>
           <span className="status-chip">{activeDays.length} séance(s)</span>
@@ -287,10 +288,10 @@ export function TeacherSessionPlanningPage() {
               >
                 <div className="planning-day-date">
                   <strong>
-                    {new Intl.DateTimeFormat('fr-FR', { day: '2-digit' }).format(new Date(day.scheduled_at))}
+                    {new Intl.DateTimeFormat(activeSchoolLocale(), { day: '2-digit' }).format(new Date(day.scheduled_at))}
                   </strong>
                   <span>
-                    {new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(new Date(day.scheduled_at))}
+                    {new Intl.DateTimeFormat(activeSchoolLocale(), { month: 'short' }).format(new Date(day.scheduled_at))}
                   </span>
                 </div>
                 <div className="planning-day-main">
@@ -299,7 +300,7 @@ export function TeacherSessionPlanningPage() {
                     <h3>{day.title}</h3>
                   </div>
                   <div className="planning-day-meta">
-                    <span><Clock3 size={14} /> {new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(day.scheduled_at))} · {formatDuration(day.duration_minutes)}</span>
+                    <span><Clock3 size={14} /> {new Intl.DateTimeFormat(activeSchoolLocale(), { hour: '2-digit', minute: '2-digit' }).format(new Date(day.scheduled_at))} · {formatDuration(day.duration_minutes)}</span>
                     <span><UserRound size={14} /> {day.teacher_name || 'Professeur non disponible'}</span>
                   </div>
                 </div>

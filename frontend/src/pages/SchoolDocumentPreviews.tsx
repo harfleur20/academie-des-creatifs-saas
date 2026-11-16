@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import type { CSSProperties, ReactNode } from 'react'
 import { ChevronDown, Eye } from 'lucide-react'
 import { SchoolLogo } from '../brand/SchoolLogo'
@@ -34,7 +35,7 @@ function SchoolLogoPreview({ identity, className = '', logoUrl }: { identity: Sc
 export function SchoolInvoicePreview({ identity, contactEmail, logoUrl }: PreviewProps) {
   const { public_site: site, legal } = identity
   const schoolName = site.site_name || identity.organization_name || 'Votre école'
-  const issuedAt = new Intl.DateTimeFormat('fr-FR').format(new Date())
+  const issuedAt = new Intl.DateTimeFormat(activeSchoolLocale()).format(new Date())
 
   return (
     <PreviewToggle title="Aperçu de la facture" description="Valeurs d’exemple · reflète votre identité visuelle et vos informations de facturation">
@@ -82,7 +83,7 @@ function SampleQr() {
 export function SchoolCertificatePreview({ identity, logoUrl }: PreviewProps) {
   const { public_site: site, certification } = identity
   const schoolName = site.site_name || identity.organization_name || 'Votre école'
-  const issuedAt = new Intl.DateTimeFormat('fr-FR').format(new Date())
+  const issuedAt = new Intl.DateTimeFormat(activeSchoolLocale()).format(new Date())
 
   return (
     <PreviewToggle title="Aperçu du certificat" description="Valeurs d’exemple · reflète votre logo, vos couleurs, votre signature et votre cachet">

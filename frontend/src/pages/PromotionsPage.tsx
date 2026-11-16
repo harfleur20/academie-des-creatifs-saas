@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   BadgePercent,
@@ -50,7 +51,7 @@ function endOfDayIso(value: string) {
 
 function formatDate(value: string | null) {
   if (!value) return 'Sans date'
-  return new Intl.DateTimeFormat('fr-FR', {
+  return new Intl.DateTimeFormat(activeSchoolLocale(), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -58,7 +59,7 @@ function formatDate(value: string | null) {
 }
 
 function formatMoney(cents: number, currency = 'XAF') {
-  return new Intl.NumberFormat('fr-FR', {
+  return new Intl.NumberFormat(activeSchoolLocale(), {
     style: 'currency',
     currency,
     maximumFractionDigits: 0,

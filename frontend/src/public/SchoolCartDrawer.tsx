@@ -116,7 +116,7 @@ export function SchoolCartDrawer({ open, item, schoolSlug, displayCurrency, curr
               <article className="school-cart-drawer-item">
                 {item.cover_image_url ? <img src={item.cover_image_url} alt="" /> : <div className="school-cart-placeholder" />}
                 <div>
-                  <h3>{item.formation_title}</h3>
+                  <h3 data-no-translate>{item.formation_title}</h3>
                   <p>{item.format_type === 'ligne' || item.session_label === 'Accès en ligne' ? 'Formation en ligne' : `Session : ${item.session_label}`}</p>
                   <strong>{formatSchoolMoney(item.price_cents, item.currency, displayCurrency, currencyRates)}</strong>
                   {item.payment_mode === 'installments' ? (

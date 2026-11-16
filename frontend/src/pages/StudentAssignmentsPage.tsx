@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type ChangeEvent } from 'react'
 import {
   CheckCircle2,
@@ -25,7 +26,7 @@ import {
 import { AssignmentBriefView } from '../components/AssignmentBriefView'
 
 function dateTime(value: string) {
-  return new Date(value).toLocaleString('fr-FR', {
+  return new Date(value).toLocaleString(activeSchoolLocale(), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',

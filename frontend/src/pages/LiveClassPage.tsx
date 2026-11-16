@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from 'react'
 import { Hand, LogOut, Mic, MicOff, Video, VideoOff, X } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -65,7 +66,7 @@ const DELIVERY_STATUSES: { value: DeliveryStatus; label: string }[] = [
 ]
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleString(activeSchoolLocale(), { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 function formatWait(ms: number) {

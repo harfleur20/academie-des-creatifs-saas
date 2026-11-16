@@ -160,7 +160,7 @@ class AddonRead(BaseModel):
 class UsageMetricRead(BaseModel):
     feature_key: str
     label: str
-    current: int
+    current: int | float
     limit: int | None  # None: unlimited
     extra: int
     unit_price_cents: int | None

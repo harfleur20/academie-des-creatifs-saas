@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 const JSPDF_SRC = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js'
 
 type PdfPageSize = {
@@ -111,7 +112,7 @@ export async function downloadSchoolReportPdf(options: ReportPdfOptions) {
   const right = 16
   const contentWidth = pageWidth - left - right
   const bottomLimit = pageHeight - 18
-  const generatedAt = new Intl.DateTimeFormat('fr-FR', {
+  const generatedAt = new Intl.DateTimeFormat(activeSchoolLocale(), {
     dateStyle: 'long',
     timeStyle: 'short',
   }).format(new Date())

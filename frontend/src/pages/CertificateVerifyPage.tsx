@@ -1,3 +1,4 @@
+import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useState, type CSSProperties } from 'react'
 import {
   CheckCircle2,
@@ -103,7 +104,7 @@ export function CertificateVerifyPage() {
               <div>
                 <dt>Date d’émission</dt>
                 <dd>
-                  {new Date(certificate.issued_at).toLocaleDateString('fr-FR')}
+                  {new Date(certificate.issued_at).toLocaleDateString(activeSchoolLocale())}
                 </dd>
               </div>
               <div>

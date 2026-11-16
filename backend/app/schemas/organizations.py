@@ -39,10 +39,19 @@ class OrganizationUpdate(BaseModel):
         pattern=r"^#[0-9A-Fa-f]{6}$",
     )
     direction_sidebar_collapsed: bool | None = None
+    direction_sidebar_collapse_enabled: bool | None = None
 
 
 class OrganizationPolicyRead(BaseModel):
     name_change_cooldown_days: int
+
+
+class OrganizationCreationCapacityRead(BaseModel):
+    owned_organizations: int
+    maximum_organizations: int | None
+    can_create: bool
+    plan_code: str | None = None
+    plan_name: str | None = None
 
 
 class OrganizationRead(BaseModel):
@@ -64,6 +73,7 @@ class OrganizationRead(BaseModel):
     accent_color: str
     direction_accent_color: str | None
     direction_sidebar_collapsed: bool
+    direction_sidebar_collapse_enabled: bool
     created_at: datetime
 
 
@@ -200,6 +210,7 @@ class OrganizationHostBrandingRead(BaseModel):
     slug: str
     subdomain: str | None
     hostname: str
+    locale: str = "fr-FR"
     logo_url: str | None
     auth_background_image_url: str | None = None
     auth_show_school_name: bool = True

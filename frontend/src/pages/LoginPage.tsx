@@ -27,6 +27,7 @@ import {
 import { planChoiceFromSearch, savePlanChoice } from '../lib/planChoice'
 import { formatMoney, monthlyEquivalent } from '../lib/planFeatures'
 import { rememberPlatformAuthOrigin, rememberSchoolAuthOrigin } from '../lib/authOrigin'
+import { setSchoolInterfaceLocale } from '../app/schoolLocale'
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 
@@ -124,6 +125,7 @@ export function LoginPage() {
         .then((school) => {
           if (!active) return
           const branding = toSchoolLoginBranding(school)
+          setSchoolInterfaceLocale(school.locale)
           cacheSchoolLoginBranding(schoolKey, branding)
           if (school.slug !== schoolKey) cacheSchoolLoginBranding(school.slug, branding)
           setHostBrand(branding)
@@ -141,7 +143,11 @@ export function LoginPage() {
   }, [schoolKey, invitation?.organization_id])
 
   useLayoutEffect(() => {
-    if (!schoolKey) return
+    if (!schoolKey) {
+      setSchoolInterfaceLocale(null)
+      return
+    }
+    setSchoolInterfaceLocale(hostBrand?.locale)
     if (hostBrand) {
       applySchoolLoginBranding(hostBrand)
       return

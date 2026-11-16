@@ -93,6 +93,7 @@ class PublicSchoolRead(BaseModel):
     organization_id: int
     slug: str
     subdomain: str | None
+    locale: str = "fr-FR"
     default_currency: str = "XAF"
     name: str
     site_name: str
