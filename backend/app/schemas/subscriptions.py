@@ -88,6 +88,7 @@ class PaymentModeRead(BaseModel):
 class DemoCheckoutCreate(BaseModel):
     plan_code: str = Field(min_length=1, max_length=64)
     billing_interval: str = Field(pattern=r"^(monthly|annual)$")
+    confirm_downgrade: bool = False
 
 
 class DemoPaymentAttemptRead(BaseModel):
@@ -118,6 +119,7 @@ class DemoPaymentConfirmationRead(BaseModel):
 class TaraCheckoutCreate(BaseModel):
     plan_code: str = Field(min_length=1, max_length=64)
     billing_interval: str = Field(pattern=r"^(monthly|annual)$")
+    confirm_downgrade: bool = False
 
 
 class TaraCheckoutRead(BaseModel):
