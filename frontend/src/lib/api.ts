@@ -737,12 +737,14 @@ export const getPaymentMode = () =>
 export const createDemoCheckout = (
   planCode: string,
   billingInterval: 'monthly' | 'annual',
+  confirmDowngrade = false,
 ) =>
   request<DemoPaymentAttempt>('/billing/demo/checkout', {
     method: 'POST',
     body: JSON.stringify({
       plan_code: planCode,
       billing_interval: billingInterval,
+      confirm_downgrade: confirmDowngrade,
     }),
   })
 
@@ -767,12 +769,14 @@ export type TaraReconcile = {
 export const createTaraCheckout = (
   planCode: string,
   billingInterval: 'monthly' | 'annual',
+  confirmDowngrade = false,
 ) =>
   request<TaraCheckout>('/billing/tara/checkout', {
     method: 'POST',
     body: JSON.stringify({
       plan_code: planCode,
       billing_interval: billingInterval,
+      confirm_downgrade: confirmDowngrade,
     }),
   })
 
