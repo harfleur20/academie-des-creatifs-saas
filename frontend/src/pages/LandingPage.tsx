@@ -13,7 +13,7 @@ import {
   LayoutGrid,
   MapPin,
   MonitorPlay,
-  Palette,
+  SwatchBook,
   Radio,
   Smartphone,
   Tag,
@@ -57,7 +57,7 @@ type Feature = {
 /** What a school's own website does for it: the part of the product that brings in students. */
 const SITE_POINTS = [
   { icon: Globe, title: 'À votre adresse', text: 'votre-ecole.academiecreatif.com dès la création, ou votre propre nom de domaine.' },
-  { icon: Palette, title: 'À vos couleurs', text: 'Logo, couleurs, polices, bandeau d’annonce et page de présentation.' },
+  { icon: SwatchBook, title: 'À vos couleurs', text: 'Logo, couleurs, polices, bandeau d’annonce et page de présentation.' },
   { icon: LayoutGrid, title: 'Catalogue et sessions', text: 'Programme, prochaines sessions, places restantes et prix en FCFA.' },
   { icon: CreditCard, title: 'Paiement en ligne', text: 'Mobile Money ou carte, en une fois ou en plusieurs échéances.' },
   { icon: Tag, title: 'Promotions', text: 'Réductions et codes promo pour remplir vos prochaines sessions.' },
