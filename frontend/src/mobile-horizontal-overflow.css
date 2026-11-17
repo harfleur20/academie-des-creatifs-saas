@@ -1,0 +1,35 @@
+/* Keep the mobile viewport fixed while preserving intentional horizontal scrollers
+   (tables, timelines and comparison panels) inside their own containers. */
+@media (max-width: 900px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+
+  @supports not (overflow-x: clip) {
+    html,
+    body {
+      overflow-x: hidden;
+    }
+  }
+
+  #root,
+  .saas-app,
+  .tenant-role-shell,
+  .admin-shell,
+  .public-school-shell {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .app-content,
+  .app-page,
+  .tenant-role-main,
+  .tenant-role-content,
+  .admin-page {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
