@@ -664,7 +664,7 @@ export function SchoolWorkspaceLayout({
           <SchoolWorkspaceSwitcher
             variant="direction"
             currentSpace={space}
-            collapsed={directionSidebarCollapsed}
+            collapsed={directionSidebarCollapsed && !sidebarOpen}
             organizations={organizations}
             activeOrganization={activeOrganization}
             accessProfile={accessProfile}

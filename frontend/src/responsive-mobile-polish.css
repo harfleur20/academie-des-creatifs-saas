@@ -1,0 +1,243 @@
+/* Shared mobile adjustments for the public school site and direction workspace. */
+
+/* The generic hero kicker also matches the CTA's inner span. Keep the CTA label legible. */
+.public-school-shell .school-hero > div > a > span {
+  display: inline;
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.school-home-featured-link__mobile {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .public-school-shell .public-school-mobile-menu {
+    display: grid;
+    place-items: center;
+    align-self: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 11px;
+    color: var(--school-primary, #1f2559);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .public-school-shell .public-school-mobile-menu svg {
+    display: block;
+    flex: none;
+    color: currentColor;
+  }
+}
+
+@media (max-width: 600px) {
+  .school-home-featured-heading {
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .school-home-featured-heading > div {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .school-home-featured-heading h2 {
+    margin-bottom: 0;
+  }
+
+  .school-home-featured-link {
+    flex: none;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  .school-home-featured-link__desktop {
+    display: none;
+  }
+
+  .school-home-featured-link__mobile {
+    display: inline;
+  }
+
+  .owner-dashboard-rail-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .owner-dashboard-rail-metrics > a {
+    min-width: 0;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 7px;
+    padding: 12px 10px;
+  }
+
+  .owner-dashboard-rail-metrics small {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 720px) {
+  .manage-topbar .manage-topbar-menu,
+  .tenant-role-topbar .tenant-role-menu {
+    display: grid;
+    place-items: center;
+    align-self: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 11px;
+    line-height: 0;
+    cursor: pointer;
+  }
+
+  .manage-topbar .manage-topbar-menu {
+    color: var(--blue, #1f2559);
+    background: #eef2fb;
+  }
+
+  .tenant-role-topbar .tenant-role-menu {
+    color: var(--tenant-accent, #1f2559);
+    background: color-mix(in srgb, var(--tenant-accent, #1f2559) 10%, white);
+  }
+
+  .manage-topbar-menu svg,
+  .tenant-role-menu svg {
+    display: block;
+    flex: none;
+  }
+
+  .saas-app .app-sidebar.is-open .app-nav > a {
+    justify-content: flex-start;
+    gap: 11px;
+    padding: 0 13px;
+  }
+
+  .saas-app .app-sidebar.is-open .app-nav > a:nth-of-type(2) {
+    flex: 0 0 auto;
+    margin-top: 0;
+  }
+
+  .saas-app .app-sidebar.is-open .app-nav-subnav {
+    margin-left: 8px;
+    padding: 3px 0 7px 8px;
+    border-left: 1px solid rgba(255, 255, 255, .14);
+  }
+
+  .saas-app .app-sidebar.is-open .app-nav-subnav a {
+    min-height: 46px;
+    justify-content: flex-start;
+    gap: 11px;
+    padding: 0 13px;
+    font-size: var(--text-secondary);
+  }
+
+  .manage-topbar-menu:focus-visible,
+  .tenant-role-menu:focus-visible,
+  .public-school-mobile-menu:focus-visible {
+    outline: 2px solid var(--blue, #1f2559);
+    outline-offset: 2px;
+  }
+
+  /* A mobile drawer always opens as a full, readable menu, even when the desktop rail is collapsed. */
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open {
+    align-items: stretch;
+    padding: 24px 18px;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-brand {
+    justify-content: flex-start;
+    width: auto;
+    padding: 0 8px 24px;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .direction-brand-full {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .direction-brand-mark {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .direction-brand-wordmark {
+    justify-content: flex-start;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .school-switcher {
+    display: block;
+    width: 100%;
+    margin: 8px 0 26px;
+    padding: 12px;
+    background: rgba(255, 255, 255, .05);
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .school-switcher-menu {
+    top: calc(100% + 8px);
+    left: 0;
+    width: min(286px, calc(100vw - 32px));
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .workspace-switcher.is-hidden-when-collapsed {
+    display: block;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-nav {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-nav-group {
+    gap: 4px;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-nav-subnav {
+    margin-left: 8px;
+    padding: 3px 0 7px 8px;
+    border-left: 1px solid rgba(255, 255, 255, .14);
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-nav > a,
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-nav .app-nav-group-trigger,
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-nav-subnav a {
+    justify-content: flex-start;
+    gap: 11px;
+    padding: 0 13px;
+    font-size: var(--text-body);
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-nav-label,
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-nav-group-trigger > span,
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .app-nav-group-chevron,
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .demo-locked-link__icon {
+    max-width: 180px;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .sidebar-user {
+    grid-template-columns: 38px minmax(0, 1fr) 32px;
+    justify-items: stretch;
+    width: 100%;
+  }
+
+  .saas-app.is-manage-sidebar-collapsed .app-sidebar.is-open .sidebar-user > div:not(.user-avatar) {
+    display: block;
+    max-width: none;
+    max-height: none;
+    opacity: 1;
+    transform: none;
+  }
+}

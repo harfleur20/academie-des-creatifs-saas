@@ -279,10 +279,17 @@ export function SchoolPublicLayout() {
           <SchoolLogo logoUrl={school.logo_url} alt={school.site_name} />
           <strong data-no-translate>{school.site_name || school.name}</strong>
         </Link>
-        <button className="public-school-mobile-menu" type="button" onClick={() => setMenuOpen((v) => !v)}>
+        <button
+          className="public-school-mobile-menu"
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          aria-expanded={menuOpen}
+          aria-controls="school-main-navigation"
+        >
           {menuOpen ? <X size={20}/> : <Menu size={20}/>}
         </button>
-        <nav className={menuOpen ? 'is-open' : ''}>
+        <nav id="school-main-navigation" className={menuOpen ? 'is-open' : ''}>
           <NavLink end to={'/school/' + schoolSlug}>Accueil</NavLink>
           <NavLink to={'/school/' + schoolSlug + '/formations'}>Formations</NavLink>
           <NavLink to={'/school/' + schoolSlug + '/contact'}>Nous contacter</NavLink>

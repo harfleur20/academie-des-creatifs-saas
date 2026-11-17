@@ -38,7 +38,7 @@ export function SchoolHomePage() {
     </section>
 
     <section className="school-section">
-      <header className="school-section-heading"><div><span className="school-kicker">À découvrir</span><h2>Nos formations à la une</h2></div><Link to={'/school/' + schoolSlug + '/formations'}>Voir toutes les formations <ArrowRight size={15}/></Link></header>
+      <header className="school-section-heading school-home-featured-heading"><div><span className="school-kicker">À découvrir</span><h2>Nos formations à la une</h2></div><Link className="school-home-featured-link" to={'/school/' + schoolSlug + '/formations'}><span className="school-home-featured-link__desktop">Voir toutes les formations</span><span className="school-home-featured-link__mobile">Voir plus</span><ArrowRight size={15}/></Link></header>
       <div className="school-formation-grid">
         {formations.map((formation) => <FormationCard key={formation.id} schoolSlug={schoolSlug} formation={formation}/>)}
       </div>
