@@ -186,6 +186,7 @@ def create_demo_checkout(
         tenant,
         plan_code=payload.plan_code,
         billing_interval=payload.billing_interval,
+        confirm_downgrade=payload.confirm_downgrade,
     )
 
 
@@ -224,6 +225,7 @@ def create_tara_checkout(
         tenant,
         plan_code=payload.plan_code,
         billing_interval=payload.billing_interval,
+        confirm_downgrade=payload.confirm_downgrade,
     )
     return TaraCheckoutRead(
         payment=payment,
