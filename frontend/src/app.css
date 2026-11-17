@@ -8384,3 +8384,29 @@ button.monitoring-row:focus-visible { outline: 2px solid #1c8480; outline-offset
     justify-content: center;
   }
 }
+
+
+/* Mobile workspace search: prevent iOS focus zoom and keep suggestions inside the viewport. */
+@media (max-width: 1023px) {
+  .manage-topbar-search {
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .manage-topbar-search input {
+    min-width: 0;
+    width: 100%;
+    font-size: 16px !important;
+    line-height: 1.25;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .manage-topbar-results {
+    max-width: calc(100vw - 30px);
+    max-height: min(55vh, 360px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
