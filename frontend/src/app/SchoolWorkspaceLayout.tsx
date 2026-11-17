@@ -645,7 +645,9 @@ export function SchoolWorkspaceLayout({
         {sidebarOpen && <button className="manage-sidebar-backdrop" type="button" aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} />}
         <aside className={`app-sidebar${sidebarOpen ? ' is-open' : ''}${directionSidebarCollapsed ? ' is-collapsed' : ''}${workspaceSwitcherOpen ? ' has-workspace-menu-open' : ''}`}>
           <div className="app-brand">
-            <DirectionWordmark accentColor={directionAccent} />
+            <a className="direction-brand-home" href="/" aria-label="Retour à l’accueil de l’Académie des Créatifs">
+              <DirectionWordmark accentColor={directionAccent} />
+            </a>
           </div>
           {activeOrganization
             && !supportMode
