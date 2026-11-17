@@ -68,7 +68,10 @@
 
 .google-auth-button,
 .google-auth-fallback {
-  width: min(100%, 420px);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
   min-height: 44px;
   margin-inline: auto;
 }
@@ -76,14 +79,17 @@
 .google-auth-button {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
+  overflow: visible;
 }
 
 .google-auth-button > div,
 .google-auth-button iframe {
-  width: min(100%, 420px) !important;
-  max-width: 420px !important;
-  margin: 0 auto;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 auto !important;
 }
 
 .google-auth-button.is-disabled {
