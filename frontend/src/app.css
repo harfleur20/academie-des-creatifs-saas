@@ -8217,3 +8217,170 @@ button.monitoring-row:focus-visible { outline: 2px solid #1c8480; outline-offset
 @media (max-width: 760px) {
   .school-certificate-preview__eyebrow { margin-top: 11%; }
 }
+
+
+/* Confirmation modal for a lower school subscription plan. */
+.plan-downgrade-modal {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 20, 38, .58);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.plan-downgrade-dialog {
+  width: min(540px, 100%);
+  max-height: min(88vh, 760px);
+  overflow-y: auto;
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid rgba(31, 37, 89, .1);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 28px 90px rgba(9, 17, 42, .28);
+  color: #202544;
+}
+
+.plan-downgrade-dialog__icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  border: 1px solid color-mix(in srgb, var(--school-primary, var(--blue, #1f2559)) 18%, white);
+  border-radius: 16px;
+  color: var(--school-primary, var(--blue, #1f2559));
+  background: color-mix(in srgb, var(--school-primary, var(--blue, #1f2559)) 9%, white);
+}
+
+.plan-downgrade-dialog__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--school-primary, var(--blue, #1f2559));
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.plan-downgrade-dialog h2 {
+  margin: 10px 0 9px;
+  color: #202544;
+  font-size: clamp(22px, 4vw, 27px);
+  line-height: 1.15;
+  letter-spacing: -.035em;
+}
+
+.plan-downgrade-dialog > p {
+  margin: 0;
+  color: #69738a;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.plan-downgrade-dialog__plans {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 16px;
+  padding: 15px;
+  border: 1px solid #e8eaf1;
+  border-radius: 14px;
+  background: #f8f9fc;
+}
+
+.plan-downgrade-dialog__plans > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.plan-downgrade-dialog__plans > div:last-child strong {
+  color: var(--school-primary, var(--blue, #1f2559));
+}
+
+.plan-downgrade-dialog__plans span {
+  color: #858da0;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.plan-downgrade-dialog__plans strong {
+  overflow-wrap: anywhere;
+  color: #252b49;
+  font-size: 15px;
+}
+
+.plan-downgrade-dialog__plans > svg {
+  color: #9299aa;
+}
+
+.plan-downgrade-dialog__impacts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 0 20px;
+  color: #535f76;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.plan-downgrade-dialog__impacts li::marker {
+  color: var(--school-primary, var(--blue, #1f2559));
+}
+
+.plan-downgrade-dialog__impacts strong {
+  color: #252b49;
+}
+
+.plan-downgrade-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid #edf0f4;
+}
+
+.plan-downgrade-dialog__actions .primary-button {
+  border-color: var(--school-primary, var(--blue, #1f2559));
+  background: linear-gradient(
+    125deg,
+    var(--school-primary, var(--blue, #1f2559)),
+    color-mix(in srgb, var(--school-primary, var(--blue, #1f2559)) 78%, white)
+  );
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--school-primary, var(--blue, #1f2559)) 22%, transparent);
+}
+
+.plan-downgrade-dialog__actions .primary-button:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+@media (max-width: 560px) {
+  .plan-downgrade-modal {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .plan-downgrade-dialog {
+    max-height: min(88vh, 760px);
+    padding: 22px 18px;
+    border-radius: 20px;
+  }
+
+  .plan-downgrade-dialog__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .plan-downgrade-dialog__actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}

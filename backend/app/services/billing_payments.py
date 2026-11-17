@@ -18,6 +18,7 @@ from app.services.plan_limits import quote
 from app.services.subscriptions import (
     aware_utc,
     configured_plan_price,
+    get_latest_subscription,
     period_end,
 )
 from app.services.tara_money import (
@@ -70,6 +71,38 @@ def _get_plan(
             detail="Forfait introuvable.",
         )
     return plan
+
+
+def _require_downgrade_confirmation(
+    db: Session,
+    tenant: TenantContext,
+    target_plan: PlanRecord,
+    *,
+    confirmed: bool,
+) -> None:
+    """Require an explicit acknowledgement before starting a lower-tier checkout."""
+    current = get_latest_subscription(db, tenant.organization_id)
+    if current is None or current.status not in {"trialing", "active", "past_due"}:
+        return
+
+    current_plan = current.plan
+    current_price = current_plan.monthly_price_cents
+    target_price = target_plan.monthly_price_cents
+    same_currency = current_plan.currency.upper() == target_plan.currency.upper()
+    if (
+        same_currency
+        and current_price is not None
+        and target_price is not None
+        and target_price < current_price
+        and not confirmed
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "plan_downgrade_confirmation_required",
+                "message": "Ce forfait est inférieur à votre forfait actuel. Confirmez explicitement cette baisse pour continuer.",
+            },
+        )
 
 
 def _demo_price_for_plan(
@@ -313,10 +346,12 @@ def create_demo_payment_attempt(
     *,
     plan_code: str,
     billing_interval: str,
+    confirm_downgrade: bool = False,
 ) -> BillingPaymentAttemptRecord:
     require_demo_payments_enabled()
     _require_billing_admin(tenant)
     plan = _get_plan(db, plan_code=plan_code)
+    _require_downgrade_confirmation(db, tenant, plan, confirmed=confirm_downgrade)
     billed = quote(db, tenant.organization_id, plan, billing_interval)
 
     attempt = BillingPaymentAttemptRecord(
@@ -377,6 +412,7 @@ def create_tara_payment_attempt(
     *,
     plan_code: str,
     billing_interval: str,
+    confirm_downgrade: bool = False,
 ) -> tuple[BillingPaymentAttemptRecord, str]:
     _require_billing_admin(tenant)
 
@@ -392,6 +428,7 @@ def create_tara_payment_attempt(
         )
 
     plan = _get_plan(db, plan_code=plan_code)
+    _require_downgrade_confirmation(db, tenant, plan, confirmed=confirm_downgrade)
     if plan.currency.upper() != "XAF":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

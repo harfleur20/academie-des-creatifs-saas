@@ -105,6 +105,7 @@ export function BillingPage() {
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly')
   const [loading, setLoading] = useState(false)
   const [paymentLoading, setPaymentLoading] = useState(false)
+  const [downgradePlan, setDowngradePlan] = useState<Plan | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -144,6 +145,20 @@ export function BillingPage() {
     setMessage('')
     void loadBilling()
   }, [activeOrganization?.id])
+
+  useEffect(() => {
+    if (!downgradePlan) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !paymentLoading) setDowngradePlan(null)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [downgradePlan, paymentLoading])
 
   useEffect(() => {
     const taraOrder = searchParams.get('tara_order')
@@ -221,12 +236,12 @@ export function BillingPage() {
     return Math.max(0, Math.ceil(diff / 86_400_000))
   }, [subscription])
 
-  async function startDemoPayment(plan: Plan) {
+  async function startDemoPayment(plan: Plan, confirmDowngrade = false) {
     setPaymentLoading(true)
     setError('')
     setMessage('')
     try {
-      const attempt = await createDemoCheckout(plan.code, billingInterval)
+      const attempt = await createDemoCheckout(plan.code, billingInterval, confirmDowngrade)
       setDemoAttempt(attempt)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossible de créer le paiement de test.')
@@ -254,12 +269,12 @@ export function BillingPage() {
     }
   }
 
-  async function startTaraPayment(plan: Plan) {
+  async function startTaraPayment(plan: Plan, confirmDowngrade = false) {
     setPaymentLoading(true)
     setError('')
     setMessage('')
     try {
-      const checkout = await createTaraCheckout(plan.code, billingInterval)
+      const checkout = await createTaraCheckout(plan.code, billingInterval, confirmDowngrade)
       window.location.assign(checkout.checkout_url)
     } catch (err) {
       setError(
@@ -316,6 +331,33 @@ export function BillingPage() {
   const currentPaidPlan = running && effectivePlan && (effectivePlan.monthly_price_cents ?? 0) > 0
     ? effectivePlan
     : null
+  const currentPlanForDowngrade = running && subscription ? subscription.plan : null
+  const isPlanDowngrade = (plan: Plan) => Boolean(
+    currentPlanForDowngrade
+      && currentPlanForDowngrade.code !== plan.code
+      && currentPlanForDowngrade.currency.toUpperCase() === plan.currency.toUpperCase()
+      && currentPlanForDowngrade.monthly_price_cents !== null
+      && plan.monthly_price_cents !== null
+      && plan.monthly_price_cents < currentPlanForDowngrade.monthly_price_cents,
+  )
+
+  function requestPlanCheckout(plan: Plan) {
+    if (isPlanDowngrade(plan)) {
+      setDowngradePlan(plan)
+      return
+    }
+    if (paymentMode?.demo_enabled) void startDemoPayment(plan)
+    else if (taraAvailable) void startTaraPayment(plan)
+  }
+
+  async function confirmPlanDowngrade() {
+    if (!downgradePlan) return
+    const selectedPlan = downgradePlan
+    setDowngradePlan(null)
+    if (paymentMode?.demo_enabled) await startDemoPayment(selectedPlan, true)
+    else if (taraAvailable) await startTaraPayment(selectedPlan, true)
+  }
+
   const planAddons = currentPaidPlan
     ? addons.filter((addon) => addon.plan_codes.includes(currentPaidPlan.code))
     : []
@@ -698,7 +740,7 @@ export function BillingPage() {
                   <button
                     className={current ? 'secondary-button full' : 'primary-button full'}
                     disabled={paymentLoading}
-                    onClick={() => void startDemoPayment(plan)}
+                    onClick={() => requestPlanCheckout(plan)}
                   >
                     <FlaskConical size={16} />
                     {current ? 'Tester un renouvellement' : 'Tester ce forfait'}
@@ -707,7 +749,7 @@ export function BillingPage() {
                   <button
                     className={current ? 'secondary-button full' : 'primary-button full'}
                     disabled={paymentLoading || displayedPrice === null}
-                    onClick={() => void startTaraPayment(plan)}
+                    onClick={() => requestPlanCheckout(plan)}
                   >
                     <ExternalLink size={16} />
                     {current ? 'Renouveler avec Tara' : 'Payer avec Tara'}
@@ -856,6 +898,83 @@ export function BillingPage() {
           )}
         </div>
       </section>
+
+      {downgradePlan && currentPlanForDowngrade && (
+        <div
+          className="plan-downgrade-modal"
+          role="presentation"
+          onClick={() => {
+            if (!paymentLoading) setDowngradePlan(null)
+          }}
+        >
+          <section
+            className="plan-downgrade-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plan-downgrade-title"
+            aria-describedby="plan-downgrade-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="plan-downgrade-dialog__icon">
+              <AlertTriangle size={25} />
+            </div>
+            <span className="plan-downgrade-dialog__eyebrow">
+              <LockKeyhole size={14} /> Sécurité de votre abonnement
+            </span>
+            <h2 id="plan-downgrade-title">Confirmer la baisse de forfait ?</h2>
+            <p id="plan-downgrade-description">
+              Vous passez d’un forfait <strong>{currentPlanForDowngrade.name}</strong> à un forfait
+              inférieur, <strong>{downgradePlan.name}</strong>. Vérifiez les conséquences avant de continuer.
+            </p>
+
+            <div className="plan-downgrade-dialog__plans">
+              <div>
+                <span>Forfait actuel</span>
+                <strong>{currentPlanForDowngrade.name}</strong>
+              </div>
+              <ArrowRight size={19} />
+              <div>
+                <span>Nouveau forfait</span>
+                <strong>{downgradePlan.name}</strong>
+              </div>
+            </div>
+
+            <ul className="plan-downgrade-dialog__impacts">
+              <li>Les fonctionnalités et quotas du nouveau forfait s’appliqueront dès confirmation du paiement.</li>
+              <li>Vos contenus existants restent dans votre école, mais les actions qui dépassent les nouvelles limites pourront être bloquées.</li>
+              {currentPlanForDowngrade.sales_commission_bps !== undefined
+                && downgradePlan.sales_commission_bps !== undefined
+                && currentPlanForDowngrade.sales_commission_bps !== downgradePlan.sales_commission_bps && (
+                  <li>
+                    Votre commission sur les ventes passera de{' '}
+                    <strong>{(currentPlanForDowngrade.sales_commission_bps / 100).toLocaleString(activeSchoolLocale())} %</strong>
+                    {' '}à{' '}
+                    <strong>{(downgradePlan.sales_commission_bps / 100).toLocaleString(activeSchoolLocale())} %</strong>.
+                  </li>
+                )}
+            </ul>
+
+            <div className="plan-downgrade-dialog__actions">
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={paymentLoading}
+                onClick={() => setDowngradePlan(null)}
+              >
+                Garder mon forfait actuel
+              </button>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={paymentLoading}
+                onClick={() => void confirmPlanDowngrade()}
+              >
+                {paymentLoading ? 'Préparation…' : `Confirmer le forfait ${downgradePlan.name}`}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   )
 }

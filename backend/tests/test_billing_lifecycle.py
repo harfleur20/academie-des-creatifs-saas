@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -225,6 +227,46 @@ def test_plan_change_cancels_old_and_creates_new_subscription(monkeypatch) -> No
     assert changed.id != old.id
     assert changed.plan_id == pro.id
     assert changed.status == "active"
+
+
+
+
+def test_lower_plan_checkout_requires_explicit_confirmation(monkeypatch) -> None:
+    enable_demo(monkeypatch)
+    db = build_db()
+    _, org, starter, pro, tenant = seed(db)
+    now = datetime.now(UTC)
+    current = SubscriptionRecord(
+        organization_id=org.id,
+        plan_id=pro.id,
+        status="active",
+        billing_interval="monthly",
+        started_at=now - timedelta(days=5),
+        current_period_start=now - timedelta(days=5),
+        current_period_end=now + timedelta(days=25),
+    )
+    db.add(current)
+    db.commit()
+
+    with pytest.raises(HTTPException) as raised:
+        create_demo_payment_attempt(
+            db,
+            tenant,
+            plan_code="starter",
+            billing_interval="monthly",
+        )
+
+    assert raised.value.status_code == 409
+    assert raised.value.detail["code"] == "plan_downgrade_confirmation_required"
+
+    attempt = create_demo_payment_attempt(
+        db,
+        tenant,
+        plan_code="starter",
+        billing_interval="monthly",
+        confirm_downgrade=True,
+    )
+    assert attempt.plan_id == starter.id
 
 
 
