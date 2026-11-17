@@ -453,14 +453,16 @@
   .lp-step p, .lp-faq__item p { line-height: 1.55; }
 }
 
-/* The website preview phone should feel less pill-shaped on small screens. */
+/* Both landing-page phone mockups use tighter corners on small screens. */
 @media (max-width: 640px) {
-  .lp-site__phone {
+  .lp-site__phone,
+  .lp-hero__phone {
     border-radius: 18px;
     border-width: 5px;
   }
 
-  .lp-site__phone img {
+  .lp-site__phone img,
+  .lp-hero__phone img {
     border-radius: 12px;
   }
 }
