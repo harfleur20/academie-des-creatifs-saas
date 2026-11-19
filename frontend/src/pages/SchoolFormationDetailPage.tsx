@@ -226,6 +226,16 @@ export function SchoolFormationDetailPage() {
   const planSession = formation.format_type === 'ligne'
     ? (formation.next_session?.can_purchase ? formation.next_session : null)
     : selected ?? (available.length === 1 ? available[0] : null)
+  const sessionAvailabilitySummary = available.length > 0
+    ? `${available.length} session(s) disponible(s)`
+    : formation.sessions.length > 0
+      ? `${formation.sessions.length} ${formation.sessions.length > 1 ? 'cohortes' : 'cohorte'} · inscriptions indisponibles`
+      : 'Aucune session programmée'
+  const sessionAvailabilityMessage = formation.sessions.length > 0
+    ? formation.sessions.length === 1
+      ? formation.sessions[0].unavailable_reason || 'Cette cohorte n’est pas disponible à l’inscription.'
+      : 'Aucune des cohortes affichées n’est actuellement disponible à l’inscription.'
+    : 'L’achat sera disponible après l’ouverture d’une session aux inscriptions.'
   // The teachers with their photos; names only from an API that does not send them yet.
   const teachers = formation.teachers ?? formation.teacher_names.map((name) => ({ full_name: name, avatar_url: null }))
   const FormatIcon = formation.format_type === 'live' ? Radio : formation.format_type === 'ligne' ? CirclePlay : BookOpen
@@ -378,7 +388,7 @@ export function SchoolFormationDetailPage() {
             <strong>{formatSchoolMoney(displayPrice, formation.currency, school.default_currency, currencyRates)}</strong>
             {planSession ? (
               <PaymentPlan session={planSession} mode={paymentMode} onChange={setPaymentMode} displayCurrency={school.default_currency} currencyRates={currencyRates} />
-            ) : (
+            ) : formation.format_type !== 'ligne' && available.length === 0 ? null : (
               <>
                 {formation.allow_installments && <span>Paiement possible jusqu’en {formation.installment_count} tranches.</span>}
                 {formation.reservation_deposit_percent != null && <span>Réservez votre place avec un acompte de {formatSchoolPercent(formation.reservation_deposit_percent)} pour une session qui commence dans plus de 10 jours.</span>}
@@ -404,7 +414,7 @@ export function SchoolFormationDetailPage() {
             <>
               <div className="school-session-panel-heading">
                 <span className="school-session-panel-heading-icon"><CalendarDays size={17} /></span>
-                <div><strong>Choisissez votre session</strong><small>{available.length} session(s) disponible(s)</small></div>
+                <div><strong>Choisissez votre session</strong><small>{sessionAvailabilitySummary}</small></div>
               </div>
               <div className="school-session-list">
                 {formation.sessions.length > 0
@@ -424,10 +434,10 @@ export function SchoolFormationDetailPage() {
                   ))
                   : <div className="school-no-session">Aucune session programmée.</div>}
               </div>
-              <button className={`school-buy-button ${!formation.can_purchase ? 'is-locked' : ''}`} type="button" onClick={add}>
-                <ShoppingBag size={16} />{formation.can_purchase ? 'Continuer avec cette session' : 'Pas de nouvelle session disponible'}
+              <button className={`school-buy-button ${!formation.can_purchase ? 'is-locked' : ''}`} type="button" onClick={add} disabled={!formation.can_purchase}>
+                <ShoppingBag size={16} />{formation.can_purchase ? 'Continuer avec cette session' : formation.sessions.length > 0 ? 'Inscriptions indisponibles' : 'Aucune session programmée'}
               </button>
-              {available.length === 0 && <small>Achat verrouillé jusqu’à l’ouverture d’une nouvelle session.</small>}
+              {available.length === 0 && <small>{sessionAvailabilityMessage}</small>}
             </>
           )}
         </aside>

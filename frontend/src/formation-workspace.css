@@ -143,7 +143,7 @@
   cursor: pointer;
 }
 
-.formation-sessions__item small { color: #1c8480; font-size: var(--text-small); font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.formation-sessions__item small { color: var(--school-secondary, #1c8480); font-size: var(--text-small); font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 .formation-sessions__item strong { color: #1f2352; font-size: var(--text-body); }
 .formation-sessions__item span { color: #64748b; font-size: var(--text-small); }
 .formation-sessions__item.is-active { border: 2px solid #1f2352; padding: 11px 13px; background: #f7f8fe; }
