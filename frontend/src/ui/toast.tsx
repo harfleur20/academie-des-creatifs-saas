@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle2, CircleAlert, Info, TriangleAlert, X } from 'lucide-react'
+import { untranslatedText } from '../app/schoolLocale'
 
 type ToastKind = 'success' | 'error' | 'warning' | 'info'
 
@@ -94,7 +95,9 @@ export function ToastViewport() {
 
     const bridgeFeedback = () => {
       document.querySelectorAll('.form-success, .form-error').forEach((element) => {
-        const message = element.textContent?.trim() ?? ''
+        // The message as written: the English interface rewrites it on screen, which
+        // must not read as a second message (the toast is translated on screen too).
+        const message = untranslatedText(element).trim()
         if (!message || previousText.get(element) === message) return
         previousText.set(element, message)
         if (element.classList.contains('form-error')) toast.error(message)

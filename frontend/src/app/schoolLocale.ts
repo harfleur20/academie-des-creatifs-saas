@@ -3100,3 +3100,16 @@ export function setSchoolInterfaceLocale(locale: string | null | undefined) {
 export function activeSchoolLocale() {
   return currentLocale
 }
+
+/** An element's text as the app wrote it: translating it to English does not change it. */
+export function untranslatedText(element: Element) {
+  let text = ''
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    const textNode = node as Text
+    const current = textNode.textContent ?? ''
+    text += translatedText.get(textNode) === current ? originalText.get(textNode) ?? current : current
+  }
+  return text
+}
