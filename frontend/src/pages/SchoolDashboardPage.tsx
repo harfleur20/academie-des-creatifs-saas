@@ -304,9 +304,18 @@ export function SchoolDashboardPage() {
   if (!activeOrganization) {
     return (
       <main className="app-page onboarding-page">
-        <div className="onboarding-card">
+        <div className="onboarding-card onboarding-card--school-setup">
           <span className="page-kicker">Première configuration</span>
-          <div className="large-icon"><span className="onboarding-school-logo" role="img" aria-label="Logo de l’Académie des Créatifs" /></div>
+          <div className="onboarding-card__visual">
+            <img
+              className="school-setup-illustration"
+              src="/school-setup-handover.webp"
+              alt="Remise des clés d’une école à sa responsable, avec des outils numériques."
+            />
+            <div className="onboarding-card__image-logo" aria-hidden="true">
+              <span className="onboarding-school-logo" />
+            </div>
+          </div>
           <h1>Créez votre première école</h1>
           <p>
             Ce sera votre espace isolé. Vous pourrez ensuite inviter vos administrateurs,

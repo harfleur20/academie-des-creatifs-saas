@@ -576,6 +576,12 @@
   box-shadow: 0 25px 70px rgba(35, 56, 87, .08);
 }
 
+.onboarding-card--school-setup { transform: translateY(-12px); }
+.onboarding-card__visual { position: relative; width: 100%; margin: 0 0 2px; overflow: hidden; border-radius: 14px; }
+.school-setup-illustration { display: block; width: 100%; height: 112px; object-fit: cover; object-position: center 22%; }
+.onboarding-card__image-logo { position: absolute; top: 8%; right: 4%; display: grid; width: 40px; height: 40px; place-items: center; border: 3px solid #fff; border-radius: 14px; background: #fff; box-shadow: 0 6px 18px rgba(25, 40, 70, .18); }
+.onboarding-card__image-logo .onboarding-school-logo { width: 28px; height: 28px; }
+
 .app-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
