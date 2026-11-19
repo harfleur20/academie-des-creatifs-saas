@@ -21,6 +21,7 @@ import {
 import {
   applySchoolLoginBranding,
   cacheSchoolLoginBranding,
+  invitationBranding,
   pageCarriesSchool,
   readSchoolLoginBranding,
   toSchoolLoginBranding,
@@ -29,7 +30,7 @@ import { planChoiceFromSearch, savePlanChoice } from '../lib/planChoice'
 import { formatMoney, monthlyEquivalent } from '../lib/planFeatures'
 import { rememberPlatformAuthOrigin, rememberSchoolAuthOrigin } from '../lib/authOrigin'
 import { setSchoolInterfaceLocale } from '../app/schoolLocale'
-import { schoolPath } from '../public/schoolHost'
+import { schoolHostSlug, schoolPath } from '../public/schoolHost'
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 
@@ -68,7 +69,10 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [hostBrand, setHostBrand] = useState<(HostBranding & { favicon_url?: string | null }) | null>(() => cachedSchoolBrand)
+  const hostSchool = schoolHostSlug()
+  const [hostBrand, setHostBrand] = useState<(HostBranding & { favicon_url?: string | null }) | null>(
+    () => cachedSchoolBrand ?? (hostSchool ? readSchoolLoginBranding(hostSchool) : null),
+  )
   const [schoolBrandLoading, setSchoolBrandLoading] = useState(Boolean(schoolKey && !cachedSchoolBrand))
   const [invitation, setInvitation] = useState<InvitationPreview | null>(null)
   const [invitationLoading, setInvitationLoading] = useState(Boolean(invitationToken))
@@ -147,6 +151,9 @@ export function LoginPage() {
   useLayoutEffect(() => {
     if (!schoolKey) {
       setSchoolInterfaceLocale(null)
+      // An invitation's login, or the login on a school's own address: the school's tab.
+      const brand = invitation ? invitationBranding(invitation) : hostBrand
+      if (brand) applySchoolLoginBranding(brand)
       return
     }
     setSchoolInterfaceLocale(hostBrand?.locale)
@@ -157,7 +164,7 @@ export function LoginPage() {
     if (pageCarriesSchool()) return
     document.title = 'Inscription à l’école'
     document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
-  }, [schoolKey, hostBrand])
+  }, [schoolKey, hostBrand, invitation])
 
   function switchMode(nextMode: AuthMode) {
     setError('')
@@ -274,20 +281,11 @@ export function LoginPage() {
     else rememberPlatformAuthOrigin()
   }
 
-  const invitationBrand: HostBranding | null = invitation ? {
-    organization_id: invitation.organization_id,
-    name: invitation.organization_name,
-    slug: '',
-    subdomain: null,
-    hostname: '',
-    logo_url: invitation.logo_url,
-    primary_color: invitation.primary_color,
-    secondary_color: invitation.secondary_color,
-    accent_color: invitation.secondary_color,
-  } : null
+  const invitationBrand: HostBranding | null = invitation ? invitationBranding(invitation) : null
   const activeBrand = invitationBrand || hostBrand
   const isInvitation = Boolean(invitationToken)
-  const isPublicSchool = Boolean(schoolKey || hostBrand || invitation)
+  // A school's page from the start: while its identity loads, nothing of the platform shows.
+  const isPublicSchool = Boolean(schoolKey || hostBrand || invitation || invitationToken || hostSchool)
   const showSchoolName = activeBrand?.auth_show_school_name !== false
   const schoolAuthBackground = activeBrand?.auth_background_image_url
   const authPageStyle: CSSProperties | undefined = activeBrand ? {
@@ -346,10 +344,10 @@ export function LoginPage() {
       style={authPageStyle}
     >
       <section className="auth-panel auth-copy-panel">
-        <a className="auth-logo" href={schoolKey ? schoolPath(schoolKey) : '/'}>
+        <a className="auth-logo" href={schoolKey || activeBrand?.slug ? schoolPath(schoolKey || activeBrand?.slug || '') : '/'}>
           {isPublicSchool ? <>
-            <SchoolLogo logoUrl={activeBrand?.logo_url} alt={activeBrand?.name || 'École'} className="platform-brand-logo" />
-            {showSchoolName && <span className="auth-logo__name">{activeBrand?.name || 'Votre école'}</span>}
+            <SchoolLogo logoUrl={activeBrand?.logo_url} alt={activeBrand?.name || 'École'} className="platform-brand-logo" pending={!activeBrand} />
+            {showSchoolName && activeBrand && <span className="auth-logo__name">{activeBrand.name}</span>}
           </> : <BrandWordmark tone="light" className="auth-logo__wordmark" />}
         </a>
         <div className="auth-visual-copy">

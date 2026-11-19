@@ -187,7 +187,10 @@ class OrganizationInvitationCreated(OrganizationInvitationRead):
 
 class OrganizationInvitationPreview(BaseModel):
     organization_id: int
+    organization_slug: str
     organization_name: str
+    favicon_url: str | None = None
+    white_label: bool = False
     email: str
     role: str
     expires_at: datetime

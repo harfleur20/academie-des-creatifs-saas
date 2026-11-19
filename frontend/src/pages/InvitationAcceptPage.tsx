@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { useAuth } from '../auth/AuthContext'
 import { SchoolLogo } from '../brand/SchoolLogo'
+import { applySchoolLoginBranding, invitationBranding } from '../lib/schoolLoginBranding'
 import {
   ApiError,
   acceptOrganizationInvitation,
@@ -37,6 +38,11 @@ export function InvitationAcceptPage() {
         setError(err instanceof ApiError ? err.message : 'Invitation invalide.'),
       )
   }, [token])
+
+  // The tab names the school too (the server already wrote it in the first HTML).
+  useEffect(() => {
+    if (preview) applySchoolLoginBranding(invitationBranding(preview))
+  }, [preview])
 
   async function accept() {
     if (!token) return
@@ -80,11 +86,13 @@ export function InvitationAcceptPage() {
   return (
     <main className="invitation-page" style={style}>
       <section className="invitation-card">
-        <SchoolLogo
+        {(preview || !error) && <SchoolLogo
           logoUrl={preview?.logo_url}
           alt={preview?.organization_name || 'École'}
           className="invitation-school-logo"
-        />
+          pending={!preview}
+          style={preview ? undefined : { display: 'block', height: 70 }}
+        />}
 
         {accepted ? (
           <>
@@ -171,9 +179,9 @@ export function InvitationAcceptPage() {
           </>
         )}
 
-        <footer>
+        {preview && !preview.white_label && <footer>
           Powered by <strong>Académie des Créatifs</strong>
-        </footer>
+        </footer>}
       </section>
     </main>
   )

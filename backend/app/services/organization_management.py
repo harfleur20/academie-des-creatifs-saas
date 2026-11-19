@@ -29,7 +29,7 @@ from app.schemas.organizations import (
     OrganizationMemberUpdate,
     OrganizationUpdate,
 )
-from app.services.school_branding import branding_snapshot
+from app.services.school_branding import branding_snapshot, get_or_create_identity_records
 from app.services.school_communications import queue_school_event
 from app.services.school_profiles import ensure_student_profile, ensure_teacher_profile
 from app.services.school_setup import require_team_setup, require_teacher_invitation_readiness
@@ -529,9 +529,15 @@ def get_invitation_preview(
             detail="École introuvable.",
         )
     snapshot = branding_snapshot(db, organization)
+    site = get_or_create_identity_records(db, organization)[0]
     return {
         "organization_id": organization.id,
+        "organization_slug": organization.slug,
         "organization_name": str(snapshot.get("school_name") or organization.name),
+        # The invitation pages show the school as its site does: its icon, and no
+        # platform signature for a white-label school.
+        "favicon_url": site.favicon_url,
+        "white_label": bool(snapshot.get("white_label")),
         "email": invitation.email,
         "role": invitation.role,
         "expires_at": invitation.expires_at,

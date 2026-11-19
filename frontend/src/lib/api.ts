@@ -657,7 +657,10 @@ export const renewInvitation = (invitationId: number) =>
 
 export type InvitationPreview = {
   organization_id: number
+  organization_slug: string
   organization_name: string
+  favicon_url: string | null
+  white_label: boolean
   email: string
   role: 'admin' | 'manager' | 'teacher'
   expires_at: string

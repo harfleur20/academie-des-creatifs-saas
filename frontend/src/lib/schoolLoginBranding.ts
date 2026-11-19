@@ -1,4 +1,4 @@
-import type { HostBranding, PublicSchool } from './api'
+import type { HostBranding, InvitationPreview, PublicSchool } from './api'
 import { DEFAULT_BRAND_COLORS, DEFAULT_PLATFORM_LOGO_URL } from '../brand/branding'
 import { recolorTealPixels } from '../brand/recolorTealPixels'
 
@@ -42,6 +42,21 @@ export function toSchoolLoginBranding(school: PublicSchool): SchoolLoginBranding
     primary_color: school.primary_color,
     secondary_color: school.secondary_color,
     accent_color: school.accent_color,
+  }
+}
+
+export function invitationBranding(invitation: InvitationPreview): HostBranding & { favicon_url: string | null } {
+  return {
+    organization_id: invitation.organization_id,
+    name: invitation.organization_name,
+    slug: invitation.organization_slug,
+    subdomain: null,
+    hostname: '',
+    logo_url: invitation.logo_url,
+    favicon_url: invitation.favicon_url,
+    primary_color: invitation.primary_color,
+    secondary_color: invitation.secondary_color,
+    accent_color: invitation.secondary_color,
   }
 }
 

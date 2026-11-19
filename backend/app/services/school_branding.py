@@ -361,10 +361,14 @@ def branding_snapshot(
     db: Session,
     org: OrganizationRecord,
 ) -> dict:
+    from app.services.public_catalog import school_white_label
+
     site, legal, comm, cert = get_or_create_identity_records(db, org)
     return {
         "organization_id": org.id,
         "school_name": site.site_name or org.name,
+        # A white-label school's emails and documents carry no platform signature.
+        "white_label": school_white_label(db, org.id),
         "organization_name": org.name,
         "logo_url": org.logo_url,
         "primary_color": org.primary_color or DEFAULT_PRIMARY,
