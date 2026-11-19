@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
@@ -14,8 +15,6 @@ from app.models.entities import (
     OrganizationLegalProfileRecord,
     OrganizationPublicSiteRecord,
     OrganizationRecord,
-    OrganizationStudentProfileRecord,
-    OrganizationTeacherProfileRecord,
 )
 from app.schemas.commerce import (
     CertificationProfilePayload,
@@ -39,12 +38,13 @@ SUPPORTED_DEFAULT_CURRENCIES = frozenset({
 
 
 def _prefix_from_name(name: str) -> str:
-    words = [part for part in re.split(r"[^A-Za-z0-9]+", name.upper()) if part]
+    normalized = unicodedata.normalize("NFKD", name.upper()).encode("ascii", "ignore").decode("ascii")
+    words = [part for part in re.split(r"[^A-Z]+", normalized) if part]
     if not words:
         return "AC"
-    if len(words) == 1:
-        return words[0][:2]
-    return "".join(part[0] for part in words[:3])[:3]
+    if len(words) >= 2:
+        return words[0][0] + words[1][0]
+    return words[0][:2] if len(words[0]) >= 2 else "AC"
 
 
 def _public_site_defaults(org: OrganizationRecord) -> dict:
@@ -300,23 +300,20 @@ def update_school_identity(
     next_prefix = (p.student_code_prefix.strip() or _prefix_from_name(org.name)).upper()
     if p.student_code_prefix_confirmed and not p.student_code_prefix.strip():
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Renseignez le préfixe des matricules.")
+    prefix_is_being_changed = next_prefix != site.student_code_prefix
+    prefix_is_being_confirmed = p.student_code_prefix_confirmed and not site.student_code_prefix_confirmed_at
+    if (prefix_is_being_changed or prefix_is_being_confirmed) and not re.fullmatch(r"[A-Z]{2}", next_prefix):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Le préfixe des matricules doit contenir exactement deux lettres.",
+        )
     if p.student_code_prefix_confirmed and not site.student_code_prefix_confirmed_at:
         require_identity_address(org)
     if site.student_code_prefix_confirmed_at and next_prefix != site.student_code_prefix:
-        has_codes = db.scalar(
-            select(OrganizationTeacherProfileRecord.id).where(
-                OrganizationTeacherProfileRecord.organization_id == org.id,
-            ).limit(1)
-        ) is not None or db.scalar(
-            select(OrganizationStudentProfileRecord.id).where(
-                OrganizationStudentProfileRecord.organization_id == org.id,
-            ).limit(1)
-        ) is not None
-        if has_codes:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                "Le préfixe ne peut plus changer après l'attribution d'un matricule.",
-            )
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Le préfixe est définitif après confirmation et ne peut plus être modifié.",
+        )
 
     org.logo_url = p.logo_url.strip() if p.logo_url else None
     org.primary_color = p.primary_color.upper()

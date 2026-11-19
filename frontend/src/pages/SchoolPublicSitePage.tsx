@@ -7,6 +7,7 @@ import { schoolFontFamily, schoolFontOptions } from '../brand/schoolTypography'
 import { SchoolAnnouncementBanner } from '../public/SchoolAnnouncementBanner'
 import { POPULAR_CURRENCIES } from '../public/currencyRates'
 import { SchoolCertificatePreview, SchoolInvoicePreview } from './SchoolDocumentPreviews'
+import { getSchoolPublicationRequirements } from '../lib/sitePublicationReadiness'
 import {
   ApiError,
   getSchoolIdentity,
@@ -93,7 +94,11 @@ export function SchoolPublicSitePage() {
   return <Navigate replace to="/app/manage/identity?tab=site" />
 }
 
-export function SchoolIdentityEditor({ section }: { section: IdentityEditorSection }) {
+export function SchoolIdentityEditor({ section, isPublished, onIdentitySaved }: {
+  section: IdentityEditorSection
+  isPublished?: boolean
+  onIdentitySaved?: (identity: SchoolIdentity) => void
+}) {
   const { activeOrganization, refreshOrganizations } = useTenant()
   const [data, setData] = useState<SchoolIdentity | null>(null)
   const originalData = useRef<SchoolIdentity | null>(null)
@@ -122,6 +127,20 @@ export function SchoolIdentityEditor({ section }: { section: IdentityEditorSecti
       .catch((err) => { if (active) setError(err instanceof ApiError ? err.message : 'Chargement impossible.') })
     return () => { active = false }
   }, [activeOrganization?.id])
+
+  useEffect(() => {
+    if (isPublished === undefined) return
+    if (originalData.current) {
+      originalData.current = {
+        ...originalData.current,
+        public_site: { ...originalData.current.public_site, is_published: isPublished },
+      }
+    }
+    setData((current) => current ? {
+      ...current,
+      public_site: { ...current.public_site, is_published: isPublished },
+    } : current)
+  }, [isPublished])
 
   function site<K extends keyof SchoolIdentity['public_site']>(key: K, value: SchoolIdentity['public_site'][K]) {
     setData((current) => current ? { ...current, public_site: { ...current.public_site, [key]: value } } : current)
@@ -165,41 +184,57 @@ export function SchoolIdentityEditor({ section }: { section: IdentityEditorSecti
     }
   }
 
-  const publicationIssues = data && activeOrganization ? [
-    !activeOrganization.contact_email?.trim() && 'Email de contact de l’école',
-    !activeOrganization.subdomain?.trim() && 'Sous-domaine de l’école',
-    !data.public_site.student_code_prefix_confirmed && 'Préfixe des matricules à confirmer',
-    !data.public_site.legal_notice.trim() && 'Mentions légales',
-    !data.public_site.sales_terms.trim() && 'Conditions générales de vente',
-    !data.public_site.privacy_policy.trim() && 'Politique de confidentialité',
-    !data.public_site.refund_policy.trim() && 'Politique de remboursement',
-    !data.legal.legal_name.trim() && 'Raison sociale des factures',
-    !data.legal.legal_address.trim() && 'Adresse légale des factures',
-    !data.legal.invoice_email?.trim() && 'Email de facturation',
-    !POPULAR_CURRENCIES.some(({ code }) => code === data.legal.default_currency) && 'Devise de facturation',
-  ].filter((issue): issue is string => Boolean(issue)) : []
+  const publicationIssues = getSchoolPublicationRequirements(data, activeOrganization)
+    .filter((item) => !item.complete)
 
-  async function save(event: FormEvent) {
-    event.preventDefault()
+  async function save(publicationAction: 'publish' | 'draft' | null = null) {
     if (!data) return
+    const storedPrefix = originalData.current?.public_site.student_code_prefix ?? data.public_site.student_code_prefix
+    const prefixConfirmedOnServer = Boolean(originalData.current?.public_site.student_code_prefix_confirmed)
+    const normalizedPrefix = prefixConfirmedOnServer || data.public_site.student_code_prefix === storedPrefix
+      ? data.public_site.student_code_prefix
+      : data.public_site.student_code_prefix.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2)
+    const prefixIsBeingConfirmed = data.public_site.student_code_prefix_confirmed && !prefixConfirmedOnServer
+    if (!prefixConfirmedOnServer && (normalizedPrefix !== storedPrefix || prefixIsBeingConfirmed) && !/^[A-Z]{2}$/.test(normalizedPrefix)) {
+      setError('Le préfixe des matricules doit contenir exactement deux lettres.')
+      return
+    }
+    if (publicationAction === 'publish' && publicationIssues.length > 0) {
+      setError('Complétez les éléments requis avant de publier le site.')
+      return
+    }
+    if (data.public_site.student_code_prefix_confirmed && !normalizedPrefix) {
+      setError('Saisissez le préfixe des matricules avant de le confirmer.')
+      return
+    }
     setWorking(true)
     setError('')
     setMessage('')
     try {
       const latest = await getSchoolIdentity()
       const original = originalData.current || latest
-      const merged = mergeEditorChanges(latest, original, data, section)
-      const moveToDraft = merged.public_site.is_published && publicationIssues.length > 0
+      const draft = {
+        ...data,
+        public_site: { ...data.public_site, student_code_prefix: normalizedPrefix },
+      }
+      const merged = mergeEditorChanges(latest, original, draft, section)
+      const moveToDraft = publicationAction === 'draft' || (merged.public_site.is_published && publicationIssues.length > 0)
       const updated = await updateSchoolIdentity({
         ...merged,
-        public_site: { ...merged.public_site, is_published: moveToDraft ? false : merged.public_site.is_published },
+        public_site: {
+          ...merged.public_site,
+          is_published: publicationAction === 'publish' ? true : moveToDraft ? false : merged.public_site.is_published,
+        },
       })
       originalData.current = updated
       setData((current) => current ? rebaseIdentityDraft(original, current, updated) : updated)
+      onIdentitySaved?.(updated)
       await refreshOrganizations()
-      setMessage(moveToDraft
-        ? 'Identité enregistrée. Le site est passé en brouillon jusqu’à la fin de sa configuration.'
-        : 'Modifications enregistrées.')
+      setMessage(publicationAction === 'publish'
+        ? 'Le site public est maintenant publié.'
+        : moveToDraft
+          ? 'Identité enregistrée. Le site est passé en brouillon jusqu’à la fin de sa configuration.'
+          : 'Modifications enregistrées.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Enregistrement impossible.')
     } finally {
@@ -214,15 +249,7 @@ export function SchoolIdentityEditor({ section }: { section: IdentityEditorSecti
     <div className="school-site-admin school-identity-tab-content">
       {error && <div className="form-error">{error}</div>}
       {message && <div className="form-success">{message}</div>}
-      {section === 'site' && publicationIssues.length > 0 && (
-        <div className="app-card formation-readiness">
-          <strong>À compléter avant de publier le site</strong>
-          {data.public_site.is_published && <p>Le prochain enregistrement passera le site en brouillon pour vous laisser terminer sa configuration.</p>}
-          <ul>{publicationIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
-        </div>
-      )}
-
-      <form className="school-site-admin-form" onSubmit={save}>
+      <form className="school-site-admin-form" onSubmit={(event) => { event.preventDefault(); void save() }}>
         {section === 'brand' && <>
           <section className="app-card school-site-section">
             <div className="settings-section-heading"><div><span className="section-label">Identité visuelle</span><h2>Logo, couleurs et typographie</h2><p>Cette identité est reprise sur le site public et dans les espaces de l’école.</p></div><Fingerprint size={19}/></div>
@@ -256,12 +283,43 @@ export function SchoolIdentityEditor({ section }: { section: IdentityEditorSecti
           </section>
           <section className="app-card school-site-section">
             <div className="settings-section-heading"><div><span className="section-label">Matricules</span><h2>Préfixe de l’école</h2><p>Ce préfixe sera utilisé pour les matricules des professeurs et des étudiants.</p></div></div>
-            <label>Préfixe matricule<input value={data.public_site.student_code_prefix} maxLength={8} onChange={(e)=>site('student_code_prefix',e.target.value.toUpperCase())} placeholder="SB"/></label>
-            <label className="school-prefix-confirmation">
-              <input type="checkbox" checked={data.public_site.student_code_prefix_confirmed} disabled={data.public_site.student_code_prefix_confirmed || !activeOrganization.contact_email || !activeOrganization.subdomain} onChange={(e)=>site('student_code_prefix_confirmed',e.target.checked)}/>
-              <span>{data.public_site.student_code_prefix_confirmed ? 'Préfixe confirmé pour cette école' : 'Je confirme ce préfixe pour les matricules des professeurs et étudiants.'}</span>
+            <label>Préfixe matricule
+              <input
+                value={data.public_site.student_code_prefix}
+                maxLength={2}
+                disabled={Boolean(originalData.current?.public_site.student_code_prefix_confirmed)}
+                onChange={(e)=>site('student_code_prefix',e.target.value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2))}
+                placeholder="AC"
+              />
+              <small>Deux lettres majuscules exactement. Exemple : AC.</small>
             </label>
-            {(!activeOrganization.contact_email || !activeOrganization.subdomain) && !data.public_site.student_code_prefix_confirmed && <p className="muted-note">Renseignez l’email de contact dans <Link to="/app/manage/identity?tab=school">École & marque</Link> et le sous-domaine dans <Link to="/app/manage/identity?tab=domains">Adresses web</Link>.</p>}
+            <label className="school-prefix-confirmation">
+              <input
+                type="checkbox"
+                checked={data.public_site.student_code_prefix_confirmed}
+                disabled={Boolean(originalData.current?.public_site.student_code_prefix_confirmed) || !/^[A-Z]{2}$/.test(data.public_site.student_code_prefix) || !activeOrganization.contact_email || !activeOrganization.subdomain}
+                aria-describedby="school-prefix-guidance"
+                onChange={(e)=>site('student_code_prefix_confirmed',e.target.checked)}
+              />
+              <span>{originalData.current?.public_site.student_code_prefix_confirmed ? 'Préfixe confirmé et verrouillé pour cette école' : 'Je confirme ce préfixe pour les matricules des professeurs et étudiants.'}</span>
+            </label>
+            <div id="school-prefix-guidance" className="school-prefix-guidance" role="status">
+              {originalData.current?.public_site.student_code_prefix_confirmed ? (
+                'Ce préfixe est définitif : il ne peut plus être modifié.'
+              ) : !activeOrganization.contact_email || !activeOrganization.subdomain ? (
+                <>
+                  Pour activer la confirmation, renseignez d’abord :
+                  <ul>
+                    {!activeOrganization.contact_email && <li><Link to="/app/manage/identity?tab=school">L’email de contact de l’école</Link></li>}
+                    {!activeOrganization.subdomain && <li><Link to="/app/manage/identity?tab=domains">Le sous-domaine de l’école</Link></li>}
+                  </ul>
+                </>
+              ) : !/^[A-Z]{2}$/.test(data.public_site.student_code_prefix) ? (
+                'Le préfixe doit contenir exactement deux lettres majuscules.'
+              ) : (
+                'Après avoir coché cette case et enregistré la section, le préfixe sera définitif et ne pourra plus être modifié. Vérifiez les deux lettres avant de confirmer.'
+              )}
+            </div>
             <p className="muted-note">Les matricules déjà attribués ne changent pas.</p>
           </section>
         </>}
@@ -381,9 +439,20 @@ export function SchoolIdentityEditor({ section }: { section: IdentityEditorSecti
 
         <div className="school-site-savebar">
           {section === 'site' ? (
-            <label className="school-site-publish"><input type="checkbox" checked={data.public_site.is_published} disabled={!data.public_site.is_published && publicationIssues.length > 0} onChange={(e)=>site('is_published',e.target.checked)}/> Site public publié</label>
+            <span className={`school-site-publish-status${data.public_site.is_published ? ' is-published' : ''}`}>
+              {data.public_site.is_published ? 'Site public publié' : 'Site public en brouillon'}
+            </span>
           ) : <span className="school-site-savebar-label">Enregistrer cette section</span>}
-          <button className="primary-button" disabled={working}><Save size={15}/>{working?'Enregistrement…':'Enregistrer'}</button>
+          <div className="school-site-savebar__actions">
+            {section === 'site' && (data.public_site.is_published ? (
+              <button className="secondary-button compact-action" type="button" disabled={working} onClick={() => void save('draft')}>Mettre en brouillon</button>
+            ) : (
+              <button className="primary-button compact-action" type="button" disabled={working || publicationIssues.length > 0} onClick={() => void save('publish')}>Publier le site</button>
+            ))}
+            <button className={section === 'site' ? 'secondary-button compact-action' : 'primary-button'} type="submit" disabled={working}>
+              <Save size={15}/>{working ? 'Enregistrement…' : section === 'site' ? 'Enregistrer les modifications' : 'Enregistrer'}
+            </button>
+          </div>
         </div>
       </form>
     </div>

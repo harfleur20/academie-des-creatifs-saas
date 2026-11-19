@@ -166,7 +166,7 @@ def test_teacher_invitation_waits_for_all_onboarding_steps() -> None:
     db.commit()
     accept_invitation(db, current_user=teacher, token=token)
     changed = SchoolIdentityPayload.model_validate(get_school_identity(db, tenant).model_dump())
-    changed.public_site.student_code_prefix = "OTHER"
+    changed.public_site.student_code_prefix = "OT"  # a valid prefix: refused only because it is final
     with pytest.raises(HTTPException) as exc:
         update_school_identity(db, tenant, changed)
     assert exc.value.status_code == 409
