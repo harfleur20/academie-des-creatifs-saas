@@ -1,15 +1,16 @@
 import { Heart } from 'lucide-react'
 import { useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../lib/api'
 import { DEMO_READ_ONLY_MESSAGE, readDemoState } from '../lib/demoState'
 import { toast } from '../ui/toast'
 import { usePublicSchool } from './SchoolPublicLayout'
 import './SchoolFavoriteButton.css'
+import { useSchoolSlug } from './useSchoolHost'
 
 export function SchoolFavoriteButton({ slug, title }: { slug: string; title: string }) {
-  const { schoolSlug = '' } = useParams()
+  const schoolSlug = useSchoolSlug()
   const { user } = useAuth()
   const { favorites, hasSchoolAccess, schoolAccessLoading, toggleFavorite } = usePublicSchool()
   const location = useLocation()

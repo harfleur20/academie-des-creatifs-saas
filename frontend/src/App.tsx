@@ -5,7 +5,7 @@ import {
   Routes,
   useLocation,
 } from 'react-router-dom'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactElement } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { TenantProvider, useTenant } from './app/TenantContext'
 import { billingPathFor, readPlanChoice } from './lib/planChoice'
@@ -71,8 +71,8 @@ import { SchoolPerformancePage } from './pages/SchoolPerformancePage'
 import { SchoolCourseReportsPage } from './pages/SchoolCourseReportsPage'
 import { ManageProfilePage, StudentProfilePage, TeacherProfilePage } from './pages/ProfilePage'
 import { SupportPage } from './pages/SupportPage'
-import { SchoolPublicLayout } from './public/SchoolPublicLayout'
-import { HostSchoolRedirect } from './public/HostSchoolRedirect'
+import { SchoolPublicLayout, SchoolSiteAtPath } from './public/SchoolPublicLayout'
+import { useSchoolHost } from './public/useSchoolHost'
 import { SchoolWorkspaceEntry } from './public/SchoolWorkspaceEntry'
 import { SchoolHomePage } from './pages/SchoolHomePage'
 import { SchoolFormationsPage } from './pages/SchoolFormationsPage'
@@ -199,42 +199,61 @@ function RequireSuperAdmin({ children }: { children: React.ReactNode }) {
   return children
 }
 
+// The pages of a school's site, under "/school/<slug>" or at the root of its own address.
+const schoolSitePages = (
+  <>
+    <Route index element={<SchoolHomePage />} />
+    <Route path="formations" element={<SchoolFormationsPage />} />
+    <Route path="favoris" element={<SchoolFavoritesPage />} />
+    <Route path="formations/:formationSlug" element={<SchoolFormationDetailPage />} />
+    <Route path="contact" element={<SchoolContactPage />} />
+    <Route path="panier" element={<SchoolHomePage />} />
+    <Route path="checkout" element={<SchoolCheckoutPage />} />
+    <Route path="espace" element={<SchoolWorkspaceEntry />} />
+    <Route path="mentions-legales" element={<SchoolLegalPage />} />
+    <Route path="cgv" element={<SchoolLegalPage />} />
+    <Route path="confidentialite" element={<SchoolLegalPage />} />
+    <Route path="remboursement" element={<SchoolLegalPage />} />
+  </>
+)
+
 export default function App() {
+  const host = useSchoolHost()
+  const hostSchool = host.status === 'resolved' ? host.slug : null
+  // The app waits for the address before rendering; should that take too long, the root
+  // pages wait too, rather than show the platform on a school's address.
+  const platformPage = (page: ReactElement) => (
+    host.status === 'pending' ? <div className="public-school-state">Chargement…</div> : page
+  )
   return (
     <BrowserRouter>
       <AuthProvider>
         <TenantProvider>
           <Suspense fallback={<div className="app-loading">Chargement…</div>}>
           <Routes>
-            <Route path="/" element={<HostSchoolRedirect fallback={<LandingPage />} />} />
-            <Route path="/formations" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
-            <Route path="/formations/:formationSlug" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
-            <Route path="/contact" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
-            <Route path="/panier" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
-            <Route path="/checkout" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
-            <Route path="/espace" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
-            <Route path="/mentions-legales" element={<HostSchoolRedirect fallback={<PlatformLegalPage page="mentions" />} />} />
-            <Route path="/cgv" element={<HostSchoolRedirect fallback={<PlatformLegalPage page="cgv" />} />} />
+            {hostSchool ? (
+              // The school's own address: its site at the root, "/formations"…
+              <Route path="/" element={<SchoolPublicLayout />}>{schoolSitePages}</Route>
+            ) : (
+              <>
+                <Route path="/" element={platformPage(<LandingPage />)} />
+                <Route path="/formations" element={platformPage(<Navigate to="/" replace />)} />
+                <Route path="/formations/:formationSlug" element={platformPage(<Navigate to="/" replace />)} />
+                <Route path="/contact" element={platformPage(<Navigate to="/" replace />)} />
+                <Route path="/panier" element={platformPage(<Navigate to="/" replace />)} />
+                <Route path="/checkout" element={platformPage(<Navigate to="/" replace />)} />
+                <Route path="/espace" element={platformPage(<Navigate to="/" replace />)} />
+                <Route path="/mentions-legales" element={platformPage(<PlatformLegalPage page="mentions" />)} />
+                <Route path="/cgv" element={platformPage(<PlatformLegalPage page="cgv" />)} />
+                <Route path="/confidentialite" element={platformPage(<PlatformLegalPage page="confidentialite" />)} />
+                <Route path="/remboursement" element={platformPage(<Navigate to="/" replace />)} />
+              </>
+            )}
             <Route path="/cgu" element={<PlatformLegalPage page="cgu" />} />
-            <Route path="/confidentialite" element={<HostSchoolRedirect fallback={<PlatformLegalPage page="confidentialite" />} />} />
-            <Route path="/remboursement" element={<HostSchoolRedirect fallback={<Navigate to="/" replace />} />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/invite/:token" element={<InvitationAcceptPage />} />
             <Route path="/certificates/verify/:token" element={<CertificateVerifyPage />} />
-            <Route path="/school/:schoolSlug" element={<SchoolPublicLayout />}>
-              <Route index element={<SchoolHomePage />} />
-              <Route path="formations" element={<SchoolFormationsPage />} />
-              <Route path="favoris" element={<SchoolFavoritesPage />} />
-              <Route path="formations/:formationSlug" element={<SchoolFormationDetailPage />} />
-              <Route path="contact" element={<SchoolContactPage />} />
-              <Route path="panier" element={<SchoolHomePage />} />
-              <Route path="checkout" element={<SchoolCheckoutPage />} />
-              <Route path="espace" element={<SchoolWorkspaceEntry />} />
-              <Route path="mentions-legales" element={<SchoolLegalPage />} />
-              <Route path="cgv" element={<SchoolLegalPage />} />
-              <Route path="confidentialite" element={<SchoolLegalPage />} />
-              <Route path="remboursement" element={<SchoolLegalPage />} />
-            </Route>
+            <Route path="/school/:schoolSlug" element={<SchoolSiteAtPath />}>{schoolSitePages}</Route>
 
             <Route path="/app" element={<RequireSchoolUser><WorkspaceEntry /></RequireSchoolUser>} />
 

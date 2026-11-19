@@ -8,6 +8,7 @@ import {
   readSchoolLoginBranding,
   toSchoolLoginBranding,
 } from './lib/schoolLoginBranding'
+import { resolveSchoolHost, schoolHostSlug, schoolKeyForPath } from './public/schoolHost'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const BRAND_CACHE_PREFIX = 'academie_saas_school_branding:'
@@ -110,11 +111,9 @@ async function prehydrateWorkspaceBranding() {
 }
 
 async function prehydratePublicSchool() {
-  const match = window.location.pathname.match(/^\/school\/([^/]+)/)
-  if (!match) return
-
-  const encodedKey = match[1]
-  const schoolKey = decodeURIComponent(encodedKey)
+  const schoolKey = schoolKeyForPath(window.location.pathname)
+  if (!schoolKey) return
+  const encodedKey = window.location.pathname.match(/^\/school\/([^/]+)/)?.[1] ?? null
   const cached = readSchoolLoginBranding(schoolKey)
   if (cached) {
     // Apply the last known school identity before the network request so a
@@ -137,7 +136,8 @@ async function prehydratePublicSchool() {
     if (school.slug !== schoolKey) cacheSchoolLoginBranding(school.slug, branding)
     applySchoolLoginBranding(branding)
 
-    if (school.slug && school.slug !== schoolKey) {
+    // An old or alternate name in "/school/<name>/…" moves to the school's own name.
+    if (encodedKey && school.slug && school.slug !== schoolKey) {
       const prefix = `/school/${encodedKey}`
       const suffix = window.location.pathname.slice(prefix.length)
       window.history.replaceState(
@@ -184,13 +184,24 @@ async function prehydrateSchoolLogin() {
   }
 }
 
+// Whether this address is a school's own decides which pages answer at "/": learn it
+// before rendering, without holding the app back for long if the API is slow.
+function learnSchoolHost() {
+  return Promise.race([
+    resolveSchoolHost(),
+    new Promise<void>((resolve) => { window.setTimeout(resolve, 2500) }),
+  ])
+}
+
 async function bootstrap() {
-  if (window.location.pathname.startsWith('/app')) {
-    await prehydrateWorkspaceBranding()
-  } else if (window.location.pathname.startsWith('/school/')) {
-    await prehydratePublicSchool()
-  } else if (window.location.pathname === '/login') {
-    await prehydrateSchoolLogin()
+  const pathname = window.location.pathname
+  if (pathname.startsWith('/app')) {
+    await Promise.all([prehydrateWorkspaceBranding(), learnSchoolHost()])
+  } else if (pathname === '/login') {
+    await Promise.all([prehydrateSchoolLogin(), learnSchoolHost()])
+  } else {
+    await learnSchoolHost()
+    if (pathname.startsWith('/school/') || schoolHostSlug()) await prehydratePublicSchool()
   }
   await import('./main')
 }

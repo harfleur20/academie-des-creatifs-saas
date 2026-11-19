@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { ChevronDown, Heart, LayoutDashboard, LifeBuoy, Lock, Menu, Power, Settings, ShoppingBag, UserRound, X } from 'lucide-react'
-import { Link, NavLink, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
 import { SchoolMessageBell } from '../app/SchoolMessageBell'
@@ -18,6 +18,8 @@ import { clearSchoolCart, getSchoolCart, type SchoolCartItem } from './schoolCar
 import { setSchoolInterfaceLocale } from '../app/schoolLocale'
 import { SchoolCartDrawer } from './SchoolCartDrawer'
 import { SchoolAnnouncementBanner } from './SchoolAnnouncementBanner'
+import { hostSchoolPath, schoolPath } from './schoolHost'
+import { useSchoolHost, useSchoolSlug } from './useSchoolHost'
 import { getCachedSchoolCurrencyRates, loadSchoolCurrencyRates, type SchoolCurrencyRates } from './currencyRates'
 import './PublicSchoolAccountMenu.css'
 
@@ -49,8 +51,17 @@ function compactAccountName(name?: string | null) {
   return value.slice(0, 14).trimEnd() + '.'
 }
 
+/** "/school/<slug>/…": the site, unless this is the school's own address, where it reads "/…". */
+export function SchoolSiteAtPath() {
+  const location = useLocation()
+  useSchoolHost()
+  const ownAddressPath = hostSchoolPath(location.pathname)
+  if (ownAddressPath) return <Navigate replace to={ownAddressPath + location.search + location.hash} />
+  return <SchoolPublicLayout />
+}
+
 export function SchoolPublicLayout() {
-  const { schoolSlug = '' } = useParams()
+  const schoolSlug = useSchoolSlug()
   const location = useLocation()
   const navigate = useNavigate()
   const { user, signOut, loading: authLoading } = useAuth()
@@ -76,8 +87,8 @@ export function SchoolPublicLayout() {
   const accountActionsReady = !authLoading && (!user || !tenantLoading)
   const accountUser = canUseSchoolAccount ? user : null
   const schoolLoginHref = user
-    ? '/school/' + encodeURIComponent(schoolSlug) + '/espace'
-    : '/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent('/school/' + schoolSlug + '/espace')
+    ? schoolPath(schoolSlug, 'espace')
+    : '/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent(schoolPath(schoolSlug, 'espace'))
 
   useLayoutEffect(() => {
     setSchoolInterfaceLocale(readSchoolLoginBranding(schoolSlug)?.locale)
@@ -96,7 +107,7 @@ export function SchoolPublicLayout() {
   function handleSchoolSignOut() {
     setAccountOpen(false)
     clearAuthOrigin()
-    navigate(`/school/${encodeURIComponent(schoolSlug)}`, { replace: true, flushSync: true })
+    navigate(schoolPath(schoolSlug), { replace: true, flushSync: true })
     signOut()
   }
 
@@ -177,6 +188,7 @@ export function SchoolPublicLayout() {
   }, [schoolSlug])
 
   useEffect(() => {
+    // An old or alternate name in "/school/<name>/…" moves to the school's own name.
     if (!school?.slug || !schoolSlug || school.slug.toLowerCase() === schoolSlug.toLowerCase()) return
     const currentPrefix = '/school/' + schoolSlug
     const canonicalPrefix = '/school/' + school.slug
@@ -236,7 +248,7 @@ export function SchoolPublicLayout() {
 
   const closeCart = useCallback(() => {
     setCartOpen(false)
-    if (location.pathname.endsWith('/panier')) navigate('/school/' + schoolSlug, { replace: true })
+    if (location.pathname.endsWith('/panier')) navigate(schoolPath(schoolSlug), { replace: true })
   }, [location.pathname, navigate, schoolSlug])
 
   if (error) return <main className="public-school-state"><h1>Site indisponible</h1><p>{error}</p></main>
@@ -275,7 +287,7 @@ export function SchoolPublicLayout() {
       {school.is_demo && <div className="public-school-demo-banner">Site de démonstration : naviguez librement, les inscriptions et les paiements sont désactivés.</div>}
       {school.announcement_enabled && <SchoolAnnouncementBanner text={school.announcement_text} backgroundColor={school.announcement_background_color} textColor={school.announcement_text_color} />}
       <header className="public-school-header">
-        <Link className="public-school-brand" to={'/school/' + schoolSlug}>
+        <Link className="public-school-brand" to={schoolPath(schoolSlug)}>
           <SchoolLogo logoUrl={school.logo_url} alt={school.site_name} />
           <strong data-no-translate>{school.site_name || school.name}</strong>
         </Link>
@@ -290,14 +302,14 @@ export function SchoolPublicLayout() {
           {menuOpen ? <X size={20}/> : <Menu size={20}/>}
         </button>
         <nav id="school-main-navigation" className={menuOpen ? 'is-open' : ''}>
-          <NavLink end to={'/school/' + schoolSlug}>Accueil</NavLink>
-          <NavLink to={'/school/' + schoolSlug + '/formations'}>Formations</NavLink>
-          <NavLink to={'/school/' + schoolSlug + '/contact'}>Nous contacter</NavLink>
+          <NavLink end to={schoolPath(schoolSlug)}>Accueil</NavLink>
+          <NavLink to={schoolPath(schoolSlug, 'formations')}>Formations</NavLink>
+          <NavLink to={schoolPath(schoolSlug, 'contact')}>Nous contacter</NavLink>
           {/* On phones, the header keeps only the burger and the cart: login lives in the menu. */}
           {accountActionsReady && !accountUser && <Link className="public-school-nav-login" to={schoolLoginHref}>Connexion</Link>}
         </nav>
         <div className="public-school-actions">
-          {accountUser && <Link className="public-school-favorites-link" to={'/school/' + schoolSlug + '/favoris'} aria-label="Mes formations favorites" title="Mes favoris"><Heart size={18}/>{favorites.length > 0 && <span>{favorites.length}</span>}</Link>}
+          {accountUser && <Link className="public-school-favorites-link" to={schoolPath(schoolSlug, 'favoris')} aria-label="Mes formations favorites" title="Mes favoris"><Heart size={18}/>{favorites.length > 0 && <span>{favorites.length}</span>}</Link>}
           {accountUser ? (
             <div className="public-school-account" ref={accountRef}>
               <button
@@ -326,7 +338,7 @@ export function SchoolPublicLayout() {
                       onClick={() => toast.info(DEMO_LOCKED_MESSAGE)}><ItemIcon size={17} /><span>{label}</span><Lock className="public-school-account-lock" size={13} aria-hidden="true" /></button>
                   ))}
                 </>}
-                {!school.is_demo && accountSpace && <button type="button" onClick={() => openAccountPage('/school/' + schoolSlug + '/espace')}><LayoutDashboard size={17} /><span>Mon espace</span></button>}
+                {!school.is_demo && accountSpace && <button type="button" onClick={() => openAccountPage(schoolPath(schoolSlug, 'espace'))}><LayoutDashboard size={17} /><span>Mon espace</span></button>}
                 {!school.is_demo && accountSpace && <span className="public-school-account-menu-divider is-soft" aria-hidden="true" />}
                 {!school.is_demo && accountSpace && <SchoolNotificationBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
                 {!school.is_demo && accountSpace && <SchoolMessageBell space={accountSpace} variant="menu" onNavigate={() => setAccountOpen(false)} />}
@@ -366,8 +378,8 @@ export function SchoolPublicLayout() {
             </div>
             <p data-no-translate>{school.footer_text || school.tagline}</p>
           </div>
-          <div><strong>Navigation</strong><Link to={'/school/' + schoolSlug}>Accueil</Link><Link to={'/school/' + schoolSlug + '/formations'}>Formations</Link><Link to={'/school/' + schoolSlug + '/contact'}>Nous contacter</Link></div>
-          <div><strong>Informations</strong><Link to={'/school/' + schoolSlug + '/mentions-legales'}>Mentions légales</Link><Link to={'/school/' + schoolSlug + '/cgv'}>Conditions générales de vente</Link><Link to={'/school/' + schoolSlug + '/confidentialite'}>Confidentialité</Link><Link to={'/school/' + schoolSlug + '/remboursement'}>Remboursement / annulation</Link></div>
+          <div><strong>Navigation</strong><Link to={schoolPath(schoolSlug)}>Accueil</Link><Link to={schoolPath(schoolSlug, 'formations')}>Formations</Link><Link to={schoolPath(schoolSlug, 'contact')}>Nous contacter</Link></div>
+          <div><strong>Informations</strong><Link to={schoolPath(schoolSlug, 'mentions-legales')}>Mentions légales</Link><Link to={schoolPath(schoolSlug, 'cgv')}>Conditions générales de vente</Link><Link to={schoolPath(schoolSlug, 'confidentialite')}>Confidentialité</Link><Link to={schoolPath(schoolSlug, 'remboursement')}>Remboursement / annulation</Link></div>
           {hasFooterContact && (
             <div className="public-school-footer-contact">
               <strong>Contact</strong>

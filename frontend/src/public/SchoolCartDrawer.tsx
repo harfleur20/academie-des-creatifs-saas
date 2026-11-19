@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import type { SchoolCartItem } from './schoolCart'
 import { formatSchoolDate, formatSchoolMoney, hasSchoolCurrencyRate } from './publicHelpers'
 import type { SchoolCurrencyRates } from './currencyRates'
+import { schoolPath } from './schoolHost'
 
 type SchoolCartDrawerProps = {
   open: boolean
@@ -136,14 +137,14 @@ export function SchoolCartDrawer({ open, item, schoolSlug, displayCurrency, curr
                 <strong>{formatSchoolMoney(item.price_cents, item.currency, displayCurrency, currencyRates)}</strong>
               </div>
               {displayCurrency.toUpperCase() !== item.currency.toUpperCase() && <small className="school-currency-conversion-note">{hasSchoolCurrencyRate(item.currency, displayCurrency, currencyRates) ? `Équivalent indicatif · paiement en ${formatSchoolMoney(item.price_cents, item.currency)}.` : `Conversion momentanément indisponible · paiement en ${formatSchoolMoney(item.price_cents, item.currency)}.`}</small>}
-              <Link to={'/school/' + schoolSlug + '/checkout'}>Passer au paiement <ArrowRight size={17} /></Link>
+              <Link to={schoolPath(schoolSlug, 'checkout')}>Passer au paiement <ArrowRight size={17} /></Link>
             </footer>
           </>
         ) : (
           <div className="school-cart-drawer-empty">
             <ShoppingBag size={32} />
             <h3>Votre panier est vide</h3>
-            <Link to={'/school/' + schoolSlug + '/formations'}>Voir les formations</Link>
+            <Link to={schoolPath(schoolSlug, 'formations')}>Voir les formations</Link>
           </div>
         )}
       </aside>

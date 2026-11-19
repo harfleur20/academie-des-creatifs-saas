@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
 import type { WorkspaceSpace } from '../lib/api'
 import { usePublicSchool } from './SchoolPublicLayout'
+import { schoolPath } from './schoolHost'
 
 const labels: Record<WorkspaceSpace, string> = {
   manage: 'Gestion de l’école',
@@ -64,7 +65,7 @@ export function SchoolWorkspaceEntry() {
 
   function changeAccount() {
     signOut()
-    const destination = '/school/' + school.slug + '/espace'
+    const destination = schoolPath(school.slug, 'espace')
     navigate(
       '/login?school=' + encodeURIComponent(school.slug) + '&return=' + encodeURIComponent(destination),
       { replace: true },
@@ -73,7 +74,7 @@ export function SchoolWorkspaceEntry() {
 
   if (authLoading) return <main className="school-section"><div className="school-empty">Chargement de votre compte…</div></main>
   if (!user) {
-    const destination = '/school/' + school.slug + '/espace'
+    const destination = schoolPath(school.slug, 'espace')
     return <Navigate replace to={'/login?school=' + encodeURIComponent(school.slug) + '&return=' + encodeURIComponent(destination)} />
   }
   if (user.platform_role === 'super_admin') return <Navigate replace to="/admin" />
@@ -81,13 +82,13 @@ export function SchoolWorkspaceEntry() {
   if (error) {
     return <main className="school-section"><div className="school-empty">{error} <button type="button" onClick={retryWorkspace}>Réessayer</button></div></main>
   }
-  if (!membership && school.is_demo) return <Navigate replace to={'/school/' + school.slug} />
+  if (!membership && school.is_demo) return <Navigate replace to={schoolPath(school.slug)} />
   if (!membership) return <main className="school-section school-workspace-entry">
     <div className="school-empty">
       <h1>Vous n’êtes pas encore inscrit à cette école</h1>
       <p>Le compte <strong>{user.email}</strong> n’a pas encore accès à {school.site_name || school.name}. Inscrivez-vous à une formation ou acceptez une invitation pour ouvrir votre espace.</p>
       <div className="school-workspace-entry-actions">
-        <Link className="school-primary-link" to={'/school/' + school.slug + '/formations'}>Découvrir les formations</Link>
+        <Link className="school-primary-link" to={schoolPath(school.slug, 'formations')}>Découvrir les formations</Link>
         <button className="school-account-switch-button" type="button" onClick={changeAccount}><span className="school-account-switch-icon"><DoorOpen size={18}/></span>Se déconnecter et changer de compte</button>
       </div>
     </div>
@@ -102,7 +103,7 @@ export function SchoolWorkspaceEntry() {
     return <Navigate replace to={'/app/' + accessProfile.spaces[0]} />
   }
   if (accessProfile.spaces.length === 0) {
-    return <main className="school-section"><div className="school-empty">Aucun espace actif pour cette école. <Link to={'/school/' + school.slug}>Retour au site</Link></div></main>
+    return <main className="school-section"><div className="school-empty">Aucun espace actif pour cette école. <Link to={schoolPath(school.slug)}>Retour au site</Link></div></main>
   }
 
   return <main className="school-section school-workspace-entry">

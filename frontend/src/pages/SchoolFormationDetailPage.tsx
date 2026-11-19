@@ -25,6 +25,8 @@ import { usePublicSchool } from '../public/SchoolPublicLayout'
 import type { SchoolCurrencyRates } from '../public/currencyRates'
 import { SchoolFavoriteButton } from '../public/SchoolFavoriteButton'
 import { PublicProgramSection } from '../components/PublicProgramSection'
+import { schoolPath } from '../public/schoolHost'
+import { useSchoolSlug } from '../public/useSchoolHost'
 
 const formatLabels: Record<PublicFormationDetail['format_type'], string> = {
   ligne: 'En ligne',
@@ -45,7 +47,8 @@ function contentLines(value: string) {
 }
 
 export function SchoolFormationDetailPage() {
-  const { schoolSlug = '', formationSlug = '' } = useParams()
+  const schoolSlug = useSchoolSlug()
+  const { formationSlug = '' } = useParams()
   const { school, currencyRates, openCart } = usePublicSchool()
   const [formation, setFormation] = useState<PublicFormationDetail | null>(null)
   const [sessionId, setSessionId] = useState<number | null>(null)
@@ -231,7 +234,7 @@ export function SchoolFormationDetailPage() {
     <main className="school-detail-page school-detail-page-v2">
       {toast && <div className="school-toast">{toast}</div>}
 
-      <Link className="school-detail-back" to={`/school/${schoolSlug}/formations`}>
+      <Link className="school-detail-back" to={schoolPath(schoolSlug, 'formations')}>
         <ArrowLeft size={14} /> Toutes les formations
       </Link>
 

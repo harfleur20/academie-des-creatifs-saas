@@ -1,11 +1,11 @@
 import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
 import { listPublicSchoolFormations, type PublicFormationCard } from '../lib/api'
 import { FormationCard } from './SchoolHomePage'
+import { useSchoolSlug } from '../public/useSchoolHost'
 
 export function SchoolFormationsPage() {
-  const { schoolSlug = '' } = useParams()
+  const schoolSlug = useSchoolSlug()
   const [items,setItems]=useState<PublicFormationCard[]>([])
   const [query,setQuery]=useState('')
   const [error,setError]=useState('')

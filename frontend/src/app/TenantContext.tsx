@@ -26,6 +26,7 @@ import { getCurrentSchoolBranding, type CurrentSchoolBranding } from '../brand/s
 import { useAuth } from '../auth/AuthContext'
 import { setSchoolInterfaceLocale } from './schoolLocale'
 import { readSchoolLoginBranding } from '../lib/schoolLoginBranding'
+import { schoolKeyForPath } from '../public/schoolHost'
 
 type TenantContextValue = {
   organizations: Organization[]
@@ -94,8 +95,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     const schoolLoginKey = location.pathname === '/login'
       ? new URLSearchParams(location.search).get('school')
       : null
-    const schoolPublicKey = location.pathname.match(/^\/school\/([^/]+)/)?.[1] ?? null
-    const schoolKey = schoolLoginKey ?? (schoolPublicKey ? decodeURIComponent(schoolPublicKey) : null)
+    const schoolKey = schoolLoginKey ?? schoolKeyForPath(location.pathname)
     setSchoolInterfaceLocale(schoolKey ? readSchoolLoginBranding(schoolKey)?.locale : null)
   }, [location.pathname, location.search, activeOrganization?.id, activeOrganization?.locale])
 
@@ -268,7 +268,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     // Public school pages manage their own title/favicon because they can be
     // opened without an authenticated tenant session.
-    if (pathname.startsWith('/school/')) return () => { active = false }
+    if (schoolKeyForPath(pathname)) return () => { active = false }
 
     // The school-branded login page sets its own title/favicon from the public
     // identity, so the platform defaults must not overwrite them.

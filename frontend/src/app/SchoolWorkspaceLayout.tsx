@@ -61,6 +61,7 @@ import { SchoolNotificationBell } from './SchoolNotificationBell'
 import { SchoolMessageBell } from './SchoolMessageBell'
 import { MenuLink, SpaceOutlet } from '../components/DemoGate'
 import { toast } from '../ui/toast'
+import { schoolPath } from '../public/schoolHost'
 
 export type WorkspaceNavItem = {
   to: string
@@ -840,7 +841,7 @@ export function SchoolWorkspaceLayout({
   function returnToSchoolSite() {
     setProfileOpen(false)
     if (activeOrganization?.slug) {
-      navigate(`/school/${activeOrganization.slug}`)
+      navigate(schoolPath(activeOrganization.slug))
       return
     }
     navigate('/')

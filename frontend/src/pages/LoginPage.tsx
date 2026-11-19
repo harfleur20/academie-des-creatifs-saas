@@ -28,6 +28,7 @@ import { planChoiceFromSearch, savePlanChoice } from '../lib/planChoice'
 import { formatMoney, monthlyEquivalent } from '../lib/planFeatures'
 import { rememberPlatformAuthOrigin, rememberSchoolAuthOrigin } from '../lib/authOrigin'
 import { setSchoolInterfaceLocale } from '../app/schoolLocale'
+import { schoolPath } from '../public/schoolHost'
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 
@@ -343,7 +344,7 @@ export function LoginPage() {
       style={authPageStyle}
     >
       <section className="auth-panel auth-copy-panel">
-        <a className="auth-logo" href={schoolKey ? '/school/' + encodeURIComponent(schoolKey) : '/'}>
+        <a className="auth-logo" href={schoolKey ? schoolPath(schoolKey) : '/'}>
           {isPublicSchool ? <>
             <SchoolLogo logoUrl={activeBrand?.logo_url} alt={activeBrand?.name || 'École'} className="platform-brand-logo" />
             {showSchoolName && <span className="auth-logo__name">{activeBrand?.name || 'Votre école'}</span>}

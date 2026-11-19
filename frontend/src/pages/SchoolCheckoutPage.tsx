@@ -10,7 +10,7 @@ import {
   Tag,
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { useTenant } from '../app/TenantContext'
 import {
@@ -35,9 +35,11 @@ import { clearSchoolCart, getSchoolCart } from '../public/schoolCart'
 import { formatSchoolMoney, formatSchoolPercent, formatSchoolRateDate, hasSchoolCurrencyRate } from '../public/publicHelpers'
 import { usePublicSchool } from '../public/SchoolPublicLayout'
 import './school-checkout.css'
+import { schoolPath } from '../public/schoolHost'
+import { useSchoolSlug } from '../public/useSchoolHost'
 
 export function SchoolCheckoutPage() {
-  const { schoolSlug = '' } = useParams()
+  const schoolSlug = useSchoolSlug()
   const { school, currencyRates } = usePublicSchool()
   const { user } = useAuth()
   const { refreshOrganizations } = useTenant()
@@ -247,7 +249,7 @@ export function SchoolCheckoutPage() {
     setError('')
     try {
       await cancelPublicOrder(schoolSlug, order.order_id)
-      navigate('/school/' + schoolSlug + '/checkout', { replace: true })
+      navigate(schoolPath(schoolSlug, 'checkout'), { replace: true })
       setOrder(null)
       setOrderInstallments([])
       setRetry((value) => value + 1)
@@ -296,7 +298,7 @@ export function SchoolCheckoutPage() {
   }
 
   if (!user) {
-    const returnPath = '/school/' + schoolSlug + '/checkout' + (params.toString() ? '?' + params.toString() : '')
+    const returnPath = schoolPath(schoolSlug, 'checkout') + (params.toString() ? '?' + params.toString() : '')
     return (
       <main className="school-section school-checkout-page">
         <section className="school-login-required">
@@ -348,7 +350,7 @@ export function SchoolCheckoutPage() {
   }
 
   if (!item) {
-    return <main className="school-section"><div className="school-empty">Votre panier est vide. <Link to={'/school/' + schoolSlug + '/formations'}>Voir les formations</Link></div></main>
+    return <main className="school-section"><div className="school-empty">Votre panier est vide. <Link to={schoolPath(schoolSlug, 'formations')}>Voir les formations</Link></div></main>
   }
 
   const total = preview?.final_price_cents ?? item.price_cents

@@ -1,3 +1,5 @@
+import { schoolPath } from '../public/schoolHost'
+
 const AUTH_ORIGIN_KEY = 'academie_saas_auth_origin_v1'
 const SCHOOL_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i
 
@@ -28,7 +30,7 @@ export function rememberSchoolAuthOrigin(slug: string) {
 }
 
 function schoolHomePath(slug: string) {
-  return `/school/${encodeURIComponent(slug)}`
+  return schoolPath(slug)
 }
 
 /** Resolve and consume the login origin when the user signs out. */
