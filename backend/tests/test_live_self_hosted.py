@@ -25,6 +25,30 @@ def self_hosted(monkeypatch):
     monkeypatch.setattr("app.services.live_classes.require_teacher_ready", lambda db, tenant: None)
 
 
+# Production also requires its private B2 bucket and Cloudinary: give it both, so these
+# tests reach the live checks.
+PRODUCTION_STORAGE = {
+    "storage_provider": "b2",
+    "b2_endpoint_url": "https://s3.eu-central-003.backblazeb2.com",
+    "b2_region": "eu-central-003",
+    "b2_private_bucket_name": "private",
+    "b2_access_key_id": "test-id",
+    "b2_secret_access_key": "test-secret",
+    "public_asset_provider": "cloudinary",
+    "cloudinary_cloud_name": "test-cloud",
+    "cloudinary_api_key": "test-key",
+    "cloudinary_api_secret": "test-secret",
+}
+
+
+def production(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "jwt_secret_key", "k" * 40)
+    monkeypatch.setattr(settings, "jaas_recording_enabled", False)
+    for name, value in PRODUCTION_STORAGE.items():
+        monkeypatch.setattr(settings, name, value)
+
+
 def live_school():
     db = build_db()
     org, teacher, student, _classmate, session, _e, _ce, _lesson, day = seed(db)
@@ -79,9 +103,7 @@ def test_an_incomplete_self_hosted_setup_keeps_the_room_closed(self_hosted, monk
     ("zoom", SECRET, "LIVE_PROVIDER"),
 ])
 def test_production_refuses_a_weak_or_unknown_live_setup(monkeypatch, provider, secret, message) -> None:
-    monkeypatch.setattr(settings, "environment", "production")
-    monkeypatch.setattr(settings, "jwt_secret_key", "k" * 40)
-    monkeypatch.setattr(settings, "jaas_recording_enabled", False)
+    production(monkeypatch)
     monkeypatch.setattr(settings, "live_provider", provider)
     monkeypatch.setattr(settings, "jitsi_domain", "live.ecole.test")
     monkeypatch.setattr(settings, "jitsi_app_id", "academie-live")
@@ -92,9 +114,7 @@ def test_production_refuses_a_weak_or_unknown_live_setup(monkeypatch, provider, 
 
 
 def test_production_accepts_a_complete_self_hosted_setup(self_hosted, monkeypatch) -> None:
-    monkeypatch.setattr(settings, "environment", "production")
-    monkeypatch.setattr(settings, "jwt_secret_key", "k" * 40)
-    monkeypatch.setattr(settings, "jaas_recording_enabled", False)
+    production(monkeypatch)
     settings.validate_production_security()
 
 

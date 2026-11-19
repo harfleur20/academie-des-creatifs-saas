@@ -34,8 +34,24 @@ def build_db() -> Session:
 
 
 def test_production_requires_unique_jwt_secret() -> None:
-    config = Settings(environment="production", jwt_secret_key="academie-saas-development-secret-change-me")
-    with pytest.raises(RuntimeError):
+    config = Settings(
+        environment="production",
+        jwt_secret_key="academie-saas-development-secret-change-me",
+        live_provider="jaas",
+        jaas_recording_enabled=False,
+        # Production also requires its private B2 bucket and Cloudinary.
+        storage_provider="b2",
+        b2_endpoint_url="https://s3.eu-central-003.backblazeb2.com",
+        b2_region="eu-central-003",
+        b2_private_bucket_name="private",
+        b2_access_key_id="test-id",
+        b2_secret_access_key="test-secret",
+        public_asset_provider="cloudinary",
+        cloudinary_cloud_name="test-cloud",
+        cloudinary_api_key="test-key",
+        cloudinary_api_secret="test-secret",
+    )
+    with pytest.raises(RuntimeError, match="JWT_SECRET_KEY"):
         config.validate_production_security()
     config.jwt_secret_key = "a-unique-generated-secret-for-test-only-123456"
     config.validate_production_security()
