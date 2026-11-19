@@ -42,6 +42,7 @@ import { SchoolLogo } from '../brand/SchoolLogo'
 import { takePostLogoutDestination } from '../lib/authOrigin'
 import {
   DEFAULT_BRAND_COLORS,
+  DEFAULT_SCHOOL_LOGO_URL,
   DEFAULT_PLATFORM_LOGO_URL,
 } from '../brand/branding'
 import {
@@ -155,6 +156,8 @@ function SchoolWorkspaceSwitcher({
   const schoolName = activeOrganization?.name || 'Aucune école'
   const triggerLabel = supportMode ? 'École consultée' : 'École active'
   const triggerValue = schoolName
+  const configuredSchoolLogo = activeOrganization?.logo_url?.trim()
+  const hasCustomSchoolLogo = Boolean(configuredSchoolLogo && configuredSchoolLogo !== DEFAULT_SCHOOL_LOGO_URL)
   const creationQuotaDescription = creationCapacity
     ? creationCapacity.maximum_organizations === null
       ? `${creationCapacity.owned_organizations} ${creationCapacity.owned_organizations > 1 ? 'écoles' : 'école'} · sans limite`
@@ -229,9 +232,13 @@ function SchoolWorkspaceSwitcher({
         title={collapsed ? schoolName : undefined}
       >
         {collapsed ? (
-          <span className="school-switcher-initial" aria-hidden="true">
-            {schoolName.trim().charAt(0).toUpperCase() || '?'}
-          </span>
+          hasCustomSchoolLogo ? (
+            <SchoolLogo logoUrl={configuredSchoolLogo} alt="" className="school-switcher-collapsed-logo" />
+          ) : (
+            <span className="school-switcher-initial" aria-hidden="true">
+              {schoolName.trim().charAt(0).toUpperCase() || '?'}
+            </span>
+          )
         ) : (
           <>
             <SchoolLogo

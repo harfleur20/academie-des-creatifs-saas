@@ -79,8 +79,10 @@
 .saas-app.is-manage-sidebar-collapsed .direction-brand-mark { opacity: 1; visibility: visible; transition-delay: 140ms, 0s; }
 .saas-app.is-manage-sidebar-collapsed .sidebar-collapse-toggle { align-self: center; margin: -8px 0 10px; }
 .saas-app.is-manage-sidebar-collapsed .school-switcher { display: grid; grid-template-columns: 1fr; justify-items: center; width: 100%; margin: 4px 0 21px; padding: 0; background: transparent; }
-.saas-app.is-manage-sidebar-collapsed .school-switcher-initial { animation: direction-rail-icon-in 280ms cubic-bezier(.2,.75,.25,1) both; }
+.saas-app.is-manage-sidebar-collapsed .school-switcher-initial,
+.saas-app.is-manage-sidebar-collapsed .school-switcher-collapsed-logo { animation: direction-rail-icon-in 280ms cubic-bezier(.2,.75,.25,1) both; }
 .school-switcher-initial { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; color: #1f2559; background: #fff; font-size: 19px; font-weight: 850; }
+.school-switcher-collapsed-logo { display: block; width: 46px; height: 46px; object-fit: contain; background: transparent; }
 .saas-app.is-manage-sidebar-collapsed .workspace-switcher.is-hidden-when-collapsed { display: none; }
 .saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav { width: 100%; gap: 6px; }
 .saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav > a,
