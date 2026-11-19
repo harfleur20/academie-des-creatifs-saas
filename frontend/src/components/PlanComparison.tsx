@@ -22,7 +22,7 @@ export function PlanComparison({
   onOpenChange?: (open: boolean) => void
   action?: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const rows = comparisonRows(plans)
   if (plans.length === 0 || rows.length === 0) return null
 
