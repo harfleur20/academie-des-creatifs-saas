@@ -67,6 +67,7 @@ from app.services.resources_quizzes import (
     submit_quiz_attempt,
     teacher_quiz_results,
 )
+from app.services.organization_domains import school_base_url
 from app.services.school_pedagogy import school_pedagogy_overview
 from app.services.tenancy import TenantContext, require_organization_roles
 
@@ -409,6 +410,7 @@ def download_student_certificate(
     filename, content = build_certificate_pdf(
         certificate,
         fallback_logo_url=organization.logo_url if organization else None,
+        site_url=school_base_url(organization) if organization else None,
     )
     return Response(
         content=content,
@@ -437,6 +439,7 @@ def download_verified_certificate(
     filename, content = build_certificate_pdf(
         certificate,
         fallback_logo_url=organization.logo_url if organization else None,
+        site_url=school_base_url(organization) if organization else None,
     )
     return Response(
         content=content,

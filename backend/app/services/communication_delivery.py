@@ -40,6 +40,10 @@ def _email_html(row: CommunicationOutboxRecord) -> str:
         else ""
     )
     body = html.escape(row.body).replace("\n", "<br>")
+    signature = "" if snapshot.get("white_label") else (
+        '<tr><td style="padding:16px 30px;text-align:center;border-top:1px solid #eef1f4;color:#94a3b8;font-size:10px">'
+        "Powered by Académie des Créatifs</td></tr>"
+    )
     return f"""<!doctype html>
 <html lang="fr"><body style="margin:0;background:#f5f7fb;font-family:Arial,sans-serif;color:{accent}">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px">
@@ -48,9 +52,7 @@ def _email_html(row: CommunicationOutboxRecord) -> str:
 <tr><td style="height:8px;background:{primary}"></td></tr>
 <tr><td style="padding:24px;text-align:center">{logo_html}<strong style="font-size:18px">{school}</strong></td></tr>
 <tr><td style="padding:8px 30px 30px;font-size:14px;line-height:1.65">{body}</td></tr>
-<tr><td style="padding:16px 30px;text-align:center;border-top:1px solid #eef1f4;color:#94a3b8;font-size:10px">
-Powered by Académie des Créatifs
-</td></tr>
+{signature}
 </table></td></tr></table></body></html>"""
 
 

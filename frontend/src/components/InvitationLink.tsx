@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { Copy } from 'lucide-react'
+import { useTenant } from '../app/TenantContext'
 
 export function InvitationLink({ token }: { token: string }) {
+  const { activeOrganization } = useTenant()
   const [message, setMessage] = useState('')
-  const url = new URL(`/invite/${encodeURIComponent(token)}`, window.location.origin).toString()
+  // The school's own address when it has one: the invitee lands on the school, not the platform.
+  const origin = activeOrganization?.public_site_url || window.location.origin
+  const url = new URL(`/invite/${encodeURIComponent(token)}`, origin).toString()
 
   async function copy() {
     try {

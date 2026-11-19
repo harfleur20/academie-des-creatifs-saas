@@ -299,6 +299,13 @@ def delete_domain(
     db.commit()
 
 
+def school_base_url(org: OrganizationRecord) -> str:
+    """The school's own address (its subdomain, when this deployment serves it), else the platform's."""
+    from app.schemas.organizations import school_subdomain_url
+
+    return school_subdomain_url(org.subdomain) or settings.frontend_url.rstrip("/")
+
+
 def resolve_organization_for_hostname(
     db: Session,
     *,

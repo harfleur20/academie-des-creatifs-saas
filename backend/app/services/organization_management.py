@@ -29,6 +29,7 @@ from app.schemas.organizations import (
     OrganizationMemberUpdate,
     OrganizationUpdate,
 )
+from app.services.organization_domains import school_base_url
 from app.services.school_branding import branding_snapshot, get_or_create_identity_records
 from app.services.school_communications import queue_school_event
 from app.services.school_profiles import ensure_student_profile, ensure_teacher_profile
@@ -431,7 +432,7 @@ def _queue_invitation_email(
         "manager": "manager",
         "admin": "administrateur",
     }.get(invitation.role, invitation.role)
-    acceptance_url = f"{settings.frontend_url.rstrip('/')}/invite/{token}"
+    acceptance_url = f"{school_base_url(tenant.organization)}/invite/{token}"
     queue_school_event(
         db,
         org=tenant.organization,

@@ -46,7 +46,10 @@ from app.services.auth import (
     update_avatar,
     update_profile,
 )
+from app.services.organization_domains import school_base_url
 from app.services.password_reset_mail import send_password_reset_email
+from app.services.public_school_slug import resolve_public_organization
+from app.services.school_branding import branding_snapshot
 
 
 logger = logging.getLogger(__name__)
@@ -127,9 +130,9 @@ def _response(response: Response, request: Request, user: UserRecord, message: s
     )
 
 
-def _deliver_password_reset_email(recipient: str, reset_url: str, user_id: int) -> None:
+def _deliver_password_reset_email(recipient: str, reset_url: str, user_id: int, school: dict | None = None) -> None:
     try:
-        send_password_reset_email(recipient, reset_url)
+        send_password_reset_email(recipient, reset_url, school=school)
     except Exception:
         logger.exception("Unable to deliver password reset email for user_id=%s", user_id)
 
@@ -218,15 +221,21 @@ def forgot_password(
         minutes=30,
     )
     query: dict[str, str] = {"reset_token": reset_token}
-    if payload.school:
-        query["school"] = payload.school.strip()
-    reset_url = f"{settings.frontend_url}/login?{urlencode(query)}"
+    school_org = resolve_public_organization(db, payload.school.strip()) if payload.school else None
+    school = None
+    if school_org is not None:
+        query["school"] = school_org.slug
+        snapshot = branding_snapshot(db, school_org)
+        school = {key: snapshot.get(key) for key in ("school_name", "logo_url", "primary_color", "sender_name", "white_label")}
+    base_url = school_base_url(school_org) if school_org is not None else settings.frontend_url
+    reset_url = f"{base_url}/login?{urlencode(query)}"
 
     background_tasks.add_task(
         _deliver_password_reset_email,
         user.email,
         reset_url,
         user.id,
+        school,
     )
     return MessageResponse(message=RESET_REQUEST_MESSAGE)
 

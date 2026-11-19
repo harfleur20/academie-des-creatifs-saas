@@ -312,7 +312,8 @@ def build_invoice_pdf(
     pdf.drawCentredString(
         width / 2,
         24,
-        f"Document émis par {snapshot.get('school_name') or 'l’école'} - Powered by Académie des Créatifs",
+        f"Document émis par {snapshot.get('school_name') or 'l’école'}"
+        + ("" if snapshot.get("white_label") else " - Powered by Académie des Créatifs"),
     )
     pdf.showPage()
     pdf.save()
@@ -322,6 +323,7 @@ def build_invoice_pdf(
 def build_certificate_pdf(
     certificate: CertificateRecord,
     fallback_logo_url: str | None = None,
+    site_url: str | None = None,
 ) -> tuple[str, bytes]:
     snapshot = dict(certificate.branding_snapshot or {})
     document = dict(snapshot.get("document") or {})
@@ -457,8 +459,9 @@ def build_certificate_pdf(
     pdf.setFillColor(colors.HexColor("#64748B"))
     pdf.drawCentredString(signature_x + 80, 62, str(snapshot.get("signer_title") or ""))
 
+    # The school's own address when it has one: the QR code opens its page, not the platform's.
     verification_url = (
-        f"{settings.frontend_url}/certificates/verify/"
+        f"{(site_url or settings.frontend_url).rstrip('/')}/certificates/verify/"
         f"{_verification_token(certificate)}"
     )
     widget = qr.QrCodeWidget(verification_url)
@@ -488,7 +491,8 @@ def build_certificate_pdf(
 
     pdf.setFont("Helvetica", 6.5)
     pdf.setFillColor(colors.HexColor("#94A3B8"))
-    pdf.drawRightString(width - 54, 36, "Powered by Académie des Créatifs")
+    if not snapshot.get("white_label"):
+        pdf.drawRightString(width - 54, 36, "Powered by Académie des Créatifs")
 
     pdf.showPage()
     pdf.save()
