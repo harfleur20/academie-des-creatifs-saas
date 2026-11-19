@@ -94,9 +94,9 @@ export function SchoolIdentityPage() {
           <p>Personnalisez la marque, le site public, les écrans de connexion et les documents de votre école depuis un seul endroit.</p>
         </div>
         {activeOrganization?.slug && (
-          <Link className="secondary-button compact-action" target="_blank" rel="noreferrer" to={'/school/' + activeOrganization.slug}>
+          <a className="secondary-button compact-action" target="_blank" rel="noreferrer" href={activeOrganization.public_site_url || '/school/' + activeOrganization.slug}>
             <Eye size={15}/>Voir le site public
-          </Link>
+          </a>
         )}
       </header>
 

@@ -1,7 +1,25 @@
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, computed_field
+
+from app.core.config import settings
+
+
+def school_subdomain_url(subdomain: str | None) -> str | None:
+    """The school's own address, when this deployment serves the subdomains of its base domain.
+
+    A local setup can name the production base domain while running on localhost: its
+    subdomains are not served there, so the school stays on its /school/<slug> pages.
+    """
+    base = settings.saas_base_domain
+    app = urlsplit(settings.frontend_url)
+    host = (app.hostname or "").lower()
+    if not subdomain or not base or not (host == base or host.endswith(f".{base}")):
+        return None
+    port = f":{app.port}" if app.port else ""
+    return f"{app.scheme}://{subdomain}.{base}{port}"
 
 
 class OrganizationCreate(BaseModel):
@@ -81,6 +99,11 @@ class OrganizationRead(BaseModel):
     direction_sidebar_collapsed: bool
     direction_sidebar_collapse_enabled: bool
     created_at: datetime
+
+    @computed_field
+    @property
+    def public_site_url(self) -> str | None:
+        return school_subdomain_url(self.subdomain)
 
 
 class OrganizationUserSummary(BaseModel):

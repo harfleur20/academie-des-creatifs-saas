@@ -130,3 +130,22 @@ def test_platform_subdomain_resolves_brand(monkeypatch) -> None:
     )
     assert resolved is not None
     assert resolved[0].id == org.id
+
+
+@pytest.mark.parametrize(("frontend_url", "subdomain", "expected"), [
+    ("https://ecoles.academiecreatif.com", "millenium", "https://millenium.academiecreatif.com"),
+    ("http://academiecreatif.com:3000", "millenium", "http://millenium.academiecreatif.com:3000"),
+    # A local app naming the production base domain does not serve its subdomains.
+    ("http://localhost:3000", "millenium", None),
+    ("https://ecoles.academiecreatif.com", None, None),
+])
+def test_the_direction_opens_the_school_on_its_own_subdomain(monkeypatch, frontend_url, subdomain, expected) -> None:
+    from app.schemas.organizations import OrganizationRead
+
+    monkeypatch.setattr(settings, "saas_base_domain", "academiecreatif.com")
+    monkeypatch.setattr(settings, "frontend_url", frontend_url)
+    db = build_db()
+    org, _tenant = seed(db)
+    org.subdomain = subdomain
+    db.commit()
+    assert OrganizationRead.model_validate(org).model_dump()["public_site_url"] == expected

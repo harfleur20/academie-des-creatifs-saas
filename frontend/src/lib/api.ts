@@ -24,6 +24,8 @@ export type Organization = {
   name_changed_at: string | null
   slug: string
   subdomain: string | null
+  // The school's own address (its subdomain), when this deployment serves it.
+  public_site_url?: string | null
   status: string
   deletion_requested_at: string | null
   deletion_scheduled_at: string | null

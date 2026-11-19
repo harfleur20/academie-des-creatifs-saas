@@ -779,7 +779,7 @@ export function SchoolWorkspaceLayout({
               </div>}
             </div>
             <div className="manage-topbar-actions" ref={profileRef}>
-              {activeOrganization && <NavLink className="manage-topbar-site" to={`/school/${activeOrganization.slug}`} target="_blank" rel="noopener noreferrer" title="Voir le site public"><Eye size={17} /><span>Voir le site</span></NavLink>}
+              {activeOrganization && <a className="manage-topbar-site" href={activeOrganization.public_site_url || `/school/${activeOrganization.slug}`} target="_blank" rel="noopener noreferrer" title="Voir le site public"><Eye size={17} /><span>Voir le site</span></a>}
               <SchoolNotificationBell space="manage" />
               <button type="button" className="manage-topbar-profile" onClick={() => setProfileOpen((value) => !value)} aria-expanded={profileOpen} aria-label="Ouvrir le menu du compte">
                 <span className="manage-topbar-avatar">{user?.avatar_url ? <img src={user.avatar_url} alt="" /> : initialsFor(user?.full_name)}</span>
