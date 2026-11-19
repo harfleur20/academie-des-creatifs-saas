@@ -20,8 +20,9 @@
   transition: opacity 140ms ease 140ms, visibility 0s linear 0s;
 }
 
-.direction-brand-mark { position: absolute; top: 0; left: 50%; display: block; width: 46px; height: 46px; object-fit: contain; opacity: 0; visibility: hidden; transform: translateX(-50%); transition: opacity 140ms ease, visibility 0s linear 140ms; }
-.sidebar-collapse-toggle { display: grid; place-items: center; width: 34px; height: 32px; margin: -14px 0 6px auto; padding: 0; border: 0; border-radius: 8px; color: #a5b3c7; background: transparent; cursor: pointer; transition: color 150ms ease, background 150ms ease; }
+/* Held against the left edge, where the collapsed rail centres it: it does not travel while the rail narrows. */
+.direction-brand-mark { position: absolute; top: 0; left: 0; display: block; width: 46px; height: 46px; object-fit: contain; opacity: 0; visibility: hidden; transition: opacity 140ms ease, visibility 0s linear 140ms; }
+.sidebar-collapse-toggle { display: grid; place-items: center; width: 34px; height: 32px; margin: -14px 0 6px auto; padding: 0; border: 0; border-radius: 8px; color: #a5b3c7; background: transparent; cursor: pointer; transition: color 150ms ease, background 150ms ease, margin 300ms cubic-bezier(.2,.75,.25,1); }
 .sidebar-collapse-toggle:hover { color: #fff; background: rgba(255,255,255,.09); }
 .sidebar-collapse-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .sidebar-collapse-toggle:disabled { cursor: wait; opacity: .6; }
@@ -63,54 +64,57 @@
 .direction-readonly-note { margin: 12px 0 0; color: #718097; font-size: var(--text-small); text-align: right; }
 
 .direction-collapse-availability { margin: 10px 0 0; color: #718097; font-size: var(--text-small); line-height: 1.5; }
-.saas-app { transition: grid-template-columns 320ms cubic-bezier(.2,.75,.25,1); }
-.saas-app .app-sidebar { transition: padding 320ms cubic-bezier(.2,.75,.25,1), transform 200ms ease; }
-.saas-app .app-brand { transition: padding 320ms cubic-bezier(.2,.75,.25,1); }
-.saas-app .school-switcher { transition: padding 280ms ease, margin 280ms ease, background-color 220ms ease; }
+/* Collapsing the direction sidebar only narrows its column. Every item keeps its place against
+   the left edge, and the 82 px rail is an icon with its margins (18 + 13 px each side): the icons
+   end up centred without moving, while the labels fade and slip under the edge. Changing the
+   alignment or the paddings instead made everything jump to the middle, then slide back. */
+.saas-app { transition: grid-template-columns 300ms cubic-bezier(.2,.75,.25,1); }
+.saas-app .app-sidebar { transition: transform 200ms ease; }
+.saas-app .app-brand { transition: padding 300ms cubic-bezier(.2,.75,.25,1); }
+.saas-app .school-switcher { transition: background-color 220ms ease; }
+.saas-app .app-sidebar .app-nav { overflow-x: hidden; }
 .saas-app .app-sidebar .app-nav > a,
 .saas-app .app-sidebar .app-nav .app-nav-group-trigger,
-.saas-app .app-sidebar .app-nav-subnav a { transition: padding 280ms cubic-bezier(.2,.75,.25,1), gap 280ms ease, background-color 180ms ease; }
-.saas-app .app-sidebar .sidebar-user { transition: grid-template-columns 280ms cubic-bezier(.2,.75,.25,1); }
+.saas-app .app-sidebar .app-nav-subnav a { overflow: hidden; transition: color 160ms ease, background-color 180ms ease, transform 160ms ease; }
+.saas-app .app-sidebar .app-nav > a > svg,
+.saas-app .app-sidebar .app-nav-subnav a > svg { flex: none; }
+.saas-app .app-sidebar .app-nav-subnav { transition: margin-left 300ms cubic-bezier(.2,.75,.25,1), padding-left 300ms cubic-bezier(.2,.75,.25,1), border-color 200ms ease; }
+.saas-app .app-sidebar .sidebar-user { transition: padding-left 300ms cubic-bezier(.2,.75,.25,1); }
+.saas-app .app-sidebar .sidebar-user > div:not(.user-avatar) { transition: opacity 150ms ease, visibility 0s linear 0s; }
 .saas-app.is-manage-sidebar-collapsed { grid-template-columns: 82px minmax(0, 1fr); }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar { align-items: center; padding: 20px 10px; }
-.saas-app.is-manage-sidebar-collapsed .app-brand { justify-content: center; width: 100%; padding: 0 0 21px; }
-.saas-app.is-manage-sidebar-collapsed .direction-brand-full { opacity: 0; visibility: hidden; transition-delay: 0s, 140ms; }
-.saas-app.is-manage-sidebar-collapsed .direction-brand-wordmark { justify-content: center; }
+.saas-app.is-manage-sidebar-collapsed .app-brand { padding-right: 0; padding-left: 0; }
+/* The full logo keeps its size while it fades out under the edge. */
+.saas-app.is-manage-sidebar-collapsed .direction-brand-full { max-width: none; opacity: 0; visibility: hidden; transition-delay: 0s, 140ms; }
 .saas-app.is-manage-sidebar-collapsed .direction-brand-mark { opacity: 1; visibility: visible; transition-delay: 140ms, 0s; }
-.saas-app.is-manage-sidebar-collapsed .sidebar-collapse-toggle { align-self: center; margin: -8px 0 10px; }
-.saas-app.is-manage-sidebar-collapsed .school-switcher { display: grid; grid-template-columns: 1fr; justify-items: center; width: 100%; margin: 4px 0 21px; padding: 0; background: transparent; }
+/* A 34 px button in the 46 px rail: 6 px on its right centre it. */
+.saas-app.is-manage-sidebar-collapsed .sidebar-collapse-toggle { margin-right: 6px; }
+.saas-app.is-manage-sidebar-collapsed .school-switcher { background: transparent; }
 .saas-app.is-manage-sidebar-collapsed .school-switcher-initial,
 .saas-app.is-manage-sidebar-collapsed .school-switcher-collapsed-logo { animation: direction-rail-icon-in 280ms cubic-bezier(.2,.75,.25,1) both; }
 .school-switcher-initial { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; color: #1f2559; background: #fff; font-size: 19px; font-weight: 850; }
 .school-switcher-collapsed-logo { display: block; width: 46px; height: 46px; object-fit: contain; background: transparent; }
 .saas-app.is-manage-sidebar-collapsed .workspace-switcher.is-hidden-when-collapsed { display: none; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav { width: 100%; gap: 6px; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav > a,
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav .app-nav-group-trigger,
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-subnav a { justify-content: center; gap: 0; padding: 0; font-size: 0; }
 .saas-app .app-sidebar .app-nav-label,
 .saas-app .app-sidebar .app-nav-group-trigger > span,
 .saas-app .app-sidebar .app-nav-group-chevron,
-.saas-app .app-sidebar .demo-locked-link__icon { transition: opacity 150ms ease, max-width 240ms ease, transform 220ms ease, visibility 0s linear 0s; }
+.saas-app .app-sidebar .demo-locked-link__icon { transition: opacity 150ms ease, visibility 0s linear 0s; }
 .saas-app .app-sidebar .app-nav-label,
 .saas-app .app-sidebar .app-nav-group-trigger > span { display: inline-block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-label,
 .saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-group-trigger > span,
 .saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-group-chevron,
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .demo-locked-link__icon { opacity: 0; visibility: hidden; transition-delay: 0s, 0s, 0s, 150ms; }
+.saas-app.is-manage-sidebar-collapsed .app-sidebar .demo-locked-link__icon,
+.saas-app.is-manage-sidebar-collapsed .app-sidebar .sidebar-user > div:not(.user-avatar) { opacity: 0; visibility: hidden; transition-delay: 0s, 150ms; }
+/* The labels keep their width and pass under the edge, instead of shortening to "Tableau…". */
 .saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-label,
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-group-trigger > span { max-width: 0; opacity: 0; transform: translateX(-5px); visibility: hidden; transition-delay: 0s, 0s, 0s, 150ms; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-group-chevron { opacity: 0; visibility: hidden; transition-delay: 0s, 0s, 0s, 150ms; }
+.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-group-trigger > span { flex: 0 0 auto; }
+.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-group-chevron { margin-left: auto; }
 .saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav a:not(.active) span:not(.app-nav-label) { display: inline-flex; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav > a > svg,
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-group-trigger > svg:first-child,
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-subnav a > svg { width: 20px; height: 20px; flex: none; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-group { gap: 3px; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-subnav { margin-left: 0; padding: 3px 0 7px; border-left: 0; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .sidebar-user { grid-template-columns: 1fr; justify-items: center; width: 100%; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .sidebar-user > div:not(.user-avatar) { max-width: 0; max-height: 0; overflow: hidden; opacity: 0; transform: translateX(-6px); transition: opacity 150ms ease, max-height 240ms ease, transform 220ms ease; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .user-avatar { width: 40px; height: 40px; }
-.saas-app.is-manage-sidebar-collapsed .app-sidebar .nav-disabled { justify-content: center; padding: 0; font-size: 0; }
+/* The sub-items line up under their group's 18 px icon: 16 px icons, 4 px further in. */
+.saas-app.is-manage-sidebar-collapsed .app-sidebar .app-nav-subnav { margin-left: 0; padding-left: 4px; border-left-color: transparent; }
+/* A 38 px avatar in the 46 px rail: 4 px on its left centre it. */
+.saas-app.is-manage-sidebar-collapsed .app-sidebar .sidebar-user { padding-left: 4px; }
+.saas-app.is-manage-sidebar-collapsed .app-sidebar .nav-disabled { overflow: hidden; font-size: 0; }
 @keyframes direction-rail-icon-in { from { opacity: 0; transform: scale(.84); } to { opacity: 1; transform: scale(1); } }
 .saas-app .trial-banner { color: var(--green-ink); }
 .saas-app .owner-dashboard-subscription-card.is-trialing .owner-dashboard-subscription-action,
@@ -180,6 +184,10 @@
   font-weight: 600;
   letter-spacing: .08em;
   text-transform: uppercase;
+  /* One line, even while the sidebar opens: wrapping would push the menu down and back. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .school-switcher-trigger-copy strong {
   overflow: hidden;
@@ -267,9 +275,14 @@
 .school-switcher-create > span { min-width: 0; display: grid; gap: 2px; }
 .school-switcher-create strong { font-size: 13px; font-weight: 800; }
 .school-switcher-create small { overflow: hidden; color: #78869a; font-size: 11px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
-.saas-app.is-manage-sidebar-collapsed .school-switcher.school-switcher--direction { display: block; width: 100%; margin: 4px 0 21px; padding: 0; background: transparent; }
-.saas-app.is-manage-sidebar-collapsed .school-switcher--direction .school-switcher-trigger.is-collapsed { min-height: 46px; display: grid; grid-template-columns: 1fr; place-items: center; padding: 0; }
-.saas-app.is-manage-sidebar-collapsed .school-switcher--direction .school-switcher-menu { top: 0; left: calc(100% + 10px); width: min(286px, calc(100vw - 32px)); }
+/* Open or collapsed, the switcher keeps its margins and its 66 px height (the two lines of the
+   open one need 65.3 px), so the menu below stays still; the 46 px initial or logo sits against
+   the left edge, where the rail centres it. */
+.school-switcher--direction .school-switcher-trigger { min-height: 66px; }
+.saas-app.is-manage-sidebar-collapsed .school-switcher.school-switcher--direction { background: transparent; }
+.saas-app.is-manage-sidebar-collapsed .school-switcher--direction .school-switcher-trigger.is-collapsed { grid-template-columns: 46px; align-items: center; justify-items: start; padding: 10px 0; }
+/* The 46 px switcher ends 18 px before the rail's edge: the menu opens 10 px past that edge. */
+.saas-app.is-manage-sidebar-collapsed .school-switcher--direction .school-switcher-menu { top: 0; left: calc(100% + 28px); width: min(286px, calc(100vw - 32px)); }
 .app-sidebar.has-workspace-menu-open {
   overflow: visible;
   z-index: 140;

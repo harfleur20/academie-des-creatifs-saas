@@ -445,7 +445,9 @@ export function SchoolWorkspaceLayout({
   } = useTenant()
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [savingSidebarPreference, setSavingSidebarPreference] = useState(false)
+  // The direction sidebar follows a click at once; the choice reaches the school a moment later.
+  const [sidebarCollapsedChoice, setSidebarCollapsedChoice] = useState<boolean | null>(null)
+  const sidebarSaveTimer = useRef<number | null>(null)
   const [supportsCompactSidebar, setSupportsCompactSidebar] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
   const [profileOpen, setProfileOpen] = useState(false)
   const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false)
@@ -528,7 +530,14 @@ export function SchoolWorkspaceLayout({
     && supportsCompactSidebar
   const directionSidebarCollapsed = !isRoleSpace
     && directionSidebarCollapseEnabled
-    && activeOrganization?.direction_sidebar_collapsed === true
+    && (sidebarCollapsedChoice ?? activeOrganization?.direction_sidebar_collapsed === true)
+
+  // A choice not yet saved belongs to the school it was made in.
+  useEffect(() => () => {
+    if (sidebarSaveTimer.current !== null) window.clearTimeout(sidebarSaveTimer.current)
+    sidebarSaveTimer.current = null
+    setSidebarCollapsedChoice(null)
+  }, [activeOrganization?.id])
 
   const brandStyle = {
     '--blue': isRoleSpace
@@ -631,18 +640,27 @@ export function SchoolWorkspaceLayout({
     ))
   }
 
-  async function toggleDirectionSidebar() {
-    if (!activeOrganization || !directionSidebarCollapseEnabled || savingSidebarPreference) return
-    setSavingSidebarPreference(true)
+  // The rail moves on the click; the school's preference is saved once the clicks stop.
+  function toggleDirectionSidebar() {
+    if (!activeOrganization || !directionSidebarCollapseEnabled) return
+    const collapsed = !directionSidebarCollapsed
+    setSidebarCollapsedChoice(collapsed)
+    if (sidebarSaveTimer.current !== null) window.clearTimeout(sidebarSaveTimer.current)
+    sidebarSaveTimer.current = window.setTimeout(() => {
+      sidebarSaveTimer.current = null
+      void saveDirectionSidebar(collapsed)
+    }, 400)
+  }
+
+  async function saveDirectionSidebar(collapsed: boolean) {
     try {
-      await updateCurrentOrganization({
-        direction_sidebar_collapsed: !activeOrganization.direction_sidebar_collapsed,
-      })
+      await updateCurrentOrganization({ direction_sidebar_collapsed: collapsed })
       await refreshOrganizations()
+      // A later click keeps its own choice until it is saved in turn.
+      setSidebarCollapsedChoice((current) => (current === collapsed ? null : current))
     } catch (error) {
+      setSidebarCollapsedChoice(null)
       toast.error(error instanceof Error ? error.message : 'Impossible de modifier la barre latérale.')
-    } finally {
-      setSavingSidebarPreference(false)
     }
   }
 
@@ -662,8 +680,7 @@ export function SchoolWorkspaceLayout({
             && directionSidebarCollapseEnabled && <button
               type="button"
               className="sidebar-collapse-toggle"
-              onClick={() => void toggleDirectionSidebar()}
-              disabled={savingSidebarPreference}
+              onClick={toggleDirectionSidebar}
               aria-label={directionSidebarCollapsed ? 'Développer la barre latérale' : 'Rétracter la barre latérale'}
               title={directionSidebarCollapsed ? 'Développer la barre latérale' : 'Rétracter la barre latérale'}
             >
