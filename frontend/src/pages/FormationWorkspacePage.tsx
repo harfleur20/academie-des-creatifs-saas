@@ -389,10 +389,13 @@ export function FormationWorkspacePage() {
             <span>Photo de couverture</span>
             <div className="formation-cover-field__body">
               {coverUrl ? <img src={coverUrl} alt="Couverture de la formation" /> : <div className="formation-cover-field__empty"><ImagePlus size={22} /></div>}
-              <label className="secondary-button compact-action">
-                <ImagePlus size={14} /> {coverUrl ? 'Changer la photo' : 'Choisir une photo'}
-                <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={(event) => void uploadCover(event)} disabled={working} hidden />
-              </label>
+              <div className="formation-cover-field__actions">
+                <label className="secondary-button compact-action">
+                  <ImagePlus size={16} /> {coverUrl ? 'Changer la photo' : 'Choisir une photo'}
+                  <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={(event) => void uploadCover(event)} disabled={working} hidden />
+                </label>
+                <small>Image horizontale recommandée · JPG, PNG ou WebP</small>
+              </div>
             </div>
           </div>
           <div className="formation-video-field">
@@ -407,6 +410,7 @@ export function FormationWorkspacePage() {
                 preload="metadata"
               />
             )}
+            {!presentationVideoUrl && <div className="formation-video-field__empty"><Film size={19} /><span>Ajoutez une vidéo pour présenter cette formation.</span></div>}
             <div className="formation-video-field__actions">
               <label className="secondary-button compact-action">
                 <Film size={14} /> {presentationVideoUrl ? 'Changer la vidéo' : 'Choisir une vidéo'}
