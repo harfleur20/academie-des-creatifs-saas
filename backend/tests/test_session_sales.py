@@ -127,15 +127,17 @@ def test_payments_stay_a_week_apart_and_end_five_days_before_the_session(ends_in
     assert price_preview(db, org, user_id=user.id, session_id=session.id).installment_count == count
 
 
-def test_an_online_formation_is_paid_a_month_apart() -> None:
+def test_an_online_formation_is_paid_at_once_even_with_installments_ticked() -> None:
     db = build_db()
     org, user, formation, session = seed(db)
-    formation.format_type = "ligne"
+    formation.format_type = "ligne"  # an older formation, saved with instalments allowed
     set_session(db, formation, session, price=120_000, school_max=6, starts_in=0, ends_in=365)
-    today = datetime.now(UTC).date()
-    assert plan_of(db, org, user, session) == [
-        (40_000, today), (40_000, today + timedelta(days=30)), (40_000, today + timedelta(days=60)),
-    ]
+    assert price_preview(db, org, user_id=user.id, session_id=session.id).installments_allowed is False
+    with pytest.raises(HTTPException) as refused:
+        create_checkout(db, org, user, CheckoutCreate(session_id=session.id, payment_mode="installments"))
+    assert refused.value.status_code == 422
+    checkout = create_checkout(db, org, user, CheckoutCreate(session_id=session.id))
+    assert [row.amount_cents for row in installments(db, checkout.order_id)] == [120_000]
 
 
 def deposit_school():

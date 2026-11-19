@@ -40,6 +40,8 @@ import { CharacterCounter } from '../components/CharacterCounter'
 import { characterCount, exceedsCharacterLimit, FORMATION_CHARACTER_LIMITS } from '../lib/characterLimits'
 import { PublicProgramField } from '../components/PublicProgramField'
 import { formatSchoolDate, formatSchoolMoney } from '../public/publicHelpers'
+import { toast } from '../ui/toast'
+import { publishedWithoutSale } from '../lib/formationStatus'
 import '../formation-workspace.css'
 
 type Tab = 'presentation' | 'tarif' | 'sessions' | 'contenu'
@@ -314,6 +316,7 @@ export function FormationWorkspacePage() {
 
   const next = formation.next_session
   const issues = formation.publication_issues
+  const noSale = publishedWithoutSale(formation)
 
   return (
     <main className="app-page formation-workspace-page">
@@ -352,8 +355,8 @@ export function FormationWorkspacePage() {
         </div>
         <div className={issues.length ? 'is-warning' : 'is-ok'}>
           <span>Publication</span>
-          <strong>{issues.length ? `${issues.length} point${issues.length > 1 ? 's' : ''} à compléter` : 'Prête'}</strong>
-          <small>{issues.length ? 'voir ci-dessous' : formation.status === 'published' ? 'visible au catalogue' : 'vous pouvez publier'}</small>
+          <strong>{noSale ? 'Publiée · aucune session en vente' : issues.length ? `${issues.length} point${issues.length > 1 ? 's' : ''} à compléter` : 'Prête'}</strong>
+          <small>{noSale ? 'ouvrez une session pour vendre' : issues.length ? 'voir ci-dessous' : formation.status === 'published' ? 'visible au catalogue' : 'vous pouvez publier'}</small>
         </div>
       </section>
 
@@ -364,7 +367,7 @@ export function FormationWorkspacePage() {
             <strong>Formation créée en brouillon</strong>
             <span>
               Complétez la présentation et le tarif
-              {online ? ', puis ajoutez le contenu' : ', puis créez une première session'}. Vous pourrez ensuite la publier.
+              {online ? ', puis ajoutez le contenu' : ', puis créez une première session et ouvrez ses inscriptions'}. Vous pourrez ensuite la publier.
             </span>
           </div>
         </div>
@@ -372,7 +375,8 @@ export function FormationWorkspacePage() {
       {error && <div className="form-error">{error}</div>}
       {message && <div className="form-success">{message} {message.startsWith('Formation publiée') && <Link to="/app/manage/identity?tab=site">Vérifier le site public</Link>}</div>}
 
-      {issues.length > 0 && <section className="app-card formation-readiness"><strong>À compléter avant publication ou ouverture des inscriptions</strong>{formation.status === 'published' && <p>Les informations manquantes peuvent masquer la fiche publique ou bloquer les inscriptions.</p>}<ul>{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></section>}
+      {noSale && <section className="app-card formation-readiness"><strong>Aucune session en vente</strong><p>La formation reste visible sur votre site, mais personne ne peut l’acheter : ouvrez les inscriptions d’une session pour reprendre la vente.</p></section>}
+      {issues.length > 0 && !noSale && <section className="app-card formation-readiness"><strong>À compléter avant publication ou ouverture des inscriptions</strong>{formation.status === 'published' && <p>Les informations manquantes peuvent masquer la fiche publique ou bloquer les inscriptions.</p>}<ul>{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul></section>}
 
       <nav className="formation-tabs" role="tablist" aria-label="Sections de la formation">
         <button type="button" role="tab" aria-selected={tab === 'presentation'} className={tab === 'presentation' ? 'is-active' : ''} onClick={() => go({ onglet: 'presentation' })}>Présentation</button>
@@ -448,11 +452,11 @@ export function FormationWorkspacePage() {
           <label>Prix ({formation.currency})<input type="number" min={formation.currency === 'XAF' ? '1' : '0.01'} step={formation.currency === 'XAF' ? '1' : '0.01'} value={price} onChange={(event) => setPrice(event.target.value)} placeholder={formation.currency === 'XAF' ? 'Ex. 150000' : 'Ex. 250.00'} /></label>
           <fieldset className="formation-payment-options">
             <legend>Modalités de paiement</legend>
-            <label className="formation-payment-toggle"><input type="checkbox" checked={allowInstallments} onChange={(event) => setAllowInstallments(event.target.checked)} /> Autoriser le paiement en plusieurs fois</label>
-            {allowInstallments && <label>Nombre maximal de paiements<input type="number" min={2} max={12} step={1} value={installmentCount} onChange={(event) => setInstallmentCount(event.target.value)} /></label>}
-            {allowInstallments && formation.currency === 'XAF' && <small>Possible à partir de 70 000 FCFA, avec au moins 35 000 FCFA par paiement : le prix peut donc réduire ce nombre.</small>}
+            {online && <small>Une formation en ligne se règle en une fois et reste accessible à vie.</small>}
+            {!online && <label className="formation-payment-toggle"><input type="checkbox" checked={allowInstallments} onChange={(event) => setAllowInstallments(event.target.checked)} /> Autoriser le paiement en plusieurs fois</label>}
+            {!online && allowInstallments && <label>Nombre maximal de paiements<input type="number" min={2} max={12} step={1} value={installmentCount} onChange={(event) => setInstallmentCount(event.target.value)} /></label>}
+            {!online && allowInstallments && formation.currency === 'XAF' && <small>Possible à partir de 70 000 FCFA, avec au moins 35 000 FCFA par paiement : le prix peut donc réduire ce nombre.</small>}
             {allowInstallments && !online && <small>Les paiements sont espacés d’au moins 7 jours et le dernier tombe 5 jours avant la fin de la session : une session d’un mois peut se payer en 3 fois dans le mois.</small>}
-            {allowInstallments && online && <small>Les paiements sont espacés d’un mois.</small>}
             {formation.format_type === 'live' && <>
               <label className="formation-payment-toggle"><input type="checkbox" checked={depositEnabled} onChange={(event) => setDepositEnabled(event.target.checked)} /> Réserver une place avec un acompte</label>
               {depositEnabled && <label>Acompte (% du prix)<input type="number" min={1} max={99} step={0.5} value={depositPercent} onChange={(event) => setDepositPercent(event.target.value)} /></label>}
@@ -498,7 +502,7 @@ export function FormationWorkspacePage() {
                   setFormation(detail)
                   setCreatingSession(false)
                   if (created) go({ session: created.id })
-                  setMessage('Session créée.')
+                  setMessage(created?.status === 'open' ? 'Session créée, inscriptions ouvertes.' : 'Session créée.')
                 }}
               />
             ) : (
@@ -538,6 +542,8 @@ function NewSessionForm({
   const [campus, setCampus] = useState('')
   const [source, setSource] = useState(sources[0] ? String(sources[0].id) : '')
   const [withTeachers, setWithTeachers] = useState(true)
+  const contentIssues = formation.content_issues ?? []
+  const [openNow, setOpenNow] = useState(contentIssues.length === 0)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState('')
 
@@ -555,6 +561,7 @@ function NewSessionForm({
         seat_capacity: Number(capacity),
         copy_content_from_session_id: source ? Number(source) : null,
         copy_teachers: withTeachers,
+        status: openNow && contentIssues.length === 0 ? 'open' : 'planned',
       })
       onCreated(detail, detail.sessions.find((item) => !before.has(item.id)))
     } catch (err) {
@@ -582,6 +589,11 @@ function NewSessionForm({
         <label>Places<input type="number" min={1} value={capacity} onChange={(event) => setCapacity(event.target.value)} required /></label>
         {formation.format_type === 'presentiel' && <label>Lieu<input value={campus} onChange={(event) => setCampus(event.target.value)} required placeholder="Bonamoussadi" /></label>}
       </div>
+      <label className="formation-payment-toggle">
+        <input type="checkbox" checked={openNow && contentIssues.length === 0} disabled={contentIssues.length > 0} onChange={(event) => setOpenNow(event.target.checked)} />
+        Ouvrir les inscriptions dès maintenant
+      </label>
+      {contentIssues.length > 0 && <small>Pour ouvrir les inscriptions, complétez d’abord la formation : {contentIssues.join(' ')}</small>}
       {sources.length > 0 && (
         <fieldset className="session-new-copy">
           <legend>Contenu</legend>
@@ -665,14 +677,15 @@ function SessionWorkspace({
       end_date: accessEndDate,
       seat_capacity: Number(editCapacity),
       ...(isOnsite ? { campus_label: editCampus.trim() } : {}),
-    }))
+    }), 'Session enregistrée.')
   }
 
-  async function run(action: () => Promise<FormationDetail>) {
+  async function run(action: () => Promise<FormationDetail>, done?: string) {
     setWorking(true)
     setError('')
     try {
       onChange(await action())
+      if (done) toast.success(done)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Action impossible.')
     } finally {
@@ -719,8 +732,12 @@ function SessionWorkspace({
         {!online && (session.status === 'planned' || session.status === 'open') && <button
           className="secondary-button"
           type="button"
-          disabled={working || (session.status === 'planned' && (formation.status !== 'published' || formation.publication_issues.length > 0))}
-          onClick={() => void run(() => updateFormationSession(formation.id, session.id, { status: session.status === 'open' ? 'planned' : 'open' }))}
+          disabled={working || (session.status === 'planned' && (formation.content_issues ?? formation.publication_issues).length > 0)}
+          title={session.status === 'planned' && (formation.content_issues ?? []).length > 0 ? 'Complétez d’abord la formation : ' + (formation.content_issues ?? []).join(' ') : undefined}
+          onClick={() => void run(
+            () => updateFormationSession(formation.id, session.id, { status: session.status === 'open' ? 'planned' : 'open' }),
+            session.status === 'open' ? 'Inscriptions fermées.' : 'Inscriptions ouvertes.',
+          )}
         >{session.status === 'open' ? 'Fermer les inscriptions' : 'Ouvrir les inscriptions'}</button>}
       </header>
 
@@ -738,23 +755,6 @@ function SessionWorkspace({
         </form>
       </details>}
 
-      {online && <section className="online-access-period">
-        <div>
-          <span className="section-label">Période d’accès</span>
-          <h3>Dates d’accès étudiant</h3>
-          <p className="muted-note">Ces deux dates sont celles affichées dans « Mes sessions programmées ».</p>
-        </div>
-        <div className="online-access-period__fields">
-          <label>Début<input type="date" value={accessStartDate} onChange={(event) => setAccessStartDate(event.target.value)} /></label>
-          <label>Fin<input type="date" value={accessEndDate} min={accessStartDate || undefined} onChange={(event) => setAccessEndDate(event.target.value)} /></label>
-          <button
-            className="secondary-button"
-            type="button"
-            disabled={working || invalidAccessPeriod || (accessStartDate === session.start_date && accessEndDate === session.end_date)}
-            onClick={() => void run(() => updateFormationSession(formation.id, session.id, { start_date: accessStartDate, end_date: accessEndDate }))}
-          ><Save size={14} /> Enregistrer les dates</button>
-        </div>
-      </section>}
 
       <section className="session-block">
         <h3>Professeurs</h3>
@@ -771,7 +771,7 @@ function SessionWorkspace({
             disabled={!teacherId || working}
             onClick={() => void run(() => assignSessionTeacher(
               formation.id, session.id, Number(teacherId), session.teachers.length === 0 ? 'principal' : 'intervenant',
-            )).then(() => setTeacherId(''))}
+            ), 'Professeur affecté.').then(() => setTeacherId(''))}
           >
             <UserPlus size={14} /> Affecter
           </button>
@@ -812,7 +812,7 @@ function SessionWorkspace({
                       className="enrollment-complete-button"
                       type="button"
                       disabled={working || session.status === 'cancelled'}
-                      onClick={() => void run(() => updateFormationEnrollment(formation.id, session.id, item.id, 'completed'))}
+                      onClick={() => void run(() => updateFormationEnrollment(formation.id, session.id, item.id, 'completed'), 'Parcours validé.')}
                     >Valider le parcours</button>
                   )}
                 </span>
@@ -844,7 +844,7 @@ function SessionWorkspace({
             onClick={() => void run(() => createSessionCourse(formation.id, session.id, {
               title: courseTitle.trim(),
               teacher_id: courseTeacherId ? Number(courseTeacherId) : null,
-            })).then(() => {
+            }), 'Cours ajouté.').then(() => {
               setCourseTitle('')
               setCourseTeacherId('')
             })}
@@ -889,7 +889,7 @@ function SessionWorkspace({
                           order_index: chapter.lessons.length,
                           lesson_type: 'text',
                           content: '',
-                        })).then(() => setLessonTitles((current) => ({ ...current, [chapter.id]: '' })))}
+                        }), 'Leçon ajoutée.').then(() => setLessonTitles((current) => ({ ...current, [chapter.id]: '' })))}
                       >
                         <Plus size={13} /> Leçon
                       </button>
@@ -910,7 +910,7 @@ function SessionWorkspace({
                     onClick={() => void run(() => createCourseChapter(formation.id, session.id, course.id, {
                       title: (chapterTitles[course.id] || '').trim(),
                       order_index: course.chapters.length,
-                    })).then(() => setChapterTitles((current) => ({ ...current, [course.id]: '' })))}
+                    }), 'Module ajouté.').then(() => setChapterTitles((current) => ({ ...current, [course.id]: '' })))}
                   >
                     <Plus size={13} /> Module
                   </button>

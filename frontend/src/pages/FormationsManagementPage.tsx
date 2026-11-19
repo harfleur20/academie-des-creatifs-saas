@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
+import { publishedWithoutSale } from '../lib/formationStatus'
 import {
   ApiError,
   getOnboardingStatus,
@@ -200,7 +201,9 @@ export function FormationsManagementPage() {
                     <span className={`formation-status ${formation.status}`}>{STATUS_LABELS[formation.status]}</span>
                     {formation.publication_issues.length > 0 && (
                       <small className="formations-list__issues" title={formation.publication_issues.join('\n')}>
-                        {formation.publication_issues.length} point{formation.publication_issues.length > 1 ? 's' : ''} à compléter
+                        {publishedWithoutSale(formation)
+                          ? 'Aucune session en vente'
+                          : `${formation.publication_issues.length} point${formation.publication_issues.length > 1 ? 's' : ''} à compléter`}
                       </small>
                     )}
                   </div>

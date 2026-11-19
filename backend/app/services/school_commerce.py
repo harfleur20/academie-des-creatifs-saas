@@ -63,7 +63,6 @@ from app.services.session_payment_plans import (
     reservation_balance_due_date,
     reservation_deposit_amount,
     reservation_deposit_available,
-    online_installment_dates,
     session_installment_dates,
     split_amounts,
 )
@@ -291,11 +290,8 @@ def _installment_due_dates(formation: FormationRecord, session: FormationSession
     """The instalment plan offered for this session; one date means a single payment."""
     today = utc_now().date()
     if formation.format_type == "ligne":
-        # Online access has no session length to follow: a payment a month.
-        return online_installment_dates(
-            allow_installments=formation.allow_installments, school_max_count=formation.installment_count,
-            total=total, currency=formation.currency, today=today,
-        )
+        # Online access is kept for life and paid at once, whatever was once ticked.
+        return [today]
     return session_installment_dates(
         allow_installments=formation.allow_installments,
         school_max_count=formation.installment_count,

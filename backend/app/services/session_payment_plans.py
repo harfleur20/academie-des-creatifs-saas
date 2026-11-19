@@ -7,7 +7,7 @@ payments at most. The price and the time left then set what is really offered:
 - for a session, payments are at least a week apart and the last one falls five
   days before the session ends: a one-month session can be paid in 3 times within
   the month;
-- an online formation, without an end, is paid a month apart.
+- an online formation, kept for life, is paid at once, as on the mother site.
 
 This replaces the mother site's rule (1, 2 or 3 payments from the session's length
 alone): the school can sell an expensive short session in several payments.
@@ -19,7 +19,6 @@ from decimal import Decimal
 
 INSTALLMENT_FINAL_MARGIN_DAYS = 5
 INSTALLMENT_MIN_INTERVAL_DAYS = 7
-ONLINE_INSTALLMENT_INTERVAL_DAYS = 30
 # Only XAF amounts are stored in whole francs (other currencies are in cents), so only
 # they are rounded to 500 FCFA like on the mother site, and only they follow the price rule.
 FCFA_CURRENCIES = frozenset({"XAF"})
@@ -63,21 +62,6 @@ def session_installment_dates(
         return [today]
     limit = min(school_max_count, price_installment_limit(total, currency))
     return installment_due_dates(session_end=session_end, today=today, max_count=limit)
-
-
-def online_installment_dates(
-    *,
-    allow_installments: bool,
-    school_max_count: int,
-    total: int,
-    currency: str,
-    today: date,
-) -> list[date]:
-    """The plan of an online formation, which has no end: a payment a month."""
-    if not allow_installments or school_max_count < 2:
-        return [today]
-    count = min(school_max_count, price_installment_limit(total, currency))
-    return [today + timedelta(days=ONLINE_INSTALLMENT_INTERVAL_DAYS * index) for index in range(max(1, count))]
 
 
 RESERVATION_DEPOSIT_DUE_DAYS = 10

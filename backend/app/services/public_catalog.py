@@ -466,7 +466,9 @@ def public_formation_detail(
                 seen.add(assignment.teacher_id)
                 teacher_names.append(assignment.teacher.full_name)
                 teachers.append({"full_name": assignment.teacher.full_name, "avatar_url": assignment.teacher.avatar_url})
-    installment_count = formation.installment_count if formation.allow_installments else 1
+    installment_count = (
+        formation.installment_count if formation.allow_installments and formation.format_type != "ligne" else 1
+    )
     if source_session is not None and card.next_session is not None:
         # The price and the time left of the highlighted session cap the school's count.
         from app.services.school_commerce import _installment_due_dates  # builds on this module

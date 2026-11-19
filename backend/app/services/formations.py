@@ -362,7 +362,7 @@ def _serialize_formation_summary(
         public_program=formation.public_program,
         price_cents=formation.price_cents,
         currency=formation.currency,
-        allow_installments=formation.allow_installments,
+        allow_installments=formation.allow_installments and formation.format_type != "ligne",
         installment_count=formation.installment_count,
         reservation_deposit_enabled=formation.reservation_deposit_enabled,
         reservation_deposit_percent=formation.reservation_deposit_percent,
@@ -370,6 +370,7 @@ def _serialize_formation_summary(
         featured_order=formation.featured_order,
         status=formation.status,
         publication_issues=formation_publication_issues(db, formation),
+        content_issues=formation_content_issues(formation),
         session_count=session_count,
         teacher_count=teacher_count,
         student_count=student_count,
@@ -529,7 +530,7 @@ def create_formation(
         public_program=payload.public_program.strip(),
         price_cents=payload.price_cents,
         currency=payload.currency.upper(),
-        allow_installments=payload.allow_installments,
+        allow_installments=payload.allow_installments and payload.format_type != "ligne",
         installment_count=payload.installment_count,
         reservation_deposit_enabled=payload.reservation_deposit_enabled,
         reservation_deposit_percent=payload.reservation_deposit_percent,
@@ -586,6 +587,8 @@ def update_formation(
         if key == "currency" and value:
             value = value.upper()
         setattr(formation, key, value)
+    if formation.format_type == "ligne":
+        formation.allow_installments = False  # online: kept for life, paid at once
     ensure_online_content_session(db, formation)
     if formation.status == "published":
         issues = (formation_publication_issues(db, formation)
@@ -725,10 +728,11 @@ def create_session(
     db.add(record)
     db.flush()
     if record.status == "open":
-        issues = formation_publication_issues(db, formation)
-        if formation.status != "published" or issues or record.end_date < datetime.now(UTC).date():
+        # Enrollment opens before publication: the formation only has to be complete.
+        issues = formation_content_issues(formation)
+        if issues or record.end_date < datetime.now(UTC).date():
             db.rollback()
-            raise HTTPException(status_code=422, detail="Ouverture impossible : publiez d'abord une formation complète. " + " ".join(issues))
+            raise HTTPException(status_code=422, detail="Ouverture impossible : complétez d'abord la formation. " + " ".join(issues))
         if record.price_override_cents == 0:
             db.rollback()
             raise HTTPException(status_code=422, detail="Le prix de la session doit être supérieur à zéro.")
@@ -789,8 +793,8 @@ def update_session(
             value = value.strip()
         setattr(session, key, value)
     if session.status == "open":
-        issues = formation_publication_issues(db, formation)
-        if formation.status != "published" or issues or session.end_date < datetime.now(UTC).date():
+        issues = formation_content_issues(formation)
+        if issues or session.end_date < datetime.now(UTC).date():
             db.rollback()
             raise HTTPException(status_code=422, detail="Ouverture impossible : formation ou session incomplète. " + " ".join(issues))
         if session.price_override_cents == 0:

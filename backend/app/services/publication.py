@@ -39,16 +39,17 @@ def formation_content_issues(formation: FormationRecord) -> list[str]:
 def formation_publication_issues(db: Session, formation: FormationRecord) -> list[str]:
     issues = formation_content_issues(formation)
     if formation.format_type in {"live", "presentiel"}:
+        # A published live or onsite formation sells something: a session open to enrollment.
         has_session = db.scalar(
             select(FormationSessionRecord.id).where(
                 FormationSessionRecord.organization_id == formation.organization_id,
                 FormationSessionRecord.formation_id == formation.id,
-                FormationSessionRecord.status.in_(["planned", "open"]),
+                FormationSessionRecord.status == "open",
                 FormationSessionRecord.end_date >= datetime.now(UTC).date(),
             ).limit(1)
         ) is not None
         if not has_session:
-            issues.append("Créez une session à venir.")
+            issues.append("Ouvrez les inscriptions d'une session à venir.")
     return issues
 
 

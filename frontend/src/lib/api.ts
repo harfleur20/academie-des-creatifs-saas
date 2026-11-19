@@ -1228,6 +1228,8 @@ export type FormationSummary = {
   featured_order: number
   status: 'draft' | 'published' | 'archived'
   publication_issues: string[]
+  /** What the formation itself misses; opening a session's enrollment needs none. */
+  content_issues?: string[]
   session_count: number
   teacher_count: number
   student_count: number

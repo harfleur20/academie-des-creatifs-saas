@@ -184,6 +184,9 @@ class FormationSummaryRead(BaseModel):
     featured_order: int
     status: str
     publication_issues: list[str]
+    # What the formation itself misses (description, cover, price, program): opening a
+    # session's enrollment needs none of it missing.
+    content_issues: list[str] = []
     session_count: int
     teacher_count: int
     student_count: int

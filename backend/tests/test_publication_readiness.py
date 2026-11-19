@@ -99,13 +99,14 @@ def test_school_announcement_is_editable_and_public_only_when_configured():
     assert other_public.announcement_text == ""
 
 
-def test_publication_requires_presentation_price_and_session_then_opens_enrollment():
+def test_publication_requires_presentation_price_and_an_open_session():
     db, org, owner, tenant = owner_school()
     publish_site(db, tenant)
     formation = create_formation(db, tenant, FormationCreate(
         slug="motion-design", title="Motion Design", description="Apprendre le motion design", format_type="live",
     ))
     assert len(formation.publication_issues) == 4
+    assert len(formation.content_issues) == 3  # cover, price, program: the session is not content
     with pytest.raises(HTTPException) as exc:
         update_formation(db, tenant, formation.id, FormationUpdate(status="published"))
     assert exc.value.status_code == 422
@@ -116,6 +117,7 @@ def test_publication_requires_presentation_price_and_session_then_opens_enrollme
     ))
     session = detail.sessions[0]
     assert session.status == "planned"
+    # An incomplete formation cannot open enrollment.
     with pytest.raises(HTTPException) as exc:
         update_session(db, tenant, formation.id, session.id, SessionUpdate(status="open"))
     assert exc.value.status_code == 422
@@ -126,19 +128,21 @@ def test_publication_requires_presentation_price_and_session_then_opens_enrollme
         presentation_video_url=video,
         public_program="Module 1 : les bases du mouvement",
     ))
+    # Complete, but a planned session sells nothing: publishing waits for open enrollment.
+    with pytest.raises(HTTPException) as exc:
+        update_formation(db, tenant, formation.id, FormationUpdate(status="published"))
+    assert exc.value.status_code == 422 and "Ouvrez les inscriptions" in exc.value.detail
+
+    # Enrollment opens before publication, then the formation publishes.
+    update_session(db, tenant, formation.id, session.id, SessionUpdate(status="open"))
     published = update_formation(db, tenant, formation.id, FormationUpdate(status="published"))
-    assert published.publication_issues == []
+    assert published.publication_issues == [] and published.content_issues == []
     with pytest.raises(HTTPException) as exc:
         update_formation(db, tenant, formation.id, FormationUpdate(price_cents=0))
     assert exc.value.status_code == 422
     public = public_formation_detail(db, org.slug, formation.slug)
     assert public.presentation_video_url == video
     assert len(public.sessions) == 1
-    assert public.sessions[0].can_purchase is False
-    assert public.sessions[0].unavailable_reason
-
-    update_session(db, tenant, formation.id, session.id, SessionUpdate(status="open"))
-    public = public_formation_detail(db, org.slug, formation.slug)
     assert public.sessions[0].can_purchase is True
     assert price_preview(db, org, user_id=owner.id, session_id=session.id).base_price_cents == 150_000
 
