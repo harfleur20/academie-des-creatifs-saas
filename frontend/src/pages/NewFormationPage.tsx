@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { ArrowLeft, ArrowRight, MapPin, MonitorPlay, Plus, Radio, X } from 'lucide-react'
+import { useMemo, useState, type FormEvent } from 'react'
+import { ArrowLeft, ArrowRight, BookOpen, MapPin, MonitorPlay, Plus, Radio } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError, createFormation, type FormationSummary } from '../lib/api'
-import { CharacterCounter } from './CharacterCounter'
+import { CharacterCounter } from '../components/CharacterCounter'
 import { characterCount, exceedsCharacterLimit, FORMATION_CHARACTER_LIMITS } from '../lib/characterLimits'
-import { getProgramCharacterLimitIssues, parseProgram, PublicProgramBuilder, serializeProgram, type ProgramDocument } from './PublicProgramEditorModal'
+import { getProgramCharacterLimitIssues, parseProgram, PublicProgramBuilder, serializeProgram, type ProgramDocument } from '../components/PublicProgramEditorModal'
 import '../public-program-editor.css'
-import '../new-formation-dialog.css'
+import './new-formation-page.css'
 
 type Format = 'ligne' | 'live' | 'presentiel'
 
@@ -31,21 +32,10 @@ function unique(values: string[]) {
   return values.map((value) => value.trim()).filter((value, index, items) => value && items.indexOf(value) === index)
 }
 
-/**
- * A new formation in two steps: what it is, then the modules and lessons of its public page.
- * Everything else (photo, price, sessions…) is filled in on the formation's own page.
- */
-export function NewFormationDialog({
-  open,
-  existing,
-  onClose,
-  onCreated,
-}: {
-  open: boolean
-  existing: FormationSummary[]
-  onClose: () => void
-  onCreated: (formation: FormationSummary) => void
-}) {
+export function NewFormationPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const existing = (location.state as { existing?: FormationSummary[] } | null)?.existing ?? []
   const [step, setStep] = useState<1 | 2>(1)
   const [title, setTitle] = useState('')
   const [format, setFormat] = useState<Format>('ligne')
@@ -63,37 +53,13 @@ export function NewFormationDialog({
   const levels = useMemo(() => unique([...SUGGESTED_LEVELS, ...existing.map((item) => item.level)])
     .filter((item) => characterCount(item) <= FORMATION_CHARACTER_LIMITS.level), [existing])
 
-  useEffect(() => {
-    if (!open) return
-    setStep(1)
-    setTitle('')
-    setFormat('ligne')
-    setCategory('')
-    setCustomCategory('')
-    setLevel('')
-    setHours('')
-    setSummary('')
-    setProgram(parseProgram(''))
-    setError('')
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape' && !saving) onClose() }
-    window.document.body.classList.add('public-program-modal-open')
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.document.body.classList.remove('public-program-modal-open')
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open, onClose, saving])
-
-  if (!open) return null
-
   const chosenCategory = category === OTHER ? customCategory.trim() : category
   const programLimitIssues = getProgramCharacterLimitIssues(program)
   const serializedProgram = serializeProgram(program)
   const serializedProgramTooLong = characterCount(serializedProgram) > FORMATION_CHARACTER_LIMITS.serializedProgram
+  const lessons = program.modules.reduce(
+    (sum, module) => sum + module.chapters.reduce((chapterSum, chapter) => chapterSum + chapter.lessons.length, 0), 0,
+  )
 
   function next(event: FormEvent) {
     event.preventDefault()
@@ -111,15 +77,16 @@ export function NewFormationDialog({
     }
     setError('')
     setStep(2)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function create(withProgram: boolean) {
-    const program_value = withProgram ? serializeProgram(program) : ''
+    const programValue = withProgram ? serializeProgram(program) : ''
     if (withProgram && programLimitIssues.length > 0) {
       setError(programLimitIssues[0])
       return
     }
-    if (withProgram && characterCount(program_value) > FORMATION_CHARACTER_LIMITS.serializedProgram) {
+    if (withProgram && characterCount(programValue) > FORMATION_CHARACTER_LIMITS.serializedProgram) {
       setError('Le programme est trop volumineux. Réduisez-le avant de créer la formation.')
       return
     }
@@ -134,9 +101,9 @@ export function NewFormationDialog({
         level,
         training_hours: hours ? Number(hours) : null,
         short_description: summary.trim(),
-        public_program: program_value,
+        public_program: programValue,
       })
-      onCreated(formation)
+      navigate(`/app/manage/formations/${formation.id}?nouvelle=1`, { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Création impossible.')
     } finally {
@@ -144,41 +111,51 @@ export function NewFormationDialog({
     }
   }
 
-  const lessons = program.modules.reduce(
-    (sum, module) => sum + module.chapters.reduce((chapterSum, chapter) => chapterSum + chapter.lessons.length, 0), 0,
-  )
-
   return (
-    <div className="public-program-modal-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !saving) onClose()
-    }}>
-      <section className="public-program-modal new-formation-dialog" role="dialog" aria-modal="true" aria-labelledby="new-formation-title">
-        <header className="public-program-modal-header">
+    <main className="app-page new-formation-page">
+      <Link className="new-formation-back" to="/app/manage/formations">
+        <ArrowLeft size={17} aria-hidden="true" /> Retour aux formations
+      </Link>
+
+      <section className="new-formation-panel" aria-labelledby="new-formation-title">
+        <header className="new-formation-header">
           <div>
-            <span className="section-label">Nouvelle formation</span>
-            <h2 id="new-formation-title">{step === 1 ? 'L’essentiel' : 'Le programme'}</h2>
+            <span className="page-kicker">Nouvelle formation</span>
+            <h1 id="new-formation-title">{step === 1 ? 'L’essentiel' : 'Le programme'}</h1>
             <p>
               {step === 1
-                ? 'Le nom et le format suffisent pour commencer. Le reste se complète ensuite, sur la page de la formation.'
-                : 'Les modules et les leçons apparaîtront en accordéon sur la page publique. Vous pourrez les modifier à tout moment.'}
+                ? 'Posez les bases de votre formation. Vous pourrez compléter les autres détails ensuite.'
+                : 'Organisez vos modules, chapitres et leçons. Vous pourrez modifier ce programme à tout moment.'}
             </p>
           </div>
-          <button type="button" className="public-program-icon-button" onClick={onClose} disabled={saving} aria-label="Fermer">
-            <X size={20} />
-          </button>
+          <span className="new-formation-step-count">Étape {step} sur 2</span>
         </header>
 
-        <ol className="new-formation-steps" aria-label="Étapes">
-          <li className={step === 1 ? 'is-current' : 'is-done'}><span>1</span> L’essentiel</li>
-          <li className={step === 2 ? 'is-current' : ''}><span>2</span> Le programme</li>
-        </ol>
+        <nav className="new-formation-progress" aria-label="Étapes de création">
+          <ol className="new-formation-steps">
+            <li className={step === 1 ? 'is-current' : 'is-done'}>
+              <span>1</span><div><strong>L’essentiel</strong><small>Nom et format</small></div>
+            </li>
+            <li className={step === 2 ? 'is-current' : ''}>
+              <span>2</span><div><strong>Le programme</strong><small>Modules et leçons</small></div>
+            </li>
+          </ol>
+          <div className="new-formation-progress-track" role="progressbar" aria-valuemin={1} aria-valuemax={2} aria-valuenow={step} aria-label={`Étape ${step} sur 2`}>
+            <span style={{ width: step === 1 ? '50%' : '100%' }} />
+          </div>
+        </nav>
 
         {step === 1 ? (
           <form className="new-formation-form" onSubmit={next}>
-            <div className="public-program-modal-body">
+            <div className="new-formation-page-content">
+              <div className="new-formation-section-heading">
+                <span className="new-formation-section-icon"><BookOpen size={19} /></span>
+                <div><h2>Définissez votre formation</h2><p>Ces informations serviront à organiser et présenter votre offre.</p></div>
+              </div>
+
               <label>
                 <span>Nom de la formation</span>
-                <input value={title} onChange={(event) => setTitle(event.target.value)} required placeholder="Ex. Motion design avec After Effects" autoFocus />
+                <input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={FORMATION_CHARACTER_LIMITS.title} placeholder="Ex. Motion design avec After Effects" autoFocus />
                 <CharacterCounter value={title} limit={FORMATION_CHARACTER_LIMITS.title} />
               </label>
 
@@ -187,7 +164,7 @@ export function NewFormationDialog({
                 {FORMATS.map(({ value, label, text, icon: Icon }) => (
                   <label key={value} className={format === value ? 'is-selected' : undefined}>
                     <input type="radio" name="format" value={value} checked={format === value} onChange={() => setFormat(value)} />
-                    <Icon size={20} />
+                    <Icon size={21} aria-hidden="true" />
                     <strong>{label}</strong>
                     <small>{text}</small>
                   </label>
@@ -227,40 +204,51 @@ export function NewFormationDialog({
                 <span>Résumé court <small>(facultatif)</small></span>
                 <textarea value={summary} onChange={(event) => setSummary(event.target.value)} rows={3} placeholder="Ex. En 6 semaines, apprenez à animer logos et textes pour les réseaux sociaux." />
                 <CharacterCounter value={summary} limit={FORMATION_CHARACTER_LIMITS.shortDescription} />
-                <small>Affiché sur les cartes du catalogue et en tête de la page publique.</small>
+                <small>Ce texte apparaîtra sur la carte du catalogue et en tête de la page publique.</small>
               </label>
-
-              {error && <div className="form-error">{error}</div>}
+              {error && <div className="form-error" role="alert">{error}</div>}
             </div>
-            <footer className="public-program-modal-footer">
-              <button type="button" className="secondary-button" onClick={onClose}>Annuler</button>
-              <button type="submit" className="primary-button">Suivant : le programme <ArrowRight size={15} /></button>
+
+            <footer className="new-formation-page-footer">
+              <Link className="secondary-button" to="/app/manage/formations">Annuler</Link>
+              <button type="submit" className="primary-button">Continuer vers le programme <ArrowRight size={16} /></button>
             </footer>
           </form>
         ) : (
           <>
-            <div className="public-program-modal-summary" aria-label="Résumé du programme">
-              <span><strong>{program.modules.length}</strong> module(s)</span>
-              <span><strong>{lessons}</strong> leçon(s)</span>
-            </div>
-            <div className="public-program-modal-body">
+            <div className="new-formation-page-content new-formation-program-content">
+              <div className="new-formation-program-summary">
+                <div className="new-formation-section-heading">
+                  <span className="new-formation-section-icon"><BookOpen size={19} /></span>
+                  <div><h2>Construisez un parcours clair</h2><p>La structure aide vos étudiants à suivre leur progression.</p></div>
+                </div>
+                <div className="new-formation-program-stats">
+                  <span><strong>{program.modules.length}</strong> modules</span>
+                  <span><strong>{lessons}</strong> leçons</span>
+                  <span className="new-formation-program-title">{title.trim()}</span>
+                </div>
+              </div>
               <PublicProgramBuilder document={program} setDocument={setProgram} />
               {(programLimitIssues[0] || serializedProgramTooLong) && (
-                <div className="form-error">{programLimitIssues[0] || 'Le programme dépasse la taille maximale autorisée.'}</div>
+                <div className="form-error" role="alert">{programLimitIssues[0] || 'Le programme dépasse la taille maximale autorisée.'}</div>
               )}
-              {error && <div className="form-error">{error}</div>}
+              {error && <div className="form-error" role="alert">{error}</div>}
             </div>
-            <footer className="public-program-modal-footer">
-              <button type="button" className="secondary-button" onClick={() => setStep(1)} disabled={saving}><ArrowLeft size={15} /> Retour</button>
+            <footer className="new-formation-page-footer is-program-step">
+              <button type="button" className="secondary-button" onClick={() => { setError(''); setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }) }} disabled={saving}>
+                <ArrowLeft size={16} /> Retour à l’essentiel
+              </button>
               <span className="new-formation-footer-spacer" />
-              <button type="button" className="secondary-button" onClick={() => void create(false)} disabled={saving}>Créer sans programme</button>
+              <button type="button" className="secondary-button" onClick={() => void create(false)} disabled={saving}>
+                {saving ? 'Création…' : 'Créer sans programme'}
+              </button>
               <button type="button" className="primary-button" onClick={() => void create(true)} disabled={saving || program.modules.length === 0 || programLimitIssues.length > 0 || serializedProgramTooLong}>
-                <Plus size={15} /> {saving ? 'Création…' : 'Créer la formation'}
+                <Plus size={16} /> {saving ? 'Création…' : 'Créer la formation'}
               </button>
             </footer>
           </>
         )}
       </section>
-    </div>
+    </main>
   )
 }

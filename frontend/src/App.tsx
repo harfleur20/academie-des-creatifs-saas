@@ -33,6 +33,7 @@ const AdminPlansPage = lazy(() => import('./pages/AdminPlansPage').then((module)
 const AdminIntegrationPreferencesPage = lazy(() => import('./pages/AdminIntegrationPreferencesPage').then((module) => ({ default: module.AdminIntegrationPreferencesPage })))
 import { OnboardingPage } from './pages/OnboardingPage'
 import { FormationsManagementPage } from './pages/FormationsManagementPage'
+import { NewFormationPage } from './pages/NewFormationPage'
 import { FormationWorkspacePage } from './pages/FormationWorkspacePage'
 import { TeacherDashboardPage } from './pages/TeacherDashboardPage'
 import { TeacherSessionsPage } from './pages/TeacherSessionsPage'
@@ -268,6 +269,7 @@ export default function App() {
               <Route path="messages" element={<SchoolMessagesPage />} />
               <Route path="onboarding" element={<OnboardingPage />} />
               <Route path="formations" element={<FormationsManagementPage />} />
+              <Route path="formations/new" element={<NewFormationPage />} />
               <Route path="formations/:formationId" element={<FormationWorkspacePage />} />
               <Route path="students" element={<StudentsManagementPage />} />
               <Route path="teachers" element={<TeachersManagementPage />} />

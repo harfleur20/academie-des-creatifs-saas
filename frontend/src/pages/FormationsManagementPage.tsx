@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
-import { NewFormationDialog } from '../components/NewFormationDialog'
 import {
   ApiError,
   getOnboardingStatus,
@@ -48,7 +47,6 @@ export function FormationsManagementPage() {
   const navigate = useNavigate()
   const [formations, setFormations] = useState<FormationSummary[]>([])
   const [setup, setSetup] = useState<OnboardingStatus | null>(null)
-  const [creating, setCreating] = useState(false)
   const [query, setQuery] = useState('')
   const [format, setFormat] = useState('')
   const [status, setStatus] = useState('')
@@ -123,7 +121,7 @@ export function FormationsManagementPage() {
           className="primary-button"
           type="button"
           disabled={!setup || Boolean(setupBlockingStep)}
-          onClick={() => setCreating(true)}
+          onClick={() => navigate('/app/manage/formations/new', { state: { existing: formations } })}
         >
           <Plus size={16} /> Nouvelle formation
         </button>
@@ -228,23 +226,13 @@ export function FormationsManagementPage() {
             <strong>{filtered ? 'Aucune formation ne correspond' : 'Aucune formation'}</strong>
             <p>{filtered ? 'Modifiez la recherche ou les filtres.' : 'Créez votre premier programme : le nom et le format suffisent pour commencer.'}</p>
             {!filtered && (
-              <button className="primary-button" type="button" disabled={!setup || Boolean(setupBlockingStep)} onClick={() => setCreating(true)}>
+              <button className="primary-button" type="button" disabled={!setup || Boolean(setupBlockingStep)} onClick={() => navigate('/app/manage/formations/new', { state: { existing: formations } })}>
                 <Plus size={16} /> Nouvelle formation
               </button>
             )}
           </div>
         )}
       </section>
-
-      <NewFormationDialog
-        open={creating}
-        existing={formations}
-        onClose={() => setCreating(false)}
-        onCreated={(formation) => {
-          setCreating(false)
-          navigate(`/app/manage/formations/${formation.id}?nouvelle=1`)
-        }}
-      />
     </main>
   )
 }
