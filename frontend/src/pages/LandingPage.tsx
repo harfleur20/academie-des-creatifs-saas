@@ -560,7 +560,7 @@ export default function LandingPage() {
             <p>Une autre question ? Créez votre école et écrivez-nous depuis votre espace.</p>
             <img
               className="lp-faq__support-image"
-              src="/landing/faq-support.png"
+              src="/landing/faq-support.webp"
               alt="Équipe d’accompagnement souriante, disponible pour aider les écoles"
               loading="lazy"
               decoding="async"
