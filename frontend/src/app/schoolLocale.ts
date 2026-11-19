@@ -1124,6 +1124,7 @@ const english: Record<string, string> = {
   "Ces informations doivent être finalisées avant de pouvoir commencer à donner cours.": "Complete this information before you can start teaching.",
   "Numéro WhatsApp *": "WhatsApp number *",
   "Cameroun (+237) est sélectionné par défaut. Cliquez sur le drapeau pour changer de pays. Le format international est contrôlé automatiquement.": "Cameroon (+237) is selected by default. Click the flag to choose another country. The international format is checked automatically.",
+  "Le numéro n’est pas valide pour le pays sélectionné. Vérifiez l’indicatif et le nombre de chiffres.": "This number is not valid for the selected country. Check the country code and number of digits.",
   "Ancien format WhatsApp détecté : le numéro est conservé sans transformation arbitraire et devra être confirmé lors de la future vérification WhatsApp.": "Legacy WhatsApp number format detected. The number is kept as entered and must be confirmed during a future WhatsApp verification.",
   "Séparez les compétences par des virgules.": "Separate skills with commas.",
   "Séparez plusieurs langues par des virgules.": "Separate multiple languages with commas.",

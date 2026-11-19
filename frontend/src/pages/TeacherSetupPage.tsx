@@ -1,5 +1,6 @@
 import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
+import { isSupportedCountry, isValidPhoneNumber, type CountryCode } from 'libphonenumber-js/max'
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -33,6 +34,7 @@ import '../teacher-contact-fields.css'
 const OTHER_PROFESSION = '__other__'
 const DEFAULT_PHONE_COUNTRY = 'CM'
 const FLAG_BASE_URL = 'https://purecatamphetamine.github.io/country-flag-icons/3x2'
+const LEGACY_WHATSAPP_NSN_LENGTHS: Record<string, number> = { BJ: 8, CI: 8, CM: 8, GA: 7 }
 
 const DIGITAL_PROFESSIONS = [
   'Graphiste / Designer graphique',
@@ -71,6 +73,23 @@ function localPhoneValue(phone: string | null, dialCode: string) {
   return phone
 }
 
+function isAcceptedWhatsAppNumber(value: string, country: string, dialCode: string) {
+  const raw = value.trim()
+  if (!raw || !country) return false
+  if (!isSupportedCountry(country)) return true
+  if (isValidPhoneNumber(raw, country as CountryCode)) return true
+
+  const legacyLength = LEGACY_WHATSAPP_NSN_LENGTHS[country]
+  if (!legacyLength) return false
+
+  const digits = raw.replace(/\D/g, '')
+  const callingCode = dialCode.replace(/\D/g, '')
+  const nationalDigits = raw.startsWith('+') && callingCode && digits.startsWith(callingCode)
+    ? digits.slice(callingCode.length)
+    : digits.replace(/^0+/, '')
+  return nationalDigits.length === legacyLength
+}
+
 function normalizeLanguageName(value: string) {
   return value.trim().toLocaleLowerCase(activeSchoolLocale())
 }
@@ -101,6 +120,7 @@ export function TeacherSetupPage() {
   const [otherLanguages, setOtherLanguages] = useState('')
   const [whatsappCountry, setWhatsappCountry] = useState(DEFAULT_PHONE_COUNTRY)
   const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [whatsappPhoneTouched, setWhatsappPhoneTouched] = useState(false)
   const [portfolioUrl, setPortfolioUrl] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
   const [behanceUrl, setBehanceUrl] = useState('')
@@ -128,6 +148,12 @@ export function TeacherSetupPage() {
 
   const selectedPhoneCountry = phoneCountries.find((item) => item.code === whatsappCountry)
     || phoneCountries.find((item) => item.code === DEFAULT_PHONE_COUNTRY)
+  const whatsappPhoneValid = isAcceptedWhatsAppNumber(
+    whatsappPhone,
+    whatsappCountry,
+    selectedPhoneCountry?.dial_code || '+237',
+  )
+  const showWhatsappPhoneError = whatsappPhoneTouched && Boolean(whatsappPhone.trim()) && !whatsappPhoneValid
 
   const selectedCountryName = country || regionNames.of(countryCode) || 'Cameroun'
 
@@ -274,7 +300,13 @@ export function TeacherSetupPage() {
       return
     }
     if (!whatsappCountry || !whatsappPhone.trim()) {
+      setWhatsappPhoneTouched(true)
       setError('Renseignez votre numéro WhatsApp.')
+      return
+    }
+    if (!whatsappPhoneValid) {
+      setWhatsappPhoneTouched(true)
+      setError('Le numéro n’est pas valide pour le pays sélectionné. Vérifiez l’indicatif et le nombre de chiffres.')
       return
     }
     if (!city.trim() || !country.trim()) {
@@ -361,7 +393,7 @@ export function TeacherSetupPage() {
 
             <div className="span-two teacher-whatsapp-field">
               <span className="teacher-input-label">Numéro WhatsApp *</span>
-              <div className="teacher-phone-control">
+              <div className={`teacher-phone-control${showWhatsappPhoneError ? ' is-invalid' : ''}`}>
                 <details className="teacher-country-picker">
                   <summary aria-label={`Pays du numéro WhatsApp : ${regionNames.of(whatsappCountry) || whatsappCountry}`}>
                     <img src={flagImageUrl(whatsappCountry)} alt="" className="teacher-country-flag" aria-hidden="true" />
@@ -395,12 +427,17 @@ export function TeacherSetupPage() {
                   autoComplete="tel"
                   value={whatsappPhone}
                   onChange={(event) => setWhatsappPhone(event.target.value)}
+                  onBlur={() => setWhatsappPhoneTouched(true)}
                   placeholder="6 77 12 34 56"
+                  aria-invalid={showWhatsappPhoneError}
+                  aria-describedby="teacher-whatsapp-phone-help"
                   required
                 />
               </div>
-              <small className="teacher-field-help">
-                Cameroun (+237) est sélectionné par défaut. Cliquez sur le drapeau pour changer de pays. Le format international est contrôlé automatiquement.
+              <small id="teacher-whatsapp-phone-help" className={showWhatsappPhoneError ? 'teacher-field-error' : 'teacher-field-help'} role={showWhatsappPhoneError ? 'alert' : undefined}>
+                {showWhatsappPhoneError
+                  ? 'Le numéro n’est pas valide pour le pays sélectionné. Vérifiez l’indicatif et le nombre de chiffres.'
+                  : 'Cameroun (+237) est sélectionné par défaut. Cliquez sur le drapeau pour changer de pays. Le format international est contrôlé automatiquement.'}
               </small>
               {profile?.whatsapp_phone_legacy && (
                 <small className="teacher-legacy-phone-note">

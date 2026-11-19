@@ -48,6 +48,13 @@
   background: #fff;
 }
 
+.teacher-phone-control.is-invalid,
+.teacher-phone-control.is-invalid:focus-within {
+  border-color: #d92d45;
+  box-shadow: 0 0 0 3px rgba(217, 45, 69, .12);
+  background: #fff;
+}
+
 .teacher-country-picker,
 .teacher-residence-country-picker {
   position: relative;
@@ -260,6 +267,13 @@
   color: #8794a6;
   font-size: var(--text-small);
   font-weight: 500;
+}
+
+.teacher-field-error {
+  color: #b42336;
+  font-size: var(--text-small);
+  font-weight: 650;
+  line-height: 1.45;
 }
 
 .teacher-legacy-phone-note {
