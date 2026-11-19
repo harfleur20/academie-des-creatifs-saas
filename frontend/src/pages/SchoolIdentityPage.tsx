@@ -2,6 +2,7 @@ import { ArrowRight, Building2, CheckCircle2, CircleAlert, Eye, Globe2, LoaderCi
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
+import { OrganizationDangerZone } from '../components/OrganizationDangerZone'
 import { DirectionAppearanceSettings } from './DirectionAppearanceSettings'
 import { SchoolIdentityEditor } from './SchoolPublicSitePage'
 import { SchoolSettingsPage } from './SchoolSettingsPage'
@@ -140,6 +141,7 @@ export function SchoolIdentityPage() {
             onIdentitySaved={setPublicationIdentity}
           />
         </div>
+        {activeTab === 'school' && <OrganizationDangerZone />}
         {activeTab === 'direction' && <DirectionAppearanceSettings />}
       </section>
     </main>
