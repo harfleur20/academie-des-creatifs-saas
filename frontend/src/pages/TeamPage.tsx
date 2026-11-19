@@ -307,7 +307,7 @@ export function TeamPage() {
               </div>
               {invitation.status === 'pending' && (
                 <div className="teacher-invitation-actions">
-                  <button className="secondary-button" type="button" disabled={!invitationReady || (invitation.role === 'teacher' && !setup?.is_complete)} onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien à copier</button>
+                  <button className="secondary-button" type="button" disabled={!invitationReady || (invitation.role === 'teacher' && !setup?.is_complete)} onClick={() => void renew(invitation)}><Copy size={15} /> Nouveau lien</button>
                   <button
                     className="text-danger-button"
                     type="button"

@@ -941,7 +941,8 @@
 .invitation-link small { width: 100%; }
 .teacher-invitation-row { align-items: start; gap: 12px; }
 .teacher-invitation-row > div:first-child { min-width: 0; flex: 1; }
-.teacher-invitation-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.teacher-invitation-actions { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; white-space: nowrap; }
+.teacher-invitation-actions > * { flex: 0 0 auto; white-space: nowrap; }
 
 .empty-row {
   padding: 24px;

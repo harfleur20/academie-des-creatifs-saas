@@ -313,7 +313,7 @@ const english: Record<string, string> = {
   "Modalité de rendu": "Submission method",
   "Niveau Intermédiaire atteint": "Intermediate level reached",
   "Notes de présence": "Attendance notes",
-  "Nouveau lien à copier": "New link to copy",
+  "Nouveau lien": "New link",
   "Par défaut : 1 utilisation par client et non cumulable avec une promotion directe.": "Default: one use per customer and cannot be combined with a direct promotion.",
   "Période d’accès": "Access period",
   "Périodicité": "Billing frequency",
