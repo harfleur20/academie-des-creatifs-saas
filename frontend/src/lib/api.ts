@@ -240,6 +240,28 @@ export type SupportModeState = {
   expires_at: string
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  full_name: 'Nom complet',
+  email: 'Adresse e-mail',
+  password: 'Mot de passe',
+  new_password: 'Nouveau mot de passe',
+  current_password: 'Mot de passe actuel',
+}
+
+/** A readable sentence for the server's validation errors (a list, one entry per field). */
+function validationMessage(detail: unknown): string | null {
+  if (!Array.isArray(detail) || detail.length === 0) return null
+  const first = detail[0] as { loc?: unknown[]; type?: string; msg?: string; ctx?: Record<string, unknown> }
+  const field = String((first.loc ?? []).filter((part) => part !== 'body').slice(-1)[0] ?? '')
+  const label = FIELD_LABELS[field]
+  if (field === 'email' && first.type !== 'missing') return 'Adresse e-mail invalide.'
+  if (!label) return 'Une des valeurs saisies est invalide.'
+  if (first.type === 'missing') return `${label} : ce champ est obligatoire.`
+  if (first.type === 'string_too_short') return `${label} : ${first.ctx?.min_length} caractères minimum.`
+  if (first.type === 'string_too_long') return `${label} : ${first.ctx?.max_length} caractères maximum.`
+  return `${label} : valeur invalide.`
+}
+
 export class ApiError extends Error {
   status: number
   /** Machine-readable reason, when the server gives one (e.g. addon_required). */
@@ -418,6 +440,7 @@ async function request<T>(
     try {
       const body = await response.json()
       if (typeof body?.detail === 'string') message = body.detail
+      else if (validationMessage(body?.detail)) message = validationMessage(body?.detail) as string
       else if (typeof body?.detail?.message === 'string') {
         message = body.detail.message
         code = typeof body.detail.code === 'string' ? body.detail.code : null

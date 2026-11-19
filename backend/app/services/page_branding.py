@@ -172,6 +172,8 @@ def render_head(document: str, head: PageHead) -> str:
     extra = []
     if head.school:
         extra.append(f'<meta name="academie-school" content="{attr(head.school)}" />')
+        # Where Google sign-in is registered: a school's address hands it over to the platform.
+        extra.append(f'<meta name="academie-platform" content="{attr(settings.frontend_url.rstrip("/"))}" />')
         extra.append('<meta property="og:type" content="website" />')
         extra.append(f'<meta property="og:title" content="{attr(head.title)}" />')
         if head.description:

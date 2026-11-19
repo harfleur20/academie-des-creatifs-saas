@@ -155,6 +155,8 @@ def test_a_school_page_names_its_school_before_any_script_runs(school_site) -> N
         assert '<meta name="description" content="Formez-vous." />' in html
         assert '<html lang="en-US"' in html
         assert '<meta name="academie-school" content="millenium-school" />' in html
+        # Where Google sign-in happens for this school's address.
+        assert f'<meta name="academie-platform" content="https://{PLATFORM}" />' in html
         # Link previews (WhatsApp, Facebook…) show the school too.
         assert '<meta property="og:image" content="https://cdn.test/logo.png" />' in html
         assert "Académie des Créatifs" not in html and "logo-academie" not in html

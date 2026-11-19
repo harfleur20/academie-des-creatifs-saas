@@ -64,7 +64,8 @@ export function GoogleAuthButton({
   disabled = false,
   onCredential,
   onError,
-}: GoogleAuthButtonProps) {
+  relayHref,
+}: GoogleAuthButtonProps & { relayHref?: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const onCredentialRef = useRef(onCredential)
   const onErrorRef = useRef(onError)
@@ -76,7 +77,7 @@ export function GoogleAuthButton({
   }, [onCredential, onError])
 
   useEffect(() => {
-    if (!clientId) return
+    if (!clientId || relayHref) return
 
     let cancelled = false
     const container = containerRef.current
@@ -143,6 +144,16 @@ export function GoogleAuthButton({
       if (created && script && !script.dataset.loaded) script.dataset.loaded = 'true'
     }
   }, [clientId, mode])
+
+  if (relayHref && clientId) {
+    // Google only accepts the platform's address: sign in there, then come back here.
+    return (
+      <a className="google-auth-fallback" href={relayHref} aria-disabled={disabled || undefined} onClick={(event) => { if (disabled) event.preventDefault() }}>
+        <GoogleLogo />
+        {mode === 'login' ? 'Se connecter avec Google' : 'S’inscrire avec Google'}
+      </a>
+    )
+  }
 
   if (!clientId) {
     return (

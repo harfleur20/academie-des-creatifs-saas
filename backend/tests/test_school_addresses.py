@@ -147,3 +147,22 @@ def test_a_certificate_qr_code_opens_on_the_school(monkeypatch) -> None:
                                     branding_snapshot={"school_name": "Millenium", "white_label": True})
     school_documents.build_certificate_pdf(certificate, site_url="https://millenium.academiecreatif.com")
     assert encoded[-1].startswith("https://millenium.academiecreatif.com/certificates/verify/7.")
+
+
+def test_google_signs_in_on_the_platform_then_returns_to_the_school(monkeypatch) -> None:
+    # Google accepts the platform's address only; a school subdomain shares its session cookie.
+    monkeypatch.setattr(settings, "auth_cookie_domain", ".academiecreatif.com")
+    monkeypatch.setattr(settings, "environment", "development")
+    db = build_db()
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        with TestClient(app) as client:
+            back = client.get("/api/v1/auth/sso/start", params={"return_url": "https://millenium.academiecreatif.com/checkout?x=1"},
+                              follow_redirects=False)
+            assert back.status_code == 302
+            assert back.headers["location"] == "https://millenium.academiecreatif.com/checkout?x=1"
+            for elsewhere in ("https://pirate.example/", "https://academiecreatif.com.pirate.example/", "javascript:alert(1)"):
+                refused = client.get("/api/v1/auth/sso/start", params={"return_url": elsewhere}, follow_redirects=False)
+                assert refused.status_code == 400, elsewhere
+    finally:
+        app.dependency_overrides.clear()

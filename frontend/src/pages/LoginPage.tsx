@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { BrandWordmark } from '../brand/BrandWordmark'
 import { SchoolLogo } from '../brand/SchoolLogo'
 import { ArrowRight, Check, Eye, EyeOff } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { GoogleAuthButton } from '../auth/GoogleAuthButton'
+import { finishGoogleRelay, googleRelayHref, googleRelayOrigin } from '../auth/googleRelay'
 import { confirmPasswordReset, requestPasswordReset } from '../auth/passwordResetApi'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -52,6 +53,8 @@ export function LoginPage() {
   const invitationMatch = returnPath?.match(/^\/invite\/([^/?#]+)$/)
   const invitationToken = invitationMatch?.[1] ? decodeURIComponent(invitationMatch[1]) : null
   const schoolKey = searchParams.get('school')
+  const googleReturn = searchParams.get('google_return')
+  const relayStarted = useRef(false)
   const cachedSchoolBrand = schoolKey ? readSchoolLoginBranding(schoolKey) : null
   const resetToken = searchParams.get('reset_token')
   const [mode, setMode] = useState<AuthMode>(() =>
@@ -115,8 +118,18 @@ export function LoginPage() {
     return () => { active = false }
   }, [invitationToken])
 
+  // Signed in on the platform for a school's address: back to the school.
+  function relayBack() {
+    if (!googleReturn || relayStarted.current) return false
+    relayStarted.current = true
+    finishGoogleRelay(googleReturn)
+    return true
+  }
+
   useEffect(() => {
-    if (user && !submitting) navigate(returnPath || '/app', { replace: true })
+    if (!user || submitting) return
+    if (relayBack()) return
+    navigate(returnPath || '/app', { replace: true })
   }, [user, submitting, navigate, returnPath])
 
   useEffect(() => {
@@ -210,6 +223,7 @@ export function LoginPage() {
       if (mode === 'login') {
         await signIn(email, password)
         rememberLoginOrigin()
+        if (relayBack()) return
         if (await finishInvitationFlow(email)) return
         navigate(returnPath || '/app', { replace: true })
         return
@@ -218,6 +232,7 @@ export function LoginPage() {
       if (mode === 'register') {
         await signUp(fullName, email, password)
         rememberLoginOrigin()
+        if (relayBack()) return
         if (await finishInvitationFlow(email)) return
         navigate(returnPath || '/app', { replace: true })
         return
@@ -258,6 +273,7 @@ export function LoginPage() {
     try {
       await signInWithGoogle(credential)
       rememberLoginOrigin()
+      if (relayBack()) return
       if (invitation) {
         // Google authentication may resolve to a different address than the prefilled one.
         // The invitation endpoint performs the final identity check server-side.
@@ -283,6 +299,15 @@ export function LoginPage() {
 
   const invitationBrand: HostBranding | null = invitation ? invitationBranding(invitation) : null
   const activeBrand = invitationBrand || hostBrand
+  // On a school's own address, Google signs in on the platform's (the one registered).
+  const relayOrigin = googleRelayOrigin()
+  const googleRelayLink = relayOrigin && (mode === 'login' || mode === 'register')
+    ? googleRelayHref(relayOrigin, {
+      mode,
+      school: invitationToken ? null : schoolKey || activeBrand?.slug || hostSchool,
+      returnPath: returnPath || '/app',
+    })
+    : undefined
   const isInvitation = Boolean(invitationToken)
   // A school's page from the start: while its identity loads, nothing of the platform shows.
   const isPublicSchool = Boolean(schoolKey || hostBrand || invitation || invitationToken || hostSchool)
@@ -504,6 +529,7 @@ export function LoginPage() {
               disabled={submitting || invitationLoading}
               onCredential={handleGoogleCredential}
               onError={setError}
+              relayHref={googleRelayLink}
             />
           </>}
 

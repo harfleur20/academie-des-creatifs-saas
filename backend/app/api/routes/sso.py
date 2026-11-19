@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -48,6 +48,24 @@ def _verified_custom_domain(db: Session, hostname: str | None) -> OrganizationDo
     )
 
 
+def _shared_session_url(return_url: str) -> str | None:
+    """A page whose host shares the session cookie (the platform, a school subdomain): no handoff needed.
+
+    Google signs in on the platform's address only, the one registered with Google; a school
+    subdomain then reads the same parent-domain cookie.
+    """
+    cookie_domain = settings.auth_cookie_domain.lstrip(".").lower().rstrip(".")
+    parsed = urlsplit(return_url.strip())
+    if not cookie_domain or parsed.username or parsed.password or not parsed.hostname:
+        return None
+    if parsed.scheme not in ({"https"} if settings.environment == "production" else {"http", "https"}):
+        return None
+    host = parsed.hostname.lower().rstrip(".")
+    if host != cookie_domain and not host.endswith(f".{cookie_domain}"):
+        return None
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path or "/", parsed.query, ""))
+
+
 def _checked_redirect(return_url: str) -> RedirectResponse:
     clean_url, _ = return_url.split("#", 1) if "#" in return_url else (return_url, "")
     return RedirectResponse(f"{clean_url}#sso_checked=1", status_code=status.HTTP_302_FOUND)
@@ -74,6 +92,9 @@ def start_custom_domain_sso(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    shared = _shared_session_url(return_url)
+    if shared is not None:
+        return RedirectResponse(shared, status_code=status.HTTP_302_FOUND)
     clean_url, domain = validate_custom_domain_return_url(
         db,
         return_url,
