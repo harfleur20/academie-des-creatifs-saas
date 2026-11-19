@@ -21,6 +21,7 @@ import {
 import {
   applySchoolLoginBranding,
   cacheSchoolLoginBranding,
+  pageCarriesSchool,
   readSchoolLoginBranding,
   toSchoolLoginBranding,
 } from '../lib/schoolLoginBranding'
@@ -153,6 +154,7 @@ export function LoginPage() {
       applySchoolLoginBranding(hostBrand)
       return
     }
+    if (pageCarriesSchool()) return
     document.title = 'Inscription à l’école'
     document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
   }, [schoolKey, hostBrand])

@@ -10,6 +10,11 @@ export type SchoolLoginBranding = HostBranding & {
 }
 
 const CACHE_PREFIX = 'academie_saas_school_login_brand:'
+
+/** The server already wrote the page's school in its title and icon: nothing to stand in for it. */
+export function pageCarriesSchool() {
+  return Boolean(document.querySelector('meta[name="academie-school"]'))
+}
 let faviconRequestId = 0
 
 function setSchoolFavicon(url: string) {

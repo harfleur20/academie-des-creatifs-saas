@@ -1,12 +1,16 @@
+from collections.abc import Callable
 from pathlib import Path
 import posixpath
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse
+from sqlalchemy.orm import Session
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.db.session import SessionLocal
+from app.services.page_branding import branded_index
 
 settings.validate_production_security()
 
@@ -49,21 +53,25 @@ def health() -> dict[str, str]:
     }
 
 
-def serve_frontend(target: FastAPI, dist_dir: str) -> bool:
+def serve_frontend(
+    target: FastAPI,
+    dist_dir: str,
+    session_factory: Callable[[], Session] = SessionLocal,
+) -> bool:
     """Serve the built frontend from the API's own origin, on every school domain.
 
     Its files are served as they are, and index.html answers every other path so the
-    app's routes load. API and upload paths keep their own 404. Registered last, after
-    every other route.
+    app's routes load, with the page's school already in its title, icon and description.
+    API and upload paths keep their own 404. Registered last, after every other route.
     """
     dist = Path(dist_dir).resolve() if dist_dir else None
     if dist is None or not (dist / "index.html").is_file():
         return False
-    index_html = dist / "index.html"
+    index_document = (dist / "index.html").read_text(encoding="utf-8")
     backend_roots = {settings.api_prefix.strip("/").split("/")[0], "uploads"}
 
     @target.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
-    def frontend(full_path: str) -> FileResponse:
+    def frontend(full_path: str, request: Request) -> Response:
         if full_path.split("/", 1)[0] in backend_roots:
             raise HTTPException(status_code=404, detail="Not Found")
         candidate = (dist / full_path).resolve()
@@ -71,7 +79,14 @@ def serve_frontend(target: FastAPI, dist_dir: str) -> bool:
             # Vite fingerprints the files in assets/: they never change under the same name.
             cache = "public, max-age=31536000, immutable" if full_path.startswith("assets/") else "no-cache"
             return FileResponse(candidate, headers={"Cache-Control": cache})
-        return FileResponse(index_html, headers={"Cache-Control": "no-cache"})
+        page = branded_index(
+            index_document,
+            host=request.url.hostname or "",
+            path="/" + full_path,
+            query=request.query_params,
+            session_factory=session_factory,
+        )
+        return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
 
     return True
 

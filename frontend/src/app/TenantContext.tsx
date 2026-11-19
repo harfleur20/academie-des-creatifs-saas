@@ -25,7 +25,7 @@ import { cacheDirectionAccent } from '../brand/directionAccentCache'
 import { getCurrentSchoolBranding, type CurrentSchoolBranding } from '../brand/schoolBrandingApi'
 import { useAuth } from '../auth/AuthContext'
 import { setSchoolInterfaceLocale } from './schoolLocale'
-import { readSchoolLoginBranding } from '../lib/schoolLoginBranding'
+import { pageCarriesSchool, readSchoolLoginBranding } from '../lib/schoolLoginBranding'
 import { schoolKeyForPath } from '../public/schoolHost'
 
 type TenantContextValue = {
@@ -309,7 +309,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       return () => { active = false }
     }
 
-    if (pathname.startsWith('/login') || pathname.startsWith('/invite') || pathname.startsWith('/admin')) {
+    // A school's login or invitation keeps the school the server already wrote in the page.
+    const schoolPage = pageCarriesSchool() && (pathname.startsWith('/login') || pathname.startsWith('/invite'))
+    if (!schoolPage && (pathname.startsWith('/login') || pathname.startsWith('/invite') || pathname.startsWith('/admin'))) {
       document.title = 'Académie des Créatifs'
       setDocumentIcon(DEFAULT_PLATFORM_LOGO_URL)
     }

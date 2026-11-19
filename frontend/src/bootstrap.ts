@@ -5,6 +5,7 @@ import { recolorTealPixels } from './brand/recolorTealPixels'
 import {
   applySchoolLoginBranding,
   cacheSchoolLoginBranding,
+  pageCarriesSchool,
   readSchoolLoginBranding,
   toSchoolLoginBranding,
 } from './lib/schoolLoginBranding'
@@ -119,7 +120,7 @@ async function prehydratePublicSchool() {
     // Apply the last known school identity before the network request so a
     // refresh never briefly exposes the platform's title or favicon.
     applySchoolLoginBranding(cached)
-  } else {
+  } else if (!pageCarriesSchool()) {
     document.title = 'Chargement du site de l’école…'
     document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
   }
@@ -161,8 +162,10 @@ async function prehydrateSchoolLogin() {
     return
   }
 
-  document.title = 'Inscription à l’école'
-  document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
+  if (!pageCarriesSchool()) {
+    document.title = 'Inscription à l’école'
+    document.querySelector<HTMLLinkElement>("link[rel~='icon']")?.remove()
+  }
 
   try {
     const response = await Promise.race([
