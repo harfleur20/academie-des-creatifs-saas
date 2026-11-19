@@ -22,10 +22,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   ApiError,
   assignSessionTeacher,
-  createChapterLesson,
-  createCourseChapter,
   createFormationSession,
-  createSessionCourse,
   getFormation,
   listMembers,
   uploadFormationVideo,
@@ -88,10 +85,6 @@ function sessionStateLabel(session: { status: string; start_date: string; end_da
   if (session.status === 'completed' || session.end_date < today()) return 'Terminée'
   const stage = session.start_date <= today() ? 'En cours' : 'À venir'
   return `${stage} · ${session.status === 'open' ? 'inscriptions ouvertes' : 'inscriptions fermées'}`
-}
-
-const LESSON_TYPES: Record<string, string> = {
-  text: 'Texte', video: 'Vidéo', pdf: 'PDF', quiz: 'Quiz', assignment: 'Devoir', resource: 'Ressource',
 }
 
 const FORMAT_KICKER: Record<FormationDetail['format_type'], string> = {
@@ -633,10 +626,6 @@ function SessionWorkspace({
   onChange: (value: FormationDetail) => void
 }) {
   const [teacherId, setTeacherId] = useState('')
-  const [courseTitle, setCourseTitle] = useState('')
-  const [courseTeacherId, setCourseTeacherId] = useState('')
-  const [chapterTitles, setChapterTitles] = useState<Record<number, string>>({})
-  const [lessonTitles, setLessonTitles] = useState<Record<number, string>>({})
   const [accessStartDate, setAccessStartDate] = useState(session.start_date)
   const [accessEndDate, setAccessEndDate] = useState(session.end_date)
   const [editLabel, setEditLabel] = useState(session.label)
@@ -668,6 +657,9 @@ function SessionWorkspace({
   const enrollments = session.enrollments.filter((item) => item.status !== 'cancelled')
   const toValidate = enrollments.filter((item) => item.status === 'active')
   const ended = session.status === 'completed' || session.end_date < today()
+  const publishedCourseCount = session.courses.filter((course) => course.status === 'published').length
+  const draftCourseCount = session.courses.filter((course) => course.status === 'draft').length
+  const archivedCourseCount = session.courses.filter((course) => course.status === 'archived').length
 
   function saveSession(event: FormEvent) {
     event.preventDefault()
@@ -827,99 +819,63 @@ function SessionWorkspace({
         <div className="settings-section-heading">
           <div>
             <span className="section-label">Contenu pédagogique</span>
-            <h3>{online ? 'Cours de la formation' : 'Cours de la session'}</h3>
+            <h3>Programme pédagogique</h3>
           </div>
         </div>
 
-        <div className="course-create-row">
-          <input value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} placeholder="Nom du cours" />
-          <select value={courseTeacherId} onChange={(e) => setCourseTeacherId(e.target.value)}>
-            <option value="">Professeur non défini</option>
-            {session.teachers.map((item) => <option key={item.id} value={item.teacher_id}>{item.teacher_name}</option>)}
-          </select>
-          <button
-            className="primary-button"
-            type="button"
-            disabled={courseTitle.trim().length < 2 || working}
-            onClick={() => void run(() => createSessionCourse(formation.id, session.id, {
-              title: courseTitle.trim(),
-              teacher_id: courseTeacherId ? Number(courseTeacherId) : null,
-            }), 'Cours ajouté.').then(() => {
-              setCourseTitle('')
-              setCourseTeacherId('')
-            })}
-          >
-            <Plus size={14} /> Ajouter le cours
-          </button>
+        <div className="session-program-summary">
+          <div className="session-program-summary__intro">
+            <BookOpen size={20} aria-hidden="true" />
+            <div>
+              <strong>{session.courses.length ? 'Suivi du programme' : 'Programme à construire'}</strong>
+              <p>
+                {session.teachers.length
+                  ? 'Les professeurs affectés à cette session créent et publient les cours depuis leur espace Mes cours.'
+                  : 'Affectez d’abord un professeur à cette session. Il pourra ensuite construire le programme depuis son espace Mes cours.'}
+              </p>
+            </div>
+          </div>
+
+          {session.courses.length > 0 && (
+            <div className="session-program-summary__stats" aria-label="État du programme">
+              <span><strong>{session.courses.length}</strong> cours</span>
+              <span><strong>{publishedCourseCount}</strong> {publishedCourseCount === 1 ? 'cours publié' : 'cours publiés'}</span>
+              <span><strong>{draftCourseCount}</strong> cours en brouillon</span>
+              {archivedCourseCount > 0 && <span><strong>{archivedCourseCount}</strong> {archivedCourseCount === 1 ? 'cours archivé' : 'cours archivés'}</span>}
+            </div>
+          )}
         </div>
 
-        <div className="course-list">
-          {session.courses.map((course) => (
-            <article className="course-card" key={course.id}>
-              <div className="course-card-heading">
-                <div>
-                  <strong>{course.title}</strong>
-                  <small>{course.teacher_name || 'Professeur non affecté'}</small>
-                </div>
-                <span>{course.chapters.length} module(s)</span>
-              </div>
-
-              <div className="module-list">
-                {course.chapters.map((chapter) => (
-                  <div className="module-item" key={chapter.id}>
-                    <strong>{chapter.title}</strong>
-                    <small>{chapter.lessons.length} leçon(s)</small>
-                    <div className="lesson-list">
-                      {chapter.lessons.map((lesson) => (
-                        <span key={lesson.id}>{lesson.title} · {LESSON_TYPES[lesson.lesson_type] ?? lesson.lesson_type}</span>
-                      ))}
-                    </div>
-                    <div className="inline-management-form">
-                      <input
-                        value={lessonTitles[chapter.id] || ''}
-                        onChange={(e) => setLessonTitles((current) => ({ ...current, [chapter.id]: e.target.value }))}
-                        placeholder="Nouvelle leçon"
-                      />
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        disabled={(lessonTitles[chapter.id] || '').trim().length < 2 || working}
-                        onClick={() => void run(() => createChapterLesson(formation.id, session.id, course.id, chapter.id, {
-                          title: (lessonTitles[chapter.id] || '').trim(),
-                          order_index: chapter.lessons.length,
-                          lesson_type: 'text',
-                          content: '',
-                        }), 'Leçon ajoutée.').then(() => setLessonTitles((current) => ({ ...current, [chapter.id]: '' })))}
-                      >
-                        <Plus size={13} /> Leçon
-                      </button>
-                    </div>
+        {session.courses.length > 0 ? (
+          <div className="session-program-course-list">
+            {session.courses.map((course) => {
+              const lessonCount = course.chapters.reduce((total, chapter) => total + chapter.lessons.length, 0)
+              const publishedLessonCount = course.chapters.reduce(
+                (total, chapter) => total + chapter.lessons.filter((lesson) => lesson.publication_status === 'published').length,
+                0,
+              )
+              const statusLabel = course.status === 'published' ? 'Publié' : course.status === 'archived' ? 'Archivé' : 'Brouillon'
+              return (
+                <article className="session-program-course" key={course.id}>
+                  <div className="session-program-course__main">
+                    <strong>{course.title}</strong>
+                    <small>{course.teacher_name || 'Professeur non affecté'}</small>
                   </div>
-                ))}
-
-                <div className="inline-management-form">
-                  <input
-                    value={chapterTitles[course.id] || ''}
-                    onChange={(e) => setChapterTitles((current) => ({ ...current, [course.id]: e.target.value }))}
-                    placeholder="Nouveau module"
-                  />
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={(chapterTitles[course.id] || '').trim().length < 2 || working}
-                    onClick={() => void run(() => createCourseChapter(formation.id, session.id, course.id, {
-                      title: (chapterTitles[course.id] || '').trim(),
-                      order_index: course.chapters.length,
-                    }), 'Module ajouté.').then(() => setChapterTitles((current) => ({ ...current, [course.id]: '' })))}
-                  >
-                    <Plus size={13} /> Module
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
-          {session.courses.length === 0 && <div className="empty-row">{online ? 'Aucun cours dans cette formation.' : 'Aucun cours dans cette session.'}</div>}
-        </div>
+                  <div className="session-program-course__meta">
+                    <span>{course.chapters.length} {course.chapters.length === 1 ? 'module' : 'modules'}</span>
+                    <span>{publishedLessonCount}/{lessonCount} leçons publiées</span>
+                    <span className={`session-program-course__status is-${course.status}`}>{statusLabel}</span>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="session-program-empty">
+            <strong>Aucun cours créé pour le moment</strong>
+            <span>Le programme apparaîtra ici dès qu’un professeur l’aura commencé.</span>
+          </div>
+        )}
       </section>
     </article>
   )

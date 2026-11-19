@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -20,6 +20,17 @@ class TeacherProfessionalProfileUpdate(BaseModel):
     languages: list[str] = Field(min_length=1, max_length=20)
     whatsapp_phone: str = Field(min_length=4, max_length=64)
     whatsapp_country: str = Field(min_length=2, max_length=2)
+
+
+class TeacherAssignedSessionRead(BaseModel):
+    session_id: int
+    formation_title: str
+    session_label: str
+    start_date: date
+    end_date: date
+    role: str
+    assigned_at: datetime
+    course_titles: list[str] = Field(default_factory=list)
 
 
 class TeacherProfessionalProfileRead(BaseModel):
@@ -52,6 +63,10 @@ class TeacherProfessionalProfileRead(BaseModel):
     whatsapp_phone_verified_at: datetime | None
     profile_completed_at: datetime | None
     is_complete: bool
+    registered_at: datetime | None = None
+    joined_at: datetime | None = None
+    membership_status: str | None = None
+    assigned_sessions: list[TeacherAssignedSessionRead] = Field(default_factory=list)
 
 
 class PhoneCountryRead(BaseModel):

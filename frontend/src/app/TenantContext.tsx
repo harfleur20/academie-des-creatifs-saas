@@ -27,6 +27,11 @@ import { useAuth } from '../auth/AuthContext'
 import { setSchoolInterfaceLocale } from './schoolLocale'
 import { pageCarriesSchool, readSchoolLoginBranding } from '../lib/schoolLoginBranding'
 import { schoolKeyForPath } from '../public/schoolHost'
+import {
+  clearOrganizationSelectionRequest,
+  isOrganizationSelectionRequested,
+  ORGANIZATION_SELECTION_REQUESTED_EVENT,
+} from './organizationSelection'
 
 type TenantContextValue = {
   organizations: Organization[]
@@ -35,6 +40,7 @@ type TenantContextValue = {
   accessProfile: OrganizationAccessProfile | null
   loading: boolean
   organizationsReady: boolean
+  organizationSelectionRequired: boolean
   profileLoading: boolean
   profileError: string
   refreshOrganizations: () => Promise<void>
@@ -68,7 +74,7 @@ function setDocumentIcon(url: string) {
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
-  const { user, supportMode } = useAuth()
+  const { user, supportMode, loading: authLoading } = useAuth()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [activeOrganization, setActiveOrganization] = useState<Organization | null>(null)
   const [schoolBranding, setSchoolBranding] = useState<CurrentSchoolBranding | null>(null)
@@ -76,6 +82,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [resolvedUserId, setResolvedUserId] = useState<number | null>(null)
   const [organizationsReadyKey, setOrganizationsReadyKey] = useState('')
+  const [organizationSelectionRequired, setOrganizationSelectionRequired] = useState(false)
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileError, setProfileError] = useState('')
   const profileRequest = useRef(0)
@@ -119,6 +126,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const refreshOrganizations = useCallback(async () => {
     const requestId = ++organizationsRequest.current
     if (!user) {
+      setOrganizationSelectionRequired(false)
+      if (!authLoading) clearOrganizationSelectionRequest()
       organizationsReady.current = false
       setOrganizationsReadyKey('')
       setOrganizations([])
@@ -134,6 +143,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     if (shouldBlockWorkspace) setLoading(true)
     try {
       if (supportMode) {
+        setOrganizationSelectionRequired(false)
+        clearOrganizationSelectionRequest()
         setStoredOrganizationId(supportMode.organization_id)
         const organization = await getCurrentOrganization()
         if (organizationsRequest.current === requestId) {
@@ -150,11 +161,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       if (organizationsRequest.current !== requestId) return
       setOrganizations(items)
 
-      const storedId = getStoredOrganizationId()
-      const selected =
-        items.find((item) => item.id === storedId) ??
-        items[0] ??
-        null
+      const shouldChooseSchool = isOrganizationSelectionRequested() && items.length > 1
+      setOrganizationSelectionRequired(shouldChooseSchool)
+      if (!shouldChooseSchool) clearOrganizationSelectionRequest()
+
+      const storedId = shouldChooseSchool ? null : getStoredOrganizationId()
+      const selected = shouldChooseSchool
+        ? null
+        : items.find((item) => item.id === storedId) ?? items[0] ?? null
 
       setActiveOrganization(selected)
       setSchoolBranding(null)
@@ -168,7 +182,25 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         if (shouldBlockWorkspace) setLoading(false)
       }
     }
-  }, [user?.id, supportMode?.organization_id, applyCurrentBranding])
+  }, [user?.id, supportMode?.organization_id, authLoading, applyCurrentBranding])
+
+  useEffect(() => {
+    const syncSelectionRequest = () => {
+      const shouldChooseSchool = Boolean(
+        user
+        && !supportMode
+        && organizationsReady.current
+        && organizations.length > 1
+        && isOrganizationSelectionRequested(),
+      )
+      setOrganizationSelectionRequired(shouldChooseSchool)
+      if (user && organizationsReady.current && organizations.length <= 1) {
+        clearOrganizationSelectionRequest()
+      }
+    }
+    window.addEventListener(ORGANIZATION_SELECTION_REQUESTED_EVENT, syncSelectionRequest)
+    return () => window.removeEventListener(ORGANIZATION_SELECTION_REQUESTED_EVENT, syncSelectionRequest)
+  }, [user?.id, supportMode, organizations.length])
 
   const refreshBranding = useCallback(async () => {
     if (!activeOrganization) {
@@ -334,6 +366,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       if (supportMode) return
       const selected = organizations.find((item) => item.id === id)
       if (!selected) return
+      setOrganizationSelectionRequired(false)
+      clearOrganizationSelectionRequest()
       if (activeOrganization?.id === id) {
         if (!accessProfile && !profileLoading) void refreshAccessProfile()
         void applyCurrentBranding(selected)
@@ -370,6 +404,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       accessProfile,
       loading: tenantLoading,
       organizationsReady: organizationsReadyForCurrentUser,
+      organizationSelectionRequired,
       profileLoading,
       profileError,
       refreshOrganizations,
@@ -384,6 +419,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       accessProfile,
       tenantLoading,
       organizationsReadyForCurrentUser,
+      organizationSelectionRequired,
       profileLoading,
       profileError,
       refreshOrganizations,

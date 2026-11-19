@@ -36,6 +36,19 @@ export type TeacherProfessionalProfile = {
   whatsapp_phone_verified_at: string | null
   profile_completed_at: string | null
   is_complete: boolean
+  registered_at: string | null
+  joined_at: string | null
+  membership_status: 'active' | 'suspended' | null
+  assigned_sessions: Array<{
+    session_id: number
+    formation_title: string
+    session_label: string
+    start_date: string
+    end_date: string
+    role: string
+    assigned_at: string
+    course_titles: string[]
+  }>
 }
 
 export type TeacherProfessionalProfilePayload = {

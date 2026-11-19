@@ -51,8 +51,13 @@ export function SchoolCheckoutPage() {
     : null
 
   const [preview, setPreview] = useState<PricePreview | null>(null)
+  const [basePreview, setBasePreview] = useState<PricePreview | null>(null)
   const [coupon, setCoupon] = useState('')
   const couponRef = useRef('')
+  const previewMatchesCoupon = Boolean(
+    preview && (preview.coupon_code || '').toUpperCase() === coupon.trim().toUpperCase(),
+  )
+  const pricePreview = previewMatchesCoupon ? preview : basePreview
   // Preselected with the choice made on the formation page; used only while the plan is offered.
   const [paymentMode, setPaymentMode] = useState<'full' | 'installments'>(item?.payment_mode ?? 'full')
   const [acceptDepositTerms, setAcceptDepositTerms] = useState(false)
@@ -98,6 +103,14 @@ export function SchoolCheckoutPage() {
     }, 450)
     return () => window.clearTimeout(timer)
   }, [user?.id, accessReady, loadingOrder, openStudentSpace])
+
+  useEffect(() => {
+    setPreview(null)
+    setBasePreview(null)
+    setCoupon('')
+    couponRef.current = ''
+    setAcceptDepositTerms(false)
+  }, [schoolSlug, item?.session_id])
 
   useEffect(() => {
     if (!user || !orderId) return
@@ -150,7 +163,9 @@ export function SchoolCheckoutPage() {
           return
         }
         return previewPublicPrice(schoolSlug, item.session_id, null).then((value) => {
-          if (active && !couponRef.current) setPreview(value)
+          if (!active) return
+          setBasePreview(value)
+          setPreview((current) => current?.coupon_code ? current : value)
         })
       })
       .catch((err) => { if (active) setError(err instanceof Error ? err.message : 'Prix indisponible.') })
@@ -180,21 +195,24 @@ export function SchoolCheckoutPage() {
     const requestedCode = coupon.trim().toUpperCase()
     try {
       const value = await previewPublicPrice(schoolSlug, item.session_id, requestedCode || null)
-      if (couponRef.current.trim().toUpperCase() === requestedCode) setPreview(value)
+      if (couponRef.current.trim().toUpperCase() === requestedCode) {
+        if (!requestedCode) setBasePreview(value)
+        setPreview(value)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Code promo invalide.')
     }
   }
 
   async function pay() {
-    if (!item || !user || !preview || (preview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase()) return
+    if (!item || !user || !pricePreview || (pricePreview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase()) return
     setWorking(true)
     setError('')
     try {
       const created = await createPublicCheckout(
         schoolSlug,
         item.session_id,
-        paymentMode === 'installments' && preview.schedule_installments.length >= 2 ? 'installments' : 'full',
+        paymentMode === 'installments' && pricePreview.schedule_installments.length >= 2 ? 'installments' : 'full',
         coupon.trim() || null,
         acceptDepositTerms,
       )
@@ -353,21 +371,21 @@ export function SchoolCheckoutPage() {
     return <main className="school-section"><div className="school-empty">Votre panier est vide. <Link to={schoolPath(schoolSlug, 'formations')}>Voir les formations</Link></div></main>
   }
 
-  const total = preview?.final_price_cents ?? item.price_cents
-  const currency = preview?.currency || item.currency
+  const total = pricePreview?.final_price_cents ?? item.price_cents
+  const currency = pricePreview?.currency || item.currency
   const displayCurrency = school.default_currency || currency
   const money = (amount: number) => formatSchoolMoney(amount, currency, displayCurrency, currencyRates)
   const paymentMoney = (amount: number) => formatSchoolMoney(amount, currency)
   const hasDisplayConversion = hasSchoolCurrencyRate(currency, displayCurrency, currencyRates)
-  const hasDeposit = preview?.deposit_cents != null
-  const canSplit = (preview?.schedule_installments.length ?? 0) >= 2
+  const hasDeposit = pricePreview?.deposit_cents != null
+  const canSplit = (pricePreview?.schedule_installments.length ?? 0) >= 2
   const splitMode = paymentMode === 'installments' && canSplit
-  const schedule = preview ? (splitMode ? preview.schedule_installments : preview.schedule_full) : []
+  const schedule = pricePreview ? (splitMode ? pricePreview.schedule_installments : pricePreview.schedule_full) : []
   const dueToday = schedule[0]?.amount_cents ?? total
-  const blocked = preview?.purchase_blocked_reason || ''
-  const balanceDue = preview?.balance_due_date ? formatDay(preview.balance_due_date) : ''
-  const splitCount = preview?.schedule_installments.length ?? 0
-  const lastSplitDate = canSplit && preview ? formatDay(preview.schedule_installments[splitCount - 1].due_date) : ''
+  const blocked = pricePreview?.purchase_blocked_reason || ''
+  const balanceDue = pricePreview?.balance_due_date ? formatDay(pricePreview.balance_due_date) : ''
+  const splitCount = pricePreview?.schedule_installments.length ?? 0
+  const lastSplitDate = canSplit && pricePreview ? formatDay(pricePreview.schedule_installments[splitCount - 1].due_date) : ''
   const modeLabel = hasDeposit
     ? (splitMode ? splitDepositLabel(splitCount) : 'Acompte, puis le solde')
     : (splitMode ? `Paiement en ${splitCount} fois` : 'Paiement en une fois')
@@ -408,21 +426,24 @@ export function SchoolCheckoutPage() {
               <Tag size={16} />
               <input
                 value={coupon}
-                onChange={(event) => { couponRef.current = event.target.value; setCoupon(event.target.value); setPreview(null) }}
+                onChange={(event) => { couponRef.current = event.target.value; setCoupon(event.target.value) }}
                 placeholder="Code promo"
               />
               <button type="button" onClick={() => void applyCoupon()}>
                 Appliquer
               </button>
             </div>
-            {preview?.total_discount_cents ? (
+            {pricePreview?.total_discount_cents ? (
               <p className="school-discount-line">
-                Réduction : -{money(preview.total_discount_cents)}
+                Réduction : -{money(pricePreview.total_discount_cents)}
               </p>
             ) : null}
+            {coupon.trim() && !previewMatchesCoupon && basePreview && (
+              <p className="school-checkout-coupon-pending">Appliquez le code pour actualiser le tarif.</p>
+            )}
           </article>
 
-          {preview && (
+          {pricePreview && (
             <article className="school-payment-choice">
               <h3>Mode de paiement</h3>
               <div className="school-payment-options">
@@ -431,7 +452,7 @@ export function SchoolCheckoutPage() {
                   onSelect={() => setPaymentMode('full')}
                   title={hasDeposit ? 'Acompte, puis le solde' : 'Payer en une fois'}
                   text={hasDeposit
-                    ? `${money(preview.deposit_cents ?? 0)} aujourd’hui (${formatSchoolPercent(preview.deposit_percent ?? 0)}), puis ${money(preview.balance_cents ?? 0)} avant le ${balanceDue}.`
+                    ? `${money(pricePreview.deposit_cents ?? 0)} aujourd’hui (${formatSchoolPercent(pricePreview.deposit_percent ?? 0)}), puis ${money(pricePreview.balance_cents ?? 0)} avant le ${balanceDue}.`
                     : `${money(total)} aujourd’hui.`}
                 />
                 {canSplit && (
@@ -440,8 +461,8 @@ export function SchoolCheckoutPage() {
                     onSelect={() => setPaymentMode('installments')}
                     title={hasDeposit ? splitDepositLabel(splitCount) : `Payer en ${splitCount} fois`}
                     text={splitCount > 2
-                      ? `${money(preview.schedule_installments[0].amount_cents)} aujourd’hui, puis ${splitCount - 1} échéances jusqu’au ${lastSplitDate}.`
-                      : `${money(preview.schedule_installments[0].amount_cents)} aujourd’hui, puis ${money(preview.schedule_installments[1].amount_cents)} le ${lastSplitDate}.`}
+                      ? `${money(pricePreview.schedule_installments[0].amount_cents)} aujourd’hui, puis ${splitCount - 1} échéances jusqu’au ${lastSplitDate}.`
+                      : `${money(pricePreview.schedule_installments[0].amount_cents)} aujourd’hui, puis ${money(pricePreview.schedule_installments[1].amount_cents)} le ${lastSplitDate}.`}
                   />
                 )}
               </div>
@@ -464,14 +485,14 @@ export function SchoolCheckoutPage() {
             </article>
           )}
 
-          {hasDeposit && preview && (
+          {hasDeposit && pricePreview && (
             <article className="school-payment-choice school-deposit-terms">
               <h3>Réservation avec acompte</h3>
               <p>
-                Votre place est réservée dès l’acompte de <strong>{money(preview.deposit_cents ?? 0)}</strong>, et votre accès s’ouvre.
+                Votre place est réservée dès l’acompte de <strong>{money(pricePreview.deposit_cents ?? 0)}</strong>, et votre accès s’ouvre.
                 {splitMode
                   ? ' Le solde suit l’échéancier ci-dessus.'
-                  : <> Le solde de <strong>{money(preview.balance_cents ?? 0)}</strong> est à régler avant le {balanceDue}, 10 jours avant le début de la session.</>}
+                  : <> Le solde de <strong>{money(pricePreview.balance_cents ?? 0)}</strong> est à régler avant le {balanceDue}, 10 jours avant le début de la session.</>}
                 {' '}Si une échéance n’est pas réglée à temps, votre accès est suspendu, mais votre place reste réservée.
               </p>
               <label>
@@ -484,11 +505,11 @@ export function SchoolCheckoutPage() {
 
         <aside className="school-checkout-summary">
           <span>Total de la formation</span>
-          {preview && preview.total_discount_cents > 0 && (
-            <del>{money(preview.base_price_cents)}</del>
+          {pricePreview && pricePreview.total_discount_cents > 0 && (
+            <del>{money(pricePreview.base_price_cents)}</del>
           )}
           <strong>{money(total)}</strong>
-          {preview && (
+          {pricePreview && (
             <dl className="school-checkout-due">
               <div className="is-today">
                 <dt>À payer aujourd’hui</dt>
@@ -502,7 +523,7 @@ export function SchoolCheckoutPage() {
               ))}
             </dl>
           )}
-          {preview && <p className="school-checkout-mode">Mode choisi : <b>{modeLabel}</b></p>}
+          {pricePreview && <p className="school-checkout-mode">Mode choisi : <b>{modeLabel}</b></p>}
           {currency.toUpperCase() !== displayCurrency.toUpperCase() && (
             <p className="school-checkout-currency-note">
               {hasDisplayConversion
@@ -510,9 +531,9 @@ export function SchoolCheckoutPage() {
                 : <>Taux de conversion indisponible : le paiement sera demandé en <strong>{currency}</strong>.</>}
             </p>
           )}
-          <button type="button" disabled={working || Boolean(blocked) || !preview || (preview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase() || (hasDeposit && !acceptDepositTerms)} onClick={() => void pay()}>
+          <button type="button" disabled={working || Boolean(blocked) || !pricePreview || (pricePreview.coupon_code || '').toUpperCase() !== coupon.trim().toUpperCase() || (hasDeposit && !acceptDepositTerms)} onClick={() => void pay()}>
             <CreditCard size={16} />
-            {working ? 'Préparation…' : preview ? `Payer ${paymentMoney(dueToday)} maintenant` : 'Payer maintenant'}
+            {working ? 'Préparation…' : pricePreview ? `Payer ${paymentMoney(dueToday)} maintenant` : 'Payer maintenant'}
           </button>
           {schedule.length > 1 && (
             <small>Le premier paiement ouvre votre accès. Les échéances suivantes sont rappelées dans votre espace étudiant.</small>

@@ -23,6 +23,7 @@ import {
   type FormationSummary,
   type Promotion,
 } from '../lib/api'
+import { toast } from '../ui/toast'
 
 const PROMO_NAME = '%Promo'
 
@@ -99,6 +100,7 @@ export function PromotionsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
+  const [focusedRow, setFocusedRow] = useState<{ kind: 'promotion' | 'coupon'; id: number } | null>(null)
 
   const [promoFormation, setPromoFormation] = useState('')
   const [promoType, setPromoType] = useState<'percentage' | 'fixed'>('percentage')
@@ -128,6 +130,21 @@ export function PromotionsPage() {
       setError(err instanceof ApiError ? err.message : 'Chargement impossible.')
     })
   }, [])
+
+  useEffect(() => {
+    if (!focusedRow) return
+    const rowId = `promo-${focusedRow.kind}-${focusedRow.id}`
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(rowId)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    const timeout = window.setTimeout(() => {
+      setFocusedRow((current) => current?.kind === focusedRow.kind && current.id === focusedRow.id ? null : current)
+    }, 2600)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(timeout)
+    }
+  }, [focusedRow])
 
   const selectedFormation = useMemo(
     () => formations.find((formation) => formation.id === Number(promoFormation)) ?? null,
@@ -176,7 +193,7 @@ export function PromotionsPage() {
     setWorking(true)
     setError('')
     try {
-      await createPromotion({
+      const createdPromotion = await createPromotion({
         name: PROMO_NAME,
         formation_id: Number(promoFormation),
         session_id: null,
@@ -189,11 +206,15 @@ export function PromotionsPage() {
         max_uses: promoMaxUses ? Number(promoMaxUses) : null,
         is_active: true,
       })
+      setPromos((current) => [createdPromotion, ...current])
+      setFocusedRow({ kind: 'promotion', id: createdPromotion.id })
+      toast.success('Promotion directe programmée.')
       setPromoValue(promoType === 'percentage' ? '20' : '5000')
       setPromoMaxUses('')
-      await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Création impossible.')
+      const message = err instanceof ApiError ? err.message : 'Création impossible.'
+      setError(message)
+      toast.error(message)
     } finally {
       setWorking(false)
     }
@@ -205,7 +226,7 @@ export function PromotionsPage() {
     setError('')
     try {
       const rawCouponValue = Number(couponValue)
-      await createCoupon({
+      const createdCoupon = await createCoupon({
         code: code.toUpperCase(),
         name: `Code ${code.toUpperCase()}`,
         discount_type: couponType,
@@ -220,10 +241,14 @@ export function PromotionsPage() {
         allow_on_promotions: false,
         is_active: true,
       })
+      setCoupons((current) => [createdCoupon, ...current])
+      setFocusedRow({ kind: 'coupon', id: createdCoupon.id })
+      toast.success(`Code promo ${createdCoupon.code} créé.`)
       setCode('')
-      await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Création impossible.')
+      const message = err instanceof ApiError ? err.message : 'Création impossible.'
+      setError(message)
+      toast.error(message)
     } finally {
       setWorking(false)
     }
@@ -240,6 +265,38 @@ export function PromotionsPage() {
       && candidate.starts_at === promotion.starts_at
       && candidate.ends_at === promotion.ends_at
     ))
+  }
+
+  async function togglePromotion(promotion: Promotion) {
+    setWorking(true)
+    setError('')
+    try {
+      const updated = await setPromotionActive(promotion.id, !promotion.is_active)
+      setPromos((current) => current.map((item) => item.id === updated.id ? updated : item))
+      toast.success(updated.is_active ? 'Promotion réactivée.' : 'Promotion désactivée.')
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Modification impossible.'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function toggleCoupon(coupon: Coupon) {
+    setWorking(true)
+    setError('')
+    try {
+      const updated = await setCouponActive(coupon.id, !coupon.is_active)
+      setCoupons((current) => current.map((item) => item.id === updated.id ? updated : item))
+      toast.success(updated.is_active ? 'Code promo activé.' : 'Code promo désactivé.')
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Modification impossible.'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setWorking(false)
+    }
   }
 
   return (
@@ -417,7 +474,11 @@ export function PromotionsPage() {
           const formation = formations.find((item) => item.id === promotion.formation_id)
           const canReactivate = state !== 'ended' && state !== 'exhausted' && !hasActiveTwin(promotion)
           return (
-            <div className="promo-admin-row promo-admin-row--detailed" key={promotion.id}>
+            <div
+              className={`promo-admin-row promo-admin-row--detailed${focusedRow?.kind === 'promotion' && focusedRow.id === promotion.id ? ' is-newly-created' : ''}`}
+              id={`promo-promotion-${promotion.id}`}
+              key={promotion.id}
+            >
               <div className="promo-row-main">
                 <span className={`promo-state promo-state--${state}`}>{stateLabel(state)}</span>
                 <div>
@@ -433,18 +494,7 @@ export function PromotionsPage() {
                 className={`member-status ${promotion.is_active ? 'active' : 'suspended'}`}
                 disabled={working || (!promotion.is_active && !canReactivate)}
                 title={!promotion.is_active && !canReactivate ? 'Cette promotion ne peut plus être réactivée.' : undefined}
-                onClick={async () => {
-                  setWorking(true)
-                  setError('')
-                  try {
-                    await setPromotionActive(promotion.id, !promotion.is_active)
-                    await load()
-                  } catch (err) {
-                    setError(err instanceof ApiError ? err.message : 'Modification impossible.')
-                  } finally {
-                    setWorking(false)
-                  }
-                }}
+                onClick={() => void togglePromotion(promotion)}
                 type="button"
               >
                 {promotion.is_active ? 'Désactiver' : 'Réactiver'}
@@ -458,7 +508,11 @@ export function PromotionsPage() {
       <section className="app-card promo-list-card">
         <h2>Codes promo</h2>
         {coupons.map((coupon) => (
-          <div className="promo-admin-row" key={coupon.id}>
+          <div
+            className={`promo-admin-row${focusedRow?.kind === 'coupon' && focusedRow.id === coupon.id ? ' is-newly-created' : ''}`}
+            id={`promo-coupon-${coupon.id}`}
+            key={coupon.id}
+          >
             <div>
               <strong>{coupon.code}</strong>
               <small>{coupon.discount_type === 'percentage' ? `-${coupon.discount_value}%` : `-${coupon.discount_value}`} · {coupon.uses_count} utilisation(s)</small>
@@ -466,10 +520,8 @@ export function PromotionsPage() {
             <button
               type="button"
               className={`member-status ${coupon.is_active ? 'active' : 'suspended'}`}
-              onClick={async () => {
-                await setCouponActive(coupon.id, !coupon.is_active)
-                await load()
-              }}
+              disabled={working}
+              onClick={() => void toggleCoupon(coupon)}
             >
               {coupon.is_active ? 'Actif' : 'Inactif'}
             </button>

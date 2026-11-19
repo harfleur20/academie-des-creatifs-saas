@@ -135,6 +135,13 @@ def get_student_workspace(
                 )),
                 None,
             ),
+            teacher_avatar_url=next(
+                (assignment.teacher.avatar_url for assignment in sorted(
+                    item.session.teachers,
+                    key=lambda assignment: (assignment.role != "principal", assignment.id),
+                )),
+                None,
+            ),
             campus_label=item.session.campus_label,
             session_status=item.session.status,
             enrollment_status=item.status,

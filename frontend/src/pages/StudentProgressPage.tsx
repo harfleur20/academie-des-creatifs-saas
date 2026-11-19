@@ -52,6 +52,7 @@ export function StudentProgressPage() {
 
           return (
             <article className="app-card progress-card" key={item.enrollment_id}>
+              {item.formation_image_url && <div className="progress-card-cover" aria-hidden="true"><img src={item.formation_image_url} alt="" /></div>}
               <header>
                 <div>
                   <span className="section-label">{item.session_label}</span>

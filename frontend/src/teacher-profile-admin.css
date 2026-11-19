@@ -115,8 +115,9 @@
 }
 
 .teacher-profile-completion.is-complete {
-  color: #087252;
-  background: #e5faf2;
+  color: color-mix(in srgb, var(--school-primary, #1f2559) 88%, #10233f);
+  background: color-mix(in srgb, var(--school-secondary, #18a7a3) 14%, white);
+  border: 1px solid color-mix(in srgb, var(--school-secondary, #18a7a3) 30%, white);
 }
 
 .teacher-profile-completion.is-incomplete {

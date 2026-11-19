@@ -239,6 +239,12 @@
   padding: 17px 20px;
 }
 
+.promo-admin-row.is-newly-created {
+  scroll-margin-top: 100px;
+  background: color-mix(in srgb, var(--school-secondary, var(--green)) 9%, white);
+  box-shadow: inset 4px 0 0 var(--school-secondary, var(--green));
+}
+
 .promo-row-main {
   min-width: 0;
   display: flex;

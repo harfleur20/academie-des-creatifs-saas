@@ -13,7 +13,15 @@ from app.api.dependencies import get_tenant_context
 from app.core.config import settings
 from app.services.object_storage import b2_client
 from app.db.session import get_db
-from app.models.entities import OrganizationTeacherProfileRecord, UserRecord
+from app.models.entities import (
+    CourseRecord,
+    FormationRecord,
+    FormationSessionRecord,
+    OrganizationMemberRecord,
+    OrganizationTeacherProfileRecord,
+    SessionTeacherRecord,
+    UserRecord,
+)
 from app.models.teacher_onboarding import (
     OrganizationCharterAcceptanceRecord,
     OrganizationCharterRecord,
@@ -115,6 +123,53 @@ def _teacher_profile_read(
     user: UserRecord | None = None,
 ) -> TeacherProfessionalProfileRead:
     target_user = user or tenant.user
+    membership = db.scalar(
+        select(OrganizationMemberRecord).where(
+            OrganizationMemberRecord.organization_id == tenant.organization_id,
+            OrganizationMemberRecord.user_id == target_user.id,
+        )
+    )
+    assigned_sessions = db.execute(
+        select(
+            FormationSessionRecord.id,
+            FormationRecord.title,
+            FormationSessionRecord.label,
+            FormationSessionRecord.start_date,
+            FormationSessionRecord.end_date,
+            SessionTeacherRecord.role,
+            SessionTeacherRecord.assigned_at,
+            CourseRecord.title.label("course_title"),
+        )
+        .join(FormationSessionRecord, FormationSessionRecord.id == SessionTeacherRecord.session_id)
+        .join(FormationRecord, FormationRecord.id == FormationSessionRecord.formation_id)
+        .outerjoin(
+            CourseRecord,
+            (CourseRecord.session_id == FormationSessionRecord.id)
+            & (CourseRecord.teacher_id == target_user.id)
+            & (CourseRecord.organization_id == tenant.organization_id),
+        )
+        .where(
+            SessionTeacherRecord.organization_id == tenant.organization_id,
+            SessionTeacherRecord.teacher_id == target_user.id,
+            FormationSessionRecord.organization_id == tenant.organization_id,
+            FormationRecord.organization_id == tenant.organization_id,
+        )
+        .order_by(FormationSessionRecord.start_date.desc(), FormationSessionRecord.id.desc(), CourseRecord.title)
+    ).all()
+    sessions_by_id: dict[int, dict] = {}
+    for item in assigned_sessions:
+        session = sessions_by_id.setdefault(item.id, {
+            "session_id": item.id,
+            "formation_title": item.title,
+            "session_label": item.label,
+            "start_date": item.start_date,
+            "end_date": item.end_date,
+            "role": item.role,
+            "assigned_at": item.assigned_at,
+            "course_titles": [],
+        })
+        if item.course_title and item.course_title not in session["course_titles"]:
+            session["course_titles"].append(item.course_title)
     code = db.scalar(
         select(OrganizationTeacherProfileRecord.teacher_code).where(
             OrganizationTeacherProfileRecord.organization_id == tenant.organization_id,
@@ -151,6 +206,10 @@ def _teacher_profile_read(
         whatsapp_phone_verified_at=row.whatsapp_phone_verified_at,
         profile_completed_at=row.profile_completed_at,
         is_complete=teacher_profile_complete(row),
+        registered_at=target_user.created_at,
+        joined_at=membership.created_at if membership else None,
+        membership_status=membership.status if membership else None,
+        assigned_sessions=list(sessions_by_id.values()),
     )
 
 

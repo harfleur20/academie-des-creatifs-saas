@@ -1315,8 +1315,32 @@ def list_students(db: Session, tenant) -> list[StudentManagementRead]:
     ).all()
     result=[]
     for profile in profiles:
+        member = db.scalar(select(OrganizationMemberRecord).where(
+            OrganizationMemberRecord.organization_id == tenant.organization_id,
+            OrganizationMemberRecord.user_id == profile.user_id,
+        ))
         active=int(db.scalar(select(func.count(EnrollmentRecord.id)).where(EnrollmentRecord.organization_id==tenant.organization_id,EnrollmentRecord.student_id==profile.user_id,EnrollmentRecord.status=="active")) or 0)
         completed=int(db.scalar(select(func.count(EnrollmentRecord.id)).where(EnrollmentRecord.organization_id==tenant.organization_id,EnrollmentRecord.student_id==profile.user_id,EnrollmentRecord.status=="completed")) or 0)
+        enrollment_rows = db.execute(
+            select(
+                FormationRecord.title,
+                FormationRecord.cover_image_url,
+                FormationSessionRecord.label,
+                FormationSessionRecord.start_date,
+                FormationSessionRecord.end_date,
+                EnrollmentRecord.status,
+                EnrollmentRecord.created_at,
+            )
+            .join(FormationSessionRecord, FormationSessionRecord.id == EnrollmentRecord.session_id)
+            .join(FormationRecord, FormationRecord.id == FormationSessionRecord.formation_id)
+            .where(
+                EnrollmentRecord.organization_id == tenant.organization_id,
+                EnrollmentRecord.student_id == profile.user_id,
+                FormationSessionRecord.organization_id == tenant.organization_id,
+                FormationRecord.organization_id == tenant.organization_id,
+            )
+            .order_by(EnrollmentRecord.created_at.desc())
+        ).all()
         orders=db.scalars(select(StudentOrderRecord).where(StudentOrderRecord.organization_id==tenant.organization_id,StudentOrderRecord.user_id==profile.user_id)).all()
         totals: dict[str, dict[str, int]] = {}
         for row in orders:
@@ -1327,8 +1351,21 @@ def list_students(db: Session, tenant) -> list[StudentManagementRead]:
                 bucket["outstanding"] += max(0, row.final_price_cents - row.paid_cents)
         last=max((row.created_at for row in orders),default=profile.first_purchase_at)
         result.append(StudentManagementRead(
-            user_id=profile.user_id,full_name=profile.user.full_name,email=profile.user.email,phone=profile.user.phone,avatar_url=profile.user.avatar_url,
-            student_code=profile.student_code,status=profile.status,active_enrollments=active,completed_enrollments=completed,
+            user_id=profile.user_id,member_id=member.id if member else None,
+            full_name=profile.user.full_name,email=profile.user.email,phone=profile.user.phone,avatar_url=profile.user.avatar_url,
+            student_code=profile.student_code,status=profile.status,membership_status=member.status if member else None,
+            registered_at=member.created_at if member else profile.created_at,user_created_at=profile.user.created_at,
+            first_purchase_at=profile.first_purchase_at,
+            active_enrollments=active,completed_enrollments=completed,
+            enrollments=[{
+                "formation_title": row.title,
+                "formation_image_url": row.cover_image_url,
+                "session_label": row.label,
+                "start_date": row.start_date,
+                "end_date": row.end_date,
+                "status": row.status,
+                "enrolled_at": row.created_at,
+            } for row in enrollment_rows],
             totals_by_currency=[CurrencyTotalsRead(currency=currency,gross_sales_cents=values["gross"],collected_cents=values["collected"],outstanding_cents=values["outstanding"]) for currency, values in sorted(totals.items())],last_purchase_at=last,
         ))
     return result

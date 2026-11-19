@@ -85,7 +85,11 @@ export function SchoolPublicLayout() {
   const schoolAccessLoading = authLoading || Boolean(user && tenantLoading)
   const canUseSchoolAccount = Boolean(user && !authLoading && !tenantLoading && hasSchoolAccess)
   const accountActionsReady = !authLoading && (!user || !tenantLoading)
-  const accountUser = canUseSchoolAccount ? user : null
+  const canManageFavorites = Boolean(user && !authLoading)
+  // Authentication is independent from enrollment in this school: a newly
+  // registered visitor should remain visibly signed in while school spaces
+  // stay gated until a purchase or invitation grants membership.
+  const accountUser = !authLoading ? user : null
   const schoolLoginHref = user
     ? schoolPath(schoolSlug, 'espace')
     : '/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent(schoolPath(schoolSlug, 'espace'))
@@ -114,22 +118,22 @@ export function SchoolPublicLayout() {
   useEffect(() => {
     let active = true
     setFavorites([])
-    setFavoritesLoading(canUseSchoolAccount)
-    if (canUseSchoolAccount) listSchoolFavorites(schoolSlug)
+    setFavoritesLoading(canManageFavorites)
+    if (canManageFavorites) listSchoolFavorites(schoolSlug)
       .then((items) => { if (active) setFavorites(items) })
       .catch(() => {})
       .finally(() => { if (active) setFavoritesLoading(false) })
     return () => { active = false }
-  }, [schoolSlug, user?.id, canUseSchoolAccount])
+  }, [schoolSlug, user?.id, canManageFavorites])
 
   const toggleFavorite = useCallback(async (formationSlug: string) => {
-    if (!canUseSchoolAccount) throw new Error('Votre compte n’est pas inscrit à cette école.')
+    if (!canManageFavorites) throw new Error('Connectez-vous pour gérer vos favoris.')
     const current = favorites.some((item) => item.slug === formationSlug)
     const next = current
       ? await removeSchoolFavorite(schoolSlug, formationSlug)
       : await addSchoolFavorite(schoolSlug, formationSlug)
     setFavorites(next)
-  }, [canUseSchoolAccount, favorites, schoolSlug])
+  }, [canManageFavorites, favorites, schoolSlug])
 
   useEffect(() => {
     let active = true
@@ -265,7 +269,7 @@ export function SchoolPublicLayout() {
     '--school-subtitle-scale': String((school.subtitle_size_scale ?? 100) / 100),
   } as CSSProperties
   const validCartItem = cartItem?.organization_id === school.organization_id ? cartItem : null
-  const schoolAccessProfile = accessProfile?.organization_id === school.organization_id ? accessProfile : null
+  const schoolAccessProfile = canUseSchoolAccount && accessProfile?.organization_id === school.organization_id ? accessProfile : null
   const accountSpace: WorkspaceSpace | null = schoolAccessProfile?.spaces.includes('manage')
     ? 'manage'
     : schoolAccessProfile?.default_space || schoolAccessProfile?.spaces[0] || null

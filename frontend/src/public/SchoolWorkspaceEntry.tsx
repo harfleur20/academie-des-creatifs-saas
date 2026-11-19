@@ -85,11 +85,11 @@ export function SchoolWorkspaceEntry() {
   if (!membership && school.is_demo) return <Navigate replace to={schoolPath(school.slug)} />
   if (!membership) return <main className="school-section school-workspace-entry">
     <div className="school-empty">
-      <h1>Vous n’êtes pas encore inscrit à cette école</h1>
-      <p>Le compte <strong>{user.email}</strong> n’a pas encore accès à {school.site_name || school.name}. Inscrivez-vous à une formation ou acceptez une invitation pour ouvrir votre espace.</p>
+      <h1>Votre compte est bien connecté</h1>
+      <p>Vous êtes connecté avec <strong>{user.email}</strong>. Votre espace chez {school.site_name || school.name} sera activé dès votre inscription à une formation ou après l’acceptation d’une invitation.</p>
       <div className="school-workspace-entry-actions">
         <Link className="school-primary-link" to={schoolPath(school.slug, 'formations')}>Découvrir les formations</Link>
-        <button className="school-account-switch-button" type="button" onClick={changeAccount}><span className="school-account-switch-icon"><DoorOpen size={18}/></span>Se déconnecter et changer de compte</button>
+        <button className="school-account-switch-button" type="button" onClick={changeAccount}><span className="school-account-switch-icon"><DoorOpen size={18}/></span>Se déconnecter</button>
       </div>
     </div>
   </main>

@@ -89,9 +89,11 @@ import { SchoolMessagesPage } from './pages/SchoolMessagesPage'
 import { TeacherSetupPage } from './pages/TeacherSetupPage'
 import { StudentCharterPage } from './pages/StudentCharterPage'
 import { CharterSettingsPage } from './pages/CharterSettingsPage'
+import { OrganizationSelectionDialog } from './app/OrganizationSelectionDialog'
 
 function RequireSchoolUser({ children }: { children: React.ReactNode }) {
   const { user, supportMode, loading } = useAuth()
+  const tenant = useTenant()
   const location = useLocation()
 
   if (loading) {
@@ -105,6 +107,13 @@ function RequireSchoolUser({ children }: { children: React.ReactNode }) {
 
   if (user.platform_role === 'super_admin' && !supportMode) {
     return <Navigate to="/admin" replace />
+  }
+
+  if (!supportMode && tenant.organizationSelectionRequired) {
+    return <OrganizationSelectionDialog
+      organizations={tenant.organizations}
+      onSelect={tenant.selectOrganization}
+    />
   }
 
   return children

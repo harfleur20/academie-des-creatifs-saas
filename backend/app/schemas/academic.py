@@ -203,6 +203,7 @@ class CourseReaderRead(BaseModel):
     title: str
     description: str
     teacher_name: str | None
+    teacher_avatar_url: str | None = None
     chapters: list[ChapterReaderRead]
 
 
@@ -361,6 +362,7 @@ class ProgressRead(BaseModel):
     enrollment_id: int
     session_id: int
     formation_title: str
+    formation_image_url: str | None = None
     session_label: str
     completed_lessons: int
     total_lessons: int

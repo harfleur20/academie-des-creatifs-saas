@@ -112,6 +112,9 @@ class OrganizationUserSummary(BaseModel):
     id: int
     full_name: str
     email: str
+    phone: str | None = None
+    avatar_url: str | None = None
+    created_at: datetime
 
 
 class OrganizationMemberRoleRead(BaseModel):
@@ -128,6 +131,7 @@ class OrganizationMemberRead(BaseModel):
     user_id: int
     role: str
     status: str
+    created_at: datetime
     roles: list[OrganizationMemberRoleRead] = []
     user: OrganizationUserSummary
 

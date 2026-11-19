@@ -1,7 +1,10 @@
 import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BookOpen,
+  CalendarDays,
+  ChevronLeft,
   ChevronDown,
   ChevronRight,
   FilePlus2,
@@ -18,6 +21,7 @@ import {
   createCourseChapter,
   createSessionCourse,
   getFormation,
+  getSessionPlanning,
   getTeacherWorkspace,
   listTeacherAssignments,
   listTeacherQuizzes,
@@ -34,6 +38,7 @@ import {
   type Lesson,
   type LessonPayload,
   type LessonVersion,
+  type SessionPlanning,
   type TeacherQuiz,
   type TeacherWorkspace,
 } from '../lib/api'
@@ -43,6 +48,34 @@ import {
   type AiCourseDraft,
 } from '../lib/tenantIntegrationApi'
 import { initialTeacherSessionId } from '../lib/teacherSession'
+import { formatDuration } from '../lib/formatDuration'
+
+function startOfWeek(value: Date) {
+  const date = new Date(value)
+  date.setHours(0, 0, 0, 0)
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7))
+  return date
+}
+
+function addDays(value: Date, count: number) {
+  const date = new Date(value)
+  date.setDate(date.getDate() + count)
+  return date
+}
+
+function localDateKey(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function courseDayTimeRange(scheduledAt: string, durationMinutes: number) {
+  const start = new Date(scheduledAt)
+  const end = new Date(start.getTime() + durationMinutes * 60_000)
+  const time = (value: Date) => value.toLocaleTimeString(activeSchoolLocale(), { hour: '2-digit', minute: '2-digit' })
+  return `${time(start)} – ${time(end)}`
+}
 
 type LessonDraft = {
   title: string
@@ -96,6 +129,11 @@ function draftForLesson(lesson: Lesson): LessonDraft {
 export function TeacherCoursesPage() {
   const [workspace, setWorkspace] = useState<TeacherWorkspace | null>(null)
   const [sessionId, setSessionId] = useState<number | null>(null)
+  const [workspaceTab, setWorkspaceTab] = useState<'courses' | 'schedule'>('courses')
+  const [planning, setPlanning] = useState<SessionPlanning | null>(null)
+  const [planningError, setPlanningError] = useState('')
+  const [planningLoading, setPlanningLoading] = useState(false)
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
   const [formation, setFormation] = useState<FormationDetail | null>(null)
   const [courseTitle, setCourseTitle] = useState('')
   const [chapterDrafts, setChapterDrafts] = useState<Record<number, string>>({})
@@ -160,7 +198,34 @@ export function TeacherCoursesPage() {
     }
   }, [selectedWorkspace?.formation_id, selectedWorkspace?.session_id])
 
+  useEffect(() => {
+    if (!selectedWorkspace) {
+      setPlanning(null)
+      return
+    }
+    let cancelled = false
+    setPlanningLoading(true)
+    setPlanningError('')
+    getSessionPlanning(selectedWorkspace.session_id)
+      .then((result) => { if (!cancelled) setPlanning(result) })
+      .catch((err) => {
+        if (!cancelled) setPlanningError(err instanceof ApiError ? err.message : 'Impossible de charger l’emploi du temps.')
+      })
+      .finally(() => { if (!cancelled) setPlanningLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedWorkspace?.session_id])
+
   const session = formation?.sessions.find((item) => item.id === sessionId) ?? null
+  const weekEnd = addDays(weekStart, 6)
+  const weekRange = `Semaine du ${weekStart.toLocaleDateString(activeSchoolLocale(), { dateStyle: 'medium' })} au ${weekEnd.toLocaleDateString(activeSchoolLocale(), { dateStyle: 'medium' })}`
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(weekStart, index)
+    const key = localDateKey(date)
+    const entries = (planning?.course_days ?? [])
+      .filter((day) => day.status !== 'cancelled' && localDateKey(new Date(day.scheduled_at)) === key)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+    return { date, entries }
+  })
 
   async function run(action: () => Promise<FormationDetail>): Promise<boolean> {
     setWorking(true)
@@ -384,7 +449,50 @@ export function TeacherCoursesPage() {
 
         <label className="teacher-session-select"><span>Session</span><select value={sessionId ?? ''} onChange={(event) => setSessionId(Number(event.target.value))}>{workspace?.sessions.map((item) => <option key={item.session_id} value={item.session_id}>{item.formation_title} · {item.session_label}</option>)}</select></label>
 
-        {session && formation && <>
+        {selectedWorkspace && <nav className="guided-tabs teacher-course-workspace-tabs" aria-label="Sections de la session">
+          <button type="button" className={workspaceTab === 'courses' ? 'is-active' : ''} aria-pressed={workspaceTab === 'courses'} onClick={() => setWorkspaceTab('courses')}>Mes cours</button>
+          <button type="button" className={workspaceTab === 'schedule' ? 'is-active' : ''} aria-pressed={workspaceTab === 'schedule'} onClick={() => setWorkspaceTab('schedule')}><CalendarDays size={15} aria-hidden="true" /> Emploi du temps</button>
+        </nav>}
+
+        {workspaceTab === 'schedule' && selectedWorkspace && <section className="app-card teacher-timetable-panel">
+          <header className="teacher-timetable-panel__header">
+            <div><span className="section-label">{selectedWorkspace.formation_title} · {selectedWorkspace.session_label}</span><h2>Emploi du temps</h2></div>
+            <Link className="secondary-button" to={`/app/teacher/sessions/${selectedWorkspace.session_id}`}>Gérer les séances</Link>
+          </header>
+          {planningError && <div className="dsh-error">{planningError}</div>}
+          {planningLoading ? <div className="page-state">Chargement de l’emploi du temps…</div> : <>
+            <div className="guided-week-toolbar">
+              <div className="guided-week-navigation">
+                <button type="button" className="guided-week-button" aria-label="Semaine précédente" onClick={() => setWeekStart((current) => addDays(current, -7))}><ChevronLeft size={17} aria-hidden="true" /></button>
+                <strong>{weekRange}</strong>
+                <button type="button" className="guided-week-button" aria-label="Semaine suivante" onClick={() => setWeekStart((current) => addDays(current, 7))}><ChevronRight size={17} aria-hidden="true" /></button>
+                <button type="button" className="guided-week-button guided-week-today" onClick={() => setWeekStart(startOfWeek(new Date()))}>Cette semaine</button>
+              </div>
+            </div>
+            <div className="guided-week-scroll" role="region" aria-label="Emploi du temps de la semaine sur sept jours" tabIndex={0}>
+              <div className="guided-week-grid">
+                {weekDays.map(({ date, entries }) => {
+                  const weekday = date.toLocaleDateString(activeSchoolLocale(), { weekday: 'long' })
+                  const isToday = localDateKey(date) === localDateKey(new Date())
+                  return <article className={`guided-week-day${isToday ? ' is-today' : ''}`} key={localDateKey(date)}>
+                    <header className="guided-week-day__heading"><span>{weekday.charAt(0).toLocaleUpperCase(activeSchoolLocale())}{weekday.slice(1)}</span><strong>{date.getDate()}</strong></header>
+                    <div className="guided-week-day__events">
+                      {entries.map((day) => <article className="guided-week-event" key={day.id}>
+                        <time dateTime={day.scheduled_at}>{courseDayTimeRange(day.scheduled_at, day.duration_minutes)}</time>
+                        <strong>{day.title}</strong>
+                        <small>{formatDuration(day.duration_minutes)} · {planning?.format_type === 'presentiel' ? 'Présentiel' : planning?.format_type === 'live' ? 'En direct' : 'En ligne'}</small>
+                        <small>{day.teacher_name || 'Professeur non défini'}</small>
+                      </article>)}
+                      {entries.length === 0 && <p className="guided-week-empty">Aucun cours</p>}
+                    </div>
+                  </article>
+                })}
+              </div>
+            </div>
+          </>}
+        </section>}
+
+        {workspaceTab === 'courses' && session && formation && <>
           <section className="teacher-course-create-mother"><div><strong>Ajouter un cours manuellement</strong><span>Créez la structure puis ajoutez chapitres et leçons.</span></div><div><input value={courseTitle} onChange={(event) => setCourseTitle(event.target.value)} placeholder="Nom du nouveau cours" /><button className="dsh-btn dsh-btn--primary" type="button" disabled={working || courseTitle.trim().length < 2} onClick={() => void addCourse()}><Plus size={14} /> Ajouter</button></div></section>
 
           <section className="teacher-course-list-mother">

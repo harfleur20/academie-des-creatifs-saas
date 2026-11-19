@@ -11,8 +11,8 @@ import { useSchoolSlug } from './useSchoolHost'
 
 export function SchoolFavoriteButton({ slug, title }: { slug: string; title: string }) {
   const schoolSlug = useSchoolSlug()
-  const { user } = useAuth()
-  const { favorites, hasSchoolAccess, schoolAccessLoading, toggleFavorite } = usePublicSchool()
+  const { user, loading: authLoading } = useAuth()
+  const { favorites, toggleFavorite } = usePublicSchool()
   const location = useLocation()
   const navigate = useNavigate()
   const [working, setWorking] = useState(false)
@@ -24,16 +24,12 @@ export function SchoolFavoriteButton({ slug, title }: { slug: string; title: str
       toast.info(DEMO_READ_ONLY_MESSAGE)
       return
     }
+    if (authLoading) {
+      toast.info('Vérification de votre compte…')
+      return
+    }
     if (!user) {
       navigate('/login?school=' + encodeURIComponent(schoolSlug) + '&return=' + encodeURIComponent(location.pathname))
-      return
-    }
-    if (schoolAccessLoading) {
-      toast.info('Vérification de votre accès à cette école…')
-      return
-    }
-    if (!hasSchoolAccess) {
-      toast.info('Votre compte n’est pas inscrit à cette école. Inscrivez-vous à une formation pour enregistrer vos favoris.')
       return
     }
     setWorking(true)

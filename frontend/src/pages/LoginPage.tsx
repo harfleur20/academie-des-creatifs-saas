@@ -32,6 +32,7 @@ import { formatMoney, monthlyEquivalent } from '../lib/planFeatures'
 import { rememberPlatformAuthOrigin, rememberSchoolAuthOrigin } from '../lib/authOrigin'
 import { setSchoolInterfaceLocale } from '../app/schoolLocale'
 import { schoolHostSlug, schoolPath } from '../public/schoolHost'
+import { requestOrganizationSelection } from '../app/organizationSelection'
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 
@@ -225,6 +226,7 @@ export function LoginPage() {
         rememberLoginOrigin()
         if (relayBack()) return
         if (await finishInvitationFlow(email)) return
+        if (!schoolKey && !hostSchool && !invitationToken) requestOrganizationSelection()
         navigate(returnPath || '/app', { replace: true })
         return
       }
@@ -234,6 +236,7 @@ export function LoginPage() {
         rememberLoginOrigin()
         if (relayBack()) return
         if (await finishInvitationFlow(email)) return
+        if (!schoolKey && !hostSchool && !invitationToken) requestOrganizationSelection()
         navigate(returnPath || '/app', { replace: true })
         return
       }
@@ -283,6 +286,7 @@ export function LoginPage() {
         window.location.assign(result.membership.role === 'teacher' ? '/app/teacher' : '/app/manage')
         return
       }
+      if (!schoolKey && !hostSchool && !invitationToken) requestOrganizationSelection()
       navigate(returnPath || '/app', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError || err instanceof Error ? err.message : 'Impossible de continuer avec Google.')

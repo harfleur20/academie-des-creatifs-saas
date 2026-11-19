@@ -143,6 +143,9 @@ export function StudentGuidedWorkspacePage() {
   const gradeAverage = gradeMaximum > 0 ? (gradePoints / gradeMaximum * 20).toFixed(1) : null
   const readerUrl = `/app/student/guided/${enrollmentId}/program`
   const teacherName = workspaceSession?.teacher_name || session?.courses.find((course) => course.teacher_name)?.teacher_name || null
+  const teacherAvatarUrl = workspaceSession?.teacher_avatar_url
+    || session?.courses.find((course) => course.teacher_name === teacherName && course.teacher_avatar_url)?.teacher_avatar_url
+    || null
 
   return <main className="app-page guided-workspace-page">
     {!session && <header className="app-page-header"><div><span className="page-kicker">Parcours guidé</span><h1>Mon parcours</h1></div></header>}
@@ -155,7 +158,7 @@ export function StudentGuidedWorkspacePage() {
           <h1>{session.formation_title}</h1>
           <p>Votre cohorte, les séances, les supports, les quiz et les corrections au même endroit.</p>
           <div className="guided-course-hero__actions"><Link to="/app/student/formations">Retour à mes parcours</Link><button type="button" onClick={() => setSearchParams({ tab: 'program' })}>Voir le programme <ChevronRight size={17} aria-hidden="true" /></button></div>
-          {teacherName && <div className="guided-course-hero__teacher"><span aria-hidden="true">{teacherName.trim().charAt(0)}</span><div><small>Votre enseignant</small><strong>{teacherName}</strong></div></div>}
+          {teacherName && <div className="guided-course-hero__teacher">{teacherAvatarUrl ? <img src={teacherAvatarUrl} alt="" /> : <span aria-hidden="true">{teacherName.trim().charAt(0)}</span>}<div><small>Votre enseignant</small><strong>{teacherName}</strong></div></div>}
         </div>
         <div className="guided-course-hero__media">{workspaceSession?.formation_image ? <img src={workspaceSession.formation_image} alt="" /> : <GraduationCap size={70} aria-hidden="true" />}</div>
       </section>

@@ -1,11 +1,13 @@
 import { activeSchoolLocale } from '../app/schoolLocale'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { BriefcaseBusiness, Copy, Eye, FileText, Globe2, Link2, MailPlus, MapPin, RefreshCw, UserRound, Users, X } from 'lucide-react'
+import { BookOpen, BriefcaseBusiness, CalendarDays, Copy, Eye, FileText, Globe2, Link2, MailPlus, MapPin, PauseCircle, PlayCircle, RefreshCw, UserRound, Users, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { InvitationLink } from '../components/InvitationLink'
-import { ApiError, cancelInvitation, createInvitation, getOnboardingStatus, listInvitations, listMembers, renewInvitation, type Invitation, type Member, type OnboardingStatus } from '../lib/api'
+import { ApiError, cancelInvitation, createInvitation, getOnboardingStatus, listInvitations, listMembers, renewInvitation, updateMember, type Invitation, type Member, type OnboardingStatus } from '../lib/api'
 import { getTeacherProfessionalProfileForAdmin, previewTeacherProfessionalDocument, type TeacherDocumentKind, type TeacherProfessionalProfile } from '../onboarding/workspaceOnboardingApi'
+import { toast } from '../ui/toast'
+import '../management-profiles.css'
 import '../teacher-profile-admin.css'
 
 const FLAG_BASE_URL = 'https://purecatamphetamine.github.io/country-flag-icons/3x2'
@@ -13,6 +15,19 @@ const FLAG_BASE_URL = 'https://purecatamphetamine.github.io/country-flag-icons/3
 function flagImageUrl(code: string | null) {
   if (!code) return null
   return `${FLAG_BASE_URL}/${code.toUpperCase()}.svg`
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return 'Non renseigné'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'Non renseigné' : new Intl.DateTimeFormat(activeSchoolLocale(), { dateStyle: 'long', timeStyle: 'short' }).format(date)
+}
+
+function TeacherAvatar({ teacher, large = false }: { teacher: Member; large?: boolean }) {
+  const initials = teacher.user.full_name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+  return <span className={`management-avatar${large ? ' management-avatar--large' : ''}`}>
+    {teacher.user.avatar_url ? <img src={teacher.user.avatar_url} alt="" /> : <span>{initials || <UserRound size={16} />}</span>}
+  </span>
 }
 
 export function TeachersManagementPage() {
@@ -124,6 +139,25 @@ export function TeachersManagementPage() {
     }
   }
 
+  async function toggleTeacherAccess(teacher: Member) {
+    if (working) return
+    const nextStatus = teacher.status === 'suspended' ? 'active' : 'suspended'
+    setWorking(true)
+    setError('')
+    try {
+      const updated = await updateMember(teacher.id, { status: nextStatus })
+      setMembers((current) => current.map((member) => member.id === updated.id ? updated : member))
+      setSelectedTeacher((current) => current?.id === updated.id ? updated : current)
+      toast.success(nextStatus === 'suspended' ? 'Accès du professeur suspendu pour cette école.' : 'Accès du professeur rétabli.')
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Modification de l’accès impossible.'
+      setError(message)
+      toast.error(message)
+    } finally {
+      setWorking(false)
+    }
+  }
+
   function closeTeacherProfile() {
     setSelectedTeacher(null)
     setTeacherProfile(null)
@@ -143,9 +177,10 @@ export function TeachersManagementPage() {
 
     <section className="teacher-admin-grid">
       {teachers.map((teacher) => <article className="app-card teacher-admin-card teacher-profile-summary-card" key={teacher.id}>
-        <span className="roster-avatar"><UserRound size={16} /></span>
-        <div className="teacher-profile-summary-copy"><h3>{teacher.user.full_name}</h3><p>{teacher.user.email}</p><small>{teacher.status}</small></div>
+        <TeacherAvatar teacher={teacher} />
+        <div className="teacher-profile-summary-copy"><h3>{teacher.user.full_name}</h3><p>{teacher.user.email}</p><small className={teacher.status === 'suspended' ? 'teacher-member-status is-suspended' : 'teacher-member-status'}>{teacher.status === 'suspended' ? 'Accès suspendu' : 'Accès actif'} · Depuis le {new Intl.DateTimeFormat(activeSchoolLocale(), { dateStyle: 'medium' }).format(new Date(teacher.created_at))}</small></div>
         <button className="secondary-button compact-action teacher-profile-open-button" type="button" onClick={() => void openTeacherProfile(teacher)}><Eye size={15} /> Voir la fiche</button>
+        <button className="text-danger-button teacher-access-action" type="button" disabled={working} onClick={() => void toggleTeacherAccess(teacher)}>{teacher.status === 'suspended' ? <><PlayCircle size={15} /> Rétablir</> : <><PauseCircle size={15} /> Suspendre</>}</button>
       </article>)}
       {teachers.length === 0 && <div className="app-card formation-empty"><Users size={26} /><strong>Aucun professeur</strong><p>Invitez votre premier enseignant.</p></div>}
     </section>
@@ -157,16 +192,25 @@ export function TeachersManagementPage() {
         <button className="teacher-profile-close" type="button" aria-label="Fermer" onClick={closeTeacherProfile}><X size={19} /></button>
 
         <header className="teacher-profile-modal-header">
-          <div className="teacher-profile-avatar-large">
-            {teacherProfile?.avatar_url ? <img src={teacherProfile.avatar_url} alt={teacherProfile.full_name} /> : <UserRound size={24} />}
-          </div>
+          <TeacherAvatar teacher={selectedTeacher} large />
           <div>
             <span className="section-label">Fiche enseignant</span>
             <h2>{teacherProfile?.full_name || selectedTeacher.user.full_name}</h2>
             <p>{teacherProfile?.email || selectedTeacher.user.email}</p>
           </div>
-          {teacherProfile && <span className={`teacher-profile-completion ${teacherProfile.is_complete ? 'is-complete' : 'is-incomplete'}`}>{teacherProfile.is_complete ? 'Fiche complète' : 'À compléter'}</span>}
+          <span className={`teacher-profile-completion ${selectedTeacher.status === 'suspended' ? 'is-incomplete' : 'is-complete'}`}>{selectedTeacher.status === 'suspended' ? 'Accès suspendu' : 'Accès actif'}</span>
         </header>
+
+        <section className="teacher-profile-panel teacher-profile-registration-panel">
+          <div className="teacher-profile-panel-title"><CalendarDays size={18} /><div><span>Inscription à l’école</span><strong>{formatDateTime(teacherProfile?.joined_at || selectedTeacher.created_at)}</strong></div></div>
+          <div className="teacher-profile-facts">
+            <div><small>Nom complet</small><strong>{teacherProfile?.full_name || selectedTeacher.user.full_name}</strong></div>
+            <div><small>Email</small><strong>{teacherProfile?.email || selectedTeacher.user.email}</strong></div>
+            <div><small>Téléphone</small><strong>{teacherProfile?.phone || selectedTeacher.user.phone || 'Non renseigné'}</strong></div>
+            <div><small>Compte créé</small><strong>{formatDateTime(teacherProfile?.registered_at || selectedTeacher.user.created_at)}</strong></div>
+            {teacherProfile?.teacher_code && <div><small>Matricule enseignant</small><strong>{teacherProfile.teacher_code}</strong></div>}
+          </div>
+        </section>
 
         {profileLoading && <div className="teacher-profile-loading">Chargement de la fiche…</div>}
         {profileError && <div className="form-error">{profileError}</div>}
@@ -189,7 +233,13 @@ export function TeachersManagementPage() {
               {whatsappFlag && <img src={whatsappFlag} alt="" aria-hidden="true" />}
               <div><small>WhatsApp</small><strong>{teacherProfile.whatsapp_phone || 'Non renseigné'}</strong></div>
             </div>
-            {teacherProfile.teacher_code && <div className="teacher-profile-code"><small>Matricule enseignant</small><strong>{teacherProfile.teacher_code}</strong></div>}
+          </section>
+
+          <section className="teacher-profile-panel teacher-profile-assignment-panel">
+            <div className="teacher-profile-panel-title"><BookOpen size={18} /><div><span>Enseignement</span><strong>Formations et sessions affectées</strong></div></div>
+            {teacherProfile.assigned_sessions.length ? <div className="teacher-assignment-list">{teacherProfile.assigned_sessions.map((assignment, index) => <article key={`${assignment.formation_title}-${assignment.session_label}-${index}`}>
+              <div><strong>{assignment.formation_title}</strong><small>{assignment.session_label} · {new Intl.DateTimeFormat(activeSchoolLocale(), { dateStyle: 'medium' }).format(new Date(`${assignment.start_date}T00:00:00`))} – {new Intl.DateTimeFormat(activeSchoolLocale(), { dateStyle: 'medium' }).format(new Date(`${assignment.end_date}T00:00:00`))}</small><small>{assignment.course_titles.length ? `Cours : ${assignment.course_titles.join(', ')}` : 'Aucun cours attribué individuellement'}</small></div><span>{assignment.role}</span>
+            </article>)}</div> : <p className="teacher-assignment-empty">Aucune session ne lui est affectée pour le moment.</p>}
           </section>
 
           <section className="teacher-profile-panel teacher-profile-documents-panel">
@@ -207,6 +257,10 @@ export function TeachersManagementPage() {
             </div>
           </section>
         </div>}
+        <footer className="teacher-profile-modal-actions">
+          {teacherProfile && <span className={`teacher-profile-completion ${teacherProfile.is_complete ? 'is-complete' : 'is-incomplete'}`}>{teacherProfile.is_complete ? 'Fiche professionnelle complète' : 'Fiche professionnelle à compléter'}</span>}
+          <button className={selectedTeacher.status === 'suspended' ? 'primary-button' : 'text-danger-button'} type="button" disabled={working} onClick={() => void toggleTeacherAccess(selectedTeacher)}>{selectedTeacher.status === 'suspended' ? <><PlayCircle size={16} /> Rétablir l’accès à l’école</> : <><PauseCircle size={16} /> Suspendre l’accès à l’école</>}</button>
+        </footer>
       </section>
     </div>}
   </main>

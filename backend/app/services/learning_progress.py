@@ -258,6 +258,7 @@ def list_student_learning(
                         title=course.title,
                         description=course.description,
                         teacher_name=course.teacher.full_name if course.teacher else None,
+                        teacher_avatar_url=course.teacher.avatar_url if course.teacher else None,
                         chapters=[
                             ChapterReaderRead(
                                 id=chapter.id,
@@ -1202,6 +1203,7 @@ def progress_for_enrollment(
         enrollment_id=enrollment.id,
         session_id=enrollment.session_id,
         formation_title=formation.title,
+        formation_image_url=formation.cover_image_url,
         session_label=session.label,
         completed_lessons=completed_lessons,
         total_lessons=total_lessons,

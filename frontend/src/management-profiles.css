@@ -1,0 +1,459 @@
+.management-avatar {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, var(--school-primary, var(--blue)), var(--school-secondary, var(--green)));
+  font-size: var(--text-small);
+  font-weight: 850;
+}
+
+.management-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  flex: 0 0 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.management-avatar--large {
+  width: 62px;
+  height: 62px;
+  flex-basis: 62px;
+  font-size: var(--text-body);
+}
+
+.managed-student-table {
+  overflow-x: auto;
+}
+
+.managed-student-row {
+  min-width: 1120px;
+  display: grid;
+  grid-template-columns: minmax(210px, 1.6fr) minmax(100px, .7fr) minmax(150px, 1fr) minmax(90px, .7fr) minmax(90px, .7fr) minmax(110px, .7fr) minmax(210px, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-top: 1px solid #eef1f4;
+  font-size: var(--text-small);
+}
+
+.managed-student-row.is-head {
+  border-top: 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.managed-student-row .member-person {
+  min-width: 0;
+}
+
+.managed-student-row .member-person > span:last-child {
+  min-width: 0;
+}
+
+.managed-student-row .member-person strong,
+.managed-student-row .member-person small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-access-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: max-content;
+  max-width: 100%;
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--school-primary, #1f2559) 88%, #132542);
+  background: color-mix(in srgb, var(--school-secondary, #18a7a3) 13%, white);
+  font-size: var(--text-small);
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.student-access-status.active {
+  color: color-mix(in srgb, var(--school-primary, #1f2559) 88%, #132542);
+  background: color-mix(in srgb, var(--school-secondary, #18a7a3) 13%, white);
+}
+
+.student-access-status.suspended,
+.student-access-status.suspended_payment {
+  color: #a43e3e;
+  background: #fff0f0;
+}
+
+.management-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.management-row-actions .text-danger-button,
+.teacher-access-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 8px;
+}
+
+.management-profile-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 27, 48, .5);
+  backdrop-filter: blur(5px);
+}
+
+.management-profile-dialog {
+  position: relative;
+  width: min(880px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid #e1e7ef;
+  border-radius: 24px;
+  background: #f7f9fc;
+  box-shadow: 0 26px 80px rgba(10, 24, 47, .25);
+}
+
+.management-profile-close {
+  position: absolute;
+  top: 17px;
+  right: 17px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e1e7ef;
+  border-radius: 50%;
+  color: #3a4c67;
+  background: #fff;
+  cursor: pointer;
+}
+
+.management-profile-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 16px;
+  padding: 18px 56px 18px 18px;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.management-profile-header h2,
+.management-profile-header p {
+  margin: 0;
+}
+
+.management-profile-header h2 {
+  margin-top: 3px;
+  color: #122541;
+  font-size: var(--text-section-title);
+}
+
+.management-profile-header p {
+  color: var(--muted);
+  font-size: var(--text-secondary);
+}
+
+.management-profile-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.management-profile-facts article {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.management-profile-facts article > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--school-primary, var(--blue));
+}
+
+.management-profile-facts article div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.management-profile-facts small,
+.management-profile-facts strong {
+  display: block;
+}
+
+.management-profile-facts small,
+.management-profile-section-heading > span {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.management-profile-facts strong {
+  color: #203351;
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.management-profile-section {
+  padding: 18px;
+  border-radius: 17px;
+  background: #fff;
+}
+
+.management-profile-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.management-profile-section-heading h3 {
+  margin: 3px 0 0;
+  color: #122541;
+  font-size: var(--text-lead);
+}
+
+.management-enrollment-list {
+  display: grid;
+  gap: 8px;
+}
+
+.management-enrollment-list article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f5f7fb;
+}
+
+.management-enrollment-thumbnail {
+  width: 58px;
+  height: 58px;
+  display: block;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #eef2f8;
+}
+
+.management-enrollment-thumbnail--empty {
+  display: grid;
+  place-items: center;
+  color: var(--school-primary, var(--blue));
+}
+
+.management-enrollment-thumbnail--empty svg {
+  width: 20px;
+  height: 20px;
+}
+
+.management-enrollment-list article > svg {
+  color: var(--school-primary, var(--blue));
+}
+
+.management-enrollment-list article div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.management-enrollment-list article strong,
+.management-enrollment-list article small {
+  overflow-wrap: anywhere;
+}
+
+.management-enrollment-list article small {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.enrollment-status {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--school-primary, #1f2559) 88%, #132542);
+  background: color-mix(in srgb, var(--school-secondary, #18a7a3) 13%, white);
+  font-size: var(--text-small);
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.enrollment-status--cancelled {
+  color: #a43e3e;
+  background: #fff0f0;
+}
+
+.management-profile-empty,
+.teacher-assignment-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.management-profile-footer,
+.teacher-profile-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.management-profile-footer p {
+  margin: 0 auto 0 0;
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.teacher-admin-card.teacher-profile-summary-card {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.teacher-member-status {
+  display: block;
+  color: color-mix(in srgb, var(--school-primary, #1f2559) 88%, #132542) !important;
+}
+
+.teacher-member-status.is-suspended {
+  color: #a43e3e !important;
+}
+
+.teacher-profile-registration-panel {
+  margin-bottom: 16px;
+}
+
+.teacher-profile-assignment-panel {
+  grid-column: 1 / -1;
+}
+
+.teacher-assignment-list {
+  display: grid;
+  gap: 8px;
+}
+
+.teacher-assignment-list article {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f5f7fb;
+}
+
+.teacher-assignment-list article div {
+  display: grid;
+  gap: 3px;
+}
+
+.teacher-assignment-list article small,
+.teacher-assignment-list article span {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.teacher-assignment-list article span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--school-primary, #1f2559) 88%, #132542);
+  background: color-mix(in srgb, var(--school-secondary, #18a7a3) 13%, white);
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .teacher-admin-card.teacher-profile-summary-card {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .teacher-access-action {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 620px) {
+  .management-profile-backdrop {
+    padding: 10px;
+  }
+
+  .management-profile-dialog {
+    max-height: calc(100vh - 20px);
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .management-profile-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 14px 48px 14px 14px;
+  }
+
+  .management-profile-header > .student-access-status {
+    grid-column: 1 / -1;
+  }
+
+  .management-profile-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .management-profile-section-heading,
+  .management-profile-footer,
+  .teacher-profile-modal-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .management-enrollment-list article {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .management-enrollment-thumbnail {
+    width: 48px;
+    height: 48px;
+  }
+
+  .enrollment-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .management-profile-footer button,
+  .teacher-profile-modal-actions button {
+    justify-content: center;
+  }
+
+  .teacher-admin-card.teacher-profile-summary-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .teacher-profile-open-button,
+  .teacher-access-action {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+  }
+}

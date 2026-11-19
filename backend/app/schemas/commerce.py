@@ -390,16 +390,32 @@ class CurrencyTotalsRead(BaseModel):
     outstanding_cents: int
 
 
+class StudentManagementEnrollmentRead(BaseModel):
+    formation_title: str
+    formation_image_url: str | None = None
+    session_label: str
+    start_date: date
+    end_date: date
+    status: str
+    enrolled_at: datetime
+
+
 class StudentManagementRead(BaseModel):
     user_id: int
+    member_id: int | None = None
     full_name: str
     email: str
     phone: str | None
     avatar_url: str | None
     student_code: str
     status: str
+    membership_status: str | None = None
+    registered_at: datetime
+    user_created_at: datetime
+    first_purchase_at: datetime | None = None
     active_enrollments: int
     completed_enrollments: int
+    enrollments: list[StudentManagementEnrollmentRead] = Field(default_factory=list)
     totals_by_currency: list[CurrencyTotalsRead]
     last_purchase_at: datetime | None
 

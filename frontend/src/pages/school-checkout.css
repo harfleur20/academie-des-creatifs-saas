@@ -25,6 +25,7 @@
 .school-checkout-item h2 { margin: 0 0 4px; font-size: var(--site-h3); }
 .school-checkout-item p { margin: 0; color: #748195; font-size: var(--site-tiny); }
 .school-checkout-item > strong { color: var(--school-primary); font-size: var(--site-small); white-space: nowrap; }
+.school-checkout-coupon-pending { margin: 8px 0 0; color: #748195; font-size: var(--site-tiny); }
 
 .school-payment-choice h3 { margin: 0 0 12px; }
 .school-payment-options { display: grid; gap: 10px; }

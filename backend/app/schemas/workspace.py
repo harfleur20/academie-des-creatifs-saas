@@ -40,6 +40,7 @@ class StudentSessionWorkspaceRead(BaseModel):
     start_date: date
     end_date: date
     teacher_name: str | None
+    teacher_avatar_url: str | None = None
     campus_label: str | None
     session_status: str
     enrollment_status: str

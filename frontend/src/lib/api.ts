@@ -49,11 +49,15 @@ export type Member = {
   user_id: number
   role: 'owner' | 'admin' | 'manager' | 'teacher' | 'student'
   status: 'active' | 'suspended'
+  created_at: string
   roles: Array<{ role: 'owner' | 'admin' | 'manager' | 'teacher' | 'student' }>
   user: {
     id: number
     full_name: string
     email: string
+    phone: string | null
+    avatar_url: string | null
+    created_at: string
   }
 }
 
@@ -1606,6 +1610,7 @@ export type StudentWorkspaceSession = {
   start_date: string
   end_date: string
   teacher_name: string | null
+  teacher_avatar_url?: string | null
   campus_label: string | null
   session_status: string
   enrollment_status: string
@@ -2308,6 +2313,7 @@ export type LearningCourse = {
   title: string
   description: string
   teacher_name: string | null
+  teacher_avatar_url?: string | null
   chapters: LearningChapter[]
 }
 
@@ -2505,6 +2511,7 @@ export type StudentProgress = {
   enrollment_id: number
   session_id: number
   formation_title: string
+  formation_image_url: string | null
   session_label: string
   completed_lessons: number
   total_lessons: number
@@ -3162,14 +3169,28 @@ export type SchoolInvoice = {
 
 export type ManagedStudent = {
   user_id: number
+  member_id: number | null
   full_name: string
   email: string
   phone: string | null
   avatar_url: string | null
   student_code: string
   status: string
+  membership_status: 'active' | 'suspended' | null
+  registered_at: string
+  user_created_at: string
+  first_purchase_at: string | null
   active_enrollments: number
   completed_enrollments: number
+  enrollments: Array<{
+    formation_title: string
+    formation_image_url: string | null
+    session_label: string
+    start_date: string
+    end_date: string
+    status: string
+    enrolled_at: string
+  }>
   totals_by_currency: {
     currency: string
     gross_sales_cents: number
