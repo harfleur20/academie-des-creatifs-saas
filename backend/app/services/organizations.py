@@ -1,4 +1,4 @@
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -36,6 +36,11 @@ def _owned_organization_ids(db: Session, user_id: int) -> list[int]:
                 OrganizationMemberRecord.user_id == user_id,
                 OrganizationMemberRecord.status == "active",
                 or_(OrganizationMemberRecord.role == "owner", effective_owner_role),
+                OrganizationMemberRecord.organization_id.in_(
+                    select(OrganizationRecord.id).where(
+                        OrganizationRecord.status != "deletion_pending"
+                    )
+                ),
             )
             .distinct()
         ).all()
@@ -121,7 +126,22 @@ def list_user_organizations(
                 OrganizationMemberRecord.user_id == user.id,
                 OrganizationMemberRecord.status == "active",
                 OrganizationRecord.is_active.is_(True),
-                OrganizationRecord.status == "active",
+                or_(
+                    OrganizationRecord.status == "active",
+                    and_(
+                        OrganizationRecord.status == "deletion_pending",
+                        or_(
+                            OrganizationMemberRecord.role == "owner",
+                            select(OrganizationMemberRoleRecord.id)
+                            .where(
+                                OrganizationMemberRoleRecord.member_id
+                                == OrganizationMemberRecord.id,
+                                OrganizationMemberRoleRecord.role == "owner",
+                            )
+                            .exists(),
+                        ),
+                    ),
+                ),
             )
             .order_by(OrganizationRecord.name)
         ).all()

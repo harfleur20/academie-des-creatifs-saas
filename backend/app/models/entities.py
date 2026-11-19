@@ -87,6 +87,12 @@ class OrganizationRecord(TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(120), unique=True, index=True, nullable=False)
     subdomain: Mapped[str | None] = mapped_column(String(63), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    deletion_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deletion_scheduled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     contact_email: Mapped[str | None] = mapped_column(String(180), nullable=True)
     timezone: Mapped[str] = mapped_column(String(80), nullable=False, default="UTC")

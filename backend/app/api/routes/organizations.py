@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import hmac
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -7,6 +9,7 @@ from app.db.session import get_db
 from app.models.entities import OrganizationMemberRecord, OrganizationPublicSiteRecord, UserRecord
 from app.schemas.organizations import (
     OrganizationCreate,
+    OrganizationDeletionRequest,
     OrganizationCreationCapacityRead,
     OrganizationInvitationAcceptResult,
     OrganizationInvitationCreate,
@@ -57,10 +60,63 @@ from app.services.organizations import (
     get_organization_creation_capacity,
     list_user_organizations,
 )
+from app.services.organization_deletion import (
+    cancel_organization_deletion,
+    purge_expired_organizations,
+    request_organization_deletion,
+)
 from app.services.tenancy import TenantContext, require_organization_roles
 
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
+
+
+@router.post("/current/deletion/request", response_model=OrganizationRead)
+def request_current_organization_deletion(
+    payload: OrganizationDeletionRequest,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    require_organization_roles(tenant, "owner")
+    if tenant.support_mode:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Action indisponible en mode assistance.")
+    if payload.confirmation_name.strip() != tenant.organization.name:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Saisissez le nom exact de l'école pour confirmer.",
+        )
+    return request_organization_deletion(db, tenant.organization)
+
+
+@router.post("/current/deletion/cancel", response_model=OrganizationRead)
+def cancel_current_organization_deletion(
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    require_organization_roles(tenant, "owner")
+    if tenant.support_mode:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Action indisponible en mode assistance.")
+    return cancel_organization_deletion(db, tenant.organization)
+
+
+@router.post("/internal/deletion-lifecycle", include_in_schema=False)
+def run_organization_deletion_lifecycle(
+    db: Session = Depends(get_db),
+    cron_secret: str | None = Header(default=None, alias="X-Billing-Cron-Secret"),
+):
+    if (
+        not settings.billing_cron_secret
+        or not cron_secret
+        or not hmac.compare_digest(settings.billing_cron_secret, cron_secret)
+    ):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Secret cron invalide.")
+    result = purge_expired_organizations(db)
+    if result["failures"]:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail=f"La purge a échoué pour {result['failures']} école(s); un nouvel essai aura lieu au prochain cycle.",
+        )
+    return result
 
 
 @router.get("", response_model=list[OrganizationRead])

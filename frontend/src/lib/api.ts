@@ -25,6 +25,8 @@ export type Organization = {
   slug: string
   subdomain: string | null
   status: string
+  deletion_requested_at: string | null
+  deletion_scheduled_at: string | null
   is_active: boolean
   contact_email: string | null
   timezone: string
@@ -580,6 +582,17 @@ export const updateCurrentOrganization = (payload: {
   request<Organization>('/organizations/current', {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  })
+
+export const requestOrganizationDeletion = (confirmationName: string) =>
+  request<Organization>('/organizations/current/deletion/request', {
+    method: 'POST',
+    body: JSON.stringify({ confirmation_name: confirmationName }),
+  })
+
+export const cancelOrganizationDeletion = () =>
+  request<Organization>('/organizations/current/deletion/cancel', {
+    method: 'POST',
   })
 
 export type WorkspaceSpace = 'manage' | 'teacher' | 'student'

@@ -27,6 +27,7 @@ JOBS = (
     ("Abonnements des écoles", "/api/v1/billing/internal/lifecycle"),
     ("Paiements des étudiants", "/api/v1/commerce/internal/lifecycle"),
     ("Rappels de devoirs", "/api/v1/assignments/internal/reminders"),
+    ("Suppressions d'écoles arrivées à échéance", "/api/v1/organizations/internal/deletion-lifecycle"),
 )
 # The last reminder opens one hour before the deadline: a longer pause could skip it.
 MAX_INTERVAL_MINUTES = 60
@@ -68,7 +69,7 @@ def main() -> int:
         print("BILLING_CRON_SECRET est vide dans backend/.env.", file=sys.stderr)
         return 2
 
-    with httpx.Client(base_url=base_url, timeout=30) as client:
+    with httpx.Client(base_url=base_url, timeout=300) as client:
         if args.every is None:
             return 0 if run_once(client, secret) else 1
         print(f"Tâches lancées toutes les {args.every} min sur {base_url}. Ctrl+C pour arrêter.")

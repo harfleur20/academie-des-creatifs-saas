@@ -60,7 +60,11 @@ def resolve_tenant_context(
     support_mode: bool = False,
 ) -> TenantContext:
     organization = db.get(OrganizationRecord, organization_id)
-    if organization is None or not organization.is_active or organization.status != "active":
+    if (
+        organization is None
+        or not organization.is_active
+        or organization.status not in {"active", "deletion_pending"}
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organisation introuvable.",
@@ -88,6 +92,14 @@ def resolve_tenant_context(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organisation introuvable.",
         )
+
+    if organization.status == "deletion_pending":
+        roles = effective_member_roles(membership)
+        if support_mode or "owner" not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Organisation introuvable.",
+            )
 
     return TenantContext(
         organization=organization,

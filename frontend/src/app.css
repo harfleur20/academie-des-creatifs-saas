@@ -8105,6 +8105,23 @@ button.monitoring-row:focus-visible { outline: 2px solid #1c8480; outline-offset
 .school-identity-panel { display: grid; gap: 30px; }
 .school-identity-panel > div[style*="display: block"] { display: grid !important; gap: 14px; }
 .identity-settings-form { margin: 0; }
+.organization-danger-zone { border-color: #e3b6bb; background: linear-gradient(145deg, #fff 0%, #fff8f8 100%); }
+.organization-danger-zone .settings-section-heading { align-items: center; }
+.organization-danger-zone .settings-section-heading > svg { flex: 0 0 auto; color: #b42332; }
+.organization-danger-zone .section-label { color: #a61b2b; }
+.organization-danger-zone .settings-section-heading h2 { color: #76202b; }
+.organization-deletion-confirmation { display: grid; gap: 8px; margin: 18px 0 14px; color: #526176; font-size: var(--text-small); }
+.organization-deletion-confirmation strong { color: #76202b; }
+.organization-deletion-confirmation input { width: min(100%, 520px); min-height: 44px; padding: 10px 12px; border: 1px solid #cfd7e2; border-radius: 9px; background: white; color: #17233b; font: inherit; }
+.organization-deletion-confirmation input:focus-visible { outline: 3px solid rgba(180, 35, 50, .2); border-color: #b42332; }
+.organization-danger-note { margin: 8px 0 16px; color: #68758a; font-size: var(--text-small); }
+.organization-deletion-pending { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border: 1px solid #e8c7a0; border-radius: 10px; background: #fffaf2; color: #79500d; }
+.organization-deletion-pending > svg { flex: 0 0 auto; margin-top: 2px; }
+.organization-deletion-pending strong { color: #61400a; }
+.organization-deletion-pending p { margin: 4px 0 0; color: #665a45; font-size: var(--text-small); }
+.organization-danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 9px 14px; border: 1px solid #a61b2b; border-radius: 9px; background: #a61b2b; color: white; font: inherit; font-size: var(--text-small); font-weight: 750; cursor: pointer; }
+.organization-danger-button:hover:not(:disabled) { background: #861725; }
+.organization-danger-button:disabled { border-color: #d9b5b8; background: #d9b5b8; cursor: not-allowed; }
 .identity-settings-form .settings-actions { justify-content: flex-end; }
 .identity-settings-form .settings-actions .primary-button { min-width: 210px; }
 .school-site-savebar-label { color: #526176; font-size: var(--text-small); font-weight: 750; }

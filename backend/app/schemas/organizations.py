@@ -42,6 +42,10 @@ class OrganizationUpdate(BaseModel):
     direction_sidebar_collapse_enabled: bool | None = None
 
 
+class OrganizationDeletionRequest(BaseModel):
+    confirmation_name: str = Field(min_length=2, max_length=180)
+
+
 class OrganizationPolicyRead(BaseModel):
     name_change_cooldown_days: int
 
@@ -63,6 +67,8 @@ class OrganizationRead(BaseModel):
     slug: str
     subdomain: str | None
     status: str
+    deletion_requested_at: datetime | None = None
+    deletion_scheduled_at: datetime | None = None
     is_active: bool
     contact_email: str | None
     timezone: str
