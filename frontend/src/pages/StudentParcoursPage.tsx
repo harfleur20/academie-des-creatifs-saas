@@ -9,7 +9,10 @@ import {
   type StudentWorkspace,
 } from '../lib/api'
 
-type Filter = 'all' | 'classic' | 'guided'
+type Format = 'live' | 'presentiel' | 'ligne'
+type Filter = 'all' | Format
+
+const FORMATS: Format[] = ['live', 'presentiel', 'ligne']
 
 const formatLabels = {
   ligne: 'En ligne',
@@ -51,14 +54,12 @@ export function StudentParcoursPage() {
     return () => { cancelled = true }
   }, [activeOrganization?.id])
 
-  const requestedFilter = searchParams.get('filter')
-  const filter: Filter = requestedFilter === 'classic' || requestedFilter === 'guided'
-    ? requestedFilter
-    : 'all'
+  // Older links filtered by mode: "classic" was the online formations.
+  const requestedFilter = searchParams.get('filter') === 'classic' ? 'ligne' : searchParams.get('filter')
+  const filter: Filter = FORMATS.find((format) => format === requestedFilter) ?? 'all'
   const sessions = workspace?.sessions ?? []
-  const visible = sessions.filter((item) => filter === 'all' || item.dashboard_type === filter)
-  const classicCount = sessions.filter((item) => item.dashboard_type === 'classic').length
-  const guidedCount = sessions.length - classicCount
+  const visible = sessions.filter((item) => filter === 'all' || item.format_type === filter)
+  const countOf = (format: Format) => sessions.filter((item) => item.format_type === format).length
 
   return (
     <main className="app-page student-parcours-page">
@@ -71,8 +72,7 @@ export function StudentParcoursPage() {
         <div className="student-parcours-filters" aria-label="Filtrer les parcours">
           {([
             ['all', `Tous (${sessions.length})`],
-            ['classic', `En ligne (${classicCount})`],
-            ['guided', `Guidés (${guidedCount})`],
+            ...FORMATS.map((format) => [format, `${formatLabels[format]} (${countOf(format)})`] as const),
           ] as const).map(([value, label]) => (
             <button key={value} type="button" className={filter === value ? 'is-active' : ''} onClick={() => setSearchParams(value === 'all' ? {} : { filter: value })} aria-pressed={filter === value}>{label}</button>
           ))}
@@ -93,7 +93,7 @@ export function StudentParcoursPage() {
                   <span className="student-parcours-tags__mode">{session.dashboard_type === 'classic' ? 'Autonome' : 'Guidé'}</span>
                 </div>
                 <h2>{session.formation_title}</h2>
-                <p>{session.session_label || 'Session à venir'}</p>
+                <p>{session.format_type === 'ligne' ? 'Accès à vie' : session.session_label || 'Session à venir'}</p>
                 <Link className="student-parcours-card__link" to={`/app/student/${session.dashboard_type}/${session.enrollment_id}`}>
                   {session.dashboard_type === 'classic' ? 'Accéder au parcours' : session.format_type === 'presentiel' ? 'Ouvrir le suivi scolaire' : 'Accéder au parcours guidé'}
                 </Link>

@@ -62,8 +62,8 @@ function sessionStatus(status: string) {
 }
 
 const quickAccessLinks = [
-  { to: '/app/student/formations?filter=classic', label: 'Formations en ligne', icon: BookOpen, tone: 'indigo' },
-  { to: '/app/student/formations?filter=guided', label: 'Parcours guidés', icon: Users, tone: 'sky' },
+  { to: '/app/student/formations?filter=ligne', label: 'Formations en ligne', icon: BookOpen, tone: 'indigo' },
+  { to: '/app/student/formations?filter=live', label: 'Formations live', icon: Users, tone: 'sky' },
   { to: '/app/student/quizzes', label: 'Mes quiz', icon: HelpCircle, tone: 'emerald' },
   { to: '/app/student/results', label: 'Mes résultats', icon: Award, tone: 'amber' },
   { to: '/app/student/payments', label: 'Mes paiements', icon: CreditCard, tone: 'pink' },
@@ -189,7 +189,9 @@ export function StudentDashboardPage() {
   const averageLabel = averageOnTwenty === null
     ? '-/20'
     : `${averageOnTwenty.toFixed(1).replace(/\.0$/, '')}/20`
-  const courseProgress = learning.flatMap((session) => session.courses.map((course) => {
+  // An online formation is kept for life: it is no scheduled session.
+  const scheduledSessions = (workspace?.sessions ?? []).filter((session) => session.format_type !== 'ligne')
+  const courseProgress =learning.flatMap((session) => session.courses.map((course) => {
     const lessons = course.chapters.flatMap((chapter) => chapter.lessons)
     const completed = lessons.filter((lesson) => lesson.completed).length
     return {
@@ -277,10 +279,10 @@ export function StudentDashboardPage() {
               <RoleDashboardCalendar items={scheduleItems} />
             </section>
 
-            {workspace.sessions.length > 0 && <section className="student-overview-panel student-overview-sessions">
+            {scheduledSessions.length > 0 && <section className="student-overview-panel student-overview-sessions">
               <header><div><Video size={19} aria-hidden="true" /><h2>Mes sessions programmées</h2></div></header>
               <div className="student-overview-sessions__list">
-                {workspace.sessions.map((session) => <article className="student-overview-session" key={session.enrollment_id}>
+                {scheduledSessions.map((session) => <article className="student-overview-session" key={session.enrollment_id}>
                   <div className="student-overview-session__content">
                     <span className={`student-overview-session__status student-overview-session__status--${session.session_status}`}>{sessionStatus(session.session_status)}</span>
                     <h3>{session.formation_title}</h3>
