@@ -1,10 +1,12 @@
 import { activeSchoolLocale } from '../app/schoolLocale'
-import type { SchoolCurrencyRates } from './currencyRates'
+import { CFA_PER_EURO, type SchoolCurrencyRates } from './currencyRates'
 
 export function hasSchoolCurrencyRate(fromCurrency: string, toCurrency: string, rates: SchoolCurrencyRates | null) {
   const from = (fromCurrency || 'XAF').toUpperCase()
   const to = (toCurrency || from).toUpperCase()
   if (from === to) return true
+  if ((from === 'XAF' || from === 'XOF') && to === 'EUR') return true
+  if (from === 'EUR' && (to === 'XAF' || to === 'XOF')) return true
   return Boolean(rates && (from === 'XAF' || rates.rates[from]) && (to === 'XAF' || rates.rates[to]))
 }
 
@@ -20,8 +22,13 @@ export function formatSchoolMoney(
 
   let displayedMajor = sourceMajor
   if (source !== target) {
-    const sourceRate = source === 'XAF' ? 1 : rates?.rates[source]
-    const targetRate = target === 'XAF' ? 1 : rates?.rates[target]
+    const ratePerXaf = (currency: string) => {
+      if (currency === 'XAF' || currency === 'XOF') return 1
+      if (currency === 'EUR') return 1 / CFA_PER_EURO
+      return rates?.rates[currency]
+    }
+    const sourceRate = ratePerXaf(source)
+    const targetRate = ratePerXaf(target)
     if (!sourceRate || !targetRate) {
       return formatNativeSchoolMoney(amount, source)
     }

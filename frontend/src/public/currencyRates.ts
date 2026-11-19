@@ -26,9 +26,10 @@ type CachedSchoolCurrencyRates = {
   value: SchoolCurrencyRates
 }
 
-const CACHE_KEY = 'school-currency-rates-v1'
+const CACHE_KEY = 'school-currency-rates-v2'
 const REFRESH_AFTER_MS = 12 * 60 * 60 * 1000
 const MAX_STALE_MS = 7 * 24 * 60 * 60 * 1000
+export const CFA_PER_EURO = 655.957
 
 function readCache(): CachedSchoolCurrencyRates | null {
   try {
@@ -50,19 +51,29 @@ export async function loadSchoolCurrencyRates(): Promise<SchoolCurrencyRates | n
   if (cached && Date.now() - cached.savedAt < REFRESH_AFTER_MS) return cached.value
 
   try {
-    const response = await fetch('https://api.frankfurter.dev/v2/rates?base=XAF', {
+    // Frankfurter is based on European reference rates and does not publish XAF.
+    // Fetch EUR rates, then express each quote as units per XAF using the
+    // official fixed EUR/XAF parity.
+    const response = await fetch('https://api.frankfurter.dev/v2/rates?base=EUR', {
       headers: { Accept: 'application/json' },
     })
     if (!response.ok) throw new Error(`Exchange rate request failed: ${response.status}`)
 
     const rows = await response.json() as Array<{ base: string; quote: string; rate: number; date: string }>
-    const rates = Object.fromEntries(
+    const euroRates = Object.fromEntries(
       rows
-        .filter((row) => row.base === 'XAF' && Number.isFinite(row.rate) && row.rate > 0)
+        .filter((row) => row.base === 'EUR' && Number.isFinite(row.rate) && row.rate > 0)
         .map((row) => [row.quote.toUpperCase(), row.rate]),
     ) as Record<string, number>
+    euroRates.EUR = 1
+    if (!euroRates.USD) throw new Error('The exchange rate response is incomplete.')
+
+    const rates = Object.fromEntries(
+      Object.entries(euroRates).map(([currency, rate]) => [currency, rate / CFA_PER_EURO]),
+    ) as Record<string, number>
     rates.XAF = 1
-    if (!rates.EUR || !rates.USD) throw new Error('The exchange rate response is incomplete.')
+    rates.XOF = 1
+    rates.EUR = 1 / CFA_PER_EURO
 
     const value: SchoolCurrencyRates = {
       base: 'XAF',
