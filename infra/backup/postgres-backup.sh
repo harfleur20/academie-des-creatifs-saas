@@ -8,8 +8,14 @@ BACKUP_DIR="${BACKUP_DIR:-/backups}"
 BACKUP_INTERVAL_SECONDS="${BACKUP_INTERVAL_SECONDS:-86400}"
 BACKUP_RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
 DATABASE="${PGDATABASE:-academie_saas}"
+BACKUP_B2_ENABLED="${BACKUP_B2_ENABLED:-false}"
 
 mkdir -p "$BACKUP_DIR"
+
+if [ "$BACKUP_B2_ENABLED" != "true" ] && [ "$BACKUP_B2_ENABLED" != "false" ]; then
+  echo "BACKUP_B2_ENABLED doit valoir true ou false." >&2
+  exit 1
+fi
 
 create_backup() {
   timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -30,6 +36,9 @@ create_backup() {
   # A dump that pg_restore cannot read is not a backup.
   pg_restore --list "$temporary_path" >/dev/null
   mv "$temporary_path" "$final_path"
+  if [ "$BACKUP_B2_ENABLED" = "true" ]; then
+    sync-b2-backups "$BACKUP_DIR" "$DATABASE" "$BACKUP_RETENTION_DAYS"
+  fi
   date -u +%Y-%m-%dT%H:%M:%SZ > "$BACKUP_DIR/.last-success"
   find "$BACKUP_DIR" -type f -name "$DATABASE-*.dump" -mtime "+$BACKUP_RETENTION_DAYS" -delete
   echo "Sauvegarde PostgreSQL créée : $(basename "$final_path")"

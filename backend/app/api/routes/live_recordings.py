@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
 from app.core.config import settings
+from app.services.object_storage import b2_client
 from app.db.session import get_db
 from app.models.entities import EnrollmentRecord, FormationSessionRecord, LiveRecordingRecord, SessionCourseDayRecord, UserRecord
 from app.services.live_recordings import (
@@ -236,16 +237,13 @@ def stream_live_recording(
         raise HTTPException(403, "Téléchargement non autorisé.")
     disposition = "attachment" if download else "inline"
     filename = f"replay-{recording.id}{Path(recording.storage_key).suffix}"
-    if settings.storage_provider == "r2":
-        if not settings.r2_private_bucket_name:
+    if settings.storage_provider == "b2":
+        if not settings.b2_private_bucket_name:
             raise HTTPException(503, "Stockage privé indisponible.")
         if isinstance(range_header, str) and not re.fullmatch(r"bytes=(?:\d+-\d*|-\d+)", range_header):
             raise HTTPException(416, "Plage de lecture invalide.")
-        import boto3
-        client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url,
-                              aws_access_key_id=settings.r2_access_key_id,
-                              aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
-        params = {"Bucket": settings.r2_private_bucket_name, "Key": recording.storage_key}
+        client = b2_client()
+        params = {"Bucket": settings.b2_private_bucket_name, "Key": recording.storage_key}
         if isinstance(range_header, str):
             params["Range"] = range_header
         try:

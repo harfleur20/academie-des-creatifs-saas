@@ -33,7 +33,7 @@ services:
       # Schools at <name>.academiecreatif.com; other sites' subdomains are reserved.
       SAAS_BASE_DOMAIN: ${SAAS_BASE_DOMAIN:-academiecreatif.com}
       SAAS_CNAME_TARGET: ${SAAS_CNAME_TARGET:-ecoles.academiecreatif.com}
-      SAAS_RESERVED_SUBDOMAINS: ${SAAS_RESERVED_SUBDOMAINS:-coupe,ferrolink}
+      SAAS_RESERVED_SUBDOMAINS: ${SAAS_RESERVED_SUBDOMAINS:-coupe,ferrolink,media}
       DEMO_ORGANIZATION_SLUG: ${DEMO_ORGANIZATION_SLUG:-}
       # Emails.
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-brevo}
@@ -51,14 +51,20 @@ services:
       TARAMONEY_WEBHOOK_SECRET: ${TARAMONEY_WEBHOOK_SECRET:-}
       # Google sign-in (the same id is built into the frontend).
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      # Files: "local" keeps them in the volumes below; "r2" for Cloudflare R2.
-      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
-      R2_ENDPOINT_URL: ${R2_ENDPOINT_URL:-}
-      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-}
-      R2_PRIVATE_BUCKET_NAME: ${R2_PRIVATE_BUCKET_NAME:-}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
-      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
+      # Private files use B2; public media use Cloudinary. "local" is development only.
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-b2}
+      PUBLIC_ASSET_PROVIDER: ${PUBLIC_ASSET_PROVIDER:-cloudinary}
+      B2_ENDPOINT_URL: ${B2_ENDPOINT_URL:-}
+      B2_REGION: ${B2_REGION:-}
+      # Optional legacy public B2 bucket/base URL for old objects only.
+      B2_BUCKET_NAME: ${B2_BUCKET_NAME:-}
+      B2_PRIVATE_BUCKET_NAME: ${B2_PRIVATE_BUCKET_NAME:-}
+      B2_ACCESS_KEY_ID: ${B2_ACCESS_KEY_ID:-}
+      B2_SECRET_ACCESS_KEY: ${B2_SECRET_ACCESS_KEY:-}
+      B2_PUBLIC_BASE_URL: ${B2_PUBLIC_BASE_URL:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
       # Live classes: "jitsi" once infra/live runs (infra/live/README.md), "jaas" otherwise.
       LIVE_PROVIDER: ${LIVE_PROVIDER:-jaas}
       JITSI_DOMAIN: ${JITSI_DOMAIN:-}
@@ -136,6 +142,14 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?}
       BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      # Keep PostgreSQL backups off-server in the SaaS-specific B2 prefix.
+      BACKUP_B2_ENABLED: ${BACKUP_B2_ENABLED:-true}
+      BACKUP_B2_ENDPOINT_URL: ${BACKUP_B2_ENDPOINT_URL:-}
+      BACKUP_B2_REGION: ${BACKUP_B2_REGION:-}
+      BACKUP_B2_BUCKET_NAME: ${BACKUP_B2_BUCKET_NAME:-}
+      BACKUP_B2_ACCESS_KEY_ID: ${BACKUP_B2_ACCESS_KEY_ID:-}
+      BACKUP_B2_SECRET_ACCESS_KEY: ${BACKUP_B2_SECRET_ACCESS_KEY:-}
+      BACKUP_B2_PREFIX: ${BACKUP_B2_PREFIX:-academie-saas/postgres}
     volumes:
       - postgres_backups:/backups
     depends_on:

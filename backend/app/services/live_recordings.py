@@ -22,6 +22,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.services.object_storage import b2_client
 from app.db.session import SessionLocal
 from app.models.entities import (
     EnrollmentRecord,
@@ -189,14 +190,11 @@ def download_jaas_recording(recording_id: int) -> None:
             else:
                 raise ValueError("Format de replay non reconnu")
             key = f"schools/{recording.organization_id}/replays/{recording.id}.{extension}"
-            if settings.storage_provider == "r2":
-                if not settings.r2_configured or not settings.r2_private_bucket_name or settings.r2_private_bucket_name == settings.r2_bucket_name:
-                    raise RuntimeError("Bucket R2 privé requis pour les replays")
-                import boto3
-                client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url,
-                                      aws_access_key_id=settings.r2_access_key_id,
-                                      aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
-                client.upload_file(str(temp_path), settings.r2_private_bucket_name, key,
+            if settings.storage_provider == "b2":
+                if not settings.b2_configured or not settings.b2_private_bucket_name or settings.b2_private_bucket_name == settings.b2_bucket_name:
+                    raise RuntimeError("Bucket B2 privé requis pour les replays")
+                client = b2_client()
+                client.upload_file(str(temp_path), settings.b2_private_bucket_name, key,
                                    ExtraArgs={"ContentType": content_type})
             elif settings.environment != "production":
                 destination = PRIVATE_ROOT / key

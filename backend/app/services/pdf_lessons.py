@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.services.object_storage import b2_client
 from app.models.entities import (
     ChapterRecord, CourseRecord, EnrollmentRecord, LessonPdfAssetRecord,
     LessonPdfProgressRecord, LessonProgressRecord, LessonRecord, QuizAttemptRecord, QuizRecord,
@@ -190,12 +191,11 @@ async def store_pdf_asset(db: Session, tenant: TenantContext, file: UploadFile) 
     except Exception as exc:
         raise HTTPException(422, "Le PDF est invalide ou protégé.") from exc
     key = f"schools/{tenant.organization_id}/lesson-pdfs/{uuid4().hex}.pdf"
-    if settings.storage_provider == "r2":
-        if not settings.r2_configured or not settings.r2_private_bucket_name or settings.r2_private_bucket_name == settings.r2_bucket_name:
-            raise HTTPException(503, "Un bucket R2 privé distinct est requis pour les PDF.")
-        import boto3
-        client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
-        client.put_object(Bucket=settings.r2_private_bucket_name, Key=key, Body=raw, ContentType="application/pdf")
+    if settings.storage_provider == "b2":
+        if not settings.b2_configured or not settings.b2_private_bucket_name or settings.b2_private_bucket_name == settings.b2_bucket_name:
+            raise HTTPException(503, "Un bucket B2 privé distinct est requis pour les PDF.")
+        client = b2_client()
+        client.put_object(Bucket=settings.b2_private_bucket_name, Key=key, Body=raw, ContentType="application/pdf")
     else:
         if settings.environment == "production":
             raise HTTPException(503, "Le stockage local est désactivé en production.")
@@ -219,11 +219,10 @@ async def store_pdf_asset(db: Session, tenant: TenantContext, file: UploadFile) 
 
 def pdf_bytes(db: Session, tenant: TenantContext, lesson_id: int) -> bytes:
     _lesson, _enrollment, asset = _context(db, tenant, lesson_id)
-    if settings.storage_provider == "r2":
-        import boto3
-        client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
+    if settings.storage_provider == "b2":
+        client = b2_client()
         try:
-            return client.get_object(Bucket=settings.r2_private_bucket_name, Key=asset.storage_key)["Body"].read()
+            return client.get_object(Bucket=settings.b2_private_bucket_name, Key=asset.storage_key)["Body"].read()
         except Exception as exc:
             raise HTTPException(503, "Le PDF est indisponible.") from exc
     path = Path(__file__).resolve().parents[2] / "private_uploads" / asset.storage_key

@@ -186,8 +186,8 @@ def test_replay_publication_and_stream_are_scoped_to_enrollment(tmp_path, monkey
             calls.append(kwargs)
             return {"Body": io.BytesIO(b"video-bytes"), "ContentLength": 11, "ContentRange": "bytes 0-10/11"}
 
-    monkeypatch.setattr(settings, "storage_provider", "r2")
-    monkeypatch.setattr(settings, "r2_private_bucket_name", "private-test")
+    monkeypatch.setattr(settings, "storage_provider", "b2")
+    monkeypatch.setattr(settings, "b2_private_bucket_name", "private-test")
     monkeypatch.setattr("boto3.client", lambda *args, **kwargs: FakeS3())
     ranged = routes.stream_live_recording(recording.id, token=token, download=False, range_header="bytes=0-10", db=db)
     assert isinstance(ranged, StreamingResponse)
@@ -245,14 +245,17 @@ def test_production_recording_requires_private_bucket() -> None:
         jaas_recording_enabled=True,
         jaas_webhook_secret="test-only-webhook-secret",
         storage_provider="local",
+        public_asset_provider="cloudinary",
+        cloudinary_cloud_name="test-cloud",
+        cloudinary_api_key="test-key",
+        cloudinary_api_secret="test-secret",
     )
-    with pytest.raises(RuntimeError, match="bucket R2 privé"):
+    with pytest.raises(RuntimeError, match="bucket B2 privé"):
         config.validate_production_security()
-    config.storage_provider = "r2"
-    config.r2_endpoint_url = "https://r2.example.test"
-    config.r2_bucket_name = "public"
-    config.r2_private_bucket_name = "private"
-    config.r2_access_key_id = "test-id"
-    config.r2_secret_access_key = "test-secret"
-    config.r2_public_base_url = "https://cdn.example.test"
+    config.storage_provider = "b2"
+    config.b2_endpoint_url = "https://s3.eu-central-003.backblazeb2.com"
+    config.b2_region = "eu-central-003"
+    config.b2_private_bucket_name = "private"
+    config.b2_access_key_id = "test-id"
+    config.b2_secret_access_key = "test-secret"
     config.validate_production_security()

@@ -1,4 +1,5 @@
 import math
+import logging
 import re
 import struct
 from io import BytesIO
@@ -9,6 +10,9 @@ from mutagen import MutagenError
 from mutagen.mp4 import MP4
 from PIL import Image, UnidentifiedImageError
 from app.core.config import settings
+from app.services.object_storage import b2_client
+
+logger = logging.getLogger(__name__)
 
 ALLOWED={".png":5*1024*1024,".jpg":5*1024*1024,".jpeg":5*1024*1024,".webp":5*1024*1024,".pdf":15*1024*1024,".zip":50*1024*1024,".rar":50*1024*1024,".docx":15*1024*1024,".mp4":50*1024*1024,".webm":50*1024*1024,".mov":50*1024*1024}
 PRESENTATION_VIDEO_MAX_BYTES = 50 * 1024 * 1024
@@ -44,6 +48,52 @@ def _validate_public_asset(ext: str, raw: bytes) -> str:
     return PUBLIC_CONTENT_TYPES[ext]
 
 
+class _NamedBytesIO(BytesIO):
+    def __init__(self, raw: bytes, name: str):
+        super().__init__(raw)
+        self.name = name
+
+
+def _store_public_asset(raw: bytes, key: str, filename: str, resource_type: str) -> str:
+    if settings.public_asset_provider == "cloudinary":
+        if not settings.cloudinary_configured:
+            raise HTTPException(503, "Stockage public Cloudinary non configuré.")
+        import cloudinary
+        from cloudinary import uploader
+
+        cloudinary.config(
+            cloud_name=settings.cloudinary_cloud_name,
+            api_key=settings.cloudinary_api_key,
+            api_secret=settings.cloudinary_api_secret,
+            secure=True,
+        )
+        public_id = key.rsplit(".", 1)[0] if Path(key).suffix else key
+        try:
+            result = uploader.upload(
+                _NamedBytesIO(raw, filename),
+                public_id=public_id,
+                resource_type=resource_type,
+                type="upload",
+                overwrite=False,
+                use_filename=False,
+                unique_filename=False,
+            )
+        except Exception as exc:
+            logger.exception("Échec de l'envoi d'un média public vers Cloudinary")
+            raise HTTPException(502, "Impossible d'envoyer le fichier vers le stockage public.") from exc
+        secure_url = result.get("secure_url")
+        if not secure_url:
+            raise HTTPException(502, "Cloudinary n'a pas renvoyé l'URL du fichier.")
+        return secure_url
+
+    if settings.environment == "production":
+        raise HTTPException(503, "Le stockage public Cloudinary est requis en production.")
+    destination = Path(__file__).resolve().parents[2] / "uploads" / key
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(raw)
+    return f"{settings.backend_public_url}/uploads/{key}"
+
+
 async def store_submission_asset(file: UploadFile, organization_id: int, user_id: int):
     name = Path(file.filename or "file").name
     ext = Path(name).suffix.lower()
@@ -54,12 +104,11 @@ async def store_submission_asset(file: UploadFile, organization_id: int, user_id
         raise HTTPException(413, "Fichier trop volumineux.")
     filename = f"{uuid4().hex}{ext}"
     key = f"schools/{organization_id}/assignments/{user_id}/{filename}"
-    if settings.storage_provider == "r2":
-        if not settings.r2_configured or not settings.r2_private_bucket_name or settings.r2_private_bucket_name == settings.r2_bucket_name:
-            raise HTTPException(503, "Un bucket R2 privé distinct est requis pour les devoirs.")
-        import boto3
-        client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
-        client.put_object(Bucket=settings.r2_private_bucket_name, Key=key, Body=raw, ContentType=file.content_type or "application/octet-stream")
+    if settings.storage_provider == "b2":
+        if not settings.b2_configured or not settings.b2_private_bucket_name or settings.b2_private_bucket_name == settings.b2_bucket_name:
+            raise HTTPException(503, "Un bucket B2 privé distinct est requis pour les devoirs.")
+        client = b2_client()
+        client.put_object(Bucket=settings.b2_private_bucket_name, Key=key, Body=raw, ContentType=file.content_type or "application/octet-stream")
     else:
         if settings.environment == "production":
             raise HTTPException(503, "Le stockage local est désactivé en production.")
@@ -80,12 +129,11 @@ def validate_submission_asset(url: str, organization_id: int, user_id: int) -> N
     if not url.startswith(prefix) or not re.fullmatch(r"[a-f0-9]{32}\.[a-z0-9]+", filename) or Path(filename).suffix not in ALLOWED:
         raise HTTPException(422, "Utilisez un fichier téléversé pour cette remise.")
     key = f"schools/{organization_id}/assignments/{user_id}/{filename}"
-    if settings.storage_provider == "r2":
-        import boto3
+    if settings.storage_provider == "b2":
         from botocore.exceptions import ClientError
-        client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
+        client = b2_client()
         try:
-            client.head_object(Bucket=settings.r2_private_bucket_name, Key=key)
+            client.head_object(Bucket=settings.b2_private_bucket_name, Key=key)
         except ClientError as exc:
             raise HTTPException(422, "Fichier de remise introuvable.") from exc
     elif not (Path(__file__).resolve().parents[2] / "private_uploads" / key).is_file():
@@ -99,12 +147,11 @@ async def store_assignment_asset(file:UploadFile,organization_id:int):
     if len(raw)>ALLOWED[ext]: raise HTTPException(413,"Fichier trop volumineux.")
     filename = f"{uuid4().hex}{ext}"
     key=f"schools/{organization_id}/resources/{filename}"
-    if settings.storage_provider=="r2":
-        if not settings.r2_configured or not settings.r2_private_bucket_name or settings.r2_private_bucket_name == settings.r2_bucket_name:
-            raise HTTPException(503,"Un bucket R2 privé distinct est requis pour les ressources.")
-        import boto3
-        client=boto3.client("s3",endpoint_url=settings.r2_endpoint_url,aws_access_key_id=settings.r2_access_key_id,aws_secret_access_key=settings.r2_secret_access_key,region_name="auto")
-        client.put_object(Bucket=settings.r2_private_bucket_name,Key=key,Body=raw,ContentType=file.content_type or "application/octet-stream")
+    if settings.storage_provider=="b2":
+        if not settings.b2_configured or not settings.b2_private_bucket_name or settings.b2_private_bucket_name == settings.b2_bucket_name:
+            raise HTTPException(503,"Un bucket B2 privé distinct est requis pour les ressources.")
+        client=b2_client()
+        client.put_object(Bucket=settings.b2_private_bucket_name,Key=key,Body=raw,ContentType=file.content_type or "application/octet-stream")
     else:
         if settings.environment=="production": raise HTTPException(503,"Le stockage local est désactivé en production.")
         root=Path(__file__).resolve().parents[2]/"private_uploads"; dest=root/key; dest.parent.mkdir(parents=True,exist_ok=True); dest.write_bytes(raw)
@@ -130,32 +177,7 @@ async def store_profile_avatar(file: UploadFile, user_id: int):
     content_type = _validate_public_asset(ext, raw)
 
     key = f"users/{user_id}/avatar-{uuid4().hex}{ext}"
-    if settings.storage_provider == "r2":
-        if not settings.r2_configured:
-            raise HTTPException(503, "Stockage R2 non configuré.")
-        import boto3
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.r2_endpoint_url,
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-            region_name="auto",
-        )
-        client.put_object(
-            Bucket=settings.r2_bucket_name,
-            Key=key,
-            Body=raw,
-            ContentType=content_type,
-        )
-        url = f"{settings.r2_public_base_url.rstrip('/')}/{key}"
-    else:
-        if settings.environment == "production":
-            raise HTTPException(503, "Le stockage local est désactivé en production.")
-        root = Path(__file__).resolve().parents[2] / "uploads"
-        destination = root / key
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(raw)
-        url = f"{settings.backend_public_url}/uploads/{key}"
+    url = _store_public_asset(raw, key, name, "image")
 
     return {
         "filename": name,
@@ -174,42 +196,17 @@ async def store_school_asset(file: UploadFile, organization_id: int):
         ".jpg": 5 * 1024 * 1024,
         ".jpeg": 5 * 1024 * 1024,
         ".webp": 5 * 1024 * 1024,
-        ".pdf": 15 * 1024 * 1024,
+        # Cloudinary Free supports public PDFs up to 10 MB; private course PDFs keep their 15 MB limit.
+        ".pdf": 10 * 1024 * 1024,
     }
     if ext not in limits:
         raise HTTPException(415, "Format non autorisé.")
     raw = await file.read(limits[ext] + 1)
     if len(raw) > limits[ext]:
-        raise HTTPException(413, "Fichier trop volumineux.")
+        raise HTTPException(413, "Le PDF public ne doit pas dépasser 10 Mo." if ext == ".pdf" else "Fichier trop volumineux.")
     content_type = _validate_public_asset(ext, raw)
     key = f"schools/{organization_id}/brand/{uuid4().hex}{ext}"
-    if settings.storage_provider == "r2":
-        if not settings.r2_configured:
-            raise HTTPException(503, "Stockage R2 non configuré.")
-        import boto3
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.r2_endpoint_url,
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-            region_name="auto",
-        )
-        client.put_object(
-            Bucket=settings.r2_bucket_name,
-            Key=key,
-            Body=raw,
-            ContentType=content_type,
-            ContentDisposition="attachment" if ext == ".pdf" else "inline",
-        )
-        url = f"{settings.r2_public_base_url.rstrip('/')}/{key}"
-    else:
-        if settings.environment == "production":
-            raise HTTPException(503, "Le stockage local est désactivé en production.")
-        root = Path(__file__).resolve().parents[2] / "uploads"
-        destination = root / key
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(raw)
-        url = f"{settings.backend_public_url}/uploads/{key}"
+    url = _store_public_asset(raw, key, name, "image")
     return {
         "filename": name,
         "public_url": url,
@@ -238,32 +235,7 @@ async def store_formation_video_asset(file: UploadFile, organization_id: int):
 
     filename = f"{uuid4().hex}.mp4"
     key = f"schools/{organization_id}/presentations/{filename}"
-    if settings.storage_provider == "r2":
-        if not settings.r2_configured:
-            raise HTTPException(503, "Stockage R2 non configuré.")
-        import boto3
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.r2_endpoint_url,
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-            region_name="auto",
-        )
-        client.put_object(
-            Bucket=settings.r2_bucket_name,
-            Key=key,
-            Body=raw,
-            ContentType="video/mp4",
-            ContentDisposition="inline",
-        )
-        url = f"{settings.r2_public_base_url.rstrip('/')}/{key}"
-    else:
-        if settings.environment == "production":
-            raise HTTPException(503, "Le stockage local est désactivé en production.")
-        destination = Path(__file__).resolve().parents[2] / "uploads" / key
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(raw)
-        url = f"{settings.backend_public_url}/uploads/{key}"
+    url = _store_public_asset(raw, key, name, "video")
 
     return {
         "filename": name,
@@ -279,15 +251,25 @@ PRESENTATION_VIDEO_NAME = re.compile(r"[0-9a-f]{32}\.mp4")
 
 
 def presentation_video_location(url: str | None, organization_id: int) -> tuple[str, str] | None:
-    """Where a presentation video this school uploaded here is stored: ("r2" or "local", key).
+    """Where a presentation video this school uploaded here is stored: (provider, object key).
 
     None for any other address: a formation only shows a video imported from its page.
     """
     if not url:
         return None
+    cloudinary_prefix = f"{settings.cloudinary_public_base_url}/video/upload/"
+    if settings.cloudinary_public_base_url and url.startswith(cloudinary_prefix):
+        delivered_path = url.removeprefix(cloudinary_prefix).split("?", 1)[0]
+        delivered_path = re.sub(r"^v[0-9]+/", "", delivered_path)
+        public_id = delivered_path.rsplit(".", 1)[0]
+        expected_prefix = f"schools/{organization_id}/presentations/"
+        filename = public_id.removeprefix(expected_prefix)
+        if public_id.startswith(expected_prefix) and re.fullmatch(r"[0-9a-f]{32}", filename):
+            return "cloudinary", public_id
+
     bases = [("local", f"{settings.backend_public_url.rstrip('/')}/uploads")]
-    if settings.r2_public_base_url:
-        bases.append(("r2", settings.r2_public_base_url.rstrip("/")))
+    if settings.b2_public_base_url:
+        bases.append(("b2", settings.b2_public_base_url.rstrip("/")))
     for storage, base in bases:
         prefix = f"{base}/schools/{organization_id}/presentations/"
         if url.startswith(prefix) and PRESENTATION_VIDEO_NAME.fullmatch(url[len(prefix):]):
@@ -300,17 +282,23 @@ def delete_presentation_video(location: tuple[str, str]) -> None:
     only leaves a file behind."""
     storage, key = location
     try:
-        if storage == "r2":
-            if not settings.r2_configured:
+        if storage == "cloudinary":
+            if not settings.cloudinary_configured:
                 return
-            import boto3
-            boto3.client(
-                "s3",
-                endpoint_url=settings.r2_endpoint_url,
-                aws_access_key_id=settings.r2_access_key_id,
-                aws_secret_access_key=settings.r2_secret_access_key,
-                region_name="auto",
-            ).delete_object(Bucket=settings.r2_bucket_name, Key=key)
+            import cloudinary
+            from cloudinary import uploader
+
+            cloudinary.config(
+                cloud_name=settings.cloudinary_cloud_name,
+                api_key=settings.cloudinary_api_key,
+                api_secret=settings.cloudinary_api_secret,
+                secure=True,
+            )
+            uploader.destroy(key, resource_type="video", type="upload", invalidate=True)
+        elif storage == "b2":
+            if not settings.b2_configured:
+                return
+            b2_client().delete_object(Bucket=settings.b2_bucket_name, Key=key)
         else:
             path = (UPLOADS_ROOT / key).resolve()
             path.relative_to(UPLOADS_ROOT.resolve())
@@ -332,32 +320,7 @@ async def store_class_discussion_image(
         raise HTTPException(413, "L'image ne doit pas dépasser 5 Mo.")
     content_type = _validate_public_asset(ext, raw)
     key = f"schools/{organization_id}/discussion/{session_id}/{uuid4().hex}{ext}"
-    if settings.storage_provider == "r2":
-        if not settings.r2_configured:
-            raise HTTPException(503, "Stockage R2 non configuré.")
-        import boto3
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.r2_endpoint_url,
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-            region_name="auto",
-        )
-        client.put_object(
-            Bucket=settings.r2_bucket_name,
-            Key=key,
-            Body=raw,
-            ContentType=content_type,
-            ContentDisposition="inline",
-        )
-        url = f"{settings.r2_public_base_url.rstrip('/')}/{key}"
-    else:
-        if settings.environment == "production":
-            raise HTTPException(503, "Le stockage local est désactivé en production.")
-        destination = Path(__file__).resolve().parents[2] / "uploads" / key
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(raw)
-        url = f"{settings.backend_public_url}/uploads/{key}"
+    url = _store_public_asset(raw, key, name, "image")
     return {
         "filename": name,
         "public_url": url,

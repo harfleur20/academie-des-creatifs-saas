@@ -22,7 +22,7 @@ Les services existants fournissent déjà une grande partie du moteur métier :
 - notifications ;
 - emails ;
 - WhatsApp / Wapino ;
-- stockage Cloudinary / R2 ;
+- stockage des fichiers privés sur Backblaze B2 et des médias publics sur Cloudinary ;
 - optimisation des images ;
 - paiements Tara ;
 - échéanciers ;

@@ -140,7 +140,7 @@ En production, le backend refuse de démarrer si le secret fait moins de 32 cara
 
 ## Replays (plus tard)
 
-L'enregistrement passera par Jibri : un enregistreur par cours enregistré en même temps, soit environ 2 vCPU et 4 Go chacun. La vidéo sera envoyée sur le stockage privé R2. Il pourra s'ajouter sans toucher au reste de cette installation. Avec `LIVE_PROVIDER=jitsi`, le bouton d'enregistrement est désactivé dans les jetons.
+L'enregistrement passera par Jibri : un enregistreur par cours enregistré en même temps, soit environ 2 vCPU et 4 Go chacun. La vidéo sera envoyée sur le stockage privé B2. Il pourra s'ajouter sans toucher au reste de cette installation. Avec `LIVE_PROVIDER=jitsi`, le bouton d'enregistrement est désactivé dans les jetons.
 
 ## Sources
 

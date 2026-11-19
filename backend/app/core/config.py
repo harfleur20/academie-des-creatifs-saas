@@ -168,13 +168,20 @@ class Settings:
     )
     # Built frontend (frontend/dist) served by the backend itself, as one origin per school domain.
     frontend_dist_dir: str = os.getenv("FRONTEND_DIST_DIR", "").strip()
+    # Private teaching files and recordings use B2; public assets use Cloudinary.
     storage_provider: str = os.getenv("STORAGE_PROVIDER", "local").strip().lower()
-    r2_endpoint_url: str = os.getenv("R2_ENDPOINT_URL", "").rstrip("/")
-    r2_bucket_name: str = os.getenv("R2_BUCKET_NAME", "").strip()
-    r2_private_bucket_name: str = os.getenv("R2_PRIVATE_BUCKET_NAME", "").strip()
-    r2_access_key_id: str = os.getenv("R2_ACCESS_KEY_ID", "").strip()
-    r2_secret_access_key: str = os.getenv("R2_SECRET_ACCESS_KEY", "").strip()
-    r2_public_base_url: str = os.getenv("R2_PUBLIC_BASE_URL", "").rstrip("/")
+    public_asset_provider: str = os.getenv("PUBLIC_ASSET_PROVIDER", "local").strip().lower()
+    b2_endpoint_url: str = os.getenv("B2_ENDPOINT_URL", "").rstrip("/")
+    b2_region: str = os.getenv("B2_REGION", "").strip()
+    # Optional legacy public B2 bucket/base URL, kept only to read or migrate older objects.
+    b2_bucket_name: str = os.getenv("B2_BUCKET_NAME", "").strip()
+    b2_private_bucket_name: str = os.getenv("B2_PRIVATE_BUCKET_NAME", "").strip()
+    b2_access_key_id: str = os.getenv("B2_ACCESS_KEY_ID", "").strip()
+    b2_secret_access_key: str = os.getenv("B2_SECRET_ACCESS_KEY", "").strip()
+    b2_public_base_url: str = os.getenv("B2_PUBLIC_BASE_URL", "").rstrip("/")
+    cloudinary_cloud_name: str = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
+    cloudinary_api_key: str = os.getenv("CLOUDINARY_API_KEY", "").strip()
+    cloudinary_api_secret: str = os.getenv("CLOUDINARY_API_SECRET", "").strip()
     # "jaas" (Jitsi hosted by 8x8) or "jitsi" (self-hosted Jitsi, see infra/live).
     live_provider: str = os.getenv("LIVE_PROVIDER", "jaas").strip().lower()
     jitsi_domain: str = os.getenv("JITSI_DOMAIN", "").strip().removeprefix("https://").rstrip("/")
@@ -196,8 +203,24 @@ class Settings:
     live_replay_download_enabled: bool = _env_bool("LIVE_REPLAY_DOWNLOAD_ENABLED", True)
 
     @property
-    def r2_configured(self) -> bool:
-        return bool(self.r2_endpoint_url and self.r2_bucket_name and self.r2_access_key_id and self.r2_secret_access_key and self.r2_public_base_url)
+    def b2_configured(self) -> bool:
+        return bool(
+            self.b2_endpoint_url.startswith("https://")
+            and self.b2_region
+            and self.b2_private_bucket_name
+            and self.b2_access_key_id
+            and self.b2_secret_access_key
+        )
+
+    @property
+    def cloudinary_configured(self) -> bool:
+        return bool(self.cloudinary_cloud_name and self.cloudinary_api_key and self.cloudinary_api_secret)
+
+    @property
+    def cloudinary_public_base_url(self) -> str:
+        if not self.cloudinary_cloud_name:
+            return ""
+        return f"https://res.cloudinary.com/{self.cloudinary_cloud_name}"
 
     organization_name_change_cooldown_days: int = max(
         1,
@@ -221,6 +244,19 @@ class Settings:
         )
 
     def validate_production_security(self) -> None:
+        if self.storage_provider not in {"local", "b2"}:
+            raise RuntimeError("STORAGE_PROVIDER doit valoir local ou b2.")
+        if self.public_asset_provider not in {"local", "cloudinary"}:
+            raise RuntimeError("PUBLIC_ASSET_PROVIDER doit valoir local ou cloudinary.")
+        if self.environment == "production" and (
+            self.storage_provider != "b2"
+            or not self.b2_configured
+            or self.public_asset_provider != "cloudinary"
+            or not self.cloudinary_configured
+        ):
+            raise RuntimeError(
+                "La production exige un bucket B2 privé configuré et Cloudinary pour les médias publics."
+            )
         if self.environment == "production" and (
             len(self.jwt_secret_key.strip()) < 32
             or self.jwt_secret_key == "academie-saas-development-secret-change-me"
@@ -242,12 +278,10 @@ class Settings:
             )):
                 raise RuntimeError("Les replays JaaS exigent une configuration JaaS complète et JAAS_WEBHOOK_SECRET en production.")
             if (
-                self.storage_provider != "r2"
-                or not self.r2_configured
-                or not self.r2_private_bucket_name
-                or self.r2_private_bucket_name == self.r2_bucket_name
+                self.storage_provider != "b2"
+                or not self.b2_configured
             ):
-                raise RuntimeError("Les replays JaaS exigent un bucket R2 privé distinct en production.")
+                raise RuntimeError("Les replays JaaS exigent un bucket B2 privé configuré en production.")
 
 
 settings = Settings()

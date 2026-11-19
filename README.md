@@ -17,7 +17,7 @@ Permettre à une école, un centre de formation, un formateur ou un organisme de
 - Email : Brevo
 - WhatsApp : Wapino
 - Live : Jitsi auto-hébergé (`infra/live`) ou JaaS
-- Stockage : Cloudinary / Cloudflare R2
+- Stockage public : Cloudinary ; fichiers privés et sauvegardes PostgreSQL : Backblaze B2
 
 ## Lancer le projet en local
 
@@ -135,7 +135,7 @@ npm run build
 
 Après la mise à jour, appliquez les migrations depuis `backend` avec `alembic upgrade head`. En production, définissez un `JWT_SECRET_KEY` unique d'au moins 32 caractères. Les notifications TaraMoney doivent être signées avec `TARAMONEY_WEBHOOK_SECRET` ou porter le secret dans l'en-tête configuré par `TARAMONEY_WEBHOOK_SECRET_HEADER` ; un `businessId` dans le corps ne suffit plus.
 
-Pour les remises de devoirs sur R2, configurez `R2_PRIVATE_BUCKET_NAME` avec un bucket **distinct et non public**. Les nouveaux fichiers sont servis uniquement par l'API après vérification du compte et de l'école. Pour déplacer les anciennes remises publiques, exécutez depuis `backend` :
+En production, les médias publics (avatars, visuels d'école, images et vidéos de présentation) sont stockés sur Cloudinary. Les PDFs publics sont limités à 10 Mo avec le plan Free ; activez leur livraison dans les réglages de sécurité Cloudinary. Les remises, ressources de cours, PDFs privés et replays sont stockés dans `B2_PRIVATE_BUCKET_NAME`, un bucket B2 privé. L'API les sert uniquement après vérification du compte et de l'école. Pour déplacer d'anciennes remises depuis un bucket B2 public, renseignez temporairement `B2_BUCKET_NAME`, puis exécutez depuis `backend` :
 
 ```bash
 python -m scripts.migrate_legacy_submissions
@@ -144,7 +144,7 @@ python -m scripts.migrate_legacy_submissions --apply
 
 La première commande affiche un aperçu. La seconde copie les fichiers, met à jour les URLs des remises et supprime les anciennes copies publiques. Si un CDN a mis ces objets en cache, purgez aussi ce cache. Configurez le routage `/api/v1` sur chaque domaine public d'école afin que la connexion et le retour de paiement utilisent la même origine que le site.
 
-Les nouveaux supports téléversés par les professeurs utilisent aussi ce bucket privé et sont téléchargés via l'API selon l'affectation à la session ou l'inscription de l'étudiant. Les anciens supports restent lisibles par cette API, mais les objets déjà présents dans le bucket public R2 doivent encore être déplacés ou supprimés du bucket public pour rendre leur accès réellement privé.
+Les nouveaux supports téléversés par les professeurs utilisent aussi ce bucket privé et sont téléchargés via l'API selon l'affectation à la session ou l'inscription de l'étudiant. Les anciennes remises et ressources restées dans un bucket B2 public doivent être migrées avant de supprimer ce bucket. Les sauvegardes PostgreSQL sont envoyées séparément sur B2 avec une clé d'application dédiée.
 
 Une commande sans premier paiement confirmé réserve sa place pendant `COMMERCE_RESERVATION_MINUTES` (30 minutes par défaut). Après expiration, la place est libérée. Un paiement TaraMoney confirmé ultérieurement passe au statut `payment_review` sans créer d'inscription ; l'école doit vérifier la transaction et décider de la suite, notamment d'un remboursement si la place a été revendue.
 

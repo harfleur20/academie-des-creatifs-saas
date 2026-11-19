@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.api.dependencies import get_tenant_context
 from app.core.config import settings
+from app.services.object_storage import b2_client
 from app.db.session import get_db
 from app.models.entities import AssignmentRecord, AssignmentSubmissionRecord, EnrollmentRecord, ResourceRecord, SessionTeacherRecord
 from app.schemas.assignments import *
@@ -97,13 +98,12 @@ def download_resource_asset(
     key = f"schools/{tenant.organization_id}/{'assignments' if legacy else 'resources'}/{filename}"
     content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     headers = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": f'attachment; filename="{filename}"'}
-    if settings.storage_provider == "r2":
-        import boto3
+    if settings.storage_provider == "b2":
         from botocore.exceptions import ClientError
-        bucket = settings.r2_bucket_name if legacy else settings.r2_private_bucket_name
+        bucket = settings.b2_bucket_name if legacy else settings.b2_private_bucket_name
         if not bucket:
             raise HTTPException(503, "Stockage indisponible.")
-        client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
+        client = b2_client()
         try:
             body = client.get_object(Bucket=bucket, Key=key)["Body"]
         except ClientError as exc:
@@ -152,14 +152,13 @@ def download_submission_asset(
     key = f"schools/{tenant.organization_id}/assignments/{uploader_id}/{filename}"
     content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     headers = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": f'attachment; filename="{filename}"'}
-    if settings.storage_provider == "r2":
-        if not settings.r2_private_bucket_name:
+    if settings.storage_provider == "b2":
+        if not settings.b2_private_bucket_name:
             raise HTTPException(503, "Stockage privé indisponible.")
-        import boto3
         from botocore.exceptions import ClientError
-        client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
+        client = b2_client()
         try:
-            body = client.get_object(Bucket=settings.r2_private_bucket_name, Key=key)["Body"]
+            body = client.get_object(Bucket=settings.b2_private_bucket_name, Key=key)["Body"]
         except ClientError as exc:
             raise HTTPException(404, "Fichier introuvable.") from exc
         return StreamingResponse(body.iter_chunks(), media_type=content_type, headers=headers)
@@ -195,12 +194,11 @@ def download_legacy_submission(
     key = f"schools/{tenant.organization_id}/assignments/{filename}"
     content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     headers = {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Disposition": f'attachment; filename="{filename}"'}
-    if settings.storage_provider == "r2":
-        import boto3
+    if settings.storage_provider == "b2":
         from botocore.exceptions import ClientError
-        client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
+        client = b2_client()
         body = None
-        for bucket in (settings.r2_private_bucket_name, settings.r2_bucket_name):
+        for bucket in (settings.b2_private_bucket_name, settings.b2_bucket_name):
             if not bucket:
                 continue
             try:

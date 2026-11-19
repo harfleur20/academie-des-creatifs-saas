@@ -67,8 +67,12 @@ def _safe_asset_bytes(url: str | None) -> bytes | None:
             return path.read_bytes()
         return None
 
-    r2 = settings.r2_public_base_url.rstrip("/")
-    if r2 and url.startswith(r2 + "/"):
+    public_base_urls = [
+        base.rstrip("/")
+        for base in (settings.b2_public_base_url, settings.cloudinary_public_base_url)
+        if base
+    ]
+    if any(url.startswith(base + "/") for base in public_base_urls):
         try:
             response = httpx.get(url, timeout=5.0, follow_redirects=False)
             if response.status_code < 400 and len(response.content) <= 5 * 1024 * 1024:

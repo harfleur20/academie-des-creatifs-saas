@@ -84,7 +84,7 @@ L'école accepte l'option avant d'ajouter un professeur au-delà de son quota ; 
 
 ## Ce qui reste à construire
 
-1. **Replays** : Jibri sur une machine séparée (une instance par enregistrement simultané, environ 8 Go de mémoire), stockage Cloudflare R2 (lecture gratuite), quota d'heures et date de suppression. Chaque replay reste disponible jusqu'à la fin de sa session plus les jours du forfait ; l'école est prévenue 7 jours avant et peut télécharger la vidéo. La transcription, elle, est gardée. La partie école (publication, lecture protégée, téléchargement) existe déjà dans `live_recordings.py`.
+1. **Replays** : Jibri sur une machine séparée (une instance par enregistrement simultané, environ 8 Go de mémoire), stockage privé Backblaze B2, quota d'heures et date de suppression. Chaque replay reste disponible jusqu'à la fin de sa session plus les jours du forfait ; l'école est prévenue 7 jours avant et peut télécharger la vidéo. La transcription, elle, est gardée. La partie école (publication, lecture protégée, téléchargement) existe déjà dans `live_recordings.py`.
 2. **Transcription** des replays, à la minute chez un prestataire externe (à indiquer dans les conditions).
 3. **Statistiques avancées** : élèves à risque, parcours d'achat du site, comparaison des sessions et des professeurs, exports Excel, rapport mensuel au directeur.
 4. **Passerelle de paiement** autour de 3 %, avant le lancement.

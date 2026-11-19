@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_tenant_context
 from app.core.config import settings
+from app.services.object_storage import b2_client
 from app.db.session import get_db
 from app.models.entities import OrganizationTeacherProfileRecord, UserRecord
 from app.models.teacher_onboarding import (
@@ -337,20 +338,13 @@ async def upload_teacher_professional_document(
         raise HTTPException(status_code=415, detail="Le fichier fourni n’est pas un PDF valide.")
 
     key = f"schools/{tenant.organization_id}/teacher-profiles/{tenant.user.id}/{document_kind}-{uuid4().hex}.pdf"
-    if settings.storage_provider == "r2":
-        if not settings.r2_configured or not settings.r2_private_bucket_name:
-            raise HTTPException(status_code=503, detail="Stockage privé R2 non configuré.")
-        import boto3
+    if settings.storage_provider == "b2":
+        if not settings.b2_configured or not settings.b2_private_bucket_name:
+            raise HTTPException(status_code=503, detail="Stockage privé B2 non configuré.")
 
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.r2_endpoint_url,
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-            region_name="auto",
-        )
+        client = b2_client()
         client.put_object(
-            Bucket=settings.r2_private_bucket_name,
+            Bucket=settings.b2_private_bucket_name,
             Key=key,
             Body=raw,
             ContentType="application/pdf",
@@ -390,20 +384,13 @@ def preview_teacher_professional_document(
         raise HTTPException(status_code=404, detail="Ce document n’a pas été importé.")
 
     headers = {"Content-Disposition": "inline"}
-    if settings.storage_provider == "r2":
-        if not settings.r2_configured or not settings.r2_private_bucket_name:
-            raise HTTPException(status_code=503, detail="Stockage privé R2 non configuré.")
-        import boto3
+    if settings.storage_provider == "b2":
+        if not settings.b2_configured or not settings.b2_private_bucket_name:
+            raise HTTPException(status_code=503, detail="Stockage privé B2 non configuré.")
 
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.r2_endpoint_url,
-            aws_access_key_id=settings.r2_access_key_id,
-            aws_secret_access_key=settings.r2_secret_access_key,
-            region_name="auto",
-        )
+        client = b2_client()
         try:
-            stored = client.get_object(Bucket=settings.r2_private_bucket_name, Key=key)
+            stored = client.get_object(Bucket=settings.b2_private_bucket_name, Key=key)
         except Exception as exc:
             raise HTTPException(status_code=404, detail="Document introuvable dans le stockage.") from exc
         return Response(content=stored["Body"].read(), media_type="application/pdf", headers=headers)

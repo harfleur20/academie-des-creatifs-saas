@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.services.object_storage import b2_client
 from app.db.session import SessionLocal
 from app.models.entities import AssignmentSubmissionRecord
 
@@ -26,12 +27,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="move files and update the database")
     args = parser.parse_args()
-    if settings.storage_provider == "r2" and (
-        not settings.r2_configured
-        or not settings.r2_private_bucket_name
-        or settings.r2_private_bucket_name == settings.r2_bucket_name
+    if settings.storage_provider == "b2" and (
+        not settings.b2_configured
+        or not settings.b2_bucket_name
+        or not settings.b2_private_bucket_name
+        or settings.b2_private_bucket_name == settings.b2_bucket_name
     ):
-        parser.error("R2_PRIVATE_BUCKET_NAME must name a separate private bucket")
+        parser.error("Set B2_BUCKET_NAME to the legacy source bucket and B2_PRIVATE_BUCKET_NAME to a distinct private target bucket")
 
     db = SessionLocal()
     try:
@@ -54,17 +56,16 @@ def main() -> None:
 
         root = Path(__file__).resolve().parents[1]
         client = None
-        if settings.storage_provider == "r2":
-            import boto3
+        if settings.storage_provider == "b2":
             from botocore.exceptions import ClientError
-            client = boto3.client("s3", endpoint_url=settings.r2_endpoint_url, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name="auto")
+            client = b2_client()
 
         for (org_id, filename), submissions in groups.items():
             key = f"schools/{org_id}/assignments/{filename}"
             if client:
-                source = client.head_object(Bucket=settings.r2_bucket_name, Key=key)
-                client.copy_object(Bucket=settings.r2_private_bucket_name, Key=key, CopySource={"Bucket": settings.r2_bucket_name, "Key": key})
-                target = client.head_object(Bucket=settings.r2_private_bucket_name, Key=key)
+                source = client.head_object(Bucket=settings.b2_bucket_name, Key=key)
+                client.copy_object(Bucket=settings.b2_private_bucket_name, Key=key, CopySource={"Bucket": settings.b2_bucket_name, "Key": key})
+                target = client.head_object(Bucket=settings.b2_private_bucket_name, Key=key)
                 if source["ContentLength"] != target["ContentLength"]:
                     raise RuntimeError(f"Copy size differs for {key}")
             else:
@@ -81,7 +82,7 @@ def main() -> None:
                 row.file_url = f"{settings.backend_public_url}{settings.api_prefix}/assignments/legacy-submissions/{filename}"
             db.commit()
             if client:
-                client.delete_object(Bucket=settings.r2_bucket_name, Key=key)
+                client.delete_object(Bucket=settings.b2_bucket_name, Key=key)
             else:
                 source_path.unlink()
             migrated.add((org_id, filename))
@@ -92,12 +93,12 @@ def main() -> None:
             key = f"schools/{org_id}/assignments/{filename}"
             if client:
                 try:
-                    client.head_object(Bucket=settings.r2_private_bucket_name, Key=key)
+                    client.head_object(Bucket=settings.b2_private_bucket_name, Key=key)
                 except ClientError as exc:
                     if exc.response.get("Error", {}).get("Code") in {"404", "NoSuchKey"}:
                         raise RuntimeError(f"Private copy missing for {key}") from exc
                     raise
-                client.delete_object(Bucket=settings.r2_bucket_name, Key=key)
+                client.delete_object(Bucket=settings.b2_bucket_name, Key=key)
             else:
                 source_path = root / "uploads" / key
                 if (root / "private_uploads" / key).is_file():

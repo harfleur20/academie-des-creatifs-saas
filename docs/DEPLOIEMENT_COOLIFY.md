@@ -11,7 +11,7 @@ Le SaaS se déploie comme le site mère : **une seule ressource Coolify en Docke
 | `www.academiecreatif.com` | Le site mère | Inchangé |
 | `live.` et `turn.academiecreatif.com` | Classes live et relais TURN | `infra/live` |
 
-L'école choisit son sous-domaine dans sa mise en route. Le backend la retrouve à partir de l'adresse demandée (`SAAS_BASE_DOMAIN`). Un seul niveau est accepté : `ecole.academiecreatif.com`, pas `a.b.academiecreatif.com`. Les noms `www`, `api`, `app`, `admin`, `ecoles`, `live`, `turn` et quelques autres sont réservés. `SAAS_RESERVED_SUBDOMAINS` réserve en plus les sous-domaines des autres sites du serveur : `coupe` et `ferrolink` par défaut.
+L'école choisit son sous-domaine dans sa mise en route. Le backend la retrouve à partir de l'adresse demandée (`SAAS_BASE_DOMAIN`). Un seul niveau est accepté : `ecole.academiecreatif.com`, pas `a.b.academiecreatif.com`. Les noms `www`, `api`, `app`, `admin`, `ecoles`, `live`, `turn` et quelques autres sont réservés. `SAAS_RESERVED_SUBDOMAINS` réserve en plus les sous-domaines des autres sites du serveur : `coupe`, `ferrolink` et `media` par défaut.
 
 La route générique a la priorité la plus basse de Traefik : `www`, `coupe`, `ferrolink`, `live`, `ecoles` et toute autre route explicite passent toujours avant elle.
 
@@ -86,7 +86,7 @@ Le fichier contient trois services :
 |---|---|
 | `app` | L'image du `Dockerfile` : l'API et le frontend compilé, port 8000. Les migrations passent avant le démarrage. Les volumes `uploads` et `private_uploads` gardent les fichiers téléversés tant que `STORAGE_PROVIDER=local`. |
 | `saas-db` | PostgreSQL 16. Base `academie_saas`, utilisateur `saas`. Aucun port publié. |
-| `backup` | Une sauvegarde par jour, vérifiée, gardée 14 jours ([infra/backup](../infra/backup)). Voir la section 5. |
+| `backup` | Une sauvegarde PostgreSQL par jour, vérifiée en local puis copiée dans Backblaze B2 ([infra/backup](../infra/backup)). Voir la section 5. |
 
 Les plafonds de ressources sont dans le fichier : 1 Go et 1 CPU pour `app`, 768 Mo pour la base, 256 Mo pour la sauvegarde. Le serveur est partagé avec le site mère et le live.
 
@@ -108,7 +108,7 @@ Coolify affiche les variables du fichier. Le déploiement s'arrête si l'une de 
 
 Gardez ces valeurs dans un gestionnaire de mots de passe. Changer `POSTGRES_PASSWORD` après le premier lancement ne change pas le mot de passe de la base, déjà créée : l'application ne s'y connecterait plus.
 
-Déjà réglées dans le fichier, à changer seulement si besoin : `APP_ENV=production`, `AUTH_COOKIE_SECURE=true`, `SAAS_BASE_DOMAIN=academiecreatif.com`, `SAAS_CNAME_TARGET=ecoles.academiecreatif.com`, `SAAS_RESERVED_SUBDOMAINS=coupe,ferrolink`.
+Déjà réglées dans le fichier, à changer seulement si besoin : `APP_ENV=production`, `AUTH_COOKIE_SECURE=true`, `SAAS_BASE_DOMAIN=academiecreatif.com`, `SAAS_CNAME_TARGET=ecoles.academiecreatif.com`, `SAAS_RESERVED_SUBDOMAINS=coupe,ferrolink,media`.
 
 `DEMO_ORGANIZATION_SLUG` est facultatif : `studio-kora`, l'école montrée en lecture seule par « Voir la démo », créée par `python scripts/create_demo_school.py` ([DEMO.md](DEMO.md)).
 
@@ -120,7 +120,9 @@ Selon ce que vous testez :
 - **Emails :** `BREVO_API_KEY`, `SMTP_FROM` (adresse d'expédition validée dans Brevo), `SMTP_FROM_NAME`, `SUPPORT_EMAIL`.
 - **Paiements :** les variables `TARAMONEY_*`. Le mode démo est refusé en production.
 - **Connexion Google :** `GOOGLE_CLIENT_ID`. Le fichier le passe aussi au build du frontend : redéployez après l'avoir changé.
-- **Stockage R2 :** `STORAGE_PROVIDER=r2` et les variables `R2_*`, au lieu des volumes.
+- **Médias publics sur Cloudinary :** créez un compte Cloudinary et renseignez `PUBLIC_ASSET_PROVIDER=cloudinary`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` et `CLOUDINARY_API_SECRET` dans Coolify. Gardez la clé secrète uniquement côté serveur. Les PDFs publics sont limités à 10 Mo avec le plan Free ; dans les réglages Security de Cloudinary, activez **Allow delivery of PDF and ZIP files** pour pouvoir les afficher. Les images et vidéos de présentation publiques passent aussi par Cloudinary.
+- **Fichiers privés sur Backblaze B2 :** `STORAGE_PROVIDER=b2`. Créez un bucket B2 privé réservé aux remises, ressources, PDF de cours et replays, puis une clé d'application limitée à ce seul bucket avec lecture, écriture et suppression. Renseignez `B2_ENDPOINT_URL` (endpoint S3 de la région du bucket), `B2_REGION`, `B2_PRIVATE_BUCKET_NAME`, `B2_ACCESS_KEY_ID` et `B2_SECRET_ACCESS_KEY`. Aucun bucket B2 public n'est nécessaire. `B2_BUCKET_NAME` et `B2_PUBLIC_BASE_URL` sont facultatifs et ne servent qu'à la migration ou à la lecture d'anciens fichiers publics B2. Gardez une clé distincte pour les sauvegardes PostgreSQL. L'application refuse de démarrer en production si B2 privé ou Cloudinary n'est pas configuré.
+- **Sauvegardes PostgreSQL sur Backblaze B2 :** `BACKUP_B2_ENABLED` vaut `true` par défaut. Configurez dans Coolify `BACKUP_B2_ENDPOINT_URL` (endpoint S3 de la région du bucket), `BACKUP_B2_REGION`, `BACKUP_B2_BUCKET_NAME`, `BACKUP_B2_ACCESS_KEY_ID` et `BACKUP_B2_SECRET_ACCESS_KEY` (ID et clé d'application B2). Le préfixe par défaut `academie-saas/postgres` isole ces dumps dans un bucket partagé. La clé B2 doit pouvoir lister, lire, écrire et supprimer les objets de ce préfixe afin d'appliquer la rétention. `BACKUP_RETENTION_DAYS` s'applique aux copies locales et distantes.
 
 ## 4. Premier lancement
 
@@ -136,9 +138,9 @@ Selon ce que vous testez :
 
 ## 5. Sauvegardes et restauration
 
-Le conteneur `backup` fait une copie au démarrage, puis toutes les 24 h (`BACKUP_INTERVAL_SECONDS`), dans le volume `postgres_backups`. Chaque copie est relue par `pg_restore` avant d'être gardée, et les copies de plus de 14 jours sont effacées (`BACKUP_RETENTION_DAYS`). Si aucune copie n'a réussi depuis 26 h, le conteneur passe en « unhealthy » dans Coolify.
+Le conteneur `backup` fait une copie au démarrage, puis toutes les 24 h (`BACKUP_INTERVAL_SECONDS`), dans le volume `postgres_backups`. Chaque dump est relu par `pg_restore`, envoyé sur Backblaze B2 via son API S3 compatible, puis vérifié par sa taille avant que la sauvegarde soit marquée comme réussie. Les copies de plus de 14 jours sont effacées localement et sur B2 (`BACKUP_RETENTION_DAYS`). Si B2 est inaccessible ou qu'aucune sauvegarde distante n'a réussi depuis 26 h, le conteneur passe en « unhealthy » dans Coolify.
 
-- **Voir les copies :** Terminal, conteneur `backup`, `ls -lh /backups`.
+- **Voir les copies locales :** Terminal, conteneur `backup`, `ls -lh /backups`. Les copies distantes se trouvent dans le bucket B2, sous `academie-saas/postgres`.
 - **Restaurer :** arrêtez d'abord le conteneur `app` en SSH (`docker stop` suivi de son nom, donné par `docker ps`). Puis, dans le Terminal du conteneur `backup` :
 
   ```bash
@@ -146,7 +148,7 @@ Le conteneur `backup` fait une copie au démarrage, puis toutes les 24 h (`BACKU
   ```
 
   Redémarrez ensuite la ressource dans Coolify.
-- **Limites :** les copies restent sur le même serveur. Elles protègent d'une erreur, pas de la perte du serveur : prévoyez une copie ailleurs (R2). Les fichiers téléversés (`uploads`, `private_uploads`) n'en font pas partie : en production, préférez `STORAGE_PROVIDER=r2`.
+- **Restauration après perte du serveur :** téléchargez le dump choisi depuis le bucket B2 des sauvegardes dans `/backups`, puis utilisez la même commande `restore-postgres` ci-dessus. Les fichiers téléversés résident dans Cloudinary (médias publics) et le bucket privé B2 (fichiers privés) ; ils ne sont pas inclus dans le dump PostgreSQL.
 
 ## 6. Vérifications
 
