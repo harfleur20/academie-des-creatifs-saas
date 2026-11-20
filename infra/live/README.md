@@ -107,7 +107,7 @@ En production, le backend refuse de démarrer si le secret fait moins de 32 cara
 1. **Ouverture :** ouvrez une séance live comme professeur. La salle s'ouvre et vous êtes modérateur (vous pouvez couper le micro d'un participant).
 2. **Rôle étudiant :** rejoignez-la comme étudiant dans un autre navigateur. L'étudiant n'est pas modérateur, même s'il entre avant le professeur.
 3. **Sans jeton :** `https://live.votre-domaine/une-salle` doit refuser l'accès.
-4. **Bande passante :** pendant un cours, l'API de statistiques du relais donne le nombre de participants et le débit. Elle n'est joignable que depuis le serveur du relais : `curl -s http://127.0.0.1:8080/colibri/stats` (port 18080 sur un serveur Coolify).
+4. **Bande passante :** pendant un cours, les statistiques du relais donnent le nombre de participants et le débit. Elles ne sont joignables que depuis le serveur du relais : `curl -s http://127.0.0.1:8080/metrics | grep -E '^jitsi_jvb_(current_endpoints|conferences)'` (port 18080 sur un serveur Coolify). La version figée n'a plus `/colibri/stats` : `/metrics` (format Prometheus) et `/debug/stats` le remplacent.
 5. **Relais TURN :** sur le serveur, créez un accès de test valable une heure :
 
    ```bash

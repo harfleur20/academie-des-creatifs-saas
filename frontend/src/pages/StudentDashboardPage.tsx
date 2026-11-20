@@ -43,6 +43,7 @@ import { RoleSchoolVisual } from '../components/RoleSchoolVisual'
 import { RoleQuickAccess } from '../components/RoleQuickAccess'
 import { badgeRingPercent, StudentLevelBadge } from '../components/StudentLevelBadge'
 import { StudentRecentMessagesFeed } from '../components/StudentRecentMessagesFeed'
+import { LiveJoinButton } from '../components/LiveJoinButton'
 
 function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Étudiant'
@@ -146,6 +147,9 @@ export function StudentDashboardPage() {
           durationMinutes: day.duration_minutes,
           href: `/app/student/sessions/${plan.session_id}`,
           status: day.status === 'planned' ? 'Planifié' : day.status,
+          live: plan.format_type === 'live'
+            ? { day, href: `/app/student/live/${day.id}`, enabled: plan.live_enabled, responsible: false }
+            : undefined,
         }))
     ))
   ), [planning])
@@ -264,7 +268,9 @@ export function StudentDashboardPage() {
                       })}
                     </p>
                   </div>
-                  <Link className="dashboard-text-link" to={nextCourse.href}>Voir la séance <ChevronRight size={15} aria-hidden="true" /></Link>
+                  {nextCourse.live
+                    ? <LiveJoinButton day={nextCourse.live.day} href={nextCourse.live.href} enabled={nextCourse.live.enabled} responsible={nextCourse.live.responsible} primary />
+                    : <Link className="dashboard-text-link" to={nextCourse.href}>Voir la séance <ChevronRight size={15} aria-hidden="true" /></Link>}
                 </div>
               ) : (
                 <div className="role-next-course is-empty">

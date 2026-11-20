@@ -19,9 +19,10 @@ import {
   type SessionPlanning,
   type CourseDayFeedbackReview,
 } from '../lib/api'
-import { liveClassIsOpen } from '../lib/liveWindow'
 import { formatDuration } from '../lib/formatDuration'
 import { LiveRecordingsPanel } from '../components/LiveRecordingsPanel'
+import { LiveJoinButton, LiveStateLabel } from '../components/LiveJoinButton'
+import { useAuth } from '../auth/AuthContext'
 
 function toLocalInput(value: string) {
   const date = new Date(value)
@@ -31,6 +32,7 @@ function toLocalInput(value: string) {
 
 export function TeacherSessionPlanningPage() {
   const { sessionId } = useParams()
+  const { user } = useAuth()
   const id = Number(sessionId)
   const [planning, setPlanning] = useState<SessionPlanning | null>(null)
   const [title, setTitle] = useState('')
@@ -296,7 +298,9 @@ export function TeacherSessionPlanningPage() {
                 </div>
                 <div className="planning-day-main">
                   <div>
-                    <span className="section-label">{day.status === 'cancelled' ? 'Annulée' : day.report_submitted_at ? 'Clôturée' : day.started_at ? 'Démarrée' : 'Planifiée'}</span>
+                    {planning.format_type === 'live'
+                      ? <LiveStateLabel day={day} className="section-label" />
+                      : <span className="section-label">{day.status === 'cancelled' ? 'Annulée' : day.report_submitted_at ? 'Clôturée' : day.started_at ? 'Démarrée' : 'Planifiée'}</span>}
                     <h3>{day.title}</h3>
                   </div>
                   <div className="planning-day-meta">
@@ -304,8 +308,8 @@ export function TeacherSessionPlanningPage() {
                     <span><UserRound size={14} /> {day.teacher_name || 'Professeur non disponible'}</span>
                   </div>
                 </div>
-                {planning.format_type === 'live' && day.status !== 'cancelled' && !day.report_submitted_at && (
-                  !planning.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link className="secondary-button" to={`/app/teacher/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>
+                {planning.format_type === 'live' && (
+                  <LiveJoinButton day={day} href={`/app/teacher/live/${day.id}`} enabled={planning.live_enabled} responsible={day.teacher_id === user?.id} />
                 )}
                 {day.report_submitted_at && <small>Rapport remis · {day.delivery_status === 'held' ? 'Séance tenue' : day.delivery_status === 'partial' ? 'Séance partielle' : day.delivery_status === 'not_held' ? 'Séance non tenue' : 'Séance interrompue'}</small>}
                 {day.report_submitted_at && (day.report_summary || day.report_difficulties || day.report_homework || day.report_attendance_notes) && <div className="planning-day-report">

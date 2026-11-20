@@ -1,0 +1,19 @@
+.live-join-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* Until the room opens: the countdown, greyed. */
+.live-join-button.is-waiting,
+.live-join-button.is-over {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.live-join-note {
+  color: #64748b;
+}

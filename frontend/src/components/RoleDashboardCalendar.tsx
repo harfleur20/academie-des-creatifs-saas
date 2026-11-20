@@ -2,6 +2,8 @@ import { activeSchoolLocale } from '../app/schoolLocale'
 import { useMemo, useState } from 'react'
 import { CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { LiveStateLabel } from './LiveJoinButton'
+import type { LiveDay } from '../lib/liveWindow'
 
 export type RoleScheduleItem = {
   id: string
@@ -11,6 +13,8 @@ export type RoleScheduleItem = {
   durationMinutes: number
   href: string
   status?: string
+  /** A live class: its state by the clock, and the next one's button. */
+  live?: { day: LiveDay; href: string; enabled: boolean; responsible: boolean }
 }
 
 function dateKey(value: Date) {
@@ -172,7 +176,7 @@ export function RoleDashboardCalendar({
                     </b>
                     {' · '}
                     {item.detail}
-                    {item.status ? ` · ${item.status}` : ''}
+                    {item.live ? <> · <LiveStateLabel day={item.live.day} /></> : item.status ? ` · ${item.status}` : ''}
                   </p>
                 </div>
                 <Link className="dashboard-text-link" to={item.href}>Voir la séance <ChevronRight size={14} aria-hidden="true" /></Link>

@@ -5,8 +5,8 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTenant } from '../app/TenantContext'
 import { ApiError, ATTENDANCE_LABELS, getSessionPlanning, getStudentWorkspace, listPublicSchoolFormations, listStudentAssignments, listStudentAttendance, listStudentGrades, listStudentLearning, listStudentProgress, listStudentQuizzes, listStudentResources, submitCourseDayFeedback,
   type AcademicResource, type CourseDay, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz, type StudentWorkspaceSession } from '../lib/api'
-import { liveClassIsOpen } from '../lib/liveWindow'
 import { formatDuration } from '../lib/formatDuration'
+import { LiveJoinButton, LiveStateLabel } from '../components/LiveJoinButton'
 
 type Tab = 'overview' | 'program' | 'calendar' | 'schedule' | 'assignments' | 'quizzes' | 'resources' | 'results'
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -186,8 +186,8 @@ export function StudentGuidedWorkspacePage() {
                 : `${day.delivery_status === 'partial' ? 'Séance partielle · ' : ''}${ATTENDANCE_LABELS[presence?.status ?? 'absent']}`
           return <div className="guided-list-row" key={day.id}>
             <strong>{day.title}</strong><span>{dateLabel(day.scheduled_at)} · {formatDuration(day.duration_minutes)}</span><small>{presenceLabel}</small>
-            {session.format_type === 'live' && day.started_at && !day.report_submitted_at && <small>Cours démarré</small>}
-            {session.format_type === 'live' && !day.report_submitted_at && (!planning?.live_enabled ? <small>Service live en cours de configuration.</small> : liveClassIsOpen(day) ? <Link to={`/app/student/live/${day.id}`}>Rejoindre la classe live</Link> : <small>La salle ouvre 15 minutes avant la séance.</small>)}
+            {session.format_type === 'live' && !day.report_submitted_at && <LiveStateLabel day={day} />}
+            {session.format_type === 'live' && <LiveJoinButton day={day} href={`/app/student/live/${day.id}`} enabled={Boolean(planning?.live_enabled)} />}
             {day.feedback_count > 0 && <small>{day.feedback_count} avis · note moyenne {day.average_rating}/5</small>}
             {day.my_feedback && <small>Votre avis : {day.my_feedback.rating}/5 · {day.my_feedback.delivery_status === 'held' ? 'tenue' : day.my_feedback.delivery_status === 'partial' ? 'partielle' : 'non tenue'}</small>}
             {Date.now() >= new Date(day.scheduled_at).getTime() + day.duration_minutes * 60_000 && <button className="secondary-button" type="button" onClick={() => {
@@ -236,7 +236,7 @@ export function StudentGuidedWorkspacePage() {
                           <strong>{day.title}</strong>
                           <small>{formatDuration(day.duration_minutes)} · {session.format_type === 'presentiel' ? 'Présentiel' : session.format_type === 'live' ? 'En direct' : 'En ligne'}</small>
                           <small>Prof. {day.teacher_name || 'À confirmer'}</small>
-                          {session.format_type === 'live' && planning?.live_enabled && liveClassIsOpen(day) && <Link to={`/app/student/live/${day.id}`}>Rejoindre</Link>}
+                          {session.format_type === 'live' && <LiveJoinButton day={day} href={`/app/student/live/${day.id}`} enabled={Boolean(planning?.live_enabled)} />}
                         </article>
                       ))}
                       {entries.length === 0 && <p className="guided-week-empty">Aucun cours</p>}

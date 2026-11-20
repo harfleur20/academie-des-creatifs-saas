@@ -3,6 +3,7 @@ import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from 
 import { Hand, LogOut, Mic, MicOff, Video, VideoOff, X } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { toast } from '../ui/toast'
 import {
   ApiError, answerLiveRollCall, fetchLiveRoomInfo, heartbeatLiveClass, joinLiveClass, leaveLiveClass, startLiveClass,
   startLiveRollCall, submitCourseDayReport, type LiveDevice, type LiveRollCall, type LiveRoom, type LiveRoomInfo,
@@ -127,6 +128,25 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     return () => window.clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    if (entered || !info || info.started_at) return
+    const id = info.course_day_id
+    const timer = window.setInterval(() => {
+      fetchLiveRoomInfo(id).then((loaded) => { setInfo(loaded); setEndsBy(loaded.ends_by ?? null) }).catch(() => undefined)
+    }, 15_000)
+    return () => window.clearInterval(timer)
+  }, [entered, info?.course_day_id, info?.started_at]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // As on the mother site, the class starts when its teacher enters: at once once the time has
+  // come, or at the planned time when they came in early.
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!entered || !info?.responsible_teacher || info.started_at || autoStarted.current) return
+    if (nowMs < Date.parse(info.starts_at)) return
+    autoStarted.current = true
+    void startCourse()
+  }, [entered, info, nowMs]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // The room mounts once the welcome card has handed over a token.
   useEffect(() => {
     const room = joinedRoom.current
@@ -143,7 +163,6 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
         startWithAudioMuted: !withAudio,
         startWithVideoMuted: !withVideo,
         toolbarButtons: toolbar,
-        disablePolls: !room.moderator,
         disableInviteFunctions: true,
         disableDeepLinking: true,
         readOnlyName: true,
@@ -198,6 +217,32 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     else setError('Ce cours en live est terminé : sa salle est fermée.')
   }, [entered, endsBy, nowMs]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const warnedEnd = useRef(false)
+  const warnedClosing = useRef(false)
+  useEffect(() => {
+    if (!entered || !info) return
+    const closesAt = Date.parse(info.closes_at)
+    const endsAt = Date.parse(info.ends_at)
+    const closing = new Date(closesAt).toLocaleTimeString(activeSchoolLocale(), { hour: '2-digit', minute: '2-digit' })
+    if (info.responsible_teacher && !warnedEnd.current && nowMs >= endsAt && nowMs < closesAt) {
+      warnedEnd.current = true
+      toast.info(`L'heure de fin prévue est atteinte : terminez le cours quand vous êtes prêt. La salle fermera à ${closing}.`, { duration: 15_000 })
+    }
+    if (!warnedClosing.current && closesAt - nowMs <= END_WARNING_MS && nowMs < closesAt) {
+      warnedClosing.current = true
+      toast.warning(info.responsible_teacher
+        ? `La salle fermera à ${closing} : pensez à terminer le cours et à remplir le compte rendu.`
+        : `La salle fermera à ${closing}.`, { duration: 15_000 })
+    }
+    if (nowMs >= closesAt) {
+      meeting.current?.dispose()
+      meeting.current = null
+      setEntered(false)
+      if (info.responsible_teacher) setEndOpen(true)
+      else setError('Ce cours en live est terminé : sa salle est fermée.')
+    }
+  }, [entered, info, nowMs]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // The teacher sees the answers come in while the roll call is open.
   useEffect(() => {
     const courseDay = joinedRoom.current?.course_day_id
@@ -208,8 +253,9 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     return () => window.clearInterval(interval)
   }, [entered, rollCall?.open, rollCall?.answers_count === null]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const endsByMs = endsBy ? Date.parse(endsBy) : Number.NaN
-  const endingSoon = entered && !Number.isNaN(endsByMs) && endsByMs - nowMs <= END_WARNING_MS && endsByMs > nowMs
+  // The room's closing time: 15 minutes after the planned end, or earlier with the plan's limit.
+  const roomClosesMs = info ? Date.parse(info.closes_at) : Number.NaN
+  const endingSoon = entered && !Number.isNaN(roomClosesMs) && roomClosesMs - nowMs <= END_WARNING_MS && roomClosesMs > nowMs
 
   if (error) {
     return <div className="live-room live-room--error">
@@ -223,7 +269,6 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
   const startsMs = info ? Date.parse(info.starts_at) : Number.NaN
   const endsMs = info ? Date.parse(info.ends_at) : Number.NaN
   const phase = !info ? 'loading' : entered ? 'live' : nowMs < opensMs ? 'waiting' : nowMs > closesMs ? 'closed' : 'welcome'
-  const canStart = Boolean(info?.responsible_teacher && !info.started_at && nowMs >= startsMs)
   const canEnd = Boolean(info?.responsible_teacher && (info.started_at || nowMs >= endsMs))
   const accent = { '--live-accent': info?.school_primary_color || '#2dd4bf' } as CSSProperties
   const welcomeBackground = info?.formation_image_url
@@ -235,6 +280,12 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     setJoining(true)
     setJoinError('')
     try {
+      if (info.responsible_teacher && !info.started_at && Date.now() >= Date.parse(info.starts_at)) {
+        const started = await startLiveClass(info.course_day_id)
+        autoStarted.current = true
+        setInfo({ ...info, started_at: started.started_at, closes_at: started.closes_at ?? info.closes_at })
+        setEndsBy(started.ends_by ?? null)
+      }
       const room = await joinLiveClass(info.course_day_id, device.current)
       await loadJitsiScript(room.external_api_url)
       if (!window.JitsiMeetExternalAPI) throw new Error('Le lecteur de classe live est indisponible.')
@@ -329,16 +380,15 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
         </> : <span className="live-room__loading">Connexion en cours…</span>}
       </div>
       <div className="live-room__bar-actions">
-        {endingSoon && <span className="live-room__roll-call-status" role="status">Fin du cours dans {formatWait(endsByMs - nowMs)}</span>}
+        {endingSoon && <span className="live-room__roll-call-status" role="status">La salle ferme dans {formatWait(roomClosesMs - nowMs)}</span>}
         {phase === 'live' && info?.responsible_teacher && info.started_at && (rollCall?.open
           ? <span className="live-room__roll-call-status" role="status">Appel en cours · {rollCall.answers_count ?? 0} réponse(s) · {formatWait(Date.parse(rollCall.closes_at) - nowMs)}</span>
           : <>
             {rollCall && <span className="live-room__roll-call-status">Dernier appel : {rollCall.answers_count ?? 0} réponse(s)</span>}
             <button type="button" className="live-room__end" disabled={rollCallBusy} onClick={() => void callRoll()}><Hand size={14} aria-hidden="true" /> Faire l'appel</button>
           </>)}
-        {canStart && <button type="button" className="live-room__end" disabled={starting} onClick={() => void startCourse()}>
-          {starting ? 'Démarrage…' : 'Démarrer le cours'}
-        </button>}
+        {phase === 'live' && starting && <span className="live-room__roll-call-status" role="status">Démarrage du cours…</span>}
+        {phase === 'live' && joinError && <span className="live-room__roll-call-status" role="alert">{joinError}</span>}
         {canEnd && <button type="button" className="live-room__end" onClick={() => setEndOpen(true)}>Terminer le cours</button>}
         <button type="button" className="live-room__leave" onClick={() => (phase === 'live' ? setLeaveOpen(true) : leave())}>Quitter</button>
       </div>
@@ -371,11 +421,15 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
               ? `Il reste à votre école ${formatMinutes(info.live_minutes_left)} de live ce mois-ci : le cours s'arrêtera au plus tard à ce moment-là.`
               : "Les heures de live incluses ce mois-ci dans votre forfait sont utilisées : le cours ne pourra pas démarrer."}
           </p>}
-          {!info.started_at && <p className="live-room__prejoin-hint">
-            {info.responsible_teacher
-              ? "Démarrez le cours à l'heure prévue avec le bouton en haut de la page."
-              : "Le professeur n'a pas encore démarré le cours. Vous pouvez déjà entrer."}
-          </p>}
+          <p className="live-room__prejoin-hint">
+            {info.started_at
+              ? 'Le cours a commencé.'
+              : !info.responsible_teacher
+                ? "Le professeur n'a pas encore démarré le cours. Vous pouvez déjà entrer."
+                : nowMs < startsMs
+                  ? `Le cours démarrera automatiquement à ${new Date(info.starts_at).toLocaleTimeString(activeSchoolLocale(), { hour: '2-digit', minute: '2-digit' })}, dès que vous serez dans la salle.`
+                  : 'Le cours démarre dès votre entrée dans la salle.'}
+          </p>
           <hr className="live-room__prejoin-divider" />
           <div className="live-room__prejoin-controls" aria-label="Options avant de rejoindre la classe">
             <button type="button" className={`live-room__prejoin-toggle${withAudio ? ' is-active' : ''}`} aria-pressed={withAudio} onClick={() => setWithAudio((value) => !value)}>
@@ -388,7 +442,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
           {joinError && <p className="live-room__error" role="alert">{joinError}</p>}
           <button type="button" className="live-room__join-class" disabled={joining} onClick={() => void enterClass()}>
             <Video size={22} aria-hidden="true" />
-            {joining ? 'Ouverture…' : 'Rejoindre la classe'}
+            {joining ? 'Ouverture…' : info.responsible_teacher && !info.started_at ? 'Commencer le cours' : 'Rejoindre le cours'}
           </button>
         </div>}
       </div>

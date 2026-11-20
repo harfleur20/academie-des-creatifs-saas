@@ -34,6 +34,7 @@ import {
 } from '../components/RoleDashboardCalendar'
 import { RoleSchoolVisual } from '../components/RoleSchoolVisual'
 import { RoleQuickAccess } from '../components/RoleQuickAccess'
+import { LiveJoinButton } from '../components/LiveJoinButton'
 
 function firstName(name?: string | null) {
   return name?.trim().split(/\s+/)[0] || 'Enseignant'
@@ -111,6 +112,9 @@ export function TeacherDashboardPage() {
           durationMinutes: day.duration_minutes,
           href: `/app/teacher/sessions/${plan.session_id}`,
           status: day.status === 'planned' ? 'Planifié' : day.status,
+          live: plan.format_type === 'live'
+            ? { day, href: `/app/teacher/live/${day.id}`, enabled: plan.live_enabled, responsible: day.teacher_id === user?.id }
+            : undefined,
         }))
     ))
   ), [planning])
@@ -197,7 +201,9 @@ export function TeacherDashboardPage() {
                       })}
                     </p>
                   </div>
-                  <Link className="dashboard-text-link" to={nextCourse.href}>Voir la séance <ChevronRight size={15} aria-hidden="true" /></Link>
+                  {nextCourse.live
+                    ? <LiveJoinButton day={nextCourse.live.day} href={nextCourse.live.href} enabled={nextCourse.live.enabled} responsible={nextCourse.live.responsible} primary />
+                    : <Link className="dashboard-text-link" to={nextCourse.href}>Voir la séance <ChevronRight size={15} aria-hidden="true" /></Link>}
                 </div>
               ) : (
                 <div className="role-next-course is-empty">
