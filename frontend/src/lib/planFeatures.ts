@@ -48,7 +48,7 @@ export function planHighlights(entitlements: PlanEntitlement[]): PlanFeatureLine
     const hours = monthly === null ? '' : `, ${monthly} h par mois`
     add('live', perClass === null ? `Cours en live${atOnce}${hours}` : `Live jusqu’à ${perClass} étudiants${atOnce}${hours}`)
   } else {
-    add('formats', 'Formations en ligne et en présentiel')
+    add('formats', 'Formations en présentiel')
     if (plan.has('live')) add('live', 'Sans cours en live', false, true)
   }
 
@@ -113,7 +113,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   quotaRow('students', 'Étudiants', 'Illimités'),
   quotaRow('active_formations', 'Formations publiées', 'Illimitées'),
   quotaRow('teachers', 'Professeurs', 'Illimités'),
-  { key: 'formats', label: 'Formations en ligne et en présentiel', soon: false, cell: (item) => item.entitlements.length > 0 },
+  { key: 'formats', label: 'Formations en présentiel', soon: false, cell: (item) => item.entitlements.length > 0 },
   sizeRow('live', 'Cours en live : étudiants par classe'),
   sizeRow('live_rooms', 'Lives en même temps'),
   {

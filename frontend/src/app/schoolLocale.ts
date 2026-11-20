@@ -1271,6 +1271,8 @@ const english: Record<string, string> = {
   "Cours terminé": "Class over",
   "Le cours a commencé.": "The class has started.",
   "places au plus par classe live avec votre forfait.": "seats at most per live class on your plan.",
+  "En direct ou en salle : accompagnez vos étudiants dans chaque façon d’apprendre.": "Live or in person: support your students in every way they learn.",
+  "Formations en présentiel": "In-person courses",
   "Sur un téléphone ou une tablette, le navigateur ne permet pas de partager l'écran. Pour partager le vôtre, rejoignez le cours depuis un ordinateur.": "On a phone or tablet, the browser cannot share the screen. To share yours, join the class from a computer.",
   "Le cours démarre dès votre entrée dans la salle.": "The class starts as soon as you enter the room.",
   "La salle d'attente ouvre 5 minutes avant le début du cours.": "The waiting room opens 5 minutes before the class starts.",

@@ -12,6 +12,7 @@ import {
   CreditCard,
   HelpCircle,
   Layers,
+  MapPin,
   TrendingUp,
   Users,
   Video,
@@ -63,8 +64,8 @@ function sessionStatus(status: string) {
 }
 
 const quickAccessLinks = [
-  { to: '/app/student/formations?filter=ligne', label: 'Formations en ligne', icon: BookOpen, tone: 'indigo' },
   { to: '/app/student/formations?filter=live', label: 'Formations live', icon: Users, tone: 'sky' },
+  { to: '/app/student/formations?filter=presentiel', label: 'Formations en présentiel', icon: MapPin, tone: 'indigo' },
   { to: '/app/student/quizzes', label: 'Mes quiz', icon: HelpCircle, tone: 'emerald' },
   { to: '/app/student/results', label: 'Mes résultats', icon: Award, tone: 'amber' },
   { to: '/app/student/payments', label: 'Mes paiements', icon: CreditCard, tone: 'pink' },

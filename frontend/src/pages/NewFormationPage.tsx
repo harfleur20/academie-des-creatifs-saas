@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { ArrowLeft, ArrowRight, BookOpen, MapPin, MonitorPlay, Plus, Radio } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, MapPin, Plus, Radio } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError, createFormation, type FormationSummary } from '../lib/api'
 import { CharacterCounter } from '../components/CharacterCounter'
@@ -8,10 +8,11 @@ import { getProgramCharacterLimitIssues, parseProgram, PublicProgramBuilder, ser
 import '../public-program-editor.css'
 import './new-formation-page.css'
 
-type Format = 'ligne' | 'live' | 'presentiel'
+// Online formations (recorded videos) wait for their own editor and protected video hosting:
+// schools create live and onsite formations; those already online keep working.
+type Format = 'live' | 'presentiel'
 
 const FORMATS: Array<{ value: Format; label: string; text: string; icon: typeof Radio }> = [
-  { value: 'ligne', label: 'En ligne', text: 'Un parcours que l’étudiant suit à son rythme.', icon: MonitorPlay },
   { value: 'live', label: 'En live', text: 'Des cours en direct dans la plateforme, par session.', icon: Radio },
   { value: 'presentiel', label: 'En présentiel', text: 'Des séances en salle, avec planning et présences.', icon: MapPin },
 ]
@@ -38,7 +39,7 @@ export function NewFormationPage() {
   const existing = (location.state as { existing?: FormationSummary[] } | null)?.existing ?? []
   const [step, setStep] = useState<1 | 2>(1)
   const [title, setTitle] = useState('')
-  const [format, setFormat] = useState<Format>('ligne')
+  const [format, setFormat] = useState<Format>('live')
   const [category, setCategory] = useState('')
   const [customCategory, setCustomCategory] = useState('')
   const [level, setLevel] = useState('')

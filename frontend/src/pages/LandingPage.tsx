@@ -12,7 +12,6 @@ import {
   Globe,
   LayoutGrid,
   MapPin,
-  MonitorPlay,
   SwatchBook,
   Radio,
   Smartphone,
@@ -66,7 +65,6 @@ const SITE_POINTS = [
 
 const FORMATS = [
   { icon: Radio, title: 'En live', text: 'La classe se tient dans la plateforme, à vos couleurs.' },
-  { icon: MonitorPlay, title: 'En ligne', text: 'Des parcours que vos étudiants suivent à leur rythme.' },
   { icon: MapPin, title: 'En présentiel', text: 'Planning, présences et comptes rendus de séance.' },
 ]
 
@@ -581,7 +579,7 @@ export default function LandingPage() {
         <div className="lp-container">
           <header className="lp-heading lp-heading--center lp-reveal">
             <h2>Des formats de cours adaptés à votre école</h2>
-            <p>En direct, à distance ou en salle : accompagnez vos étudiants dans chaque façon d’apprendre.</p>
+            <p>En direct ou en salle : accompagnez vos étudiants dans chaque façon d’apprendre.</p>
           </header>
           <div className="lp-formats__grid">
             {FORMATS.map(({ icon: Icon, title, text }) => (
