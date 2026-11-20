@@ -5064,9 +5064,7 @@
 .live-room__leave { flex-shrink: 0; padding: 6px 16px; border: none; border-radius: 6px; background: #ef4444; color: #fff; font-size: var(--text-secondary); font-weight: 600; cursor: pointer; transition: background .15s; }
 .live-room__leave:hover { background: #dc2626; }
 .live-room__stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
-.live-room__stage:not(.live-room__stage--waiting) > iframe { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; border: none; background: transparent; }
-.live-room__stage--live { isolation: isolate; background: radial-gradient(ellipse at 15% 20%, color-mix(in srgb, var(--live-accent) 28%, transparent) 0%, transparent 50%), radial-gradient(ellipse at 85% 80%, rgba(37, 99, 235, .2) 0%, transparent 50%), #0a0a18; }
-.live-room__stage--live::before { content: ""; position: absolute; inset: -24px; z-index: 0; background-image: var(--prejoin-bg); background-position: center; background-size: cover; filter: blur(36px) brightness(.48) saturate(1.25); opacity: .9; }
+.live-room__stage:not(.live-room__stage--waiting) > iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
 .live-room__stage--waiting { display: grid; align-items: safe center; justify-items: center; overflow-y: auto; padding: 24px; background: radial-gradient(ellipse at 15% 20%, color-mix(in srgb, var(--live-accent) 22%, transparent) 0%, transparent 50%), radial-gradient(ellipse at 85% 80%, rgba(37, 99, 235, .14) 0%, transparent 50%), #0a0a18; }
 .live-room__stage--waiting::before { content: ""; position: absolute; inset: -20px; z-index: 0; background-image: var(--prejoin-bg); background-position: center; background-size: cover; filter: blur(28px) brightness(.28) saturate(1.4); opacity: 0; transition: opacity .6s ease; }
 .live-room__stage--waiting[style*="--prejoin-bg"]::before { opacity: 1; }
