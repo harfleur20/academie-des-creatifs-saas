@@ -4172,6 +4172,20 @@
   justify-self: start;
 }
 
+.planning-day-feedback-summary {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 50px;
+  padding: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 750;
+}
+
 .planning-day-report {
   display: grid;
   gap: 6px;
@@ -5124,9 +5138,6 @@
 .course-day-report-form textarea { min-height: 90px; resize: vertical; }
 .course-day-report-form select, .course-day-report-form textarea { width: 100%; padding: 9px; border: 1px solid #d8e0ea; border-radius: 8px; background: #fff; }
 .course-day-report-form > div { display: flex; gap: 8px; }
-.course-day-feedback-list { flex-basis: 100%; width: 100%; padding: 10px 14px; border: 1px solid #e3e8ef; border-radius: 10px; background: #f8fafc; }
-.course-day-feedback-list p { margin: 0; padding: 8px 0; overflow-wrap: anywhere; }
-.course-day-feedback-list p + p { border-top: 1px solid #e3e8ef; }
 .course-reports-filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
 .course-reports-filters input, .course-reports-filters select { min-width: 220px; max-width: 100%; padding: 10px; border: 1px solid #d8e0ea; border-radius: 9px; background: #fff; }
 .course-reports-filters input { flex: 1; }
@@ -7460,6 +7471,9 @@
   flex: 0 0 20px;
 }
 .public-school-footer-brand .school-logo-placeholder { border-radius: 6px; }
+.public-school-shell { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.public-school-header { flex: 0 0 auto; }
+.public-school-footer { flex: 0 0 auto; margin-top: auto; }
 .public-school-login { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; cursor: pointer; font: inherit; font-size: var(--site-small); font-weight: 800; }
 .public-school-account { position: relative; }
 .public-school-account-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 75; min-width: 160px; padding: 6px; border: 1px solid #e4e9ef; border-radius: 10px; background: #fff; box-shadow: 0 12px 32px rgba(16,35,63,.15); }

@@ -334,6 +334,16 @@
   grid-template-columns: auto minmax(0, 1fr) auto auto;
 }
 
+/* Keep teacher summaries wide enough for the name, status and actions. */
+main.app-page .teacher-admin-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 680px), 1fr));
+}
+
+.teacher-admin-card.teacher-profile-summary-card {
+  min-width: 0;
+  grid-template-columns: auto minmax(220px, 1fr) auto auto;
+}
+
 .teacher-member-status {
   display: block;
   color: color-mix(in srgb, var(--school-primary, #1f2559) 88%, #132542) !important;
@@ -386,6 +396,10 @@
 }
 
 @media (max-width: 900px) {
+  main.app-page .teacher-admin-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .teacher-admin-card.teacher-profile-summary-card {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }

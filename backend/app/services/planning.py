@@ -377,10 +377,8 @@ def list_course_day_feedback(
     ))
     if day is None:
         raise HTTPException(404, "Séance introuvable.")
-    if not _can_manage_school(tenant) and not (
-        tenant.has_role("teacher") and _teacher_assignment(db, tenant, day.session_id)
-    ):
-        raise HTTPException(403, "Accès aux avis réservé à l'équipe pédagogique.")
+    if not _can_manage_school(tenant):
+        raise HTTPException(403, "Consultation des avis réservée à l'administration.")
     rows = db.execute(select(CourseDayFeedbackRecord, UserRecord.full_name)
         .join(EnrollmentRecord, EnrollmentRecord.id == CourseDayFeedbackRecord.enrollment_id)
         .join(UserRecord, UserRecord.id == EnrollmentRecord.student_id)

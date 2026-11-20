@@ -49,6 +49,7 @@ import {
 } from '../lib/tenantIntegrationApi'
 import { initialTeacherSessionId } from '../lib/teacherSession'
 import { formatDuration } from '../lib/formatDuration'
+import { LiveStateLabel } from '../components/LiveJoinButton'
 
 function startOfWeek(value: Date) {
   const date = new Date(value)
@@ -480,7 +481,7 @@ export function TeacherCoursesPage() {
                       {entries.map((day) => <article className="guided-week-event" key={day.id}>
                         <time dateTime={day.scheduled_at}>{courseDayTimeRange(day.scheduled_at, day.duration_minutes)}</time>
                         <strong>{day.title}</strong>
-                        <small>{formatDuration(day.duration_minutes)} · {planning?.format_type === 'presentiel' ? 'Présentiel' : planning?.format_type === 'live' ? 'En direct' : 'En ligne'}</small>
+                        <small>{formatDuration(day.duration_minutes)} · {planning?.format_type === 'presentiel' ? 'Présentiel' : planning?.format_type === 'live' ? <>Live · <LiveStateLabel day={day} /></> : 'En ligne'}</small>
                         <small>{day.teacher_name || 'Professeur non défini'}</small>
                       </article>)}
                       {entries.length === 0 && <p className="guided-week-empty">Aucun cours</p>}

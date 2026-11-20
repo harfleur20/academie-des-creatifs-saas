@@ -234,7 +234,7 @@ export function StudentGuidedWorkspacePage() {
                         <article className="guided-week-event" key={day.id}>
                           <time dateTime={day.scheduled_at}>{courseDayTimeRange(day)}</time>
                           <strong>{day.title}</strong>
-                          <small>{formatDuration(day.duration_minutes)} · {session.format_type === 'presentiel' ? 'Présentiel' : session.format_type === 'live' ? 'En direct' : 'En ligne'}</small>
+                          <small>{formatDuration(day.duration_minutes)} · {session.format_type === 'presentiel' ? 'Présentiel' : session.format_type === 'live' ? <>Live · <LiveStateLabel day={day} /></> : 'En ligne'}</small>
                           <small>Prof. {day.teacher_name || 'À confirmer'}</small>
                           {session.format_type === 'live' && <LiveJoinButton day={day} href={`/app/student/live/${day.id}`} enabled={Boolean(planning?.live_enabled)} />}
                         </article>

@@ -13,11 +13,9 @@ import {
   ApiError,
   createSessionCourseDay,
   getSessionPlanning,
-  listCourseDayFeedback,
   submitCourseDayReport,
   updateSessionCourseDay,
   type SessionPlanning,
-  type CourseDayFeedbackReview,
 } from '../lib/api'
 import { formatDuration } from '../lib/formatDuration'
 import { LiveRecordingsPanel } from '../components/LiveRecordingsPanel'
@@ -47,8 +45,6 @@ export function TeacherSessionPlanningPage() {
   const [reportDifficulties, setReportDifficulties] = useState('')
   const [reportHomework, setReportHomework] = useState('')
   const [reportAttendanceNotes, setReportAttendanceNotes] = useState('')
-  const [feedbackDayId, setFeedbackDayId] = useState<number | null>(null)
-  const [feedbackRows, setFeedbackRows] = useState<CourseDayFeedbackReview[]>([])
   const [error, setError] = useState('')
 
   async function refresh() {
@@ -136,17 +132,6 @@ export function TeacherSessionPlanningPage() {
       setError(err instanceof ApiError ? err.message : 'Rapport impossible à enregistrer.')
     } finally {
       setWorking(false)
-    }
-  }
-
-  async function showFeedback(dayId: number) {
-    if (feedbackDayId === dayId) { setFeedbackDayId(null); return }
-    setError('')
-    try {
-      setFeedbackRows(await listCourseDayFeedback(dayId))
-      setFeedbackDayId(dayId)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Avis impossibles à charger.')
     }
   }
 
@@ -319,8 +304,7 @@ export function TeacherSessionPlanningPage() {
                   {day.report_homework && <p><strong>Travail à faire :</strong> {day.report_homework}</p>}
                   {day.report_attendance_notes && <p><strong>Présences :</strong> {day.report_attendance_notes}</p>}
                 </div>}
-                {day.feedback_count > 0 && <button className="secondary-button planning-day-feedback" type="button" onClick={() => void showFeedback(day.id)}>{day.feedback_count} avis · {day.average_rating}/5</button>}
-                {feedbackDayId === day.id && <div className="course-day-feedback-list">{feedbackRows.map((feedback) => <p key={feedback.id}><strong>{feedback.student_name}</strong> · {feedback.rating}/5 · {feedback.delivery_status === 'held' ? 'séance tenue' : feedback.delivery_status === 'partial' ? 'partielle' : 'non tenue'}{feedback.comment && <span> - {feedback.comment}</span>}</p>)}</div>}
+                {day.feedback_count > 0 && <span className="planning-day-feedback-summary" aria-label={`${day.feedback_count} avis, note moyenne ${day.average_rating}/5`}>{day.feedback_count} avis · {day.average_rating}/5</span>}
                 {day.can_edit && day.status !== 'cancelled' && Date.now() >= new Date(day.scheduled_at).getTime() + day.duration_minutes * 60_000 && <button className="secondary-button" type="button" onClick={() => {
                   setReportDayId(day.id); setReportStatus('held'); setReportSummary('')
                   setReportDifficulties(''); setReportHomework(''); setReportAttendanceNotes('')

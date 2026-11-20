@@ -724,7 +724,7 @@ def test_non_held_course_day_does_not_count_as_student_absence() -> None:
     assert closed.value.status_code == 404
 
 
-def test_student_course_day_feedback_is_private_and_school_scoped() -> None:
+def test_student_course_day_feedback_is_private_from_students_and_teachers() -> None:
     db = build_db()
     org, teacher, student, classmate, session, _, _, _, day = seed(db)
     student_tenant = ctx(db, org, student)
@@ -750,9 +750,9 @@ def test_student_course_day_feedback_is_private_and_school_scoped() -> None:
     with pytest.raises(HTTPException) as forbidden:
         list_course_day_feedback(db, student_tenant, day.id)
     assert forbidden.value.status_code == 403
-    reviews = list_course_day_feedback(db, teacher_tenant, day.id)
-    assert {item.student_name for item in reviews} == {"Student", "Classmate"}
-    assert {item.rating for item in reviews} == {2, 5}
+    with pytest.raises(HTTPException) as teacher_forbidden:
+        list_course_day_feedback(db, teacher_tenant, day.id)
+    assert teacher_forbidden.value.status_code == 403
     other_org = OrganizationRecord(name="Other school", slug="other-school")
     db.add(other_org)
     db.flush()
