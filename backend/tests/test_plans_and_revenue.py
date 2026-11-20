@@ -393,14 +393,19 @@ def test_a_cancelled_or_rejected_payout_frees_the_balance():
     assert revenue_summary(db, org.id).available_cents == 96_000
 
 
-def test_a_student_payment_through_the_shop_credits_the_school():
+def test_a_student_paying_for_a_session_credits_the_school(monkeypatch):
     from test_school_commerce import build_db as commerce_db
     from test_school_commerce import seed as commerce_seed
 
+    from app.core.config import settings
     from app.models.entities import SchoolLedgerEntryRecord
     from app.schemas.commerce import CheckoutCreate
     from app.services.school_commerce import confirm_demo_checkout, create_checkout
 
+    # Demo payments, whatever the local .env says.
+    monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "payment_mode", "demo")
+    monkeypatch.setattr(settings, "allow_demo_payments", True)
     db = commerce_db()
     org, user, _formation, session = commerce_seed(db)
     checkout = create_checkout(db, org, user, CheckoutCreate(session_id=session.id, payment_mode="full"))
