@@ -579,7 +579,10 @@ function NewSessionForm({
         <label>Nom de la session<input value={label} onChange={(event) => setLabel(event.target.value)} required minLength={2} placeholder="Cohorte octobre 2026" /></label>
         <label>Début<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} required /></label>
         <label>Fin<input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} required /></label>
-        <label>Places<input type="number" min={1} value={capacity} onChange={(event) => setCapacity(event.target.value)} required /></label>
+        <label>
+          Places<input type="number" min={1} max={formation.live_class_seats ?? undefined} value={capacity} onChange={(event) => setCapacity(event.target.value)} required />
+          {formation.live_class_seats != null && <small>{formation.live_class_seats} places au plus par classe live avec votre forfait.</small>}
+        </label>
         {formation.format_type === 'presentiel' && <label>Lieu<input value={campus} onChange={(event) => setCampus(event.target.value)} required placeholder="Bonamoussadi" /></label>}
       </div>
       <label className="formation-payment-toggle">
@@ -741,7 +744,10 @@ function SessionWorkspace({
           <label>Nom de session<input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} required minLength={2} /></label>
           <label>Début<input type="date" value={accessStartDate} onChange={(e) => setAccessStartDate(e.target.value)} required /></label>
           <label>Fin<input type="date" value={accessEndDate} min={accessStartDate || undefined} onChange={(e) => setAccessEndDate(e.target.value)} required /></label>
-          <label>Places<input type="number" min={1} value={editCapacity} onChange={(e) => setEditCapacity(e.target.value)} required /></label>
+          <label>
+            Places<input type="number" min={1} max={formation.live_class_seats != null ? Math.max(formation.live_class_seats, session.seat_capacity) : undefined} value={editCapacity} onChange={(e) => setEditCapacity(e.target.value)} required />
+            {formation.live_class_seats != null && <small>{formation.live_class_seats} places au plus par classe live avec votre forfait.</small>}
+          </label>
           {isOnsite && <label>Lieu<input value={editCampus} onChange={(e) => setEditCampus(e.target.value)} required placeholder="Bonamoussadi" /></label>}
           <button className="secondary-button" disabled={working || invalidAccessPeriod || sessionUnchanged}><Save size={14} /> Enregistrer</button>
         </form>

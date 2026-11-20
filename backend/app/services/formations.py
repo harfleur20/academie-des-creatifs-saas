@@ -66,7 +66,7 @@ from app.services.session_lifecycle import notify_session_change
 from app.services.publication import formation_content_issues, formation_publication_issues
 from app.services.school_communications import queue_session_students_event
 from app.services.school_notifications import notify_session_students, notify_user
-from app.services.plan_limits import require_capacity, require_feature
+from app.services.plan_limits import live_class_seats, require_capacity, require_feature
 from app.services.tenancy import TenantContext, scoped_select
 
 
@@ -490,6 +490,7 @@ def get_formation_detail(
     summary = _serialize_formation_summary(db, tenant, formation)
     return FormationDetailRead(
         **summary.model_dump(),
+        live_class_seats=live_class_seats(db, tenant.organization_id) if formation.format_type == "live" else None,
         sessions=[
             _with_program_status(db, formation, item)
             for item in sorted(
@@ -664,6 +665,19 @@ def _guided_session_place(
     return place
 
 
+def _require_live_class_size(db: Session, organization_id: int, formation: FormationRecord, seat_capacity: int) -> None:
+    """A live session sells no more seats than its class holds on the school's plan."""
+    if formation.format_type != "live":
+        return
+    limit = live_class_seats(db, organization_id)
+    if limit is not None and seat_capacity > limit:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Votre forfait accueille {limit} étudiants au plus par classe live : proposez {limit} places au plus, "
+            "et ouvrez une autre session pour les suivants.",
+        )
+
+
 def _occupied_seats(db: Session, organization_id: int, session_id: int) -> int:
     enrolled = db.scalar(select(func.count(EnrollmentRecord.id)).where(
         EnrollmentRecord.organization_id == organization_id,
@@ -712,6 +726,7 @@ def create_session(
         campus_label=payload.campus_label,
         seat_capacity=payload.seat_capacity,
     )
+    _require_live_class_size(db, tenant.organization_id, formation, payload.seat_capacity)
     record = FormationSessionRecord(
         organization_id=tenant.organization_id,
         formation_id=formation.id,
@@ -781,6 +796,9 @@ def update_session(
             status_code=409,
             detail="La capacité ne peut pas être inférieure aux places déjà occupées ou réservées.",
         )
+    # Checked when the seats change: a session from a larger plan keeps its other edits.
+    if next_capacity != session.seat_capacity:
+        _require_live_class_size(db, tenant.organization_id, formation, next_capacity)
     # Older sessions may miss a place: they stay closable, and must be fixed to reopen.
     if {"campus_label", "seat_capacity"} & values.keys() or values.get("status", session.status) == "open":
         values["campus_label"] = _guided_session_place(

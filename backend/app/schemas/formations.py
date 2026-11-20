@@ -366,3 +366,5 @@ class SessionRead(BaseModel):
 
 class FormationDetailRead(FormationSummaryRead):
     sessions: list[SessionRead]
+    # Live formations: the most seats a session may offer, the size of a live class on the plan.
+    live_class_seats: int | None = None

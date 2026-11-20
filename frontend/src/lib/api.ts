@@ -1349,6 +1349,8 @@ export type FormationSession = {
 
 export type FormationDetail = FormationSummary & {
   sessions: FormationSession[]
+  /** Live formations: the most seats a session may offer, the size of a live class on the plan. */
+  live_class_seats?: number | null
 }
 
 export const listFormations = () =>

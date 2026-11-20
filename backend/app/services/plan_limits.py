@@ -104,6 +104,11 @@ def included(plan: PlanRecord | None, feature_key: str) -> bool:
     return plan is not None and any(entry.feature_key == feature_key and entry.enabled for entry in plan.entitlements)
 
 
+def live_class_seats(db: Session, organization_id: int) -> int | None:
+    """How many students a live class holds on the school's plan (None: no limit)."""
+    return allowance(get_effective_plan(db, organization_id), "live").limit
+
+
 def usage(db: Session, organization_id: int, *, today: date | None = None) -> dict[str, int | float]:
     """What the school uses now, as the plans count it."""
     current_time = datetime.now(UTC)

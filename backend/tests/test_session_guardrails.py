@@ -248,3 +248,39 @@ def test_online_access_dates_stay_editable_with_unlimited_seats():
     update_session(db, tenant, record.id, session.id, SessionUpdate(end_date=today + timedelta(days=30)))
     assert session.end_date == today + timedelta(days=30)
     assert session.seat_capacity == 0
+
+
+def test_a_live_session_offers_no_more_seats_than_a_live_class_holds_on_the_plan():
+    from test_plans_and_revenue import plans
+
+    from app.models.entities import SubscriptionRecord
+    from app.services.formations import get_formation_detail
+
+    db, org, _owner, tenant = school()
+    now = datetime.now(UTC)
+    db.add(SubscriptionRecord(organization_id=org.id, plan_id=plans(db)["pro"].id, status="active", billing_interval="monthly",
+                              started_at=now, current_period_start=now, current_period_end=now + timedelta(days=30)))
+    db.commit()
+    live = formation(db, org, "live")
+    assert get_formation_detail(db, tenant, live.id).live_class_seats == 25
+
+    with pytest.raises(HTTPException) as too_many:
+        create_session(db, tenant, live.id, session_payload(seat_capacity=40))
+    assert too_many.value.status_code == 422
+    assert "25 étudiants au plus par classe live" in too_many.value.detail
+    create_session(db, tenant, live.id, session_payload(seat_capacity=25))
+    session = saved_session(db, live)
+    with pytest.raises(HTTPException):
+        update_session(db, tenant, live.id, session.id, SessionUpdate(seat_capacity=26))
+
+    # A session from a larger plan keeps its other edits; it may only come down.
+    session.seat_capacity = 40
+    db.commit()
+    update_session(db, tenant, live.id, session.id, SessionUpdate(label="Cohorte renommée"))
+    update_session(db, tenant, live.id, session.id, SessionUpdate(seat_capacity=20))
+    assert (session.label, session.seat_capacity) == ("Cohorte renommée", 20)
+
+    # Onsite classes are not live: the room decides.
+    onsite = formation(db, org, "presentiel")
+    create_session(db, tenant, onsite.id, session_payload(seat_capacity=40, campus_label="Douala"))
+    assert get_formation_detail(db, tenant, onsite.id).live_class_seats is None
