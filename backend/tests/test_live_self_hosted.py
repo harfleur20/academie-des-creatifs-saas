@@ -76,10 +76,13 @@ def test_a_self_hosted_room_uses_the_school_domain_and_a_shared_secret(self_host
     assert student_claims["context"]["user"]["moderator"] is False
     assert student_claims["context"]["user"]["affiliation"] == "member"
     assert student_claims["context"]["features"]["recording"] is False
+    # Students share their screen too, as the teacher does.
+    assert student_claims["context"]["features"]["screen-sharing"] == "true"
 
     teacher_claims = claims(join_live_class(db, ctx(db, org, teacher), day.id, now=NOW)["token"])
     assert teacher_claims["context"]["user"]["moderator"] is True
     assert teacher_claims["context"]["user"]["affiliation"] == "owner"
+    assert teacher_claims["context"]["features"]["screen-sharing"] == "true"
 
 
 def test_a_token_signed_with_another_secret_is_rejected(self_hosted) -> None:

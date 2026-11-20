@@ -495,7 +495,7 @@ def test_the_live_room_shows_its_class_before_it_opens(monkeypatch) -> None:
 
     info = live_class_info(db, ctx(db, org, student), day.id)
     assert info["formation_title"] == session.formation.title and info["session_label"] == session.label
-    assert info["opens_at"] == info["starts_at"] - timedelta(minutes=15)
+    assert info["opens_at"] == info["starts_at"] - timedelta(minutes=5)  # the waiting room
     assert info["closes_at"] == info["ends_at"] + timedelta(minutes=15)
     assert not info["moderator"] and not info["responsible_teacher"]
     teacher_info = live_class_info(db, ctx(db, org, teacher), day.id)
@@ -516,6 +516,21 @@ def test_the_live_room_shows_its_class_before_it_opens(monkeypatch) -> None:
     with pytest.raises(HTTPException) as closed:
         live_class_info(db, ctx(db, org, student), day.id)
     assert closed.value.status_code == 404
+
+
+def test_the_class_starts_at_its_time_not_while_the_waiting_room_is_open(monkeypatch) -> None:
+    monkeypatch.setattr("app.services.live_classes.require_teacher_ready", lambda db, tenant: None)
+    db = build_db()
+    org, teacher, _, _, session, _, _, _, day = seed(db)
+    db.get(FormationRecord, session.formation_id).format_type = "live"
+    db.commit()
+
+    with pytest.raises(HTTPException) as early:
+        start_live_class(db, ctx(db, org, teacher), day.id, now=datetime(2025, 1, 10, 8, 57, tzinfo=UTC))
+    assert early.value.status_code == 409
+    # A device's clock a little ahead still starts it at its time.
+    started = start_live_class(db, ctx(db, org, teacher), day.id, now=datetime(2025, 1, 10, 8, 59, 40, tzinfo=UTC))
+    assert started["started_at"] == datetime(2025, 1, 10, 8, 59, 40, tzinfo=UTC)
 
 
 def test_live_class_join_requires_own_school_membership_and_course_window(monkeypatch) -> None:
@@ -547,6 +562,13 @@ def test_live_class_join_requires_own_school_membership_and_course_window(monkey
     with pytest.raises(HTTPException) as too_early:
         join_live_class(db, ctx(db, org, student), day.id, now=datetime(2025, 1, 10, 8, 40, tzinfo=UTC))
     assert too_early.value.status_code == 403
+    # The waiting room is open, the class not yet: no one is in it before its time.
+    for person in (student, teacher):
+        with pytest.raises(HTTPException) as waiting:
+            join_live_class(db, ctx(db, org, person), day.id, now=datetime(2025, 1, 10, 8, 57, tzinfo=UTC))
+        assert waiting.value.status_code == 403 and "salle d'attente" in waiting.value.detail
+    # A device's clock a little ahead still gets in at the class's time.
+    assert join_live_class(db, ctx(db, org, student), day.id, now=datetime(2025, 1, 10, 8, 59, 40, tzinfo=UTC))["token"]
 
     classmate_enrollment = db.scalar(select(EnrollmentRecord).where(
         EnrollmentRecord.session_id == session.id,

@@ -22,6 +22,11 @@ function liveDevice(): LiveDevice {
   return { id, label: navigator.userAgent.slice(0, 160) }
 }
 
+// Phones and tablets cannot share their screen from a browser (no getDisplayMedia): Jitsi then
+// hides the button. The welcome card says so, rather than leave the person looking for it.
+const SCREEN_SHARING_SUPPORTED = typeof navigator !== 'undefined'
+  && Boolean(navigator.mediaDevices && 'getDisplayMedia' in navigator.mediaDevices)
+
 const HEARTBEAT_MS = 30_000
 // Ten minutes before a forced end, the room says how long is left.
 const END_WARNING_MS = 10 * 60_000
@@ -102,7 +107,6 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
   const [entered, setEntered] = useState(false)
-  const [starting, setStarting] = useState(false)
   const [leaveOpen, setLeaveOpen] = useState(false)
   const [endOpen, setEndOpen] = useState(false)
   const [ending, setEnding] = useState(false)
@@ -137,15 +141,18 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     return () => window.clearInterval(timer)
   }, [entered, info?.course_day_id, info?.started_at]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // As on the mother site, the class starts when its teacher enters: at once once the time has
-  // come, or at the planned time when they came in early.
-  const autoStarted = useRef(false)
+  // The waiting room opens 5 minutes before the class. Whoever waits there enters at its time,
+  // with the microphone and camera they chose; the teacher's entry starts the class.
+  const waited = useRef(false)
   useEffect(() => {
-    if (!entered || !info?.responsible_teacher || info.started_at || autoStarted.current) return
-    if (nowMs < Date.parse(info.starts_at)) return
-    autoStarted.current = true
-    void startCourse()
-  }, [entered, info, nowMs]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!info || entered || joining) return
+    const startsAt = Date.parse(info.starts_at)
+    if (nowMs >= Date.parse(info.opens_at) && nowMs < startsAt) { waited.current = true; return }
+    if (waited.current && nowMs >= startsAt && nowMs <= Date.parse(info.closes_at)) {
+      waited.current = false
+      void enterClass()
+    }
+  }, [info, nowMs, entered, joining]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The room mounts once the welcome card has handed over a token.
   useEffect(() => {
@@ -269,6 +276,9 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
   const startsMs = info ? Date.parse(info.starts_at) : Number.NaN
   const endsMs = info ? Date.parse(info.ends_at) : Number.NaN
   const phase = !info ? 'loading' : entered ? 'live' : nowMs < opensMs ? 'waiting' : nowMs > closesMs ? 'closed' : 'welcome'
+  // The welcome card is the waiting room until the class's time.
+  const early = phase === 'welcome' && nowMs < startsMs
+  const startTime = info ? new Date(info.starts_at).toLocaleTimeString(activeSchoolLocale(), { hour: '2-digit', minute: '2-digit' }) : ''
   const canEnd = Boolean(info?.responsible_teacher && (info.started_at || nowMs >= endsMs))
   const accent = { '--live-accent': info?.school_primary_color || '#2dd4bf' } as CSSProperties
   const welcomeBackground = info?.formation_image_url
@@ -282,7 +292,6 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
     try {
       if (info.responsible_teacher && !info.started_at && Date.now() >= Date.parse(info.starts_at)) {
         const started = await startLiveClass(info.course_day_id)
-        autoStarted.current = true
         setInfo({ ...info, started_at: started.started_at, closes_at: started.closes_at ?? info.closes_at })
         setEndsBy(started.ends_by ?? null)
       }
@@ -296,20 +305,6 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
       setJoinError(caught instanceof ApiError || caught instanceof Error ? caught.message : 'Impossible de rejoindre la classe.')
     } finally {
       setJoining(false)
-    }
-  }
-
-  async function startCourse() {
-    if (!info) return
-    setStarting(true)
-    try {
-      const started = await startLiveClass(info.course_day_id)
-      setInfo({ ...info, started_at: started.started_at, closes_at: started.closes_at ?? info.closes_at })
-      setEndsBy(started.ends_by ?? null)
-    } catch (caught) {
-      setJoinError(caught instanceof ApiError ? caught.message : 'Démarrage du cours impossible.')
-    } finally {
-      setStarting(false)
     }
   }
 
@@ -371,7 +366,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
       <div className="live-room__bar-left">
         {info?.school_logo_url && <img className="live-room__school-logo" src={info.school_logo_url} alt={`Logo de ${info.school_name}`} />}
         <span className={`live-room__badge${phase === 'live' ? '' : ' live-room__badge--waiting'}`}>
-          {phase === 'live' ? 'EN DIRECT' : phase === 'waiting' ? 'ATTENTE' : 'ACCUEIL'}
+          {phase === 'live' ? 'EN DIRECT' : phase === 'waiting' || early ? 'ATTENTE' : 'ACCUEIL'}
         </span>
         {info ? <>
           <strong className="live-room__title">{info.formation_title}</strong>
@@ -387,7 +382,6 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
             {rollCall && <span className="live-room__roll-call-status">Dernier appel : {rollCall.answers_count ?? 0} réponse(s)</span>}
             <button type="button" className="live-room__end" disabled={rollCallBusy} onClick={() => void callRoll()}><Hand size={14} aria-hidden="true" /> Faire l'appel</button>
           </>)}
-        {phase === 'live' && starting && <span className="live-room__roll-call-status" role="status">Démarrage du cours…</span>}
         {phase === 'live' && joinError && <span className="live-room__roll-call-status" role="alert">{joinError}</span>}
         {canEnd && <button type="button" className="live-room__end" onClick={() => setEndOpen(true)}>Terminer le cours</button>}
         <button type="button" className="live-room__leave" onClick={() => (phase === 'live' ? setLeaveOpen(true) : leave())}>Quitter</button>
@@ -398,9 +392,9 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
       <div className="live-room__stage live-room__stage--waiting" style={phase === 'welcome' ? welcomeBackground : undefined}>
         {phase === 'loading' && <p className="live-room__loading">Ouverture de la classe…</p>}
         {info && phase === 'waiting' && <div className="live-room__waiting-card">
-          <span className="live-room__waiting-kicker">Salle d'attente</span>
+          <span className="live-room__waiting-kicker">Cours à venir</span>
           <h1>{info.formation_title}</h1>
-          <p>La salle de {info.school_name} ouvre le {formatDate(info.opens_at)}, 15 minutes avant le cours. Vous passerez à l'accueil de la classe automatiquement.</p>
+          <p>La salle d'attente de {info.school_name} ouvre le {formatDate(info.opens_at)}, 5 minutes avant le cours. Vous y passerez automatiquement.</p>
           <strong className="live-room__waiting-countdown">{formatWait(opensMs - nowMs)}</strong>
         </div>}
         {info && phase === 'closed' && <div className="live-room__waiting-card">
@@ -409,7 +403,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
           <p>La salle ferme 15 minutes après la fin du cours.</p>
         </div>}
         {info && phase === 'welcome' && <div className="live-room__waiting-card live-room__prejoin-card">
-          <span className="live-room__waiting-kicker">Accueil de la classe</span>
+          <span className="live-room__waiting-kicker">{early ? "Salle d'attente" : 'Accueil de la classe'}</span>
           <h1>{info.formation_title}</h1>
           <p>
             {user?.full_name
@@ -422,13 +416,15 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
               : "Les heures de live incluses ce mois-ci dans votre forfait sont utilisées : le cours ne pourra pas démarrer."}
           </p>}
           <p className="live-room__prejoin-hint">
-            {info.started_at
-              ? 'Le cours a commencé.'
-              : !info.responsible_teacher
-                ? "Le professeur n'a pas encore démarré le cours. Vous pouvez déjà entrer."
-                : nowMs < startsMs
-                  ? `Le cours démarrera automatiquement à ${new Date(info.starts_at).toLocaleTimeString(activeSchoolLocale(), { hour: '2-digit', minute: '2-digit' })}, dès que vous serez dans la salle.`
-                  : 'Le cours démarre dès votre entrée dans la salle.'}
+            {early
+              ? info.responsible_teacher
+                ? `Le cours commence à ${startTime} : vous entrerez automatiquement dans la classe, et le cours démarrera avec vous.`
+                : `Le cours commence à ${startTime} : vous entrerez automatiquement dans la classe.`
+              : info.started_at
+                ? 'Le cours a commencé.'
+                : info.responsible_teacher
+                  ? 'Le cours démarre dès votre entrée dans la salle.'
+                  : "Le professeur n'a pas encore démarré le cours. Vous pouvez déjà entrer."}
           </p>
           <hr className="live-room__prejoin-divider" />
           <div className="live-room__prejoin-controls" aria-label="Options avant de rejoindre la classe">
@@ -439,11 +435,16 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
               {withVideo ? <Video size={20} /> : <VideoOff size={20} />}<span>{withVideo ? 'Caméra ouverte' : 'Caméra coupée'}</span>
             </button>
           </div>
+          {!SCREEN_SHARING_SUPPORTED && <p className="live-room__prejoin-hint">
+            Sur un téléphone ou une tablette, le navigateur ne permet pas de partager l'écran. Pour partager le vôtre, rejoignez le cours depuis un ordinateur.
+          </p>}
           {joinError && <p className="live-room__error" role="alert">{joinError}</p>}
-          <button type="button" className="live-room__join-class" disabled={joining} onClick={() => void enterClass()}>
-            <Video size={22} aria-hidden="true" />
-            {joining ? 'Ouverture…' : info.responsible_teacher && !info.started_at ? 'Commencer le cours' : 'Rejoindre le cours'}
-          </button>
+          {early
+            ? <strong className="live-room__waiting-countdown" role="timer">{formatWait(startsMs - nowMs)}</strong>
+            : <button type="button" className="live-room__join-class" disabled={joining} onClick={() => void enterClass()}>
+              <Video size={22} aria-hidden="true" />
+              {joining ? 'Ouverture…' : info.responsible_teacher && !info.started_at ? 'Commencer le cours' : 'Rejoindre le cours'}
+            </button>}
         </div>}
       </div>
     )}

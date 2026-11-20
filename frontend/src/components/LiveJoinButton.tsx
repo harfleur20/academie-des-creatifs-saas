@@ -20,8 +20,8 @@ export function LiveStateLabel({ day, className }: { day: LiveDay; className?: s
 }
 
 /**
- * The live class's button, as on the mother site: greyed with "Dans 1 j 2 h" until the room
- * opens, then "Commencer le cours" for the class's teacher (it starts as they enter) or
+ * The live class's button: greyed with "Dans 1 j 2 h" until the waiting room opens, 5 minutes
+ * before, then "Commencer le cours" for the class's teacher (it starts as they enter) or
  * "Rejoindre le cours"; "Cours terminé" once entries are closed.
  */
 export function LiveJoinButton({
@@ -45,7 +45,7 @@ export function LiveJoinButton({
   const kind = `${primary ? 'primary-button' : 'secondary-button'} live-join-button`
   if (state === 'planned') {
     return (
-      <button type="button" className={`${kind} is-waiting`} disabled title={`La salle ouvre ${LIVE_ROOM_OPENS_MINUTES} minutes avant le début du cours.`}>
+      <button type="button" className={`${kind} is-waiting`} disabled title={`La salle d'attente ouvre ${LIVE_ROOM_OPENS_MINUTES} minutes avant le début du cours.`}>
         <Video size={15} aria-hidden="true" /><span data-no-translate>{liveCountdown(Date.parse(day.scheduled_at) - now)}</span>
       </button>
     )

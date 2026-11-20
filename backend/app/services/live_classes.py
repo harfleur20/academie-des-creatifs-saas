@@ -87,7 +87,9 @@ def _self_hosted_room(room: str, user: dict, *, moderator: bool, current: dateti
         "nbf": int((current - timedelta(seconds=30)).timestamp()),
         "exp": int((current + timedelta(minutes=10)).timestamp()),
         "context": {
-            "features": {"recording": False, "livestreaming": False, "transcription": False},
+            # Everyone in the class may share their screen, students included: said outright, so
+            # a change of Jitsi's default never takes it away. Jitsi reads the string "true".
+            "features": {"recording": False, "livestreaming": False, "transcription": False, "screen-sharing": "true"},
             "user": {**user, "moderator": moderator, "affiliation": "owner" if moderator else "member"},
         },
     }
@@ -184,7 +186,7 @@ def start_live_class(
     if session.status == "cancelled" or day.status == "cancelled" or day.report_submitted_at is not None:
         raise HTTPException(409, "Cette classe live est clôturée ou annulée.")
     current = _aware(now or datetime.now(UTC))
-    if current < _aware(day.scheduled_at):
+    if current < _aware(day.scheduled_at) - CLOCK_GRACE:
         raise HTTPException(409, "Le cours ne peut démarrer qu'à l'heure prévue.")
     if day.started_at is None:
         require_feature(db, tenant.organization_id, "live")
@@ -202,7 +204,10 @@ def start_live_class(
     }
 
 
-ROOM_OPENS_BEFORE = timedelta(minutes=15)
+# The waiting room opens 5 minutes before the class; the class itself, at its time, for
+# everyone: no one is in the room before. A device's clock may run a little ahead.
+ROOM_OPENS_BEFORE = timedelta(minutes=5)
+CLOCK_GRACE = timedelta(seconds=30)
 ROOM_CLOSES_AFTER = timedelta(minutes=15)
 # Said to a teacher whose class cannot start because the live servers are full: it names no cause.
 ROOM_UNAVAILABLE = "Impossible d'ouvrir la salle pour le moment. Réessayez dans quelques minutes."
@@ -489,8 +494,10 @@ def join_live_class(
     window = live_room_window(db, tenant.organization_id, day, current)
     if window.ends_by is not None and current >= window.ends_by:
         raise HTTPException(403, "Ce cours en live est terminé : sa salle est fermée.")
-    if current < starts_at - ROOM_OPENS_BEFORE or current > window.entries_close:
-        raise HTTPException(403, "La salle ouvre 15 minutes avant le cours et ferme 15 minutes après.")
+    if current < starts_at - CLOCK_GRACE:
+        raise HTTPException(403, "Le cours n'a pas encore commencé : patientez dans la salle d'attente.")
+    if current > window.entries_close:
+        raise HTTPException(403, "La salle de ce cours est fermée.")
 
     if not live_provider_configured():
         raise HTTPException(503, "Le service de classes live n'est pas configuré.")

@@ -1,21 +1,21 @@
 import { activeSchoolLocale } from '../app/schoolLocale'
 import type { CourseDay } from './api'
 
-// As on the mother site: the room opens 15 minutes before the class, and takes entries
-// until 15 minutes after its planned end.
-export const LIVE_ROOM_OPENS_MINUTES = 15
+// The waiting room opens 5 minutes before the class, which everyone enters at its time;
+// the room takes entries until 15 minutes after its planned end.
+export const LIVE_ROOM_OPENS_MINUTES = 5
 export const LIVE_ROOM_CLOSES_MINUTES = 15
 
 export type LiveDay = Pick<CourseDay, 'scheduled_at' | 'duration_minutes' | 'status' | 'started_at' | 'report_submitted_at'>
 
-/** A live class by the clock: planned, room open, running, over (report awaited), closed or cancelled. */
+/** A live class by the clock: planned, waiting room open, running, over (report awaited), closed or cancelled. */
 export type LiveState = 'cancelled' | 'closed' | 'planned' | 'open' | 'live' | 'ended'
 
 export const LIVE_STATE_LABELS: Record<LiveState, string> = {
   cancelled: 'Annulée',
   closed: 'Clôturée',
   planned: 'Planifiée',
-  open: 'Salle ouverte',
+  open: "Salle d'attente",
   live: 'En cours',
   ended: 'Terminée',
 }
