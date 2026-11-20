@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 from pathlib import Path
 import posixpath
 from fastapi import FastAPI, HTTPException, Request
@@ -10,11 +11,24 @@ from starlette.responses import Response
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.session import SessionLocal
+from app.services.communication_worker import start_communication_worker, stop_communication_worker
 from app.services.page_branding import branded_index
 
 settings.validate_production_security()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Queued e-mails leave within the minute (production by default, see communication_worker.py).
+    start_communication_worker()
+    try:
+        yield
+    finally:
+        stop_communication_worker()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title=settings.app_name,
     version=settings.app_version,
     description=(

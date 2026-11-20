@@ -16,6 +16,10 @@ from app.core.config import settings
 from app.models.entities import CommunicationOutboxRecord
 
 
+# A message still unsent a day after it was queued is no longer worth sending: a reminder
+# for a class already given, a welcome long past. It is marked expired instead.
+MESSAGE_MAX_AGE = timedelta(hours=24)
+
 WAPINO_FALLBACKS = (
     "/message/send-text",
     "/message/sendText",
@@ -40,6 +44,14 @@ def _email_html(row: CommunicationOutboxRecord) -> str:
         else ""
     )
     body = html.escape(row.body).replace("\n", "<br>")
+    action_url = snapshot.get("action_url")
+    action = (
+        '<tr><td style="padding:0 30px 30px;text-align:center">'
+        f'<a href="{html.escape(str(action_url), quote=True)}" style="display:inline-block;padding:12px 24px;'
+        f'border-radius:10px;background:{primary};color:#fff;text-decoration:none;font-weight:bold;font-size:14px">'
+        "Ouvrir mon espace</a></td></tr>"
+        if action_url else ""
+    )
     signature = "" if snapshot.get("white_label") else (
         '<tr><td style="padding:16px 30px;text-align:center;border-top:1px solid #eef1f4;color:#94a3b8;font-size:10px">'
         "Powered by Académie des Créatifs</td></tr>"
@@ -52,8 +64,14 @@ def _email_html(row: CommunicationOutboxRecord) -> str:
 <tr><td style="height:8px;background:{primary}"></td></tr>
 <tr><td style="padding:24px;text-align:center">{logo_html}<strong style="font-size:18px">{school}</strong></td></tr>
 <tr><td style="padding:8px 30px 30px;font-size:14px;line-height:1.65">{body}</td></tr>
+{action}
 {signature}
 </table></td></tr></table></body></html>"""
+
+
+def _text_body(row: CommunicationOutboxRecord) -> str:
+    action_url = (row.branding_snapshot or {}).get("action_url")
+    return f"{row.body}\n\nOuvrir mon espace : {action_url}" if action_url else row.body
 
 
 def _send_email(row: CommunicationOutboxRecord) -> None:
@@ -73,7 +91,7 @@ def _send_email(row: CommunicationOutboxRecord) -> None:
             "to": [{"email": row.recipient}],
             "subject": subject,
             "htmlContent": html_body,
-            "textContent": row.body,
+            "textContent": _text_body(row),
             "headers": {"Idempotency-Key": _delivery_key(row)},
         }
         if reply_to:
@@ -105,7 +123,7 @@ def _send_email(row: CommunicationOutboxRecord) -> None:
         message["Message-ID"] = f"<{_delivery_key(row)}@notifications.local>"
         if reply_to:
             message["Reply-To"] = str(reply_to)
-        message.attach(MIMEText(row.body, "plain", "utf-8"))
+        message.attach(MIMEText(_text_body(row), "plain", "utf-8"))
         message.attach(MIMEText(html_body, "html", "utf-8"))
         if settings.smtp_port == 465:
             smtp = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=10)
@@ -196,6 +214,16 @@ def process_communication_outbox(
         claim_token=None,
         last_error="Envoi interrompu : vérifier le fournisseur avant de réessayer.",
     ))
+    too_old = update(CommunicationOutboxRecord).where(
+        CommunicationOutboxRecord.status.in_(["pending", "failed"]),
+        CommunicationOutboxRecord.created_at < datetime.now(UTC) - MESSAGE_MAX_AGE,
+    )
+    if organization_id is not None:
+        too_old = too_old.where(CommunicationOutboxRecord.organization_id == organization_id)
+    db.execute(
+        too_old.values(status="expired", last_error="Non envoyé : trop ancien (plus de 24 h).")
+        .execution_options(synchronize_session=False)
+    )
     db.commit()
     query = (
         select(CommunicationOutboxRecord.id)

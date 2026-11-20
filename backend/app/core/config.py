@@ -134,6 +134,12 @@ class Settings:
         "Académie des Créatifs",
     ).strip()
     support_email: str = os.getenv("SUPPORT_EMAIL", "").strip()
+    # Queued e-mails leave within the minute, from the web process itself (communication_worker.py);
+    # on by default in production only, so tests and local runs send nothing unless asked.
+    communication_worker_enabled: bool = _env_bool(
+        "COMMUNICATION_WORKER_ENABLED",
+        os.getenv("APP_ENV", "development").strip().lower() == "production",
+    )
     # The school shown, read only, to visitors of the landing page (docs/DEMO.md); empty: no demo.
     demo_organization_slug: str = os.getenv("DEMO_ORGANIZATION_SLUG", "").strip().lower()
 

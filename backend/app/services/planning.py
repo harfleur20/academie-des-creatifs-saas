@@ -35,7 +35,7 @@ from app.services.live_classes import live_attendance_evidence, live_course_wind
 from app.services.plan_limits import allowance
 from app.services.subscriptions import get_effective_plan
 from app.services.tenancy import TenantContext
-from app.services.training_notifications import notify_absence, notify_attendance_risks
+from app.services.training_notifications import notify_absence, notify_attendance_risks, school_time
 
 
 
@@ -521,7 +521,7 @@ def create_course_day(
             db, organization_id=tenant.organization_id, session_id=session.id,
             event_key=f"live.scheduled:{day.id}",
             title="Nouvelle classe en direct",
-            message=f"{day.title} est planifiée le {_aware(day.scheduled_at).strftime('%d/%m/%Y à %H:%M')}.",
+            message=f"{day.title} est planifiée le {school_time(tenant.organization, day.scheduled_at)}.",
             action_label="Voir le planning", action_path="/app/student/planning",
         )
         queue_session_students_event(
@@ -531,7 +531,8 @@ def create_course_day(
             event_key="student.live.scheduled",
             context={
                 "course_day_title": payload.title,
-                "scheduled_at": _aware(payload.scheduled_at).strftime("%d/%m/%Y %H:%M"),
+                # The school's own hour, as in the reminders (the e-mail cannot know the reader's).
+                "scheduled_at": school_time(tenant.organization, payload.scheduled_at),
                 "session_label": session.label,
             },
         )
@@ -600,7 +601,7 @@ def publish_course_day_draft(
                 db, organization_id=tenant.organization_id, session_id=session.id,
                 event_key=f"live.scheduled:{day.id}",
                 title="Nouvelle classe en direct",
-                message=f"{day.title} est planifiée le {_aware(day.scheduled_at).strftime('%d/%m/%Y à %H:%M')}.",
+                message=f"{day.title} est planifiée le {school_time(tenant.organization, day.scheduled_at)}.",
                 action_label="Voir le planning", action_path="/app/student/planning",
             )
     db.commit()

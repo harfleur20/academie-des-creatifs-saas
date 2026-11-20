@@ -163,7 +163,13 @@ def queue_school_event(
 ) -> list[CommunicationOutboxRecord]:
     if is_demo_organization(org):
         return []  # its people are fictional: nothing is sent (docs/DEMO.md)
+    from app.services.organization_domains import school_base_url
+
     snapshot = branding_snapshot(db, org)
+    # Every message opens the person's space at the school's own address; an invitation keeps
+    # its acceptance link instead (the invitee has no space yet).
+    if event_key != "school.team.invitation":
+        snapshot["action_url"] = f"{school_base_url(org)}/app"
     values = dict(context or {})
     values.setdefault("school_name", snapshot.get("school_name") or org.name)
     if user is not None:
