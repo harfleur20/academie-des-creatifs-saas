@@ -3010,6 +3010,8 @@ function translate(value: string) {
     [/^Le cours commence à (.+) : vous entrerez automatiquement dans la classe, et le cours démarrera avec vous\.$/u, 'The class starts at $1. You will enter it automatically, and the class will start with you.'],
     [/^Le cours commence à (.+) : vous entrerez automatiquement dans la classe\.$/u, 'The class starts at $1. You will enter it automatically.'],
     [/^Votre forfait accueille (\d+) étudiants au plus par classe live : proposez \1 places au plus, et ouvrez une autre session pour les suivants\.$/u, 'Your plan allows up to $1 students per live class: offer $1 seats at most, and open another session for the others.'],
+    [/^1 cours$/u, '1 class'],
+    [/^(\d+) cours$/u, '$1 classes'],
     [/^Présentiel \((\d+)\)$/u, 'In person ($1)'],
     [/^En ligne \((\d+)\)$/u, 'Online ($1)'],
     [/^ESPACE ÉTUDIANT$/u, 'STUDENT WORKSPACE'],

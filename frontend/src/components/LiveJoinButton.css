@@ -7,6 +7,25 @@
   text-decoration: none;
 }
 
+/* A pill, whatever the button style (.primary-button rounds at 14px). */
+.live-join-button.primary-button,
+.live-join-button.secondary-button {
+  border-radius: 999px;
+}
+
+/* The next-course card styles its spans as badges ("Prochain cours"): not the button's text. */
+.role-next-course .live-join-button span,
+.tenant-role-shell .role-next-course .live-join-button span {
+  width: auto;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+  background: none;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+}
+
 /* Until the room opens: the countdown, greyed. */
 .live-join-button.is-waiting,
 .live-join-button.is-over {

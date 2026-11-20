@@ -5,6 +5,16 @@ import { Link } from 'react-router-dom'
 import { LiveStateLabel } from './LiveJoinButton'
 import type { LiveDay } from '../lib/liveWindow'
 
+/** Monday to Sunday, short, in the school's language: "LUN" or "MON". */
+function weekdayLabels(): string[] {
+  const locale = activeSchoolLocale()
+  // 1 January 2024 was a Monday.
+  return Array.from({ length: 7 }, (_, index) => new Date(2024, 0, 1 + index)
+    .toLocaleDateString(locale, { weekday: 'short' })
+    .replace('.', '')
+    .toLocaleUpperCase(locale))
+}
+
 export type RoleScheduleItem = {
   id: string
   title: string
@@ -103,8 +113,8 @@ export function RoleDashboardCalendar({
         </header>
 
         <div className="role-mini-calendar__grid">
-          {['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'].map((label) => (
-            <span className="role-mini-calendar__weekday" key={label}>
+          {weekdayLabels().map((label) => (
+            <span className="role-mini-calendar__weekday" key={label} data-no-translate>
               {label}
             </span>
           ))}
@@ -149,7 +159,7 @@ export function RoleDashboardCalendar({
               year: 'numeric',
             })}
           </strong>
-          {dayItems.length > 0 && <span>{dayItems.length} cours</span>}
+          {dayItems.length > 0 && <span>{`${dayItems.length} cours`}</span>}
         </header>
 
         <div className="role-calendar-events">
