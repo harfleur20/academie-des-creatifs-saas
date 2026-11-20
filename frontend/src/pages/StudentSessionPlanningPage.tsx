@@ -14,6 +14,7 @@ import {
 } from '../lib/api'
 import { formatDuration } from '../lib/formatDuration'
 import { LiveJoinButton, LiveStateLabel } from '../components/LiveJoinButton'
+import { DeviceTimeNote } from '../components/DeviceTimeNote'
 
 export function StudentSessionPlanningPage() {
   const { sessionId } = useParams()
@@ -46,6 +47,7 @@ export function StudentSessionPlanningPage() {
             <span className="page-kicker">Mon planning</span>
             <h1>{planning.formation_title}</h1>
             <p>{planning.session_label}</p>
+            <DeviceTimeNote />
           </div>
         </header>
       )}

@@ -7,6 +7,7 @@ import { ApiError, ATTENDANCE_LABELS, getSessionPlanning, getStudentWorkspace, l
   type AcademicResource, type CourseDay, type LearningSession, type SessionPlanning, type StudentAssignment, type StudentAttendance, type StudentGrade, type StudentProgress, type StudentQuiz, type StudentWorkspaceSession } from '../lib/api'
 import { formatDuration } from '../lib/formatDuration'
 import { LiveJoinButton, LiveStateLabel } from '../components/LiveJoinButton'
+import { DeviceTimeNote } from '../components/DeviceTimeNote'
 
 type Tab = 'overview' | 'program' | 'calendar' | 'schedule' | 'assignments' | 'quizzes' | 'resources' | 'results'
 const tabs: Array<{ id: Tab; label: string }> = [
@@ -206,6 +207,7 @@ export function StudentGuidedWorkspacePage() {
         })}{days.length === 0 && <p>Le calendrier est en préparation.</p>}</>}
         {tab === 'schedule' && <>
           <h2>Emploi du temps</h2>
+          <DeviceTimeNote />
           <div className="guided-week-toolbar">
             <div className="guided-week-navigation">
               <button type="button" className="guided-week-button" aria-label="Semaine précédente" onClick={() => setWeekStart((current) => addDays(current, -7))}>

@@ -1066,9 +1066,10 @@ def test_classic_certificate_requires_success_on_linked_quiz() -> None:
     assert certificate_eligibility(db, tenant, enrollment.id).eligible is True
 
 
-def test_guided_certificate_waits_until_paris_session_end() -> None:
+def test_guided_certificate_waits_until_the_session_ends_in_the_schools_time_zone() -> None:
     db = build_db()
     org, _, student, _, session, enrollment, _, _, _ = seed(db)
+    org.timezone = "Europe/Paris"  # the session ends at midnight there
     db.get(FormationRecord, session.formation_id).format_type = "live"
     session.end_date = date(2099, 1, 1)
     db.commit()

@@ -62,6 +62,7 @@ import { SchoolMessageBell } from './SchoolMessageBell'
 import { MenuLink, SpaceOutlet } from '../components/DemoGate'
 import { toast } from '../ui/toast'
 import { schoolPath } from '../public/schoolHost'
+import { deviceTimeZone } from '../lib/timeZone'
 
 export type WorkspaceNavItem = {
   to: string
@@ -483,6 +484,7 @@ export function SchoolWorkspaceLayout({
     const organization = await createOrganization({
       name,
       slug: slugifyOrganizationName(name),
+      timezone: deviceTimeZone(),
     })
     setStoredOrganizationId(organization.id)
     await refreshOrganizations()

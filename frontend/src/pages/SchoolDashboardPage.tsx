@@ -26,6 +26,7 @@ import { useTenant } from '../app/TenantContext'
 import { useAuth } from '../auth/AuthContext'
 import { Link, useNavigate } from 'react-router-dom'
 import '../statistics.css'
+import { deviceTimeZone } from '../lib/timeZone'
 
 function slugify(value: string) {
   return value
@@ -193,6 +194,7 @@ export function SchoolDashboardPage() {
       const organization = await createOrganization({
         name: schoolName.trim(),
         slug: slugify(schoolName),
+        timezone: deviceTimeZone(),
         ...(choice ? { plan_code: choice.plan, billing_interval: choice.interval } : {}),
       })
       setStoredOrganizationId(organization.id)

@@ -1,19 +1,26 @@
 """School-scoped equivalents of the mother site's course availability rules."""
 
 from datetime import UTC, date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.models.entities import (
     AssignmentRecord, ChapterRecord, CourseRecord, FormationRecord, FormationSessionRecord, LessonRecord,
-    QuizRecord, ResourceRecord, SessionCourseDayRecord,
+    OrganizationRecord, QuizRecord, ResourceRecord, SessionCourseDayRecord,
 )
 
 
-PARIS = ZoneInfo("Europe/Paris")
+def school_zone(session: FormationSessionRecord) -> ZoneInfo:
+    """The school's own time zone: its sessions open and close at midnight there."""
+    db = object_session(session)
+    org = db.get(OrganizationRecord, session.organization_id) if db is not None else None
+    try:
+        return ZoneInfo((org.timezone if org else None) or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("UTC")
 
 
 def dashboard_type(formation: FormationRecord) -> str:
@@ -26,13 +33,13 @@ def current_utc(value: datetime | None = None) -> datetime:
 
 
 def session_starts_at(session: FormationSessionRecord) -> datetime:
-    return datetime.combine(session.start_date, time.min, tzinfo=PARIS).astimezone(UTC)
+    return datetime.combine(session.start_date, time.min, tzinfo=school_zone(session)).astimezone(UTC)
 
 
 def session_ends_at(session: FormationSessionRecord) -> datetime:
     if session.end_date == date.max:
         return datetime.max.replace(tzinfo=UTC)
-    return datetime.combine(session.end_date + timedelta(days=1), time.min, tzinfo=PARIS).astimezone(UTC)
+    return datetime.combine(session.end_date + timedelta(days=1), time.min, tzinfo=school_zone(session)).astimezone(UTC)
 
 
 def learning_is_open(

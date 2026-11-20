@@ -180,6 +180,7 @@ def create_organization(
     organization = OrganizationRecord(
         name=payload.name.strip(),
         slug=payload.slug.strip().lower(),
+        timezone=payload.timezone or "UTC",
     )
     db.add(organization)
     try:

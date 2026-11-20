@@ -1,10 +1,22 @@
 from datetime import datetime
 from typing import Literal
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, computed_field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, computed_field, field_validator
 
 from app.core.config import settings
+
+
+def known_timezone(value: str | None) -> str | None:
+    """An IANA time zone name ("Africa/Douala"), or None when unknown."""
+    if not value:
+        return None
+    try:
+        ZoneInfo(value.strip())
+    except (ZoneInfoNotFoundError, ValueError):
+        return None
+    return value.strip()
 
 
 def school_subdomain_url(subdomain: str | None) -> str | None:
@@ -32,6 +44,13 @@ class OrganizationCreate(BaseModel):
     # The plan picked on the landing page: the school still starts with the trial.
     plan_code: str | None = Field(default=None, max_length=64, pattern=r"^[a-z0-9_-]+$")
     billing_interval: Literal["monthly", "annual"] | None = None
+    # The founder's own time zone, read by their browser: an unknown one leaves UTC.
+    timezone: str | None = Field(default=None, max_length=80)
+
+    @field_validator("timezone")
+    @classmethod
+    def _creator_timezone(cls, value: str | None) -> str | None:
+        return known_timezone(value)
 
 
 class OrganizationUpdate(BaseModel):
@@ -58,6 +77,13 @@ class OrganizationUpdate(BaseModel):
     )
     direction_sidebar_collapsed: bool | None = None
     direction_sidebar_collapse_enabled: bool | None = None
+
+    @field_validator("timezone")
+    @classmethod
+    def _school_timezone(cls, value: str | None) -> str | None:
+        if value is not None and known_timezone(value) is None:
+            raise ValueError("Fuseau horaire inconnu.")
+        return value
 
 
 class OrganizationDeletionRequest(BaseModel):

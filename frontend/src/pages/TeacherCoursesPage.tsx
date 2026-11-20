@@ -50,6 +50,7 @@ import {
 import { initialTeacherSessionId } from '../lib/teacherSession'
 import { formatDuration } from '../lib/formatDuration'
 import { LiveStateLabel } from '../components/LiveJoinButton'
+import { DeviceTimeNote } from '../components/DeviceTimeNote'
 
 function startOfWeek(value: Date) {
   const date = new Date(value)
@@ -457,7 +458,7 @@ export function TeacherCoursesPage() {
 
         {workspaceTab === 'schedule' && selectedWorkspace && <section className="app-card teacher-timetable-panel">
           <header className="teacher-timetable-panel__header">
-            <div><span className="section-label">{selectedWorkspace.formation_title} · {selectedWorkspace.session_label}</span><h2>Emploi du temps</h2></div>
+            <div><span className="section-label">{selectedWorkspace.formation_title} · {selectedWorkspace.session_label}</span><h2>Emploi du temps</h2><DeviceTimeNote /></div>
             <Link className="secondary-button" to={`/app/teacher/sessions/${selectedWorkspace.session_id}`}>Gérer les séances</Link>
           </header>
           {planningError && <div className="dsh-error">{planningError}</div>}

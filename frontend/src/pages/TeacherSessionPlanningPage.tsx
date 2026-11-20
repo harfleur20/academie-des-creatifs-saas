@@ -21,6 +21,7 @@ import { formatDuration } from '../lib/formatDuration'
 import { LiveRecordingsPanel } from '../components/LiveRecordingsPanel'
 import { LiveJoinButton, LiveStateLabel } from '../components/LiveJoinButton'
 import { useAuth } from '../auth/AuthContext'
+import { DeviceTimeNote } from '../components/DeviceTimeNote'
 
 function toLocalInput(value: string) {
   const date = new Date(value)
@@ -155,6 +156,7 @@ export function TeacherSessionPlanningPage() {
               {new Date(planning.session_start_date).toLocaleDateString(activeSchoolLocale())} au{' '}
               {new Date(planning.session_end_date).toLocaleDateString(activeSchoolLocale())}
             </p>
+            <DeviceTimeNote />
           </div>
           <span className="status-chip">{activeDays.length} séance(s)</span>
         </header>

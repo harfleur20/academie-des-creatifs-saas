@@ -576,6 +576,8 @@ export const createOrganization = (payload: {
   slug: string
   plan_code?: string
   billing_interval?: 'monthly' | 'annual'
+  /** The founder's own time zone: the school's emails, notifications and session days follow it. */
+  timezone?: string
 }) =>
   request<Organization>('/organizations', {
     method: 'POST',

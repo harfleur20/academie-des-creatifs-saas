@@ -208,6 +208,7 @@ export function SchoolSettingsPage({ section = 'school' }: { section?: SettingsS
                   <option key={item.value} value={item.value}>{item.label}</option>
                 ))}
               </select>
+              <small>Sert aux e-mails et aux notifications, et à l’ouverture des sessions à minuit. Sur le site, chacun voit les horaires à l’heure de son appareil.</small>
             </label>
             <label>
               Langue / locale
