@@ -1,19 +1,19 @@
 # Forfaits, commission et options
 
-Ce document décrit le modèle économique des écoles et où il vit dans le code. La grille est posée par la migration `20261112_0062_free_plan_annual_discount`, revue le 2026-11-14 par `20261114_0066_live_for_every_plan`, mise à jour par `20261115_0070_adjust_live_plan_limits` et complétée par le quota multi-écoles dans `20261116_0074_organization_creation_quotas`. Elle reste modifiable dans l'administration (Forfaits).
+Ce document décrit le modèle économique des écoles et où il vit dans le code. La grille est posée par la migration `20261112_0062_free_plan_annual_discount`, revue le 2026-11-14 par `20261114_0066_live_for_every_plan`, mise à jour par `20261115_0070_adjust_live_plan_limits`, complétée par le quota multi-écoles dans `20261116_0074_organization_creation_quotas`, puis passée aux prix de lancement, sans replays ni transcription, par `20261120_0076_launch_prices_without_replays`. Elle reste modifiable dans l'administration (Forfaits).
 
 ## Le principe
 
 - **Étudiants illimités dans tous les forfaits.** Un étudiant de plus ne coûte presque rien à la plateforme, qui gagne déjà sur chacun par sa commission.
-- **On limite ce qui consomme des serveurs** : la taille des classes live, le nombre de lives en même temps, les heures enregistrées et transcrites.
+- **On limite ce qui consomme des serveurs** : la taille des classes live et le nombre de lives en même temps.
 - **Trois revenus** : l'abonnement, la commission sur les ventes des écoles, les options à l'unité.
 
 ## La grille
 
 | | Découverte | Starter | Pro | Business |
 | --- | --- | --- | --- | --- |
-| Mensuel | 0 | 15 000 FCFA | 30 000 FCFA | 65 000 FCFA |
-| Annuel (−20 %) | – | 144 000 FCFA | 288 000 FCFA | 624 000 FCFA |
+| Mensuel (prix de lancement) | 0 | 10 000 FCFA | 25 000 FCFA | 45 000 FCFA |
+| Annuel (−20 %) | – | 96 000 FCFA | 240 000 FCFA | 432 000 FCFA |
 | Écoles gérées par le propriétaire | 1 | 1 | 2 | 5 |
 | Commission sur les ventes, frais compris | 10 % | 8 % | 6 % | 4 % |
 | Étudiants | illimités | illimités | illimités | illimités |
@@ -23,15 +23,14 @@ Ce document décrit le modèle économique des écoles et où il vit dans le cod
 | Lives en même temps (`live_rooms`) | 1 | 2 | 5 | 10 |
 | Heures de live par mois (`live_hours`) | 6 h | illimitées | illimitées | illimitées |
 | Durée d'un cours en live (`live_class_hours`) | 2 h au plus | 3 h au plus | 4 h au plus | 4 h au plus |
-| Replays par mois (`replays`, bientôt) | – | 2 h | 15 h | 25 h |
-| Conservation après la session (`replay_retention_days`, bientôt) | – | 0 jour | 30 jours | 180 jours |
-| Transcription par mois (`transcription`, bientôt) | – | – | 5 h | 25 h |
 | Statistiques avancées et exports (`advanced_stats`, bientôt) | – | – | oui | oui |
 | Domaine personnalisé (`custom_domain`) | – | – | oui | oui |
 | Sans « Powered by » (`white_label`) | – | – | – | oui |
 | Support | – | – | WhatsApp | prioritaire, aide à la mise en place |
 
 Les fonctionnalités marquées « bientôt » font déjà partie des forfaits : elles s'affichent avec une étiquette « Bientôt » sur la page d'accueil et la page Abonnement tant qu'elles ne fonctionnent pas.
+
+**Replays et transcription ne sont dans aucun forfait au lancement** (décision du 2026-11-20) : on ne vend pas ce qui ne marche pas encore. Leurs droits restent en base, désactivés, avec leurs quotas prévus (replays 2 h / 15 h / 25 h par mois, conservation 0 / 30 / 180 jours, transcription 5 h / 25 h pour Starter / Pro / Business) ; l'administration (Forfaits) les rallume quand ils fonctionnent. Les cartes et le comparatif ne montrent pas une fonctionnalité qu'aucun forfait n'a.
 
 Sur ces deux pages, chaque carte ne montre que 4 ou 5 points clés (`planHighlights` dans `frontend/src/lib/planFeatures.ts`). Le détail complet est dans le tableau « Comparer les forfaits en détail », replié sous les cartes (`frontend/src/components/PlanComparison.tsx`).
 
@@ -68,8 +67,8 @@ Douze mois moins 20 %, pour le forfait comme pour les options à l'unité (`peri
 | Option | Prix | Forfaits |
 | --- | --- | --- |
 | Professeur supplémentaire | 2 500 FCFA par mois | Starter, Pro |
-| 10 h de replay en plus (bientôt) | 3 000 FCFA | Starter, Pro, Business |
-| 10 h de transcription en plus (bientôt) | 3 000 FCFA | Pro, Business |
+| 10 h de replay en plus (arrêtée au lancement) | 3 000 FCFA | Starter, Pro, Business |
+| 10 h de transcription en plus (arrêtée au lancement) | 3 000 FCFA | Pro, Business |
 
 L'école accepte l'option avant d'ajouter un professeur au-delà de son quota ; l'option est ajoutée à sa prochaine facture. Découverte n'a pas d'option : il faut passer à un forfait payé. Les options « étudiant supplémentaire » et « formation supplémentaire » sont arrêtées : les formations sont illimitées dans tous les forfaits payants depuis 0066.
 

@@ -42,8 +42,10 @@ def _migration(name: str):
     return module
 
 
-# The grid in production: 0066's plans, 0062's add-ons (0066 stops the extra formation).
+# The grid in production: 0066's plans, 0062's add-ons (0066 stops the extra formation), 0076's
+# launch prices without replays or transcription.
 grid = _migration("20261114_0066_live_for_every_plan")
+launch = _migration("20261120_0076_launch_prices_without_replays")
 addons = _migration("20261112_0062_free_plan_annual_discount")
 current_limits = _migration("20261115_0070_adjust_live_plan_limits").LIMITS
 organization_limits = _migration("20261116_0074_organization_creation_quotas").PLAN_LIMITS
@@ -56,6 +58,8 @@ def plans(db) -> dict[str, PlanRecord]:
     out = {}
     for code, (name, description, monthly, annual, commission, trial_days, entitlements) in grid.PLANS.items():
         entitlements = [*entitlements, ("organizations", True, organization_limits[code])]
+        monthly, annual, description = (launch.PRICES[code][0], launch.PRICES[code][1],
+                                        launch.PRICES[code][2] or description) if code in launch.PRICES else (monthly, annual, description)
         plan = PlanRecord(code=code, name=name, description=description, currency="XAF",
                           monthly_price_cents=monthly, annual_price_cents=annual, trial_days=trial_days,
                           is_public=True, is_active=True, sales_commission_bps=commission)
@@ -65,10 +69,12 @@ def plans(db) -> dict[str, PlanRecord]:
         for entitlement in plan.entitlements:
             if entitlement.feature_key in limits:
                 entitlement.limit_value = limits[entitlement.feature_key]
+            if entitlement.feature_key in launch.NOT_YET:
+                entitlement.enabled = False
         db.add(plan)
         out[code] = plan
     for code, name, description, feature_key, unit, price, status, plan_codes, order in addons.ADDONS:
-        status = "inactive" if code == "extra_formation" else status
+        status = "inactive" if code == "extra_formation" or code in launch.NOT_YET_ADDONS else status
         db.add(AddonRecord(code=code, name=name, description=description, feature_key=feature_key, unit_label=unit,
                            unit_price_cents=price, currency="XAF", status=status, plan_codes=plan_codes, sort_order=order))
     db.commit()
@@ -134,7 +140,10 @@ def test_the_grid_is_free_then_paid_with_twenty_percent_off_a_year():
         students = next(item for item in plan.entitlements if item.feature_key == "students")
         assert (students.enabled, students.limit_value) == (True, None), code
     assert (grid_plans["starter"].annual_price_cents, grid_plans["pro"].annual_price_cents,
-            grid_plans["business"].annual_price_cents) == (144_000, 288_000, 624_000)
+            grid_plans["business"].annual_price_cents) == (96_000, 240_000, 432_000)
+    # Replays and transcription are in no plan until they work.
+    for plan in grid_plans.values():
+        assert not any(item.enabled for item in plan.entitlements if item.feature_key in launch.NOT_YET), plan.code
     # Formations without limit in every paid plan.
     for code in ("starter", "pro", "business"):
         formations = next(item for item in grid_plans[code].entitlements if item.feature_key == "active_formations")
@@ -150,17 +159,17 @@ def test_students_are_never_limited_and_extra_teachers_are_billed_per_unit():
 
     monthly = quote(db, org.id, grid_plans["starter"], "monthly")
     assert [(line.label, line.quantity, line.amount_cents) for line in monthly.lines] == [
-        ("Forfait Starter (mensuel)", 1, 15_000),
+        ("Forfait Starter (mensuel)", 1, 10_000),
         ("Professeur supplémentaire", 1, 2_500),
     ]
     # Annual: twelve months minus 20 %, for the plan and for each extra teacher.
     annual = quote(db, org.id, grid_plans["starter"], "annual")
     assert [(line.label, line.amount_cents) for line in annual.lines] == [
-        ("Forfait Starter (annuel)", 144_000),
+        ("Forfait Starter (annuel)", 96_000),
         ("Professeur supplémentaire (12 mois, −20 %)", 24_000),
     ]
     # On Pro, the same school fits in its plan.
-    assert quote(db, org.id, grid_plans["pro"], "monthly").total_cents == 30_000
+    assert quote(db, org.id, grid_plans["pro"], "monthly").total_cents == 25_000
 
     usage = billing_usage(db, org.id)
     students = next(item for item in usage["metrics"] if item["feature_key"] == "students")
@@ -168,7 +177,7 @@ def test_students_are_never_limited_and_extra_teachers_are_billed_per_unit():
     teachers = next(item for item in usage["metrics"] if item["feature_key"] == "teachers")
     assert (teachers["current"], teachers["limit"], teachers["extra"], teachers["extra_amount_cents"]) == (3, 2, 1, 2_500)
     assert usage["commission_bps"] == 800 and usage["live_included"] is True
-    assert usage["next_payment"]["total_cents"] == 17_500
+    assert usage["next_payment"]["total_cents"] == 12_500
 
 
 def test_the_renewal_invoice_lists_the_plan_and_the_add_ons():
@@ -180,7 +189,7 @@ def test_the_renewal_invoice_lists_the_plan_and_the_add_ons():
     apply_subscription_lifecycle(db, subscription, now=NOW + timedelta(days=2))
     db.commit()
     invoice = db.scalar(select(BillingInvoiceRecord).where(BillingInvoiceRecord.organization_id == org.id))
-    assert invoice.amount_cents == 17_500
+    assert invoice.amount_cents == 12_500
     assert [line["label"] for line in invoice.lines] == ["Forfait Starter (mensuel)", "Professeur supplémentaire"]
 
 
