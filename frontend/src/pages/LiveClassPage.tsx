@@ -168,7 +168,12 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
         readOnlyName: true,
         hideConferenceSubject: true,
       },
-      interfaceConfigOverwrite: { TOOLBAR_BUTTONS: toolbar, DEFAULT_BACKGROUND: '#0f0f1a' },
+      interfaceConfigOverwrite: {
+        TOOLBAR_BUTTONS: toolbar,
+        // Let the blurred stage backdrop show through the empty space around a shared screen.
+        DEFAULT_BACKGROUND: 'transparent',
+        DISABLE_VIDEO_BACKGROUND: false,
+      },
     })
     api.addEventListener('readyToClose', () => { api.dispose(); navigate(backPath) })
     meeting.current = api
@@ -394,7 +399,7 @@ export function LiveClassPage({ space }: { space: 'teacher' | 'student' }) {
       </div>
     </header>
 
-    {phase === 'live' ? <div className="live-room__stage" ref={stage} aria-label="Salle de classe en direct" /> : (
+    {phase === 'live' ? <div className="live-room__stage live-room__stage--live" style={welcomeBackground} ref={stage} aria-label="Salle de classe en direct" /> : (
       <div className="live-room__stage live-room__stage--waiting" style={phase === 'welcome' ? welcomeBackground : undefined}>
         {phase === 'loading' && <p className="live-room__loading">Ouverture de la classe…</p>}
         {info && phase === 'waiting' && <div className="live-room__waiting-card">
